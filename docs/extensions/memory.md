@@ -51,10 +51,12 @@ written only while the project is trusted. Either store is written owner-only
 **Who wrote it.** A note written from a session carries its label and the moment after
 the text, as `<!-- by: jack @ 2026-11-18T05:12:00.000Z -->`; the text before it is the
 note, so `forget` and `update` match what you read. A note with no trailer — written by
-hand, or before this existed — reads as unattributed, and an older build ignores the
-trailer entirely rather than refusing the file. An `update` or a `merge` refreshes it:
-whoever last wrote the note is the one asserting it now, so a merged pair carries the
-name of the session that combined it rather than of either original.
+hand, or before this existed — reads as unattributed. An older build does not mistake the
+file, but it does not understand this note either: the trailer shows as part of the text,
+and its `forget` and `update` are given the whole line, so a note written here has to be
+maintained here. An `update` or a `merge` refreshes it: whoever last wrote the note is the
+one asserting it now, so a merged pair carries the name of the session that combined it
+rather than of either original.
 
 **Recall.** Notes are injected as a `[MEMORY]` context block before each run,
 newest first, bounded by a byte cap. Past the cap the **oldest** notes are the ones

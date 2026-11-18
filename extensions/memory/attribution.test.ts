@@ -123,6 +123,18 @@ describe("a session's label", () => {
 		expect(injected).toContain("- an old note");
 	});
 
+	test("hands out copies, so a caller cannot edit the trailer in the cache", async () => {
+		runtime.setActor("jack");
+		await runtime.load(suite.cwd, true);
+		await runtime.add("project", "a fact");
+
+		const handed = runtime.entries();
+		const first = handed.project[0];
+		if (first) first.by = "someone else";
+
+		expect(runtime.entries().project[0]?.by).toBe("jack");
+	});
+
 	test("is what the doctor counts, most first and the unattributed last", async () => {
 		suite.write(
 			"project",

@@ -13,8 +13,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   injected block, the tool's `list`, the picker row and `/memory doctor`, which also counts a
   store by author so pruning can be "drop jack's notes" rather than "drop fifty unseen ones".
   The trailer is optional and outside the note's identity: `forget` and `update` still match the
-  text a reader read, a hand-written note reads as unattributed, and an older build reads the
-  file unchanged. The label is the session's, resolved once at `session_start` from the bus
+  text a reader read, a hand-written note reads as unattributed, and a build from before this
+  parses the file fine but shows the trailer as part of the note and matches only the whole line,
+  so a note written here is maintained here. The label is the session's, resolved once at `session_start` from the bus
   roster and the session name — never a tool parameter, so the model cannot choose its own
   attribution — and a session nothing knows writes an unattributed note rather than inventing
   a name. An `update` or a `merge` refreshes it: whoever last wrote the note is the one asserting

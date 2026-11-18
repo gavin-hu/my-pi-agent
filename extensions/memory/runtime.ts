@@ -227,7 +227,12 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 		trusted: () => trusted,
 		entries: () => {
 			refresh();
-			return { project: [...entries.project], global: [...entries.global] };
+			// A copy of the array *and* of each note: a caller that edits what it was handed
+			// cannot reach the cache, and the trailer is part of what it could edit.
+			return {
+				project: entries.project.map((note) => ({ ...note })),
+				global: entries.global.map((note) => ({ ...note })),
+			};
 		},
 		refresh,
 		raw: (scope) => readMemoryFile(pathFor(scope)),

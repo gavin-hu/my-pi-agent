@@ -99,6 +99,27 @@ describe("memory health", () => {
 		expect(text).toContain(PATHS.project);
 	});
 
+	test("prints the authors, most first and the unattributed last", () => {
+		const stamped = memoryHealth({
+			entries: {
+				project: [
+					{ text: "a", by: "gavin", at: "2026-11-18T05:00:00.000Z" },
+					{ text: "b", by: "gavin", at: "2026-11-18T05:01:00.000Z" },
+					{ text: "c", by: "jack", at: "2026-11-18T05:02:00.000Z" },
+					{ text: "d" },
+				],
+				global: [],
+			},
+			sizes: { project: undefined, global: undefined },
+			paths: PATHS,
+			trusted: true,
+			config: CONFIG,
+		});
+
+		// The row a session reads, not just the field behind it.
+		expect(formatHealth(stamped)).toMatch(/authors\s+gavin 2 \u00b7 jack 1 \u00b7 unattributed 1/);
+	});
+
 	test("leaves a store under the ceiling unmarked", () => {
 		expect(formatHealth(health({ project: ["a"], sizes: { project: MAX_STORE_BYTES } }))).not.toContain("cap");
 	});
