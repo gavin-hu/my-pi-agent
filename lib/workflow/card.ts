@@ -74,8 +74,11 @@ export const BLOCKERS = ["contract", "dependency", "decision"] as const;
 /** One kind of block. */
 export type BlockerKind = (typeof BLOCKERS)[number];
 
-/** Longest single note, in characters. */
-export const MAX_NOTE = 1200;
+/**
+ * Longest single note, in characters — the cap a `note` and a sign's account share, since `approve`
+ * and `review` record theirs as one. It bounds the card file and the rollup line: peak 1,198 of 1,200.
+ */
+export const MAX_NOTE = 4000;
 
 /** How many notes one card keeps; the oldest drops past this, counted in `notesDropped`. */
 export const MAX_NOTES = 8;
