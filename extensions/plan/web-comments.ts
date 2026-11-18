@@ -308,8 +308,8 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         head.appendChild(moved);
       }
       if (annotation.resolved) {
-        // Settled notes keep their thread and their quote, and lose their body: the record
-        // stays, the reader's eye lands on what is still open.
+        // Settled notes keep their body: a quote is not stored in the plan, so hiding the text
+        // would leave a reloaded card with nothing to read, and the note is the record.
         var settled = el("span", "bf-comment__resolved");
         settled.textContent = "\u2713 settled";
         settled.title = "Settled: kept in the plan as the record of the question";
@@ -340,11 +340,9 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         quote.textContent = "\u201c" + annotation.quote + "\u201d";
         card.appendChild(quote);
       }
-      if (!annotation.resolved) {
-        var body = el("div", "bf-comment__body");
-        body.textContent = annotation.comment;
-        card.appendChild(body);
-      }
+      var body = el("div", "bf-comment__body");
+      body.textContent = annotation.comment;
+      card.appendChild(body);
       box.appendChild(card);
     });
   }

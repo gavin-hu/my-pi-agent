@@ -316,8 +316,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 
 			await page.click(".bf-comment__actions .bf-btn");
 			expect(await page.$eval(".bf-comment", (node) => node.className)).toContain("bf-comment--resolved");
-			// Settled: the body is gone, the quote stays, and the panel splits the count.
-			expect(await page.$$eval(".bf-comment .bf-comment__body", (nodes) => nodes.length)).toBe(1);
+			// Settled: the body stays — a quote is not stored, so the text is the record.
+			expect(await page.textContent(".bf-comment--resolved .bf-comment__body")).toBe("mine to settle");
 			expect(await page.textContent("#comment-total")).toBe("1 open · 1 resolved");
 			// Reopen puts it back.
 			await page.click(".bf-comment__actions .bf-btn");

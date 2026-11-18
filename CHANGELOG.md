@@ -17,7 +17,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   client that asked for JSON parsed a page. One helper now picks the shape for every refusal, and
   a 405 keeps `Allow` in both. A page path still answers the error page: that is where a reader
   was going.
-
 - `file-browse`: quick open says which folders it did not search. Its index skips `.git` and
   `node_modules` — indexing them would spend the 20,000-path cap on dependencies — so a file a
   reader could see in the tree answered `No matches` beside it. The empty state now names them,
@@ -43,6 +42,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   does not. Save, Post and Back to Pi open one confirmation naming the consequence, and a clean
   action runs as before; leaving clears the tab's draft. The `?` sheet's keyboard-shortcuts row
   turns the single keys off for this browser, while the buttons, Escape and `?` keep working.
+- `plan`: a settled comment keeps its body. The card hid the note and kept a quote that the plan
+  never stores, so a reloaded settled comment was an author and a chip with nothing to read; the
+  body now stays, dimmed, and the record is readable.
 
 ## [0.29.0] - 2026-11-18
 
