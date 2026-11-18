@@ -49,3 +49,20 @@ export function alive(browser: TestBrowser): void {
 	const death = browserDeath(browser);
 	if (death !== undefined) throw death;
 }
+
+/**
+ * One call on a browser, reported as a death when the browser went rather than as the call's error.
+ *
+ * The check before the call covers a browser already gone; the catch covers the one that went
+ * between the two, which is the narrow window a reload lands in. A live browser keeps its own
+ * error untouched — that is the half a reader cannot see from the sentence, so the repro asserts
+ * the same error comes back out rather than a rewritten one.
+ */
+export async function guarded<T>(browser: TestBrowser, call: () => Promise<T>): Promise<T> {
+	alive(browser);
+	try {
+		return await call();
+	} catch (error) {
+		throw browserDeath(browser) ?? error;
+	}
+}

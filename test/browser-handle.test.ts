@@ -15,7 +15,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { findChrome } from "../scripts/capture/chrome.ts";
-import { alive, browserDeath, launchBrowser } from "./helpers/browser.ts";
+import { alive, browserDeath, guarded, launchBrowser } from "./helpers/browser.ts";
 
 const CHROME = findChrome();
 
@@ -54,12 +54,30 @@ describe.skipIf(CHROME === undefined)("a headless browser that dies", () => {
 		expect(() => alive(browser)).not.toThrow();
 	});
 
-	test("rethrows the caller's own error when the browser is still up", async () => {
+	test("hands a live browser's own error back untouched", async () => {
 		const browser = await launchBrowser(CHROME);
 		try {
 			await browser.newPage();
-			// The shape the reload wrapper uses: a failure with a live browser must keep its reason.
-			expect(browserDeath(browser)).toBeUndefined();
+			// The one line in the wrapper that could regress silently: delete the fallback and every
+			// live-browser failure becomes `undefined`, which no other case here would notice.
+			const mine = new Error("a bad path, not a dead browser");
+			await expect(guarded(browser, () => Promise.reject(mine))).rejects.toBe(mine);
+		} finally {
+			await browser.close();
+		}
+	});
+
+	test("reports the death rather than the call's error once the browser is gone", async () => {
+		const browser = await launchBrowser(CHROME);
+		try {
+			await browser.newPage();
+			process.kill(browser.pid() as number, "SIGKILL");
+			const deadline = Date.now() + EXIT_BUDGET_MS;
+			while (browser.exited() === undefined && Date.now() < deadline) await Bun.sleep(20);
+			// The call's own failure is what a reload would report; the wrapper owes the death.
+			await expect(guarded(browser, () => Promise.reject(new Error("connection refused")))).rejects.toThrow(
+				/headless browser exited/,
+			);
 		} finally {
 			await browser.close();
 		}
