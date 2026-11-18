@@ -61,7 +61,7 @@ export function normalizeKind(raw: unknown): MessageKind {
 export function normalizeText(raw: unknown): { text: string } | { error: string } {
 	if (typeof raw !== "string" || raw.trim() === "") return { error: "text is required." };
 	const text = raw.trim();
-	if (text.length > MAX_MESSAGE_TEXT) return { error: `text must be at most ${MAX_MESSAGE_TEXT} characters.` };
+	if (text.length > MAX_MESSAGE_TEXT) return { error: overLimit("text", text.length, MAX_MESSAGE_TEXT) };
 	return { text };
 }
 

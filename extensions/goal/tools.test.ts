@@ -14,6 +14,7 @@ import { MAX_OBJECTIVE } from "./schema.ts";
 import { TOOL_NAME, registerTools } from "./tools.ts";
 import { WIDGET_KEY } from "./tui.ts";
 import type { Goal } from "./types.ts";
+import { overLimit } from "../../lib/format.ts";
 
 const theme = fakeTheme;
 const model = { id: "test-model" };
@@ -39,7 +40,6 @@ describe("goal phase routing", () => {
 	test("keeps the phase of a goal that is already pursued", async () => {
 		const { pi } = planPi();
 		const { ctx, confirms } = fakeCtx();
-
 		expect(await goalPhase(pi, ctx, active("ship it"), { ask: true })).toBe("active");
 		expect(await goalPhase(pi, ctx, planning("design it"), { ask: true })).toBe("planning");
 		expect(confirms).toEqual([]);
@@ -681,7 +681,7 @@ describe("goal tool", () => {
 		const result = await callTool(tool, { objective: "x".repeat(MAX_OBJECTIVE + 1) }, ctx);
 
 		expect(result.isError).toBe(true);
-		expect(result.details.error).toContain("longer than");
+		expect(result.details.error).toContain(overLimit("objective", MAX_OBJECTIVE + 1, MAX_OBJECTIVE));
 		expect(result.details.goal).toEqual({ objective: "Keep me", status: "active" });
 		expect(runtime.getGoal()).toEqual({ objective: "Keep me", status: "active" });
 	});

@@ -9,6 +9,7 @@ import { Type, type Static } from "typebox";
 import { StringEnum } from "../../../lib/tool-schema.ts";
 import { MAX_RESULTS, type WebSearchConfig } from "./config.ts";
 import { SEARCH_PROVIDER_NAMES, type SearchRequest } from "./types.ts";
+import { overLimit } from "../../../lib/format.ts";
 
 const MAX_QUERY_LENGTH = 400;
 
@@ -55,7 +56,7 @@ export function resolveRequest(args: WebSearchArgs, config: WebSearchConfig): Se
 	const query = typeof args.query === "string" ? args.query.trim() : "";
 	if (!query) throw new Error("query is required.");
 	if (query.length > MAX_QUERY_LENGTH) {
-		throw new Error(`query is longer than ${MAX_QUERY_LENGTH} characters.`);
+		throw new Error(overLimit("query", query.length, MAX_QUERY_LENGTH));
 	}
 
 	const requested = typeof args.maxResults === "number" ? args.maxResults : config.maxResults;

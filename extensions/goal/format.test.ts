@@ -15,6 +15,7 @@ import {
 import { MAX_OBJECTIVE, normalizeGoal } from "./schema.ts";
 import { GoalHeader, GoalWidget, goalWidgetLines } from "./tui.ts";
 import type { Goal } from "./types.ts";
+import { overLimit } from "../../lib/format.ts";
 
 const active: Goal = { objective: "Ship the parser", status: "active" };
 const planning: Goal = { objective: "Ship the parser", status: "planning" };
@@ -83,7 +84,9 @@ describe("goal schema", () => {
 
 	test("accepts an objective at the length limit and rejects one past it", () => {
 		expect(normalizeGoal({ objective: "x".repeat(MAX_OBJECTIVE) })?.objective).toHaveLength(MAX_OBJECTIVE);
-		expect(() => normalizeGoal({ objective: "x".repeat(MAX_OBJECTIVE + 1) })).toThrow(`longer than ${MAX_OBJECTIVE}`);
+		expect(() => normalizeGoal({ objective: "x".repeat(MAX_OBJECTIVE + 1) })).toThrow(
+			overLimit("objective", MAX_OBJECTIVE + 1, MAX_OBJECTIVE),
+		);
 	});
 });
 

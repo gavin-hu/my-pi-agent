@@ -44,6 +44,7 @@ import {
 import type { CurrencyCode } from "../footer/price/types.ts";
 import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
+import { overLimit } from "../../../lib/format.ts";
 
 /** Where a preference is stored. */
 type SettingSource = "app" | "bytefly";
@@ -389,7 +390,7 @@ export function textError(row: SettingDescriptor, raw: string): string | undefin
 	const rule = row.text;
 	if (!rule) return `${row.label} is not a text setting.`;
 	if (raw.length > rule.maxLength) {
-		return `Too long: ${raw.length} characters, the limit is ${rule.maxLength}.`;
+		return overLimit(row.label, raw.length, rule.maxLength);
 	}
 	return rule.validate?.(raw);
 }

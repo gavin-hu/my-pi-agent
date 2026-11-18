@@ -7,7 +7,7 @@
  */
 
 import { Type, type Static } from "typebox";
-import { sanitizeLine } from "../../lib/format.ts";
+import { overLimit, sanitizeLine } from "../../lib/format.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { MEMORY_ACTIONS, MEMORY_SCOPES, type MemoryAction, type MemoryScope } from "./types.ts";
 
@@ -98,6 +98,6 @@ export function normalizeEntryText(raw: unknown, field = "text"): string {
 	if (typeof raw !== "string") throw new Error(`${field} is required.`);
 	const text = sanitizeLine(raw);
 	if (!text) throw new Error(`${field} is required.`);
-	if (text.length > MAX_ENTRY_CHARS) throw new Error(`${field} is longer than ${MAX_ENTRY_CHARS} characters.`);
+	if (text.length > MAX_ENTRY_CHARS) throw new Error(overLimit(field, text.length, MAX_ENTRY_CHARS));
 	return text;
 }

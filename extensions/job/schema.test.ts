@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_COMMAND, MAX_LABEL, MAX_STDIN, normalizeCall } from "./schema.ts";
 import { asAction } from "../../test/helpers/fixtures/job.ts";
+import { overLimit } from "../../lib/format.ts";
 
 describe("job schema", () => {
 	test("rejects an unknown action", async () => {
@@ -21,12 +22,14 @@ describe("job schema", () => {
 	});
 
 	test("start rejects an over-long command", async () => {
-		expect(() => normalizeCall({ action: "start", command: "x".repeat(MAX_COMMAND + 1) })).toThrow("longer than");
+		expect(() => normalizeCall({ action: "start", command: "x".repeat(MAX_COMMAND + 1) })).toThrow(
+			overLimit("command", MAX_COMMAND + 1, MAX_COMMAND),
+		);
 	});
 
 	test("start rejects an over-long label but accepts a normal one", async () => {
 		expect(() => normalizeCall({ action: "start", command: "x", label: "y".repeat(MAX_LABEL + 1) })).toThrow(
-			"longer than",
+			overLimit("label", MAX_LABEL + 1, MAX_LABEL),
 		);
 		expect(asAction(normalizeCall({ action: "start", command: "x", label: " build " }), "start").label).toBe("build");
 	});
@@ -99,7 +102,9 @@ describe("job schema", () => {
 	});
 
 	test("send caps the input length and rejects a non-string", async () => {
-		expect(() => normalizeCall({ action: "send", id: "j1", input: "x".repeat(MAX_STDIN + 1) })).toThrow("longer than");
+		expect(() => normalizeCall({ action: "send", id: "j1", input: "x".repeat(MAX_STDIN + 1) })).toThrow(
+			overLimit("input", MAX_STDIN + 1, MAX_STDIN),
+		);
 		expect(() => normalizeCall({ action: "send", id: "j1", input: 5 })).toThrow("must be a string");
 		expect(asAction(normalizeCall({ action: "send", id: "j1", input: "hi" }), "send").input).toBe("hi");
 	});

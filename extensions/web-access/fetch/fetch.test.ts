@@ -22,6 +22,7 @@ import { resolveRequest, type FetchResponse, type WebFetchArgs } from "./schema.
 import { assertAllowedUrl, isBlockedHostname, isBlockedIp, SsrfError, type LookupImpl } from "./ssrf.ts";
 import { registerFetchTool, TOOL_NAME } from "./tool.ts";
 import type { FetchRequest } from "./types.ts";
+import { overLimit } from "../../../lib/format.ts";
 
 function cachePage(url: string, text = "hello", storedAt = 1000): CachedPage {
 	return {
@@ -612,7 +613,9 @@ describe("resolveRequest", () => {
 	});
 
 	test("rejects an over-long url", () => {
-		expect(() => resolveRequest({ url: `https://x/${"a".repeat(3000)}` }, SCHEMA_CONFIG)).toThrow("at most");
+		expect(() => resolveRequest({ url: `https://x/${"a".repeat(3000)}` }, SCHEMA_CONFIG)).toThrow(
+			overLimit("url", 3010, 2048),
+		);
 	});
 
 	test("clamps maxChars to the configured ceiling", () => {
@@ -668,7 +671,7 @@ describe("resolveRequest", () => {
 	test("clamps the body against maxBodyChars", () => {
 		expect(() =>
 			resolveRequest({ url: "https://a/", body: "x".repeat(SCHEMA_CONFIG.maxBodyChars + 1) }, SCHEMA_CONFIG),
-		).toThrow("body is longer");
+		).toThrow(overLimit("body", 100_001, 100_000));
 	});
 });
 
@@ -826,7 +829,6 @@ describe("web_fetch tool", () => {
 
 		const result = await tool.execute("call-1", { url: "https://1.1.1.1/page" }, undefined, undefined, ctx);
 		const page = result.details;
-
 		expect(result.content[0].text).toContain("Title: Example");
 		expect(result.content[0].text).toContain("Hello page");
 		expect(page.title).toBe("Example");
@@ -843,7 +845,6 @@ describe("web_fetch tool", () => {
 
 		const result = await tool.execute("call-long", { url: "https://1.1.1.1/long" }, undefined, undefined, ctx);
 		const page = result.details;
-
 		expect(page.truncated).toBe(true);
 		expect(page.nextIndex).toBeGreaterThan(0);
 		expect(result.content[0].text).toContain(`call web_fetch again with startIndex=${page.nextIndex}`);
@@ -871,7 +872,6 @@ describe("web_fetch tool", () => {
 			ctx,
 		);
 		const page = result.details;
-
 		expect(result.content[0].text).toContain("Matches for");
 		expect(page.matches).toHaveLength(1);
 		expect(page.matches[0].passage).toContain("Hello page");

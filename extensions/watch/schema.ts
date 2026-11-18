@@ -12,6 +12,7 @@ import { optionalString } from "../../lib/json.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { assertSafePattern, readPattern } from "./format.ts";
 import { WATCH_ACTIONS, type WatchAction } from "./types.ts";
+import { overLimit } from "../../lib/format.ts";
 
 /** Longest accepted label. */
 export const MAX_LABEL = 120;
@@ -82,7 +83,7 @@ export type WatchCall =
 	| { action: "clear"; id?: string; all?: boolean };
 
 function assertRegex(value: string, field: string): void {
-	if (value.length > MAX_PATTERN) throw new Error(`${field} is longer than ${MAX_PATTERN} characters.`);
+	if (value.length > MAX_PATTERN) throw new Error(overLimit(field, value.length, MAX_PATTERN));
 	// The shape a catastrophic pattern is made of is refused before the engine sees it, so the
 	// refusal arrives at `add` with the field's name rather than as a frozen session later.
 	assertSafePattern(value, field);
@@ -120,8 +121,8 @@ export function normalizeCall(raw: unknown): WatchCall {
 			const command = typeof args.command === "string" ? args.command.trim() : "";
 			if (path && command) throw new Error('"add" accepts either a path or a command, not both.');
 			if (!path && !command) throw new Error('"add" requires a path or a command.');
-			if (path && path.length > MAX_SOURCE) throw new Error(`path is longer than ${MAX_SOURCE} characters.`);
-			if (command.length > MAX_SOURCE) throw new Error(`command is longer than ${MAX_SOURCE} characters.`);
+			if (path && path.length > MAX_SOURCE) throw new Error(overLimit("path", path.length, MAX_SOURCE));
+			if (command.length > MAX_SOURCE) throw new Error(overLimit("command", command.length, MAX_SOURCE));
 
 			const rawPattern = typeof args.pattern === "string" ? args.pattern : "";
 			if (!rawPattern.trim()) throw new Error('"add" requires a pattern.');
@@ -152,7 +153,7 @@ export function normalizeCall(raw: unknown): WatchCall {
 			}
 
 			const label = optionalString(args.label);
-			if (label && label.length > MAX_LABEL) throw new Error(`label is longer than ${MAX_LABEL} characters.`);
+			if (label && label.length > MAX_LABEL) throw new Error(overLimit("label", label.length, MAX_LABEL));
 			const cwd = optionalString(args.cwd);
 
 			return {

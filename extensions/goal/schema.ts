@@ -7,7 +7,7 @@
  */
 
 import { Type, type Static } from "typebox";
-import { sanitizeLine } from "../../lib/format.ts";
+import { overLimit, sanitizeLine } from "../../lib/format.ts";
 import { MAX_GOAL_OBJECTIVE } from "../../lib/goal-state.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { GOAL_ACTIONS, GOAL_MODEL_STATUSES, GOAL_STATUSES, type Goal, type GoalStatus } from "./types.ts";
@@ -86,7 +86,7 @@ export function normalizeGoal(raw: unknown): Goal | null {
 		return null;
 	}
 	if (objective.length > MAX_OBJECTIVE) {
-		throw new Error(`objective is longer than ${MAX_OBJECTIVE} characters.`);
+		throw new Error(overLimit("objective", objective.length, MAX_OBJECTIVE));
 	}
 	return { objective, status };
 }

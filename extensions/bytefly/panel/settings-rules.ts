@@ -9,6 +9,7 @@
  */
 
 import { MAX_LABEL, MAX_TEAMMATES } from "../../../lib/session-label.ts";
+import { overLimit } from "../../../lib/format.ts";
 
 /** What a text row accepts, checked before a write so the file cannot hold less. */
 export interface TextRule {
@@ -69,7 +70,7 @@ export function teammatesRule(): TextRule {
 		validate(raw) {
 			const names = splitList(raw);
 			const long = names.find((name) => name.length > MAX_LABEL);
-			if (long !== undefined) return `"${long}" is too long: a name is at most ${MAX_LABEL} characters.`;
+			if (long !== undefined) return overLimit(`a teammate name "${long}"`, long.length, MAX_LABEL);
 			if (names.length > MAX_TEAMMATES) return `A team holds at most ${MAX_TEAMMATES} names.`;
 			if (new Set(names).size !== names.length) return "A teammate is named twice.";
 			return undefined;
