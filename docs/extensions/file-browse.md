@@ -47,7 +47,9 @@ root and URL, or "not running"; `/browse stop` closes it.
 **Routes.** Everything lives under `/files/`: the tree and a listing
 (`/files/browse/<rel>`), a file page (`/files/view/<rel>`, `?raw=1` for source),
 raw bytes (`/files/raw/<rel>`), the diff (`/files/diff[/<rel>]?mode=head|staged|worktree`),
-and the JSON calls the page makes for the tree, quick open, and the reload check.
+and the JSON calls the page makes for the tree, quick open, and the reload check. A path
+under `/files/api/` that matches nothing answers JSON with that status, as those calls do;
+every other unmatched path answers the error page.
 `/files/events` carries the live status frames.
 
 **Previews.** Markdown renders as headings, lists, tables, code, and links, with
