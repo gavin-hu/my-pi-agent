@@ -42,13 +42,31 @@ function countLine(entries: { project: unknown[]; global: unknown[] }): string {
  * action, and `→ …` while the arguments are still streaming.
  */
 export function formatCallText(
-	args: { action?: unknown; text?: unknown; to?: unknown; scope?: unknown },
+	args: {
+		action?: unknown;
+		text?: unknown;
+		to?: unknown;
+		first?: unknown;
+		second?: unknown;
+		merged?: unknown;
+		scope?: unknown;
+	},
 	argsComplete = true,
 ): string {
 	const action = typeof args.action === "string" ? args.action.toLowerCase() : "";
 	if (action === "list") return "→ list";
-	if (action !== "add" && action !== "forget" && action !== "update") return argsComplete ? "" : "→ …";
+	if (action !== "add" && action !== "forget" && action !== "update" && action !== "merge") {
+		return argsComplete ? "" : "→ …";
+	}
 	const scope = scopeLabel(args.scope === "global" ? "global" : "project");
+	if (action === "merge") {
+		const first = typeof args.first === "string" ? args.first.trim() : "";
+		const second = typeof args.second === "string" ? args.second.trim() : "";
+		const merged = typeof args.merged === "string" ? args.merged.trim() : "";
+		if (!first) return `→ merge (${scope})`;
+		if (!second || !merged) return `→ merge (${scope}): ${first}`;
+		return `→ merge (${scope}): ${first} + ${second} → ${merged}`;
+	}
 	const text = typeof args.text === "string" ? args.text.trim() : "";
 	if (action === "update") {
 		const to = typeof args.to === "string" ? args.to.trim() : "";
@@ -107,6 +125,10 @@ export function formatResultText(details: MemoryDetails, expanded = false): stri
 				: `Already set in ${scopeLabel(details.scope)} memory: ${details.entry ?? ""}`;
 		case "forget":
 			return `Removed from ${scopeLabel(details.scope)} memory\nNow ${countLine(entries)}.`;
+		case "merge":
+			return details.changed
+				? `Merged 2 ${scopeLabel(details.scope)} notes\nNow ${countLine(entries)}.`
+				: `No ${scopeLabel(details.scope)} notes were merged.`;
 	}
 }
 

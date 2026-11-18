@@ -16,7 +16,7 @@ export const MAX_ENTRY_CHARS = 500;
 
 export const MemoryParams = Type.Object({
 	action: StringEnum(MEMORY_ACTIONS, {
-		description: "Add a durable note, update an existing note, forget a note, or list what is stored.",
+		description: "Add, update, forget, or merge durable notes, or list what is stored.",
 	}),
 	text: Type.Optional(
 		Type.String({
@@ -29,9 +29,25 @@ export const MemoryParams = Type.Object({
 			description: "The replacement note for update. Required for update.",
 		}),
 	),
+	first: Type.Optional(
+		Type.String({
+			description: "One of the two notes to merge, by its text. Required for merge.",
+		}),
+	),
+	second: Type.Optional(
+		Type.String({
+			description: "The other note to merge, by its text. Required for merge.",
+		}),
+	),
+	merged: Type.Optional(
+		Type.String({
+			description: "The single note the two become. Required for merge.",
+		}),
+	),
 	scope: Type.Optional(
 		StringEnum(MEMORY_SCOPES, {
-			description: 'Which store to change: "project" (the default) or "global". Used by add, update, and forget.',
+			description:
+				'Which store to change: "project" (the default) or "global". Used by add, update, forget, and merge.',
 		}),
 	),
 });
@@ -47,6 +63,7 @@ export const MemoryResult = Type.Object({
 	changed: Type.Boolean(),
 	entry: Type.Optional(Type.String()),
 	to: Type.Optional(Type.String()),
+	second: Type.Optional(Type.String()),
 	existing: Type.Optional(Type.String()),
 	error: Type.Optional(Type.String()),
 });

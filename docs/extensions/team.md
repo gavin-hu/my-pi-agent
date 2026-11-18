@@ -5,7 +5,7 @@ to a peer that is already running, offer one to whoever is free, or ask a peer a
 question. Nothing here starts a process — every action is a message, and a peer
 listening with `wake` is woken for it ([`session-bus`](session-bus.md) owns that).
 A card's own state — `claim`, `reclaim`, the moves, the contract, the two signs — is
-[`board`](board.md)'s, and only `board`'s.
+[`board`](board.md)'s. What outlives the round is the project's [`memory`](memory.md) store.
 
 <img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; ACTIVE WORK with a NEEDS YOU queue in three bands — YOUR SIGNATURE, UNCLAIMED and STALLED — each ask one line with its reason printed under it, over BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="1174">
 

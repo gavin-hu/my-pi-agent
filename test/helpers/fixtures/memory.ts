@@ -57,6 +57,13 @@ const SHOW_TOPLEVEL = "--show-toplevel";
 const COMMON_DIR = "--git-common-dir";
 const WORKTREE_TASK = [".pi", "worktrees", "task"];
 
+/** One `memory` tool call, as a case drives it: the handler this suite registered. */
+export async function memoryCall(suite: MemorySuite, args: Record<string, unknown>): Promise<any> {
+	const tool = suite.pi.tools.get("memory");
+	if (!tool) throw new Error("the memory tool was not registered");
+	return tool.execute("call", args, undefined, undefined);
+}
+
 /** What a case wrote to the picker's store, and what the screen was asked to do with it. */
 export interface PickerCase {
 	/** The screen as text. */
