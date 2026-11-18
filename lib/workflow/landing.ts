@@ -12,7 +12,7 @@
 import { type Card, cardRef, holds } from "./card.ts";
 import type { Landing } from "./card.ts";
 import { normalizeInstruction } from "./contract.ts";
-import { isLead, isPerson } from "./lead.ts";
+import { isLead, isPerson } from "./signs.ts";
 import type { Lane } from "./lanes.ts";
 
 /** One commit on the chain, with the parents a merge is recognised by. */

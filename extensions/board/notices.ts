@@ -17,8 +17,9 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Card, owesHandoff } from "../../lib/workflow/card.ts";
-import { type Lead, notToldLine, owesAnnouncement } from "../../lib/workflow/lead.ts";
-import type { NoticeField } from "../../lib/workflow/lead.ts";
+import type { Lead, NoticeField } from "../../lib/workflow/contract.ts";
+import { notToldLine } from "../../lib/workflow/lead.ts";
+import { owesAnnouncement } from "../../lib/workflow/signs.ts";
 import { composeNotice, type NoticeKind, NOTICES } from "../../lib/workflow/notice.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";

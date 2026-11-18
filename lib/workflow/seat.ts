@@ -18,7 +18,7 @@
  * serving the page and the ids are not.
  */
 
-import type { Lead } from "./lead.ts";
+import type { Lead } from "./contract.ts";
 import type { Actor } from "./rules.ts";
 
 /** The prefix of a page's actor id, so one is never mistaken for a session id. */

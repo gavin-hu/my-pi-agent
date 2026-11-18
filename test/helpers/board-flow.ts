@@ -12,7 +12,7 @@
  * tool re-checks that the file is there.
  */
 
-import { personActor } from "../../lib/workflow/lead.ts";
+import { personActor } from "../../lib/workflow/signs.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
 import type { Lane } from "../../lib/workflow/lanes.ts";

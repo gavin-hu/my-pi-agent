@@ -19,7 +19,7 @@
 
 import { ageWords, pageSource } from "../format.ts";
 import { type Card, laneSince } from "./card.ts";
-import { currentReview } from "./lead.ts";
+import { currentReview } from "./signs.ts";
 
 /** What a reason is about, which is what a row's edge and a dot are coloured by. */
 export const REASON_KINDS = [

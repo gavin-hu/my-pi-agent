@@ -45,20 +45,16 @@ import type { LandingVerdict } from "./landing.ts";
 import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
 import { contractRoute, LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import {
-	appendNote,
-	type HolderFact,
 	heldBy,
 	heldState,
 	holderRefusal,
 	mayMove,
 	missingSign,
-	owesAnnouncement,
-	signedAs,
-	signMark,
 	signNote,
 	signRefusal,
 	spotCheckRefusal,
 } from "./lead.ts";
+import { appendNote, type HolderFact, owesAnnouncement, signedAs, signMark } from "./signs.ts";
 import { ownerRefusal, type WipLimits, wipRefusal } from "./limits.ts";
 import { owesHandoff } from "./card.ts";
 import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependentsOf, waitingOn } from "./links.ts";

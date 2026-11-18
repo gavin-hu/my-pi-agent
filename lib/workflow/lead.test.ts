@@ -22,15 +22,19 @@ import {
 } from "../../test/helpers/fixtures/board-rules.ts";
 import { type Card } from "./card.ts";
 import { type BoardConfig, boardConfig } from "./config.ts";
-import { askLead, leadName } from "./contract.ts";
+import { askLead, type Lead, leadName } from "./contract.ts";
 import {
-	announced,
 	failedSpotCheck,
 	holderRefusal,
+	missingSign,
+	signRefusal,
+	staleSpotCheck,
+	unverifiedSpotCheck,
+} from "./lead.ts";
+import {
+	announced,
 	isLead,
 	isPerson,
-	type Lead,
-	missingSign,
 	normalizeLead,
 	owesAnnouncement,
 	PERSON_LABEL,
@@ -38,10 +42,7 @@ import {
 	signedAs,
 	signMark,
 	signRecord,
-	signRefusal,
-	staleSpotCheck,
-	unverifiedSpotCheck,
-} from "./lead.ts";
+} from "./signs.ts";
 import { signedText } from "./notice.ts";
 import type { Actor } from "./rules.ts";
 

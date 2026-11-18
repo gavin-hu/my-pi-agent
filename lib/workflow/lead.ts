@@ -1,128 +1,45 @@
 /**
- * Who may act on a card's two gates and its return to the pool: the lead, and the person at the keyboard.
+ * The gate ladder: why a call may move, sign, close or take back a card, and every sentence that says why not.
  *
- * `approve` and `review` are the board's one human judgement — a contract somebody read and a piece of
- * work somebody looked at — so the signature belongs to somebody accountable rather than to whichever peer
- * answered first. The lead is a team name in `bytefly.json` (`team.lead`, read by `config.ts`, and the page's
- * seat in `board/seat.ts`), the one identity a pure rule can be handed and a card file can record; the person
- * is the actor a file can name that is not a holder, which keeps a one-session repository able to close.
+ * `approve` and `review` are the board's one human judgement, so the signer is refused in two shapes — a
+ * session that is not the lead (`signRefusal`), and a lead that holds the card it means to sign
+ * (`holderRefusal`, release it first) — and the words live in `SIGN_WORDS` so a gate and a lane requirement
+ * cannot drift into four slightly different sentences. What a sign *is* belongs to `signs.ts`; this module is
+ * what a signature unlocks, and it is also where `reclaim`'s three answers live: the holder may take its own
+ * card back, the lead anybody's, and a peer only from a session the bus says has stopped.
  *
- * The signer is refused in two shapes: a session that is not the lead (`signRefusal`), and a lead that holds
- * the card it means to sign (`holderRefusal` — release it first). The words live in `SIGN_WORDS`, so a gate
- * and a lane requirement cannot drift into four slightly different sentences.
- *
- * `reclaim` is the third decision: the holder may take its own card back, the lead anybody's, and a peer
- * one only from a session the bus says has stopped. Only a spot-check's own signer withdraws it.
- *
- * The announcement is the fourth: a sign nobody heard is a gate nobody knows is open, so the card records
- * when its message was settled (`Sign.told`) and a repeat sign owes it again while absent — written by its
- * own operation, refused to anybody but the sign's signer (`signedAs`, never a name compare). Pure: a name
- * compare and a sentence, no clock and no file.
+ * The refusals stay here because the ladder writes them: `mayMove`, `reviewGate` and `reclaim` each build the
+ * sentence for the state they found, so a module of sentences would import the decisions it answers for.
+ * Pure throughout: a name compare and a string, no clock and no file.
  */
 
-import { pageSource } from "../format.ts";
-import { normalizeLabel, sameLabel } from "../session-label.ts";
+import { sameLabel } from "../session-label.ts";
 import type { SessionPresence } from "../session-roster.ts";
-import { type Card, type CardOwner, cardRef, holds, laneSince, MAX_NOTES, normalizeNote } from "./card.ts";
+import { type Card, cardRef, holds, normalizeNote } from "./card.ts";
 import type { BoardConfig } from "./config.ts";
 import {
 	askLead,
 	isVerification,
+	type Lead,
 	leadName,
 	normalizeInstruction,
 	SIGN_WORDS,
-	type Sign as SignRecord,
-	TELL_FIELDS,
 	type Verification,
 } from "./contract.ts";
 import { contractRoute, LANE_RULES, type Lane } from "./lanes.ts";
-import type { Actor, CardOp, Prepared } from "./rules.ts";
-
-/** The lead's team name: the label a signature has to carry. */
-export type Lead = string;
-
-/**
- * The person at the keyboard, as a write is made.
- *
- * `/board approve` and `/board review` write as this actor, so a repository worked by one
- * session is not stuck behind its own holder rule, and the card records the lead's name with
- * the person's mark on the sign ({@link signMark}). This label is therefore what the person's
- * own line prints, and never what a card file says.
- */
-export const PERSON_LABEL = "you";
-
-/** The id the person's actor carries: a prefix no session id uses, so a label cannot stand in. */
-const PERSON_ID = "person:you";
-
-/** The actor a command writes as: the person's label, and an id a session cannot have. */
-export function personActor(): Actor {
-	return { id: PERSON_ID, label: PERSON_LABEL };
-}
-
-/** Whether `actor` is the person at the keyboard rather than a session. */
-export function isPerson(actor: Pick<Actor, "id">): boolean {
-	return actor.id === PERSON_ID;
-}
-
-/**
- * What a sign records about the actor who wrote it: the name a reader acts on, and the person's mark.
- *
- * The person signs as the lead's name, because that is the one name a card file can give somebody
- * who has no session — `PERSON_LABEL` is what the person's own line prints, never what a record
- * stores. A board that names no lead has no name to lend, so the record carries the person's own
- * label: the sign still reads as a sign, and the mark is what tells the two apart afterwards.
- */
-export function signMark(actor: Actor, lead: Lead): Pick<SignRecord, "by" | "person"> {
-	return isPerson(actor) ? { by: lead === "" ? PERSON_LABEL : lead, person: true } : { by: actor.label };
-}
-
-/**
- * Whether `sign` is this actor's own.
- *
- * The name *and* the mark: a session that signs under the lead's label is somebody else, so a
- * comparison on the label alone would read its sign back as the person's — and a repeated sign
- * would re-stamp instead of being the signature already there.
- */
-export function signedAs(sign: SignRecord | undefined, actor: Actor, lead: Lead): boolean {
-	if (sign === undefined) return false;
-	const mark = signMark(actor, lead);
-	return sign.by === mark.by && sign.person === mark.person;
-}
-
-/**
- * The lead's name as a config file says it, or the running one when it says nothing usable.
- *
- * A blank string is not a lead called nothing: it is a file that said nothing, so the layer
- * below keeps its answer, and a name is flattened and capped by the same rule every label is.
- * The one stated value that is an answer rather than a name is the empty string: the default
- * team names a lead, so clearing it has to be sayable.
- */
-export function normalizeLead(raw: unknown, base: Lead): Lead {
-	if (typeof raw !== "string") return base;
-	return raw === "" ? "" : normalizeLabel(raw, base);
-}
-
-/**
- * Whether `actor` is the lead.
- *
- * A label compare, the way a teammate is addressed — not `holds`, which asks whether a session
- * owns a card and prefers the ids when both sides have one.
- */
-export function isLead(actor: Pick<Actor, "label">, lead: Lead): boolean {
-	return sameLabel(actor.label, lead);
-}
-
-/** The two signs a card carries. */
-export type Sign = "approve" | "review";
-export type { NoticeField } from "./contract.ts";
-
-/** The two signs, in the order a person is likely to want them. */
-const SIGN_KINDS: readonly Sign[] = ["approve", "review"];
-
-/** `word` as one of the two signs, or `undefined` when it is not one. */
-export function signOf(word: string): Sign | undefined {
-	return SIGN_KINDS.find((sign) => sign === word);
-}
+import type { Actor, Prepared } from "./rules.ts";
+import {
+	appendNote,
+	currentReview,
+	type HolderFact,
+	isLead,
+	isPerson,
+	laneReview,
+	owesAnnouncement,
+	type Sign,
+	signMark,
+	signedAs,
+} from "./signs.ts";
 
 /**
  * Why `actor` may not sign `card`, or `undefined` when it may.
@@ -248,57 +165,6 @@ export function killedSpotCheck(card: Card, cmd: string, boundMs: number): strin
 }
 
 /**
- * The spot-check this execution made, whether or not the card has since outgrown it.
- *
- * A sign kept across a `reclaim` — which is what happens when somebody other than its signer takes
- * the card back — is evidence that a spot-check happened, and not evidence about the execution the
- * card is in today. So the meaning of the sign follows the lane: in `execute` it answers only when
- * it was made after the card entered, and a new execution owes the lead a new look. Everywhere else
- * the sign is a fact about the work the card finished, and a finished card's sign is the one that
- * closed it.
- *
- * A card whose history was elided has no entry to compare against, so it keeps its sign: an
- * unreadable record is not a reason to demand a signature that may already be there.
- *
- * The lane is only half the question — {@link currentReview} asks the other — and this stays the
- * answer to "did this execution have a sign at all", which is what lets the `done` refusal say
- * "run it again" rather than "no spot-check recorded".
- */
-export function laneReview(card: Card): SignRecord | undefined {
-	const review = card.review;
-	if (review === undefined) return undefined;
-	const since = card.lane === "execute" ? laneSince(card) : undefined;
-	return since === undefined || review.at >= since ? review : undefined;
-}
-
-/**
- * The spot-check that speaks for the card now: the one this execution made, while the card has not
- * been written since.
- *
- * One rule for every reader — the lead's queue (`gateOf`), the card's reason line (`reasonFor`), and
- * the `done` gate ({@link spotCheckRefusal}) — because two of them read a stale sign as current
- * while the third refused it: a card absent from NEEDS YOU and drawn "spot-checked by X" at the
- * moment its close was refused with "was written after its spot-check". The staleness half is
- * {@link signStale}'s, so "the work moved under the signature" cannot be one rule here and another
- * there.
- */
-export function currentReview(card: Card): SignRecord | undefined {
-	const review = laneReview(card);
-	return review !== undefined && !signStale(card, review) ? review : undefined;
-}
-
-/**
- * The rule, and the three bodies it calls, as the browser receives them.
- *
- * `reasonFor` asks this rule on the page as well as in the transcript, and a page has no import
- * graph: a body that calls a helper has to reach the page with the bodies that helper calls, or the
- * first card face that draws a signed card throws where every static check is green. One block
- * because every caller that carries one carries all four, and beside the rule so a helper added to
- * it is one line from the splice that would have to carry it.
- */
-export const CURRENT_REVIEW_JS = [laneSince, laneReview, signStale, currentReview].map(pageSource).join("\n\n");
-
-/**
  * What a result says when the card's owner did not hear about a sign.
  *
  * Two doors write a sign — the tool, and the person's `/board approve` — and each sends by the
@@ -309,50 +175,6 @@ export const CURRENT_REVIEW_JS = [laneSince, laneReview, signStale, currentRevie
  */
 export function notToldLine(owner: string, reason: string): string {
 	return `${owner} was not told (${reason})`;
-}
-
-/**
- * What the caller found out about the session holding a card, bound to the owner it is about.
- *
- * The binding is the point: a fact about one session must not take another session's card, so a
- * fact computed for an owner the lock no longer reads is no fact at all.
- */
-export interface HolderFact {
-	/** The owner the state was computed for. */
-	owner: CardOwner;
-	/** What the bus said about it; `quiet` and `gone` are the two that let a peer take the card. */
-	state: SessionPresence;
-}
-
-/**
- * A card's notes after one more, with {@link MAX_NOTES} kept and the rest counted: one body for the two
- * writers a note has, because the cap is the record's and a clipped list is the same arithmetic in both,
- * and a clipped list on a sign would be a different list from the one a note writes.
- */
-export function appendNote(card: Card, by: string, at: number, text: string): Pick<Card, "notes" | "notesDropped"> {
-	const notes = [...card.notes, { by, at, text }];
-	const overflow = Math.max(0, notes.length - MAX_NOTES);
-	return { notes: overflow === 0 ? notes : notes.slice(overflow), notesDropped: card.notesDropped + overflow };
-}
-
-/**
- * Whether the card has been written since its sign last spoke for it.
- *
- * A sign owns two writes: the stamp, and `#398`'s record that its owner heard, so the later of the two is
- * compared. The field is `stateAt`, not `updatedAt`: a landing note is a message about the card, not a
- * change to it, so every reader of this rule — the gate, the queue, the reason line — inherits one answer.
- *
- * A card from before `stateAt` has none, and this fallback reads it loosely: **a state write between the sign
- * and the newest note is invisible**, because only a lane change logs a transition — so a `contract` or `edit`
- * leaves no trace and the later note reads fresh.
- *
- * It holds only because such a card was written entirely by older code, whose next write stores the field, and
- * because the landing gate still proves the work the sign is over.
- */
-export function signStale(card: Card, record: SignRecord): boolean {
-	const noted = card.stateAt === undefined && card.notes.at(-1)?.at === card.updatedAt;
-	const mark = card.stateAt ?? (noted ? (card.log?.at(-1)?.at ?? card.createdAt) : card.updatedAt);
-	return mark > Math.max(record.at, record.told?.at ?? 0);
 }
 
 /**
@@ -589,54 +411,4 @@ function heldStill(card: Card, lead: Lead, state: SessionPresence | undefined): 
 		return `${held} The bus has no record of that session, and nothing says it stopped: only the lead (${leadName(lead)}) takes the card back.`;
 	}
 	return `${held} Nothing here says whether that session is running, so only the lead (${leadName(lead)}) takes the card back.`;
-}
-
-/**
- * The sign a card holds for one gate: the approval, or the spot-check the current execution owes.
- *
- * One reader for both, because everything after the sign — announcing it, recording that it was
- * heard, asking whether it owes a message — is a question about that one record.
- */
-export function signRecord(card: Card, sign: Sign): SignRecord | undefined {
-	return sign === "approve" ? card.contract?.approved : currentReview(card);
-}
-
-/**
- * Whether a call by this actor owes the card's owner the sign's message.
- *
- * A fresh stamp owes one. A repeat owes one only while the record says the first never landed:
- * that is the only way a failed send is ever re-sent, and a sign already heard owes nothing.
- */
-export function owesAnnouncement(card: Card, sign: Sign, actor: Actor, lead: Lead): boolean {
-	const record = signRecord(card, sign);
-	return record === undefined || !signedAs(record, actor, lead) || record.told === undefined;
-}
-
-/**
- * Record that a notice was settled, so the card stops owing it.
- *
- * For a sign the signer's own operation: `signedAs` is the gate. For a handoff there is no
- * signature — the door that wrote the owner announces it — so only the record's absence gates it.
- */
-export function announced(
-	card: Card,
-	op: Extract<CardOp, { kind: "announced" }>,
-	actor: Actor,
-	config: BoardConfig,
-	now: number,
-): Prepared {
-	const told = TELL_FIELDS[op.notice];
-	// A sign is its own signer's to announce; a handoff has no signature, and only its absence gates.
-	if (op.notice !== "assign") {
-		const record = signRecord(card, op.notice);
-		const named = op.notice === "approve" ? "approval" : "spot-check";
-		if (record === undefined) return { error: `${cardRef(card.id)} has no ${named} to announce.` };
-		if (!signedAs(record, actor, config.lead)) {
-			return {
-				error: `${cardRef(card.id)}'s ${named} is ${record.by}'s to announce, and this session is ${actor.label}.`,
-			};
-		}
-	}
-	if (told.read(card) !== undefined) return { changed: false, fields: null };
-	return { changed: true, fields: told.patch(card, now) };
 }

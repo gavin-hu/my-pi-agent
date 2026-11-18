@@ -20,7 +20,7 @@ import { type Card, cardArg, cardRefOf, normalizeCardId } from "../../lib/workfl
 import { type Lane, movableLanes } from "../../lib/workflow/lanes.ts";
 import type { LandingVerdict } from "../../lib/workflow/landing.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
-import { signMark } from "../../lib/workflow/lead.ts";
+import { signMark } from "../../lib/workflow/signs.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import type { CardOp } from "../../lib/workflow/rules.ts";
 import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";

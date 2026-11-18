@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { type Card, laneSince } from "./card.ts";
-import { currentReview } from "./lead.ts";
+import { currentReview } from "./signs.ts";
 import { REASON_FOR_JS, REASON_KINDS, REASON_LABEL, REASON_LABEL_JS, reasonFor } from "./reason.ts";
 
 const NOW = 1_000_000;

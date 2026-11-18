@@ -19,8 +19,8 @@ import type { MessageKind } from "../session-mail.ts";
 import { MAX_MESSAGE_TEXT } from "../session-tool.ts";
 import { type Card, type CardOwner, cardRef } from "./card.ts";
 import { askLead, type Handoff, leadName, SIGN_WORDS } from "./contract.ts";
-import { type Lead, type Sign } from "./lead.ts";
-import { TELL_FIELDS } from "./contract.ts";
+import { type Lead, TELL_FIELDS } from "./contract.ts";
+import type { Sign } from "./signs.ts";
 import { type PeerRow, peerNamed } from "../session-roster.ts";
 import type { Actor } from "./rules.ts";
 
