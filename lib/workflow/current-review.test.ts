@@ -13,7 +13,7 @@ import { describe, expect, test } from "bun:test";
 import { LEAD as BOARD_LEAD, CORE, claimed, NOW, stepOf } from "../../test/helpers/fixtures/board-rules.ts";
 import { numberedCard } from "../../test/helpers/fixtures/board.ts";
 import { type Card } from "./card.ts";
-import { currentReview, signStale } from "./lead.ts";
+import { currentReview, signStale } from "./signs.ts";
 
 /** A card this suite signs, so a case names only the fields the sign reads. */
 const card = (overrides: Partial<Card> = {}) => numberedCard("4", overrides);

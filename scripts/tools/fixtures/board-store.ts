@@ -17,7 +17,7 @@ import { planForContract } from "../../../lib/workflow/artifact.ts";
 import { provedPlan } from "../../../extensions/board/proof.ts";
 import { boardConfig, type BoardConfig } from "../../../lib/workflow/config.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
-import { personActor } from "../../../lib/workflow/lead.ts";
+import { personActor } from "../../../lib/workflow/signs.ts";
 import type { Actor, CardOp } from "../../../lib/workflow/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
 import type { WaitingMail } from "../../../lib/session-mail.ts";

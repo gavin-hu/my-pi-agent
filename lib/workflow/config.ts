@@ -18,7 +18,8 @@ import { asRecord } from "../json.ts";
 import { loadConfigSection, projectConfigPath, writeConfigValueAt } from "../config.ts";
 import { messageOf } from "../errors.ts";
 import { isTeammate, normalizeLabel, normalizeTeammates } from "../session-label.ts";
-import { type Lead, normalizeLead } from "./lead.ts";
+import type { Lead } from "./contract.ts";
+import { normalizeLead } from "./signs.ts";
 import { DEFAULT_WIP, normalizeWip, type WipLimits } from "./limits.ts";
 
 /** What a project's `team` section says: who signs, and who is on the team. */

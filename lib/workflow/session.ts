@@ -31,7 +31,7 @@ import { presenceOf, type RosterSession, readRoster, readTeam, type TeamRead } f
 import type { JoinResult } from "../session-tool.ts";
 import type { Card } from "./card.ts";
 import type { Claims } from "./claims.ts";
-import type { HolderFact } from "./lead.ts";
+import type { HolderFact } from "./signs.ts";
 import type { Actor } from "./rules.ts";
 import { type BoardStore, type MutateResult, openBoard } from "./store.ts";
 

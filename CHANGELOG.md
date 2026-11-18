@@ -33,6 +33,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: `lib/workflow/lead.ts` was 642 lines holding two jobs, so the sign rules moved to
+  `lib/workflow/signs.ts` — who may write a sign, what it records, and which one still speaks:
+  `Lead`, `isLead`, `personActor`/`isPerson`, `signMark`/`signedAs`, `laneReview`/`signStale`/
+  `currentReview` with the four bodies the page receives, and the announcement that closes it.
+  `lead.ts` keeps the gate ladder and the refusals it builds, since `mayMove`, `reviewGate` and
+  `reclaim` write their own sentences. No behaviour change: every function moved verbatim and no
+  message was reworded, and the module leaves the named list — 642 lines to 414 — so
+  `LONG_MODULE_TOTAL` falls from 3089 to 2447.
+
 - Every refusal about a value being too long names the length it received and how much to trim,
   through the one sentence `lib/format.ts` already owned: nineteen sites across `memory`,
   `web-access` (url, body, query, header value), `job` (command, label, input), `watch` (pattern,

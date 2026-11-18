@@ -11,7 +11,7 @@
  */
 
 import { type Card, cardArg, normalizeCardId } from "../../lib/workflow/card.ts";
-import type { HolderFact } from "../../lib/workflow/lead.ts";
+import type { HolderFact } from "../../lib/workflow/signs.ts";
 import type { CardOp } from "../../lib/workflow/rules.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";

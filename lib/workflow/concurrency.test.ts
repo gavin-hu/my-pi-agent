@@ -20,7 +20,7 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { advance, TEST_CONTRACT } from "../../test/helpers/board-flow.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { planForExecute } from "./artifact.ts";
-import { personActor } from "./lead.ts";
+import { personActor } from "./signs.ts";
 import type { MutateResult } from "./store.ts";
 import { type Actor } from "./rules.ts";
 import { createStore } from "./store.ts";

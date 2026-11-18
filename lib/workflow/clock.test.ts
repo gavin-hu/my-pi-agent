@@ -17,7 +17,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { personActor } from "./lead.ts";
+import { personActor } from "./signs.ts";
 import { type Actor } from "./rules.ts";
 import { createStore } from "./store.ts";
 

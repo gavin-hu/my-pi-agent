@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { type Card, MAX_NOTE } from "./card.ts";
-import { PERSON_LABEL, personActor } from "./lead.ts";
+import { PERSON_LABEL, personActor } from "./signs.ts";
 import {
 	accepted,
 	applyOp,

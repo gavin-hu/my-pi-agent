@@ -23,7 +23,8 @@ import { sanitizeLine } from "../format.ts";
 import { createExecRunner, currentBranch, gitCommonDir, headSha } from "../git/index.ts";
 import type { Card } from "./card.ts";
 import type { Verification } from "./contract.ts";
-import { failedSpotCheck, killedSpotCheck, type Lead, reviewGate } from "./lead.ts";
+import type { Lead } from "./contract.ts";
+import { failedSpotCheck, killedSpotCheck, reviewGate } from "./lead.ts";
 import type { Actor } from "./rules.ts";
 
 /** How long one run may take before it is killed with its tree. */
