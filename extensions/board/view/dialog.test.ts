@@ -48,6 +48,7 @@ describe("the dialog's document", () => {
 			"card-dialog-note-count",
 			"card-dialog-updated",
 			"card-dialog-reviewed",
+			"card-dialog-landed",
 			"card-dialog-depends",
 			"card-dialog-dependents",
 			"card-dialog-plan",
@@ -128,6 +129,7 @@ describe("the dialog's client", () => {
 			"dependents",
 			"updated",
 			"reviewed",
+			"landed",
 		]);
 		// The contract is a block instead, so the ladder never writes its rows: three lines at
 		// body size, which a card without a contract leaves hidden, and the command above them.

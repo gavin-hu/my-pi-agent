@@ -203,16 +203,14 @@ export const RAN_CLAUSE_JS = pageSource(ranClause);
 /**
  * The merge a review became, in the phrase the signature line carries.
  *
- * One body for the person's `/board review` line and the page's dialog, for the same reason the
- * run's is one: two surfaces that each spell a landing will spell it differently the first day one
- * of them gains a case. Empty for a card closed by instruction, which has no landing to name.
+ * One body for the person's `/board review` line: two surfaces that each spell a landing will spell
+ * it differently the first day one of them gains a case, and the page's dialog names the merge as a
+ * rung of its own rather than as a clause under a sign. Empty for a card closed by instruction,
+ * which has no landing to name.
  */
 export function landedClause(landed: { sha: string } | undefined): string {
 	return landed === undefined ? "" : " · landed " + landed.sha.slice(0, 7);
 }
-
-/** The same body, as the browser receives it. */
-export const LANDED_CLAUSE_JS = pageSource(landedClause);
 
 /**
  * What a session is holding, in one phrase: `#162 plan`, `#162 plan +2`, or `idle`.

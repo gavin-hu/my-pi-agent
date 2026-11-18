@@ -1,10 +1,12 @@
 /**
- * The card dialog's reviewed row, driven the way a reader drives it.
+ * The card dialog's reviewed row and the merge beside it, driven the way a reader drives it.
  *
- * Split from `dialog-behaviour.test.ts`, which is at its line budget: what a sign's run says is
- * its own question. The clause is `lib/workflow/round-text.ts`'s body, spliced into the page, so the
- * transcript's card and this dialog print one sentence about one record — and the case here is
- * that the page received that body and asks it the run, not that it spells the words again.
+ * Split from `dialog-behaviour.test.ts`, which is at its line budget: what a sign's run says, and
+ * which commit carried it, is its own question. The run's clause is `lib/workflow/round-text.ts`'s
+ * body, spliced into the page, so the transcript's card and this dialog print one sentence about
+ * one record — and the case here is that the page received that body and asks it the run, not that
+ * it spells the words again. The landing is a rung of its own for the same reason the transcript
+ * gives it a line: the facts are a sign, where it ran, and what that became.
  *
  * It needs a browser; where the machine has none it skips, naming `PI_CHROME`.
  */
@@ -18,6 +20,7 @@ import {
 	openBoardBrowser,
 } from "../../../test/helpers/board-browser.ts";
 import { LEAD, seedWorkingBoard } from "../../../test/helpers/board-fixture.ts";
+import type { ElementLike } from "../../../test/helpers/board-dom.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
@@ -55,5 +58,41 @@ describe.skipIf(CHROME === undefined)("the card dialog's reviewed row", () => {
 		expect(await page.textContent("#card-dialog-reviewed")).toContain(
 			"ran `bun run check` in the checkout (exit 0, main @ 3ccd9cdb)",
 		);
+	});
+
+	test("names the merge the close recorded, and draws the run whole", async () => {
+		const page = await openPage();
+		await page.click("#lane-head-done");
+		await page.waitForSelector('#lane-done .bf-row[data-card="4"]', { timeout: PAINT_MS });
+		await page.click('#lane-done .bf-row[data-card="4"] .bf-row__title');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+
+		// The two rows name different commits on purpose, and this case holds both so neither can be
+		// "corrected" into agreement: `reviewed` carries the sha the spot-check verified (`3ccd9cdb`),
+		// while `landed` is the merge that carried it (`9a7d2e0`). A case asserting one value in both
+		// would pass while hiding the very confusion this row exists to end — a finished card that
+		// could not say which commit it became. The word and the seven-character slice are the
+		// transcript's, so one fact has one spelling on both surfaces.
+		expect(await page.textContent("#card-dialog-reviewed")).toContain("main @ 3ccd9cdb");
+		expect(await page.textContent("#card-dialog-landed")).toBe("9a7d2e0");
+
+		// The defect this row replaces was never a missing string: the merge sat in the DOM the whole
+		// time, drawn wider than its cell and clipped, so a text assertion was green on a row nobody
+		// could read to the end. This case measures instead — the run's clause now wraps, and no rung of
+		// the ladder overflows the cell it is drawn in.
+		for (const id of ["#card-dialog-reviewed", "#card-dialog-landed"]) {
+			const measured = await page.evaluate((selector) => {
+				const doc = globalThis as unknown as {
+					document: { querySelector(selector: string): ElementLike | null };
+				};
+				const row = doc.document.querySelector(selector) as unknown as {
+					scrollWidth: number;
+					clientWidth: number;
+				} | null;
+				return row === null ? undefined : { scroll: row.scrollWidth, client: row.clientWidth };
+			}, id);
+			expect(measured, id).toBeDefined();
+			expect(measured && measured.scroll <= measured.client, id).toBe(true);
+		}
 	});
 });
