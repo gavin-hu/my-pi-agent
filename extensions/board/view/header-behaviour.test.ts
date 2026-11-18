@@ -31,6 +31,17 @@ let board: BoardBrowser;
 /** The suite's one tab, its document reloaded for each case. */
 const openPage = (): Promise<Page> => board.reuse();
 
+/**
+ * The meta drawn wider than this machine's font draws it, standing in for another family.
+ *
+ * The head's five spans are nowrap text with no floor of their own, so the font that draws them is
+ * the one that used to decide how much of the row the title got: `--font-ui` leads with the macOS
+ * family, and the same page on Linux took the title below half. Scaling the type is that wider
+ * font, at a size every machine agrees on.
+ */
+const WIDER_META =
+	"#card-dialog-id,#card-dialog-kind,#card-dialog-owner,#card-dialog-priority,#card-dialog-state{font-size:1.6em}";
+
 /** One box, in the page's own coordinates. */
 interface Box {
 	clientWidth: number;
@@ -45,7 +56,7 @@ interface Box {
  * Two boxes and not a style: the title can be told to grow and still be drawn short, and a close
  * that exists can still be drawn outside the panel it belongs to.
  */
-const BOXES = (): { title: Box; close: Box; panel: Box; content: number } => {
+const BOXES = (): { title: Box; close: Box; panel: Box; head: Box; content: number } => {
 	const doc = globalThis as unknown as {
 		document: { querySelector(selector: string): ElementLike | null };
 		getComputedStyle(node: ElementLike): { paddingLeft: string; paddingRight: string };
@@ -71,6 +82,7 @@ const BOXES = (): { title: Box; close: Box; panel: Box; content: number } => {
 		title: box("#card-dialog-title"),
 		close: box("#card-dialog-close"),
 		panel: box(".board-dialog__panel"),
+		head: box(".board-dialog__head"),
 		content: head.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
 	};
 };
@@ -128,5 +140,21 @@ describe.skipIf(CHROME === undefined)("the card dialog's head", () => {
 		expect(narrow.title.scrollWidth).toBeLessThanOrEqual(narrow.title.clientWidth);
 		expect(narrow.close.right).toBeLessThanOrEqual(narrow.panel.right);
 		expect(narrow.close.left).toBeGreaterThanOrEqual(narrow.panel.left);
+	});
+
+	test("keeps the title's half of the row when the meta is drawn wider", async () => {
+		// The case above reads this machine's font — the family the head was tuned on — and its 620
+		// half proves the narrow no-clip rather than a second share. This is the wide-font proof: the
+		// meta asks for more room than the row has, as the Linux and Windows families did, so the
+		// title's half has to come from the floor rather than from the font, and the meta wraps under
+		// it instead of being cut. Nothing clips — not the title, and not the head the meta grew.
+		const page = await openPage();
+		await page.addStyleTag({ content: WIDER_META });
+		await page.click("#lane-execute .bf-row__title");
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		const wide = await page.evaluate(BOXES);
+		expect(wide.title.clientWidth * 2).toBeGreaterThanOrEqual(wide.content);
+		expect(wide.title.scrollWidth).toBeLessThanOrEqual(wide.title.clientWidth);
+		expect(wide.head.scrollWidth).toBeLessThanOrEqual(wide.head.clientWidth);
 	});
 });
