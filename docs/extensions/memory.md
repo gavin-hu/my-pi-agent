@@ -19,6 +19,7 @@ read and edit, and they survive `/new`, `/resume`, and `/tree`.
 | See what it remembers | `/memory` — the picker, filterable by scope |
 | Edit a note | the picker's edit, or `/memory edit` for the whole file |
 | Forget one note | the picker's delete; the model can also `forget` it |
+| Fold two notes into one | `m` in the picker, or the tool's `merge` with `first`, `second`, `merged` |
 | Clear a whole scope | `/memory clear` (behind a confirmation) |
 | Find where the files are | `/memory path` |
 | Check the store | `/memory doctor` — the file each store resolved to, counts, bytes, the injection budget, near-duplicates |
@@ -36,7 +37,7 @@ you ask for later is a no-op that names the note that already says it.
 
 ## Reference
 
-**The tool.** `memory` adds, updates, forgets, and lists notes, and `list` returns
+**The tool.** `memory` adds, updates, forgets, merges and lists notes, and `list` returns
 all of them. Restating a stored fact in new words is refused as a duplicate, naming
 the existing note, so the file does not fill with paraphrases. An `update` writes the
 corrected note at the end of the store, because position is age: a correction is the

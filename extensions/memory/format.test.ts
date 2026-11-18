@@ -85,6 +85,11 @@ describe("memory text", () => {
 		expect(formatCallText({ action: "add", scope: "global", text: "x" })).toBe("→ add (global): x");
 		expect(formatCallText({ action: "update", scope: "global", text: "a", to: "b" })).toBe("→ update (global): a → b");
 		expect(formatCallText({ action: "list" })).toBe("→ list");
+		expect(formatCallText({ action: "merge", scope: "project", first: "a", second: "b", merged: "ab" })).toBe(
+			"→ merge (project): a + b → ab",
+		);
+		expect(formatCallText({ action: "merge", first: "a" })).toBe("→ merge (project): a");
+		expect(formatCallText({ action: "merge" })).toBe("→ merge (project)");
 	});
 
 	test("formatCallText leaves out a note that has not arrived yet", () => {
@@ -107,6 +112,9 @@ describe("memory text", () => {
 		expect(formatResultText(details({ action: "add", changed: false, entry: "x", existing: "x" }))).toBe(
 			"Already in project memory: x",
 		);
+		expect(
+			formatResultText(details({ action: "merge", changed: true, entry: "a", second: "b", project: ["ab"] })),
+		).toBe("Merged 2 project notes\nNow 1 project, 0 global.");
 		expect(formatResultText(details({ action: "forget", changed: true, entry: "x" }))).toBe(
 			"Removed from project memory\nNow 0 project, 0 global.",
 		);

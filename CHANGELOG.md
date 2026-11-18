@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `memory`: the tool can consolidate notes. `applyMerge` existed and the picker drove it, but the
+  tool's actions stopped at `add`/`update`/`forget`/`list` — so a session that could see only part
+  of a store could not fold the notes it could see, while the person could. `merge` takes `first`,
+  `second` and `merged`; a pair with one name missing is refused naming both and carrying the notes
+  unchanged, and naming one note twice is refused before the store is asked, because the transform
+  answers "not there" for a note merged with itself and that message would be false.
+- `team`: the page says where a durable lesson goes. A peer's mail is consumed when it is read and
+  a card note is capped, so the project's `memory` store is the only channel that outlives the
+  round — named beside the sentence about what is `board`'s.
+
 - `memory`: a note says who wrote it and when. A note written from a session now lands as
   `- <text> <!-- by: <label> @ <iso> -->`, and every reader shows it as `[jack] <text>` — the
   injected block, the tool's `list`, the picker row and `/memory doctor`, which also counts a

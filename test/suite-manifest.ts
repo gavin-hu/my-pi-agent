@@ -145,6 +145,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"store-mode",
 		"format",
 		"tools",
+		"tools-merge",
 		"context",
 		"commands",
 		"doctor",

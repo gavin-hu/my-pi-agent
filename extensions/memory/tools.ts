@@ -45,6 +45,7 @@ function toStructuredContent(details: MemoryDetails): Record<string, JsonValue> 
 	};
 	if (details.entry !== undefined) content.entry = details.entry;
 	if (details.to !== undefined) content.to = details.to;
+	if (details.second !== undefined) content.second = details.second;
 	if (details.existing !== undefined) content.existing = details.existing;
 	if (details.error !== undefined) content.error = details.error;
 	return content;
@@ -74,6 +75,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		promptSnippet: "Save, change, or remove a durable note that is recalled in later sessions.",
 		promptGuidelines: [
 			"Use memory for short, durable facts the user asks you to remember; keep one fact per call.",
+			"Consolidate two notes with action merge (first, second, merged) rather than forgetting and re-adding them.",
 			"Use action list only to see what is stored; the notes are already in context.",
 			"To remove a note, pass its exact text with action forget; bulk clearing is not available.",
 			"To change a note, use action update with its exact text and the replacement in to; do not forget and re-add.",
@@ -103,6 +105,27 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 			try {
 				if (action === "list") {
 					return memoryResult({ action, scope, ...labelled(runtime), changed: false });
+				}
+				if (action === "merge") {
+					const first = normalizeEntryText(args.first, "first");
+					const second = normalizeEntryText(args.second, "second");
+					const merged = normalizeEntryText(args.merged, "merged");
+					if (first === second) {
+						// The store's transform would answer false for a note merged with itself, and
+						// the message would claim two notes were missing. Refuse it as what it is.
+						return memoryResult(
+							{ action, scope, ...labelled(runtime), changed: false, entry: first, second },
+							`A merge needs two different notes; "${first}" was named twice.`,
+						);
+					}
+					const changed = await runtime.merge(scope, first, second, merged);
+					if (!changed) {
+						return memoryResult(
+							{ action, scope, ...labelled(runtime), changed: false, entry: first, to: merged, second },
+							`No ${scopeLabel(scope)} memory notes match both "${first}" and "${second}".`,
+						);
+					}
+					return memoryResult({ action, scope, ...labelled(runtime), changed, entry: first, to: merged, second });
 				}
 				const text = normalizeEntryText(args.text);
 				if (action === "add") {
