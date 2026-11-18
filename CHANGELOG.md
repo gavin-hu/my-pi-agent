@@ -95,6 +95,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the card dialog's title keeps its half of the head. The meta beside it is nowrap text
+  with no floor of its own, so the font that drew it decided the title's width — the macOS family
+  left the title most of the row, and the Linux and Windows families took it below half while the
+  same box was 648px on every OS. The title has a floor of half the row now and the meta wraps
+  beneath it, so the title is never the thing that gives.
 - `memory`: the picker reports what it did, not what it tried. `merge`, `update` and `forget`
   discarded the store's answer, so a merge whose pair had gone printed `Merged 2 project notes.`
   after a write that never happened — `applyMerge`, `applyUpdate` and `applyForget` all answer

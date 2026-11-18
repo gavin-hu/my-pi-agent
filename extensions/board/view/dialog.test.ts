@@ -90,12 +90,14 @@ describe("the dialog's document", () => {
 	test("gives the title the row, and keeps the close out of it", () => {
 		// The head was one flex line whose spacer grew first, so a long title wrapped in the column
 		// left over — 271px of a 686px row, and the CJK title on #685 took six lines for it. The
-		// title's basis is the fix; the geometry that proves it is `header-behaviour.test.ts`'s,
+		// title's basis is half of that fix; the floor is the other half, because the meta beside it is
+		// nowrap text with no floor of its own, so a font that draws the meta wider used to take the
+		// title below half the row. The geometry that proves both is `header-behaviour.test.ts`'s,
 		// because a rule can be right while the row is still short (a spacer creeping back, a
 		// narrower panel).
 		const title = ownRules().match(/\.board-dialog__head h2\{[^}]*\}/)?.[0] ?? "";
 		expect(title).toContain("flex:1 1 22ch");
-		expect(title).toContain("min-width:0");
+		expect(title).toContain("min-width:50%");
 		// The close is pinned in the panel's corner rather than left last in the line: a meta that
 		// wraps would otherwise carry it mid-header. Absolute needs a positioned panel, and the
 		// kit's own sets none — without this the button escapes the dialog.
