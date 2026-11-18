@@ -15,6 +15,7 @@
 
 import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { sanitizeLine } from "../../lib/format.ts";
 import { busPaths, dropIfEmpty, dropStaleTemps, listJson, readJsonAs, storedName } from "../../lib/session-files.ts";
 import { type BusMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
 import type { BusStore } from "./store.ts";
@@ -75,7 +76,9 @@ export function createMailStore(dir: string): MailStore {
 			const path = join(directory, name);
 			const message = readJsonAs(path, isBusMessage);
 			if (!message) {
-				unreadable.push(name);
+				// Flattened at the read: the name is a peer's file, and the sentence that prints it
+				// is the one body the page splices, so it may not sanitise for itself.
+				unreadable.push(sanitizeLine(name));
 				continue;
 			}
 			messages.push(message);

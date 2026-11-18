@@ -51,6 +51,21 @@ async function cardMail(page: Page, label: string): Promise<number> {
 	return counted === null ? 0 : Number(counted[1]);
 }
 
+/** The word on a card's unreadable-file chip, or "" when the card carries none. */
+async function cardRefused(page: Page, label: string): Promise<string> {
+	const chips =
+		(await page.textContent(
+			`#board-team .board-agent:has(.board-agent__name:text-is("${label}")) .board-agent__chips`,
+		)) ?? "";
+	const refused = /(\d+ unreadable files?)/.exec(chips);
+	return refused === null ? "" : refused[1];
+}
+
+/** The line the Waiting pane prints for the mail files this build cannot parse. */
+async function refusedLine(page: Page): Promise<string> {
+	return ((await page.textContent("#board-team [data-pane=waiting] .board-team__empty")) ?? "").trim();
+}
+
 /** The number in one column's or pane's caption, as the page paints it. */
 async function headCount(page: Page, selector: string): Promise<string> {
 	return (await page.textContent(`${selector} .bf-section__count`)) ?? "";
@@ -127,6 +142,24 @@ describe.skipIf(CHROME === undefined)("the Team tab's mail, over a real bus", ()
 			);
 			const page = await board.reuse();
 			expect(await cardMail(page, PEER.label)).toBe(1);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"says the file exists, without counting it as mail",
+		async () => {
+			// The half #605 left: the count is right, and nothing on the page said the file was
+			// there. The chip names no number of messages, the line under the queue names the file,
+			// and both sit beside a count that still says one.
+			writeFileSync(
+				join(bus, "inbox", storedName(idOf(LEAD)), "1799999999997-unreadable.json"),
+				"{ and neither is this",
+			);
+			const page = await board.reuse();
+			expect(await cardMail(page, PEER.label)).toBe(1);
+			expect(await cardRefused(page, PEER.label)).toBe("1 unreadable file");
+			expect(await refusedLine(page)).toContain("1799999999997-unreadable.json");
 		},
 		CASE_MS,
 	);
