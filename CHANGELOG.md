@@ -41,6 +41,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: a settled comment keeps its body. The card hid the note and kept a quote that the plan
   never stores, so a reloaded settled comment was an author and a chip with nothing to read; the
   body now stays, dimmed, and the record is readable.
+- `plan`: a comment control names its block. Each rail `+` is announced as *Comment on “…”*, the
+  count carries its own name, a thread reads as a list, and the rail and card actions reach 24px;
+  a write leaves focus on the card it changed, or on the block's `+` when the last comment goes.
 
 ## [0.29.0] - 2026-11-18
 

@@ -138,7 +138,7 @@ export const REVIEW_CSS = pageSheet(
 .bf-review>.bf-block[data-run-end]>ul,.bf-review>.bf-block[data-run-end]>ol{margin:0 0 1em}
 .bf-block[id]{scroll-margin-top:88px}
 .bf-block__rail{position:absolute;left:0;top:6px;display:flex;flex-direction:column;align-items:center;gap:6px;width:var(--review-rail)}
-.bf-block__add{appearance:none;width:22px;height:22px;min-width:22px;padding:0;border:1px solid var(--border);border-radius:var(--radius-badge);background:var(--surface);color:var(--muted);font:var(--fs-md)/1 var(--font-ui);cursor:pointer;opacity:0;transition:opacity var(--motion-fast) var(--motion-ease)}
+.bf-block__add{appearance:none;width:24px;height:24px;min-width:24px;padding:0;border:1px solid var(--border);border-radius:var(--radius-badge);background:var(--surface);color:var(--muted);font:var(--fs-md)/1 var(--font-ui);cursor:pointer;opacity:0;transition:opacity var(--motion-fast) var(--motion-ease)}
 .bf-block__add:hover{border-color:var(--accent);color:var(--accent)}
 .bf-block:hover .bf-block__add,.bf-block:focus-within .bf-block__add,.bf-block--active .bf-block__add,.bf-block--commented .bf-block__add{opacity:1}
 .bf-block__count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs)/1 var(--font-ui)}
@@ -168,6 +168,9 @@ export const REVIEW_CSS = pageSheet(
 .bf-comment--resolved .bf-comment__body{color:var(--muted)}
 .bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--success)}
 .bf-comment__actions{display:flex;gap:4px}
+/* The card's actions are touch targets too: bf-btn--sm is every page's, so the height is
+   raised here rather than in the kit. */
+.bf-comment__actions .bf-btn{min-height:24px;padding-block:3px}
 /* A quote is read at the record's own line height, not the document's: it is one line of context. */
 .bf-comment__body{line-height:var(--lh-snug)}
 .bf-composer{margin:0}
