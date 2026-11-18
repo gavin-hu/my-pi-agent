@@ -76,7 +76,7 @@ export type BlockerKind = (typeof BLOCKERS)[number];
 
 /**
  * Longest single note, in characters — the cap a `note` and a sign's account share, since `approve`
- * and `review` record theirs as one. It bounds the card file and the rollup line: peak 1,198 of 1,200.
+ * and `review` record theirs as one. It bounds the card file and the rollup line: peak 1,198 under the old 1,200.
  */
 export const MAX_NOTE = 4000;
 
