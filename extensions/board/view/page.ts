@@ -141,7 +141,8 @@ ${pageFooter({ factsId: "board-where", facts: `store ${input.where}` })}
         <h3 class="${N.dialogHeading}" id="card-dialog-record-head">record</h3>
         <dl class="${N.dialogFacts}">
           <dt id="card-dialog-updated-label">updated</dt><dd class="${N.dialogValue}" id="card-dialog-updated"></dd>
-          <dt id="card-dialog-reviewed-label" hidden>reviewed</dt><dd class="${N.dialogValue}" id="card-dialog-reviewed" hidden></dd>
+          <dt id="card-dialog-reviewed-label" hidden>reviewed</dt><dd id="card-dialog-reviewed" hidden></dd>
+          <dt id="card-dialog-landed-label" hidden>landed</dt><dd id="card-dialog-landed" hidden></dd>
         </dl>
       </section>
       <section class="${N.dialogSection}" id="card-dialog-notes-section" aria-labelledby="card-dialog-notes-head">

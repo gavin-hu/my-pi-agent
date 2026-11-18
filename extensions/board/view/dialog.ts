@@ -32,17 +32,11 @@
  * are not importable from a page's bundle; `__INLINE_MARKDOWN__` and `__SHORTEN_PATH__` are
  * rules a served script must never carry, and `pages.test` fails an unfilled one.
  */
-export function dialogJs(rules: {
-	inlineMarkdown: string;
-	shortenPath: string;
-	ranClause: string;
-	landedClause: string;
-}): string {
+export function dialogJs(rules: { inlineMarkdown: string; shortenPath: string; ranClause: string }): string {
 	return dialogTemplate
 		.replace("__INLINE_MARKDOWN__", rules.inlineMarkdown)
 		.replace("__SHORTEN_PATH__", rules.shortenPath)
-		.replace("__RAN_CLAUSE__", rules.ranClause)
-		.replace("__LANDED_CLAUSE__", rules.landedClause);
+		.replace("__RAN_CLAUSE__", rules.ranClause);
 }
 
 const dialogTemplate = String.raw`(function () {
@@ -74,7 +68,6 @@ __SHORTEN_PATH__
    * sentence about one record: a commit says when the run was taken, the tree says where.
    */
 __RAN_CLAUSE__
-__LANDED_CLAUSE__
 
   /**
    * Whether a section below the reason line already prints what a reason of this kind says.
@@ -239,8 +232,15 @@ __INLINE_MARKDOWN__
       reviewed !== undefined,
       reviewed === undefined
         ? ""
-        : stampedRow(reviewed.by + " \u00b7 ", reviewed.at, "reviewed {age}", (reviewed.byInstruction !== undefined ? " \u00b7 by instruction" : ranClause(reviewed.verified)) + landedClause(card.landed))
+        : stampedRow(reviewed.by + " \u00b7 ", reviewed.at, "reviewed {age}", reviewed.byInstruction !== undefined ? " \u00b7 by instruction" : ranClause(reviewed.verified))
     );
+
+    // The merge the review became, as a rung of its own: the transcript prints landed: beside the
+    // signature, and the row that used to carry it could not be read past the sign's tree. The word
+    // and the seven-character slice are the transcript's, so one fact has one spelling on both
+    // surfaces. Absent for a card closed by instruction, which has no merge to name.
+    var landed = card.landed;
+    setRow("landed", landed !== undefined, landed === undefined ? "" : landed.sha.slice(0, 7));
 
     pair("paths", card.paths.length > 0);
     var pathList = document.getElementById("card-dialog-path-list");

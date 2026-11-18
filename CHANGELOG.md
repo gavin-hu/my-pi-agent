@@ -44,6 +44,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a finished card's dialog names the merge the close recorded, in a `landed` row of its own
+  and in the transcript's spelling (the first seven characters), and the spot-check's run above it is
+  drawn whole. The `reviewed` row had been one nowrap line with no tooltip of its own, so a run taken
+  in a long tree path cut off everything after it — including the `· landed …` clause the row carried,
+  which is the one fact a `done` move exists to record.
+
 - `plan`: the browser review's view switch counts what it hid under the control it pressed, and the
   count no longer outlives its view — it went to the header's status line and nothing cleared it, so
   returning to All read `Showing 62 of 79 blocks` above all 79 of them. A view that matched no

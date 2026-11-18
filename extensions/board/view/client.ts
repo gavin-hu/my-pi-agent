@@ -36,13 +36,7 @@ import {
 	TAB_TITLE_JS,
 	THEME_TOGGLE_JS,
 } from "../../../lib/web/index.ts";
-import {
-	HISTORY_LINE_JS,
-	HISTORY_OWNER_JS,
-	LANDED_CLAUSE_JS,
-	PLURAL_JS,
-	RAN_CLAUSE_JS,
-} from "../../../lib/workflow/round-text.ts";
+import { HISTORY_LINE_JS, HISTORY_OWNER_JS, PLURAL_JS, RAN_CLAUSE_JS } from "../../../lib/workflow/round-text.ts";
 import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
 import { skippedText } from "../../../lib/workflow/skipped.ts";
 import { AGE_WORDS_JS, FORMAT_AGE_JS, pageSource, SHORTEN_PATH_JS } from "../../../lib/format.ts";
@@ -79,7 +73,7 @@ ${feedJs({ labels: ACTIVITY_LABEL_JS })}
 ${teamJs()}
 ${BOARD_CARD_JS}
 ${BOARD_EMPTY_JS}
-${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS, shortenPath: SHORTEN_PATH_JS, ranClause: RAN_CLAUSE_JS, landedClause: LANDED_CLAUSE_JS })}
+${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS, shortenPath: SHORTEN_PATH_JS, ranClause: RAN_CLAUSE_JS })}
 ${BOARD_KEYS_JS}
 ${liveJs({ picker: String(PICKER_MQ) })}
 ${THEME_TOGGLE_JS}
