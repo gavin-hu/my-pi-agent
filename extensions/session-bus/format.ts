@@ -12,6 +12,7 @@
 
 import { ageWords, clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { unreadableText } from "../../lib/session-mail.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { shortId } from "./protocol.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
@@ -206,18 +207,12 @@ function inboxLine(message: BusMessage, index: number): string {
 }
 
 /**
- * The sentence for mail files this build could not read.
+ * The sentence for mail files this build could not read, re-exported from where it is owned.
  *
- * Named rather than counted, because the name is what a person needs to look at the file, and
- * bounded to three so a directory full of them cannot fill the transcript. They are not gone:
- * the store leaves them on disk for a build that can read them, and the message TTL ends them.
+ * The page prints it too — a roster row's title and the queue's line — and an extension cannot
+ * import another's module, so the one body lives in `lib/session-mail.ts`.
  */
-export function unreadableText(files: readonly string[]): string {
-	if (files.length === 0) return "";
-	const named = files.slice(0, 3).map(sanitizeLine).join(", ");
-	const rest = files.length > 3 ? ` and ${files.length - 3} more` : "";
-	return `Mail this build cannot read: ${named}${rest} — left on disk, cleared by the TTL.`;
-}
+export { unreadableText };
 
 /**
  * One inbox read, oldest first and bounded.

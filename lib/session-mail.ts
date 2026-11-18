@@ -21,6 +21,7 @@
 
 import { readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { sanitizeLine } from "./format.ts";
 import { asRecord } from "./json.ts";
 import { busPaths, JSON_SUFFIX, listJson, readJsonAs, storedName } from "./session-files.ts";
 
@@ -76,6 +77,14 @@ export interface WaitingPage {
 	messages: WaitingMail[];
 	/** How many more the bus holds: a queue read to the bottom says so rather than looking quiet. */
 	dropped: number;
+	/**
+	 * Message files the queue cannot draw, because this build cannot parse them.
+	 *
+	 * Not counted anywhere a reader takes for mail: they are not waiting to be read, and no read
+	 * clears them. Named because the file is there until its TTL — a page that stayed silent about
+	 * it would draw a queue that disagrees with `session status`.
+	 */
+	refused?: readonly string[];
 }
 
 /**
@@ -300,7 +309,9 @@ export async function readMailLedger(busDir: string, records: readonly MailRecor
 		for (const { name, at } of await listArrivals(dir)) {
 			const message = readJsonAs(join(dir, name), isBusMessage);
 			if (message === undefined) {
-				inbox.unreadable.push(name);
+				// Flattened where the name is read, because a message file is written by a peer and
+				// every reader of this list prints it — the transcript, a row's title, a pane's line.
+				inbox.unreadable.push(sanitizeLine(name));
 				continue;
 			}
 			// The inbox is the identity, not the file: a message's own `to` is what the sender
@@ -357,7 +368,25 @@ export function untoldIn(ledger: MailLedger, id: string): number {
  */
 export function pageOf(ledger: MailLedger, limit = WAITING_LIMIT): WaitingPage {
 	const messages = ledger.messages.slice(0, Math.max(0, limit));
-	return { messages, dropped: ledger.messages.length - messages.length };
+	const refused = refusedOf(ledger);
+	// Absent rather than empty, the idiom every optional fact here follows: a reader that draws
+	// nothing for "no refused files" cannot draw a line about them either.
+	return { messages, dropped: ledger.messages.length - messages.length, ...(refused.length === 0 ? {} : { refused }) };
+}
+
+/** The files one session's inbox holds that this build cannot read. */
+export function refusedIn(ledger: MailLedger, id: string): readonly string[] {
+	return ledger.inboxes.find((inbox) => inbox.id === id)?.unreadable ?? [];
+}
+
+/**
+ * Every refused file the queue's rows would have drawn, for the inboxes a row belongs to.
+ *
+ * The inboxes no record holds are left out on purpose: `unaccountedOf` already counts every file
+ * there, readable or not, so a queue that named them twice would overstate what is waiting.
+ */
+function refusedOf(ledger: MailLedger): readonly string[] {
+	return ledger.inboxes.filter((inbox) => inbox.held).flatMap((inbox) => inbox.unreadable);
 }
 
 /**
@@ -422,4 +451,21 @@ export function unaccountedOf(ledger: MailLedger): UnaccountedPage {
 	const found = unheld.flatMap((inbox) => inbox.mail.map(({ message, at }) => ({ message, at })));
 	// Oldest first, so the message that has waited longest is the one a reader meets first.
 	return { messages: found.sort((a, b) => a.at - b.at || a.message.id.localeCompare(b.message.id)), count };
+}
+
+/**
+ * The sentence for mail files this build could not read.
+ *
+ * Named rather than counted, because the name is what a person needs to look at the file, and
+ * bounded to three so a directory full of them cannot fill a transcript or a pane. They are not
+ * gone: the store leaves them on disk for a build that can read them, and the message TTL ends
+ * them. One body because the transcript, a roster row's hover title and the queue's line all say
+ * this about the same files — and because the page receives this body's source, it calls nothing:
+ * the names arrive flattened from the read that found them.
+ */
+export function unreadableText(files: readonly string[]): string {
+	if (files.length === 0) return "";
+	const named = files.slice(0, 3).join(", ");
+	const rest = files.length > 3 ? ` and ${files.length - 3} more` : "";
+	return `Mail this build cannot read: ${named}${rest} — left on disk, cleared by the TTL.`;
 }

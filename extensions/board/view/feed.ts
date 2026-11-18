@@ -30,6 +30,7 @@ const feedTemplate = String.raw`(function () {
   var ago = board.ago;
   var plural = board.plural;
   var paneHead = board.paneHead;
+  var unreadableText = board.unreadableText;
 
   var ACTIVITY_LABEL = __ACTIVITY_LABEL__;
 
@@ -166,6 +167,10 @@ const feedTemplate = String.raw`(function () {
           var head = paneHead("Waiting", waiting.length, waiting.length + queue.dropped, tone);
           head.title = "One row per send; a broadcast counts once here and once on each reader's card.";
           slot.appendChild(head);
+          // A file this build cannot parse is not a row and not a number: it is a note under the
+          // queue, drawn first so an inbox whose only file is that one does not read as quiet.
+          var refused = queue.refused === undefined ? [] : queue.refused;
+          if (refused.length > 0) slot.appendChild(el("p", N.teamEmpty, unreadableText(refused)));
           if (waiting.length === 0) {
             slot.appendChild(el("p", N.teamEmpty, "no mail is waiting"));
             return;
