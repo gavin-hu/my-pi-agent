@@ -42,7 +42,7 @@ want the agent to *think first and work safely*:
   own branch in a `git worktree`, and each prompt's first change is snapshotted,
   so a bad turn is one `/rewind` away.
 - **Remember across sessions.** Durable notes live in plain markdown that you
-  can read, edit, and version.
+  can read and edit.
 - **Reach the web and your files.** Search, fetch, browse, open, and read
   documents and spreadsheets from inside the session — and answer a WeChat chat
   through a bridge to the live session.
@@ -105,7 +105,7 @@ and command surface, opening with its capabilities.
 |---|---|---|
 | [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen, `enter\|exit\|prune`), `--worktree` | Work in an isolated `git worktree` on its own branch; the built-in tools follow. |
 | [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` status chip | Snapshot before each prompt's first change; restore code, conversation, or both. |
-| [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | Durable cross-session notes as markdown you can read, edit, and version. |
+| [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | Durable cross-session notes as markdown you can read and edit. |
 
 ### Reach the world
 

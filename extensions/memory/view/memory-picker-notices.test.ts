@@ -1,14 +1,15 @@
 /**
- * What the picker says after a merge, an update or a forget — the store's answer, not the
- * screen's intention.
+ * What the picker says after an action — completed, refused, or never attempted.
  *
  * `format.test.ts` holds the words; this holds the part a pure function cannot prove, which is
- * that the picker asks and reads the answer — and that a refusal leaves the focus where it was
- * instead of moving it to a note that does not exist.
+ * that the picker asks and reads the answer — that a refusal leaves the focus where it was
+ * instead of moving it to a note that does not exist, and that a note past the tool's own cap
+ * is turned away before the store is asked at all.
  */
 
 import { describe, expect, test } from "bun:test";
 import { settle } from "../../../test/helpers/process.ts";
+import { MAX_ENTRY_CHARS } from "../schema.ts";
 import { pickerOver } from "../../../test/helpers/fixtures/memory.ts";
 
 describe("MemoryPickerComponent notices", () => {
@@ -60,6 +61,27 @@ describe("MemoryPickerComponent notices", () => {
 		h.input("\r");
 		expect(h.text()).toContain("Memory \u00b7 Edit project");
 		expect(h.text()).toContain("a note");
+	});
+
+	test("a note past the tool's cap is refused with the same number, before the store is asked", async () => {
+		const added: string[] = [];
+		const h = pickerOver({
+			overrides: {
+				add: async (_scope, text) => {
+					added.push(text);
+					return { changed: true };
+				},
+			},
+		});
+
+		h.input("a");
+		for (const key of "x".repeat(MAX_ENTRY_CHARS + 1)) h.input(key);
+		h.input("\r");
+		await settle();
+
+		// The sentence is built from the tool's constant, so the two cannot drift apart.
+		expect(h.text()).toContain(`A note must be at most ${MAX_ENTRY_CHARS} characters.`);
+		expect(added).toEqual([]);
 	});
 
 	test("a forget that matched nothing says so, and leaves the note on screen", async () => {

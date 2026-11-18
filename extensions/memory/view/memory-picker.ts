@@ -35,11 +35,9 @@ import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { messageOf } from "../errors.ts";
 import { mutationNotice, scopeLabel, type MemoryEntries } from "../format.ts";
+import { MAX_ENTRY_CHARS } from "../schema.ts";
 import { noteLabel } from "../types.ts";
 import type { MemoryScope } from "../types.ts";
-
-/** Note limit enforced by the `memory` tool; the picker mirrors it so a save is never rejected late. */
-const MAX_NOTE_CHARS = 500;
 
 /** Rows the screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
@@ -220,7 +218,7 @@ export class MemoryPickerComponent implements Component {
 		this.mergePair = { first, second };
 		this.editorScope = first.scope;
 		// The user writes the merged wording; the seed only saves retyping both notes.
-		this.editor.setText(`${first.text}; ${second.text}`.slice(0, MAX_NOTE_CHARS));
+		this.editor.setText(`${first.text}; ${second.text}`.slice(0, MAX_ENTRY_CHARS));
 		this.syncEditorFocus();
 		this.requestRender();
 	}
@@ -261,8 +259,8 @@ export class MemoryPickerComponent implements Component {
 			this.requestRender();
 			return;
 		}
-		if (text.length > MAX_NOTE_CHARS) {
-			this.notice = `A note must be at most ${MAX_NOTE_CHARS} characters.`;
+		if (text.length > MAX_ENTRY_CHARS) {
+			this.notice = `A note must be at most ${MAX_ENTRY_CHARS} characters.`;
 			this.requestRender();
 			return;
 		}

@@ -37,7 +37,7 @@ Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，�
   同一仓库上的多个会话通过共享总线协作。
 - **绝不搞乱检出区。** 隔离只需一条命令：任务切到自己分支的 `git worktree` 中，
   每次提示的首次改动都会生成快照，因此一次糟糕的回合只需一个 `/rewind` 就能回退。
-- **跨会话记忆。** 持久笔记以纯 Markdown 保存，可读、可改、可纳入版本控制。
+- **跨会话记忆。** 持久笔记以纯 Markdown 保存，可读、可改。
 - **连通网络与文件。** 在会话内搜索、抓取、浏览、打开和读取文档与表格，还可通过桥接
   在微信里直接回答当前会话。
 
@@ -94,7 +94,7 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 |---|---|---|
 | [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置工具会跟随。 |
 | [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` 状态标记 | 在每次提示的首次改动前生成快照，可恢复代码、对话或两者。 |
-| [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | 跨会话的持久笔记，以可读、可改、可纳入版本控制的 Markdown 保存。 |
+| [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | 跨会话的持久笔记，以可读、可改的 Markdown 保存。 |
 
 ### 连通外部世界
 
