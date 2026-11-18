@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `check`: a headless browser that dies mid-file is reported as that, in milliseconds, instead of
+  as the case's own 30-second budget. The handle records its process's exit, a suite's reload path
+  throws a sentence naming the signal before it spends a case, and our own `close()` is not a
+  death — three full runs tonight went red on one 30,000 ms case in a file the card never touched,
+  in a suite that alone takes four seconds.
 - `file-browse`: a request under `/api/` that is refused now answers JSON, whatever refused it —
   an unmatched path, a method that is not `GET`, a foreign `Host`. Only the catch after routing
   knew the namespace, so `/api/nope` was 59 KB of the page shell where `/api/tree` is JSON, and a

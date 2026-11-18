@@ -16,6 +16,7 @@ import { EXTENSION_SUITES, declaredSuiteFiles } from "./suite-manifest.ts";
 
 const ROOT_TEST_FILES = new Set([
 	"boundaries.test.ts",
+	"browser-handle.test.ts",
 	"config-docs.test.ts",
 	"conventions.test.ts",
 	"dependencies.test.ts",
