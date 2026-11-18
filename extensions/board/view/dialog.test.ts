@@ -75,8 +75,8 @@ describe("the dialog's document", () => {
 		// The ladder's values start at one column in every section: the floor is the longest
 		// label the ladder has, so a section of short ones lines up with the sections above it.
 		expect(BOARD_CSS).toContain("grid-template-columns:minmax(6.5rem,max-content)");
-		// The promise is not a rung: three lines that wrap at body size, because a contract
-		// line is up to 400 characters and a clipped promise cannot be checked.
+		// The promise is not a rung: three lines that wrap at body size, because a clipped promise
+		// cannot be checked and the panel is wide enough to draw one that went on.
 		const contract = ownRules().match(/\.board-dialog__contract dd\{[^}]*\}/)?.[0] ?? "";
 		expect(contract).toContain("--fs-base");
 		expect(contract).toContain("overflow-wrap:anywhere");

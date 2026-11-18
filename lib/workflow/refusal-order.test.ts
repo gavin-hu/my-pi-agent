@@ -26,6 +26,7 @@ import {
 	refusal,
 } from "../../test/helpers/fixtures/board-rules.ts";
 import { MAX_BLOCKED, MAX_NOTE } from "./card.ts";
+import { MAX_CONTRACT } from "./contract.ts";
 import { reviewGate } from "./lead.ts";
 
 describe("a review's note", () => {
@@ -61,8 +62,10 @@ describe("a contract's lines", () => {
 			return proved();
 		};
 		expect(
-			refusal(applyOp(card, { kind: "contract", artifact, goal: "x".repeat(401) }, CORE, NOW, boardOf(card))),
-		).toBe("goal is 401 characters; the limit is 400 — trim 1.");
+			refusal(
+				applyOp(card, { kind: "contract", artifact, goal: "x".repeat(MAX_CONTRACT + 1) }, CORE, NOW, boardOf(card)),
+			),
+		).toBe(`goal is ${MAX_CONTRACT + 1} characters; the limit is ${MAX_CONTRACT} — trim 1.`);
 		expect(asked).toBe(0);
 	});
 });

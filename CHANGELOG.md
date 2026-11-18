@@ -34,6 +34,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   call runs (`- key: expected to match ^[A-Za-z0-9._:-]+$`) instead of a session discovering it by
   failing.
 
+- `board`: a contract line may run to 600 characters (was 400) and a note to 1200 (was 1000), so a
+  promise of seven clauses and the evidence answering it fit. A contract line is also a read-time
+  bound: an older build of this package, still at the same `v: 2`, skips a card whose `goal`,
+  `acceptance`, `scopeOut` or `verify` passed 400 and reports it as a file it cannot read, so a board
+  shared with a session on an older build is read once every session has moved. A note is held to its
+  cap on write only — a longer one still reads on an older build — and the `text` a sign records
+  shares the note's 1200.
+
 ### Fixed
 
 - `plan`: the browser review's view switch counts what it hid under the control it pressed, and the

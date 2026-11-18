@@ -7,7 +7,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { Card } from "./card.ts";
+import { MAX_NOTE, type Card } from "./card.ts";
+import { MAX_CONTRACT } from "./contract.ts";
 import { countIn, DEFAULT_WIP, limitOf, MAX_WIP, normalizeWip, ownerRefusal, wipRefusal } from "./limits.ts";
 
 /** `n` cards in one lane, which is all a count needs. */
@@ -23,6 +24,15 @@ function held(
 ): Card {
 	return { id, lane, owner } as Card;
 }
+
+describe("the write caps", () => {
+	test("are the numbers this build chose", () => {
+		// The one place each number is spelled, because only a pin says the cap is the number we decided
+		// on: the boundary cases in their own suites derive from the constants, so they honour any value.
+		expect(MAX_CONTRACT).toBe(600);
+		expect(MAX_NOTE).toBe(1200);
+	});
+});
 
 describe("normalizeWip", () => {
 	test("an absent setting keeps the defaults", () => {

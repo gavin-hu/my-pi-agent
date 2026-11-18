@@ -9,8 +9,9 @@
 
 import type { Static } from "typebox";
 import { Type } from "typebox";
-import { MAX_NOTE, PRIORITIES } from "../../lib/workflow/card.ts";
+import { MAX_BLOCKED, MAX_NOTE, PRIORITIES } from "../../lib/workflow/card.ts";
 import { CARD_TYPES } from "../../lib/workflow/kind.ts";
+import { MAX_CONTRACT } from "../../lib/workflow/contract.ts";
 import { listOf } from "../../lib/format.ts";
 import { BLOCKERS } from "../../lib/workflow/card.ts";
 import { LANES, movableLanes } from "../../lib/workflow/lanes.ts";
@@ -47,7 +48,8 @@ export const BoardParams = Type.Object({
 	blockedBy: Type.Optional(
 		Type.String({
 			description:
-				"`move` to `blocked`: what it waits on — the decision a person owes, one line, at most 200 characters.",
+				"`move` to `blocked`: what it waits on — the decision a person owes, one line, " +
+				`≤${MAX_BLOCKED} characters.`,
 		}),
 	),
 	blocker: Type.Optional(
@@ -91,18 +93,23 @@ export const BoardParams = Type.Object({
 				"`contract`, required: the plan file this card is executed against — the path `plan` action `write` returned, inside this repository's plan store.",
 		}),
 	),
-	goal: Type.Optional(Type.String({ description: "`contract`: what the feature is for, one line, ≤400 characters." })),
+	goal: Type.Optional(
+		Type.String({ description: `\`contract\`: what the feature is for, one line, ≤${MAX_CONTRACT} characters.` }),
+	),
 	acceptance: Type.Optional(
-		Type.String({ description: "`contract`: how a reader can tell it is done, one line, ≤400 characters." }),
+		Type.String({
+			description: `\`contract\`: how a reader can tell it is done, one line, ≤${MAX_CONTRACT} characters.`,
+		}),
 	),
 	verify: Type.Optional(
 		Type.String({
-			description:
-				"`contract`, required: the command its acceptance is checked by, which the spot-check runs and records.",
+			description: `\`contract\`, required: the command its acceptance is checked by — one line, ≤${MAX_CONTRACT} characters — which the spot-check runs and records.`,
 		}),
 	),
 	scopeOut: Type.Optional(
-		Type.String({ description: "`contract`: what this deliberately does not do, one line, ≤400 characters." }),
+		Type.String({
+			description: `\`contract\`: what this deliberately does not do, one line, ≤${MAX_CONTRACT} characters.`,
+		}),
 	),
 	priority: Type.Optional(
 		Type.Union(

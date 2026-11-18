@@ -248,17 +248,15 @@ describe("the contract", () => {
 		).toBe("#4 is held by billing-core. Only its owner records a plan.");
 	});
 
-	test("holds each line to one line and its cap", () => {
+	test("holds each line to one line", () => {
 		const card = claimed();
 		// A line is flattened at the boundary: a goal that arrives with a newline is stored as
-		// the one line a row and a dialog rung can hold.
+		// the one line a row and a dialog rung can hold. The cap is the same boundary's, and
+		// `contract.test.ts` and `refusal-order.test.ts` own that sentence.
 		const multi = accepted(
 			applyOp(card, { kind: "contract", artifact: proved(), goal: "two\nlines" }, CORE, NOW, boardOf(card)),
 		).card;
 		expect(multi.contract?.goal).toBe("two lines");
-		expect(
-			refusal(applyOp(card, { kind: "contract", artifact: proved(), goal: "x".repeat(401) }, CORE, NOW, boardOf(card))),
-		).toBe("goal is 401 characters; the limit is 400 — trim 1.");
 	});
 });
 

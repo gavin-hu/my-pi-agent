@@ -75,7 +75,7 @@ export const BLOCKERS = ["contract", "dependency", "decision"] as const;
 export type BlockerKind = (typeof BLOCKERS)[number];
 
 /** Longest single note, in characters. */
-export const MAX_NOTE = 1000;
+export const MAX_NOTE = 1200;
 
 /** How many notes one card keeps; the oldest drops past this, counted in `notesDropped`. */
 export const MAX_NOTES = 8;

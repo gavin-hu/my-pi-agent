@@ -186,8 +186,9 @@ __INLINE_MARKDOWN__
     };
 
     // The contract is the promise, so it is a block of its own at body size and wrapping,
-    // not three rungs clipped to one line: each line is up to 400 characters and is what a
-    // reader agreed to and what a reviewer checks word by word. The block belongs to the
+    // not three rungs clipped to one line: the dialog's panel is wide enough to draw a line
+    // that went on, and a promise is what a reader agreed to and what a reviewer checks
+    // word by word, so nothing about it may be cut. The block belongs to the
     // "contract" section, so a card with none leaves every row hidden and the section's own
     // rule takes the heading with it.
     var contract = card.contract;
