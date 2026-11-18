@@ -23,6 +23,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `todo`: an `in_progress` item no longer has to carry an `activeForm`. The label was only ever
+  drawn, and the row already fell back to its task text, so refusing the call spent the whole list
+  — a rejected write is atomic — on a presentational field, and a pending row's label is never
+  shown, so a list rebuilt from the transcript could not carry one forward. The label is asked for
+  by the guideline rather than enforced: the rail, the widget, `/todos` and the tool result all
+  fall back to the content, and `plan`'s merge no longer synthesises one to satisfy the tool.
+
 - `board`: `/board approve`, `/board review` and `/board archive` are the lead's — a peer session can
   no longer sign or sweep, and a lead holding a card releases it before signing, which the command used
   to sign around. The gate reads the label of the session that typed the line, so the session serving

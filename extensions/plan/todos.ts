@@ -95,9 +95,8 @@ export function mirrorStepStatuses(existing: ExistingTodo[], updates: readonly S
 
 /**
  * Merge the plan's steps into an existing list. Existing items come first and
- * keep their status, a legacy in-progress item without an `activeForm` gets its
- * content as one so the todo tool accepts it, and the appended steps stop at
- * `max` items — the rest are counted as deferred, never dropped.
+ * keep their status, and the appended steps stop at `max` items — the rest are
+ * counted as deferred, never dropped.
  *
  * `trailing` is the plan's verification summary: it is appended after every step
  * (still subject to the same duplicate and cap rules) but is not counted as a
@@ -139,9 +138,7 @@ export function mergeTodos(
 		if (ours.has(key)) seeded.push(todo.content);
 		kept.push(todo);
 	}
-	const todos: ExistingTodo[] = kept.map((todo) =>
-		todo.status === "in_progress" && !todo.activeForm ? { ...todo, activeForm: todo.content } : todo,
-	);
+	const todos: ExistingTodo[] = [...kept];
 	const seen = new Set(todos.map((todo) => normalizeStepText(todo.content)));
 	let added = 0;
 	let skipped = 0;

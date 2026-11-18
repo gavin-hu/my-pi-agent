@@ -187,11 +187,14 @@ describe("normalizeTodos", () => {
 		expect(dropped.activeForm).toBeUndefined();
 	});
 
-	test("rejects an in_progress item without an activeForm", () => {
-		expect(() => normalizeTodos([{ content: "Run tests", status: "in_progress" }])).toThrow("activeForm is required");
-		expect(() => normalizeTodos([{ content: "Run tests", status: "in_progress", activeForm: "   " }])).toThrow(
-			"activeForm is required",
-		);
+	test("keeps an in_progress item that has no activeForm", () => {
+		expect(normalizeTodos([{ content: "Run tests", status: "in_progress" }])).toEqual([
+			{ content: "Run tests", status: "in_progress" },
+		]);
+		// A blank one is dropped rather than refused, so the row falls back to its content.
+		expect(normalizeTodos([{ content: "Run tests", status: "in_progress", activeForm: "  " }])).toEqual([
+			{ content: "Run tests", status: "in_progress" },
+		]);
 	});
 
 	test("rejects an over-long activeForm", () => {
@@ -200,17 +203,10 @@ describe("normalizeTodos", () => {
 		).toThrow(`activeForm is longer than ${MAX_CONTENT}`);
 	});
 
-	test("can accept a legacy in_progress item without an activeForm", () => {
-		expect(normalizeTodos([{ content: "Run tests", status: "in_progress" }], { requireActiveForm: false })).toEqual([
-			{ content: "Run tests", status: "in_progress" },
-		]);
-	});
-
 	test("accepts every declared status, in any case", () => {
 		for (const status of TODO_STATUSES) {
-			const extra = status === "in_progress" ? { activeForm: "Doing it" } : {};
 			for (const form of [status, status.toUpperCase()]) {
-				expect(normalizeTodos([{ content: "A", status: form, ...extra }])[0].status, form).toBe(status);
+				expect(normalizeTodos([{ content: "A", status: form }])[0].status, form).toBe(status);
 			}
 		}
 	});

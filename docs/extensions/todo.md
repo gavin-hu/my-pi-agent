@@ -46,7 +46,8 @@ a change you ask for lands in one step rather than as a series of edits. A call
 that breaks a rule is refused with the previous list intact, so the model retries
 instead of half-applying:
 
-- one item in progress at a time, and the active row says what is happening;
+- one item in progress at a time, whose row shows a present-continuous label when
+  the model gives one and its task text otherwise;
 - at most 50 items, at most 500 characters each;
 - non-empty, unique text;
 - each row is squeezed to one line, so a long task never breaks the rail.

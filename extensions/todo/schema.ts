@@ -24,7 +24,7 @@ export const TodoItem = Type.Object({
 	activeForm: Type.Optional(
 		Type.String({
 			description:
-				'Present-continuous label shown while in progress, e.g. "Running tests". Required when the item is in_progress.',
+				'Present-continuous label drawn in place of the content while in progress, e.g. "Running tests". Optional: without one the row shows its content.',
 		}),
 	),
 });

@@ -39,7 +39,7 @@ export interface ExistingTodo {
 	content: string;
 	/** Where the item sits in the list. */
 	status: TodoStatus;
-	/** Present-continuous label the todo tool requires for an in-progress item. */
+	/** Present-continuous label drawn in place of the content while in progress. */
 	activeForm?: string;
 }
 
@@ -51,27 +51,16 @@ function normalizeTodoStatus(raw: unknown, index: number): TodoStatus {
 	throw new Error(`Todo ${index + 1}: status must be one of ${TODO_STATUSES.join(", ")}.`);
 }
 
-/** Options for {@link normalizeTodos}. */
-export interface NormalizeOptions {
-	/**
-	 * Require a non-blank `activeForm` on `in_progress` items. Live tool input
-	 * enforces this (the default); branch replay passes `false` so lists written
-	 * before the rule was added still load.
-	 */
-	requireActiveForm?: boolean;
-}
-
 /**
  * Validate and normalize a todo list.
  *
  * Content and `activeForm` are sanitized to a single safe line (see
  * `sanitizeLine`). Rejects an empty description, an unknown status, duplicate
- * content, an over-long field, more than one `in_progress` item, and — unless
- * `options.requireActiveForm` is `false` — an `in_progress` item without a
- * non-blank `activeForm`. `activeForm` is dropped when blank.
+ * content, an over-long field, and more than one `in_progress` item.
+ * `activeForm` is optional: it is dropped when blank, and the display falls back
+ * to the content, so a missing label costs a label rather than the list.
  */
-export function normalizeTodos(raw: unknown, options: NormalizeOptions = {}): ExistingTodo[] {
-	const requireActiveForm = options.requireActiveForm ?? true;
+export function normalizeTodos(raw: unknown): ExistingTodo[] {
 	if (raw === undefined || raw === null) return [];
 	if (!Array.isArray(raw)) throw new Error("todos must be an array.");
 	if (raw.length > MAX_TODOS) throw new Error(`At most ${MAX_TODOS} todos are allowed.`);
@@ -99,11 +88,6 @@ export function normalizeTodos(raw: unknown, options: NormalizeOptions = {}): Ex
 		if (activeForm.length > MAX_CONTENT) {
 			throw new Error(`Todo ${i + 1}: activeForm is longer than ${MAX_CONTENT} characters.`);
 		}
-		if (status === "in_progress" && requireActiveForm && !activeForm) {
-			throw new Error(
-				`Todo ${i + 1}: activeForm is required for an in_progress item (present-continuous, e.g. "Running tests").`,
-			);
-		}
 		todos.push(activeForm ? { content, status, activeForm } : { content, status });
 	}
 
@@ -126,7 +110,7 @@ export function lastTodos(entries: Iterable<unknown>): ExistingTodo[] {
 		const details = toolResultDetails(raw, TODO_TOOL);
 		if (!details || !Array.isArray(details.todos)) continue;
 		try {
-			todos = normalizeTodos(details.todos, { requireActiveForm: false });
+			todos = normalizeTodos(details.todos);
 		} catch {
 			// Keep the previous list.
 		}
