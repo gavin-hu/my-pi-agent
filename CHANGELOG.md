@@ -17,7 +17,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   file unchanged. The label is the session's, resolved once at `session_start` from the bus
   roster and the session name — never a tool parameter, so the model cannot choose its own
   attribution — and a session nothing knows writes an unattributed note rather than inventing
-  a name. An `update` refreshes it: whoever last corrected a note is the one asserting it now.
+  a name. An `update` or a `merge` refreshes it: whoever last wrote the note is the one asserting
+  it now, so a merged pair carries the name of the session that combined it.
 
 ### Changed
 
