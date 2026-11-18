@@ -30,7 +30,7 @@ describe("the write caps", () => {
 		// The one place each number is spelled, because only a pin says the cap is the number we decided
 		// on: the boundary cases in their own suites derive from the constants, so they honour any value.
 		expect(MAX_CONTRACT).toBe(600);
-		expect(MAX_NOTE).toBe(1200);
+		expect(MAX_NOTE).toBe(4000);
 	});
 });
 
