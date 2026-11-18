@@ -44,6 +44,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a card the landing chain cannot name a merge for can be closed by instruction. The `done`
+  refusal told a squashed branch to "close it by instruction with `override`", while `override` was
+  refused unless the card was already `done` — so the only card that needed the door could not reach
+  it. `move` to `done` now takes `override`: the lead's or the person's one line saying why, accepted
+  for a reviewed commit the branch holds and no merge carried, and refused where the commit is not on
+  the branch at all, because a reason cannot stand in for code. The close records no landing and says
+  `closed by instruction: …` in the card's notes, and both refusals now name only doors that open.
+
 - `board`: warn text clears WCAG AA on the raised plane in the light theme. `--warn` was mapped
   straight from the theme's yellow, which a terminal wears on a dark canvas; a page puts 13px warn
   text on `--raised` — the card face's priority word, a warn reason line, the dialog's approval —

@@ -30,7 +30,7 @@
  */
 
 import type { ArtifactProof } from "./artifact.ts";
-import type { LandingProof } from "./contract.ts";
+import type { LandingVerdict } from "./landing.ts";
 import {
 	type Card,
 	type CardBlock,
@@ -88,8 +88,10 @@ export type CardOp =
 			blockedBy?: unknown;
 			blocker?: unknown;
 			artifact?: ArtifactProof;
-			/** What the door read about the branch a card landed on, for a move to `done`. */
-			landed?: LandingProof;
+			/** What the door read about the branch a card landed on, for a move to `done`: the answer. */
+			landed?: LandingVerdict;
+			/** Whether a person may close it where no merge could be named, and their one line why. */
+			instruction?: { text: string } | { error: string };
 			/**
 			 * What the bus says about the session holding the card, for a move to `done`.
 			 *

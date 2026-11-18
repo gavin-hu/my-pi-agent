@@ -79,7 +79,7 @@ export const BoardParams = Type.Object({
 	),
 	override: Type.Optional(
 		Type.String({
-			description: "`review`: why, for a card already `done`; the record says `closed by instruction`.",
+			description: "`move` to `done`: why, when no merge can be named.",
 		}),
 	),
 	root: Type.Optional(
@@ -90,7 +90,7 @@ export const BoardParams = Type.Object({
 	path: Type.Optional(
 		Type.String({
 			description:
-				"`contract`, required: the plan file this card is executed against — the path `plan` action `write` returned, inside this repository's plan store.",
+				"`contract`, required: the plan file this card is executed against — the path `plan` action `write` returned.",
 		}),
 	),
 	goal: Type.Optional(

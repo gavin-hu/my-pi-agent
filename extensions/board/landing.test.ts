@@ -13,7 +13,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Card } from "../../lib/workflow/card.ts";
-import { landingFor, landingGate, reviewedAncestor } from "../../lib/workflow/contract.ts";
+import { landingFor, landingGate, reviewedAncestor } from "../../lib/workflow/landing.ts";
 import { resolvedByMerge } from "../../lib/git/read.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
