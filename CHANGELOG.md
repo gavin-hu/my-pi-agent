@@ -44,6 +44,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: warn text clears WCAG AA on the raised plane in the light theme. `--warn` was mapped
+  straight from the theme's yellow, which a terminal wears on a dark canvas; a page puts 13px warn
+  text on `--raised` — the card face's priority word, a warn reason line, the dialog's approval —
+  where it reached 4.34:1. The token is a step toward the text per appearance now: 0.1 for light
+  (`#8e6004`, 4.89:1) and none for dark, whose yellow already reaches 6.03:1, so the terminal's own
+  colour is untouched and the step is pinned to its inputs and its ratio. The light tab icon follows
+  the same derived value; the dark one keeps the theme's amber. The board, Team and card-dialog
+  screenshots are recaptured, and two stale height attributes with them.
+
 - `board`: the card dialog's fields read the way the transcript's lines do. A paths row copies as
   `a, b, c` instead of running the hints together, and the plan row names the plan — its file name,
   with the whole path one hover away — because the row elided from the front and the name is the part

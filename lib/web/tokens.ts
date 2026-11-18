@@ -42,7 +42,6 @@ const ROLES: ReadonlyArray<readonly [token: string, variable: string]> = [
 	["--accent-2", "pink"],
 	["--success", "green"],
 	["--danger", "red"],
-	["--warn", "yellow"],
 	["--success-soft", "successBg"],
 	["--danger-soft", "errorBg"],
 ];
@@ -79,6 +78,7 @@ const DERIVED: Record<
 		borderStrongStep: number;
 		accentAlpha: number;
 		searchStep: number;
+		warnStep: number;
 		scrim: string;
 		shadow1: string;
 		shadow2: string;
@@ -98,6 +98,9 @@ const DERIVED: Record<
 		// is under AA, so the paper takes a step toward the canvas: 4.97:1 for `--muted`, 4.64:1 for
 		// `--dim`, and still amber.
 		searchStep: 0.4,
+		// Nothing to step: the theme's yellow on the raised plane already reaches 6.03:1, past the
+		// 4.5 a page asks of 13px text, so the dark page keeps the colour the terminal states.
+		warnStep: 0,
 		scrim: "rgba(3,6,12,.62)",
 		shadow1: "0 1px 2px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.35)",
 		shadow2: "0 8px 24px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.4)",
@@ -114,6 +117,10 @@ const DERIVED: Record<
 		// Nothing to step: the theme's highlight already clears 4.5 for both tiers on a light canvas
 		// (5.93:1 for `--muted`, 4.88:1 for `--dim`), so light's paper stays the theme's value.
 		searchStep: 0,
+		// A terminal wears its yellow as foreground on a dark canvas; a page puts 13px warn text on the
+		// raised plane, where the theme's own value reaches 4.34:1. A tenth of the way toward the text
+		// is 4.89:1 — margin rather than the 0.05 that would pass at 4.58.
+		warnStep: 0.1,
 		scrim: "rgba(15,23,42,.32)",
 		shadow1: "0 1px 2px rgba(16,24,40,.06),0 2px 8px rgba(16,24,40,.08)",
 		shadow2: "0 8px 24px rgba(16,24,40,.12),0 1px 3px rgba(16,24,40,.08)",
@@ -193,6 +200,10 @@ function paletteOf(appearance: Appearance): Record<string, string> {
 	tokens["--border-strong"] = mix(theme.vars.canvas ?? "", theme.vars.text ?? "", steps.borderStrongStep);
 	// One step above `--surface`, for a block that must read as a plane rather than an outline.
 	tokens["--raised"] = mix(theme.vars.canvasSubtle ?? "", theme.vars.text ?? "", steps.raisedStep);
+	// Small warn text is a page's need rather than a terminal's, so the colour is the theme's yellow
+	// stepped toward the text per appearance — the one reason this token is derived here instead of
+	// mapped in `ROLES`. Ratios live with the step.
+	tokens["--warn"] = mix(theme.vars.yellow ?? "", theme.vars.text ?? "", steps.warnStep);
 	tokens["--accent-soft"] = rgba(theme.vars.blue ?? "", steps.accentAlpha);
 	tokens["--search-soft"] = mix(theme.vars.searchBg ?? "", theme.vars.canvas ?? "", steps.searchStep);
 	// A label on the accent fill is the canvas colour: the light theme's dark blue takes white,
