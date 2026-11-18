@@ -68,6 +68,29 @@ describe("todo tool", () => {
 		expect(runtime.getTodos()).toHaveLength(2);
 	});
 
+	test("accepts an in_progress item with no activeForm and names it by its content", async () => {
+		const { tool, runtime } = setup();
+		const { ctx } = fakeCtx();
+		const result = await callTool(
+			tool,
+			{
+				todos: [
+					{ content: "Write schema", status: "completed" },
+					{ content: "Send review findings", status: "in_progress" },
+				],
+			},
+			ctx,
+		);
+
+		expect(result.isError).toBeUndefined();
+		expect(result.details.todos).toEqual([
+			{ content: "Write schema", status: "completed" },
+			{ content: "Send review findings", status: "in_progress" },
+		]);
+		expect(result.content[0].text).toBe("1/2 completed\nIn progress: Send review findings");
+		expect(runtime.getTodos()).toHaveLength(2);
+	});
+
 	test("declares an output schema and returns structured content", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();

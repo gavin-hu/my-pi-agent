@@ -39,6 +39,12 @@ describe("todo formatting", () => {
 		expect(formatTodoText([])).toBe("Todo list cleared.");
 	});
 
+	test("draws an unlabelled in-progress row from its content on every surface", () => {
+		const unlabelled: Todo[] = [{ content: "Send review findings", status: "in_progress" }];
+		expect(formatTodoText(unlabelled)).toBe("0/1 completed\nIn progress: Send review findings");
+		expect(formatTodoList(unlabelled)).toBe("1. ◒ Send review findings");
+	});
+
 	test("formatCallText shows only progress, never the item text", () => {
 		expect(formatCallText([])).toBe("→ clear list");
 		expect(formatCallText(undefined)).toBe("→ clear list");
@@ -61,6 +67,11 @@ describe("todo formatting", () => {
 describe("todoRailLines", () => {
 	test("draws each row at its own left edge, led by the status glyph", () => {
 		expect(todoRailLines({ rows: todos }, theme, 60)).toEqual(["✓ Write schema", "◒ Writing tests", "◌ Ship it"]);
+	});
+
+	test("falls back to the content of a row that carries no label", () => {
+		const unlabelled: Todo[] = [{ content: "Send review findings", status: "in_progress" }];
+		expect(todoRailLines({ rows: unlabelled }, theme, 60)).toEqual(["◒ Send review findings"]);
 	});
 
 	test("wraps a long label with continuation rows under the text column", () => {
@@ -116,6 +127,11 @@ describe("TodoWidget", () => {
 	test("falls back to a completion note when nothing is open", () => {
 		const done: Todo[] = todos.map((todo) => ({ ...todo, status: "completed" }));
 		expect(new TodoWidget(done, theme).render(60)).toEqual(["Todos · 3/3 completed"]);
+	});
+
+	test("names the current item by its content when it carries no label", () => {
+		const unlabelled: Todo[] = [{ content: "Send review findings", status: "in_progress" }];
+		expect(new TodoWidget(unlabelled, theme).render(60)).toEqual(["Todos · 0/1 · Send review findings"]);
 	});
 
 	test("renders nothing for an empty list", () => {

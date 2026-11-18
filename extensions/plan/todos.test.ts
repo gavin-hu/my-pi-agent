@@ -147,7 +147,7 @@ describe("plan approval merge", () => {
 
 	test("appends the plan's verification summary after the steps, not as a step", () => {
 		const merged = mergeTodos([{ content: "Halfway", status: "in_progress" }], [], DEFAULT_TODO_MAX);
-		expect(merged.todos).toEqual([{ content: "Halfway", status: "in_progress", activeForm: "Halfway" }]);
+		expect(merged.todos).toEqual([{ content: "Halfway", status: "in_progress" }]);
 	});
 
 	test("defers steps beyond the cap without dropping existing items", () => {
