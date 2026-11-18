@@ -14,7 +14,8 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { resolve } from "node:path";
 import type { ArtifactProof } from "../../lib/workflow/artifact.ts";
 import { cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
-import { isLead, type Lead, personActor, type Sign, signMark, signOf } from "../../lib/workflow/lead.ts";
+import type { Lead } from "../../lib/workflow/contract.ts";
+import { isLead, personActor, type Sign, signMark, signOf } from "../../lib/workflow/signs.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
 import type { Actor, CardOp } from "../../lib/workflow/rules.ts";
 import { landedClause, ranClause } from "../../lib/workflow/round-text.ts";

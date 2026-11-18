@@ -28,8 +28,10 @@
 import { overLimit, sanitizeLine } from "../format.ts";
 import type { Card } from "./card.ts";
 import type { Landing } from "./card.ts";
-import type { Lead } from "./lead.ts";
 import type { Actor } from "./rules.ts";
+
+/** The lead's team name: the label a signature has to carry, and the identity a card file records. */
+export type Lead = string;
 
 /**
  * The keys every contract file states, in the order a reader names them.

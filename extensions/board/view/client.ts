@@ -16,7 +16,7 @@
 
 import { ACTIVITY_LABEL_JS } from "../../../lib/workflow/activity.ts";
 import { MATCHES_QUERY_JS } from "../../../lib/workflow/card.ts";
-import { CURRENT_REVIEW_JS } from "../../../lib/workflow/lead.ts";
+import { CURRENT_REVIEW_JS } from "../../../lib/workflow/signs.ts";
 import { REASON_FOR_JS } from "../../../lib/workflow/reason.ts";
 import {
 	DECISION_BAND_JS,

@@ -380,15 +380,19 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * `board`'s and `team`'s rows go up one for `lib/workflow/kind.ts`: the card's kind and its two
  * normalizers are read by the record's parser and by every write that records a card, so
  * they cannot defer behind the call that needs one, and moving them out of `card.ts` is what
- * keeps that module under the line bar.
+ * keeps that module under the line bar. They go up one more for `lib/workflow/signs.ts`, by the
+ * same trade: the sign rules moved out of `lead.ts` to bring that module under the bar, and the
+ * new module cannot defer — `config.ts` reads `normalizeLead` before any surface draws,
+ * `steps.ts` reads `signMark` and `owesAnnouncement` on the write path, and `rules.ts` reads
+ * `announced` to decide an operation.
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
-	board: 63,
+	board: 64,
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
 	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks).
 	plan: 58,
-	team: 53,
+	team: 54,
 	job: 46,
 	"session-bus": 45,
 	subagent: 34,

@@ -46,7 +46,9 @@ import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
 import { archive, assign, claim, closedArchive, drop, edit, move, note, offer, release, reseat } from "./steps.ts";
 
-import { type HolderFact, announced, type NoticeField, reclaim, review } from "./lead.ts";
+import type { NoticeField } from "./contract.ts";
+import { announced, type HolderFact } from "./signs.ts";
+import { reclaim, review } from "./lead.ts";
 import type { NoticeKind } from "./notice.ts";
 import { approve, contractOp } from "./steps.ts";
 

@@ -25,7 +25,7 @@
 
 import { type Card, dependsOf } from "./card.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
-import { currentReview, signRecord } from "./lead.ts";
+import { currentReview, signRecord } from "./signs.ts";
 import { owesHandoff } from "./card.ts";
 import { labelKey } from "../session-label.ts";
 import { type Gate } from "./tone.ts";

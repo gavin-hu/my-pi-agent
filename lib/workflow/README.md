@@ -188,7 +188,7 @@ Each answers a `Prepared`: a refusal sentence, a no-op, or the fields a write wo
 `{ fields: null, changed: true }` is the one operation that changes the board without
 changing the record — `archive` moves the file, and that is the store's write.
 
-### the announcement, in lead.ts
+### the announcement, in signs.ts
 
 A sign nobody heard is a gate nobody knows is open, so the card records when its message was settled:
 `Sign.told`, absent while the sign still owes one. `signRecord` reads the sign a gate holds,
@@ -309,7 +309,7 @@ The sections are read together when the store opens, because a board that asked 
 write would spend a stat to answer a question nobody changed. `addTeammate` writes the whole list
 the project then states.
 
-The arithmetic of a limit stays in `limits.ts` and the signer rule stays in `lead.ts`; this
+The arithmetic of a limit stays in `limits.ts` and the signer rule stays in `signs.ts`; this
 module is the file. `extensions/bytefly` imports it too, so the settings screen shows what the
 loader keeps rather than a copy of the default.
 
@@ -399,22 +399,43 @@ The name arrives normalized by `config.ts`, so there is no second label rule her
 default name — a constant would be a second answer to what the config already says. The page
 writes nothing, so the id decides no ownership.
 
+### signs.ts
+
+What a sign is: who may write one, what it records, and which one still speaks. `Lead` (the
+team name a signature carries, declared in `contract.ts` beside the words a sign says),
+`normalizeLead` over [`../session-label.ts`](../session-label.ts), `isLead` (a case-insensitive
+label compare, which is not `holds`), and the person at the keyboard — `PERSON_LABEL` (`you`),
+`personActor` / `isPerson`, whose actor carries the id `person:you` — which is the actor
+`/board approve` and `/board review` write, and the one actor a file can name that is not a
+holder, so a repository worked by one session can still close a card.
+
+`signOf` names the two signs, `approve` and `review`, from one list, and `signMark` / `signedAs`
+are what a sign records and whose it is: the name *and* the person's mark, because a comparison on
+the label alone would read a session signing under the lead's name back as the person's.
+
+Which sign speaks is the question three readers must answer alike, so it is one rule here:
+`laneReview` asks whether this execution had one at all, `signStale` whether the card has been
+written since, and `currentReview` is both — the lead's queue, the card's reason line, and the
+`done` gate each read it rather than deciding for themselves. `CURRENT_REVIEW_JS` is the same
+four bodies as the page receives them, and one block because a caller that carries one carries all
+four.
+
+`HolderFact` binds a bus fact to the owner it was read for, and `appendNote` is the note cap's one
+arithmetic for both writers.
+
 ### lead.ts
 
-Who may sign the two gates, and the words each refusal uses. `Lead`, `normalizeLead` over
-[`../session-label.ts`](../session-label.ts), `isLead` (a case-insensitive label compare,
-which is not `holds`), and the person at the keyboard — `PERSON_LABEL` (`you`),
-`personActor` / `isPerson`, whose actor carries the id `person:you` — which is the actor
-`/board approve` and `/board review` write,
-and the one actor a file can name that is not a holder, so a repository worked by one session
-can still close a card.
+The gate ladder: why a call may move, sign, close or take a card back, and the sentence that says
+why not. `mayMove` admits the holder, and the lead for the two doors it owns; `leadCannot`,
+`heldBy`, `signRefusal` (not the lead), `holderRefusal` (a lead holding the card it means to sign)
+and `missingSign` (the sign a lane requires) are the words, so the gates and the lane requirements
+cannot drift into four versions of one rule. `askLead` is the table's one phrase for how a session
+asks (`session send`), `signedText` is what a sign sends the owner, and `notToldLine` is what the
+caller prints when that message did not go.
 
-`signOf` names the two signs, `approve` and `review`, from one list; `signRefusal` (not the lead), `holderRefusal` (a
-lead holding the card it means to sign), and `missingSign` (the sign a lane requires) are the
-three sentences, so the gates and the lane requirements cannot drift into four versions of
-one rule. `askLead` is the table's one phrase for how a session asks (`session send`),
-`signedText` is what a sign sends the owner, and `notToldLine` is what the caller prints when
-that message did not go.
+The refusals live here rather than in a module of their own because the ladder writes them:
+`mayMove`, `reviewGate` and `reclaim` each build the sentence for the state they found, so a
+sentences module would import the decisions it answers for.
 
 ## What a surface renders
 
@@ -573,5 +594,5 @@ snapshot's.
   of it; the tool's enum, the page's snapshot, and `steps.ts` all read it.
 - **One body per page rule.** Anything the browser bundle needs is a `*_JS` export here,
   spliced in by the extension's bundle — never a second copy written in JavaScript.
-- **One set of sign words.** `lead.ts` owns what each refusal and each sign says, so the two
+- **One set of sign words.** `contract.ts`'s `SIGN_WORDS` is what each refusal and each sign says, so the two
   gates and the lane requirements that ask for a signature cannot drift apart.

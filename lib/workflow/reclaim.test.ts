@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { type Card, cardRef } from "./card.ts";
-import type { HolderFact } from "./lead.ts";
+import type { HolderFact } from "./signs.ts";
 import type { SessionPresence } from "../session-roster.ts";
 import {
 	accepted,
