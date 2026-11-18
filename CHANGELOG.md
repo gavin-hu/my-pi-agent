@@ -44,6 +44,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `memory`: recall keeps the newest notes. `injectionPlan` filled the `[MEMORY]` block in file
+  order while `applyAdd` appends, so the byte cap dropped the notes learned most recently — 51
+  of this repository's 75 — and the tail telling the model to "use the memory tool" led to
+  `list`, which stops at 12 a scope for the model because `expanded` defaulted to false. The
+  block is packed newest first now, so an overflow drops the oldest, and the tail names both the
+  call and the store's size; the model's `list` text carries every note while the transcript
+  keeps its 12-note collapsed row, and an `update` writes the corrected note at the end of the
+  store, since position is what decides what survives. The trade is in the doc's Limits: a
+  project's founding rules are its oldest notes, so they are the first the cap drops.
+
 - `board`: warn text clears WCAG AA on the raised plane in the light theme. `--warn` was mapped
   straight from the theme's yellow, which a terminal wears on a dark canvas; a page puts 13px warn
   text on `--raised` — the card face's priority word, a warn reason line, the dialog's approval —

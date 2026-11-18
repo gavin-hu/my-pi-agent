@@ -217,6 +217,18 @@ describe("memory tool actions", () => {
 		expect(suite.read("project")).not.toContain("- remember me");
 	});
 
+	test("list gives the model every note, not the transcript's first twelve", async () => {
+		const notes = Array.from({ length: 20 }, (_, index) => `- note ${index}`);
+		suite.write("project", `${notes.join("\n")}\n`);
+		await suite.start();
+
+		const listed = await execute({ action: "list" });
+		const text = listed.content[0]?.text ?? "";
+
+		for (const line of notes) expect(text).toContain(`${line}\n`);
+		expect(text).not.toContain("more)");
+	});
+
 	test("a reworded add is a no-op that names the stored note", async () => {
 		suite.write("project", "- Use tabs\n");
 		await suite.start();

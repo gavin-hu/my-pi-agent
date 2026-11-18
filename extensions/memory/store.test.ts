@@ -184,15 +184,16 @@ describe("applyForget", () => {
 });
 
 describe("applyUpdate", () => {
-	test("replaces an exact note in place, keeping the marker and prose", () => {
+	test("moves the note to the end, keeping its marker and the prose", () => {
 		const result = applyUpdate("intro\n  * old note\n- other\n", "old note", "new note");
-		expect(result.changed).toBe(true);
-		expect(result.content).toBe("intro\n  * new note\n- other\n");
+		expect(result.content).toBe("intro\n- other\n  * new note\n");
 	});
 
-	test("replaces every exact match", () => {
+	test("removes every exact match and writes one note at the end", () => {
 		const result = applyUpdate("- old\n- keep\n- old\n", "old", "new");
-		expect(result.content).toBe("- new\n- keep\n- new\n");
+		expect(result.content).toBe("- keep\n- new\n");
+		// A store with no prose gains no header it did not have.
+		expect(applyUpdate("- old\n", "old", "new").content).toBe("- new\n");
 	});
 
 	test("reports no change when nothing matches or the note is unchanged", () => {
@@ -309,13 +310,12 @@ describe("memory runtime", () => {
 		expect(read("project")).toBe("- Use tabs\n");
 	});
 
-	test("update replaces an exact note and persists across a reload", async () => {
-		await runtime.add("project", "old note");
-		expect(await runtime.update("project", "old note", "new note")).toBe(true);
-
+	test("update moves the note to the newest position and persists across a reload", async () => {
+		suite.write("project", "- old note\n- newer note\n");
+		expect(await runtime.update("project", "old note", "corrected note")).toBe(true);
+		// Position is age: a correction is newest, and a reload reads that back off the file.
 		const reloaded = await load(true);
-		expect(reloaded.entries().project).toEqual(["new note"]);
-		expect(read("project")).not.toContain("old note");
+		expect(reloaded.entries().project).toEqual(["newer note", "corrected note"]);
 	});
 
 	test("update is a no-op when the text is unchanged", async () => {
