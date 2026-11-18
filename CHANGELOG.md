@@ -44,6 +44,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `memory`: the project store is the checkout's, not the worktree's. It resolved its root with
+  `git rev-parse --show-toplevel`, which inside `.pi/worktrees/x` answers the worktree — so an
+  isolated session started with no notes, wrote them into a `.pi/` that `exit_worktree
+  remove:true` deletes, and the doc's "every worktree reads the same file" was the one thing
+  that did not hold. It asks `settingsRootFor` now, the question `plan`, `board`, `team` and
+  `bytefly` already ask: the checkout a repository states its settings in, from a subdirectory
+  or a linked worktree alike. `/memory doctor` names the file each row read, which is what
+  would have shown a session staring at an empty store, and the report moved to its own suite so
+  that row and its cases have room. A worktree holding a `.pi/memory.md` from an older build
+  keeps it on disk and it stops being read: copy one across if it holds notes.
+
 - `memory`: recall keeps the newest notes. `injectionPlan` filled the `[MEMORY]` block in file
   order while `applyAdd` appends, so the byte cap dropped the notes learned most recently — 51
   of this repository's 75 — and the tail telling the model to "use the memory tool" led to

@@ -21,7 +21,7 @@ read and edit, and they survive `/new`, `/resume`, and `/tree`.
 | Forget one note | the picker's delete; the model can also `forget` it |
 | Clear a whole scope | `/memory clear` (behind a confirmation) |
 | Find where the files are | `/memory path` |
-| Check the store | `/memory doctor` — counts, bytes, the injection budget, near-duplicates |
+| Check the store | `/memory doctor` — the file each store resolved to, counts, bytes, the injection budget, near-duplicates |
 | Pick up a hand edit | `/memory reload` |
 
 ## Try it
@@ -43,10 +43,10 @@ corrected note at the end of the store, because position is age: a correction is
 newest thing known, not the oldest.
 
 **The stores.** The global file is `~/.pi/agent/memory.md`. The project store is
-anchored at the repository root, so a subdirectory and every worktree read the
-same file; it is read and written only while the project is trusted. Either store
-is written owner-only (`0600`), because a note is instruction the next session
-trusts.
+anchored at the checkout that holds the repository — from a worktree, the main
+checkout — so a subdirectory and every worktree read the same file; it is read and
+written only while the project is trusted. Either store is written owner-only
+(`0600`), because a note is instruction the next session trusts.
 
 **Recall.** Notes are injected as a `[MEMORY]` context block before each run,
 newest first, bounded by a byte cap. Past the cap the **oldest** notes are the ones
@@ -67,6 +67,9 @@ and move are in place, `/` filters, `r` reloads.
   size on every run: prune it when it says so.
 - A project's notes are trusted only while that project is; a global note is
   always read.
+- A worktree written by an older build may hold its own `.pi/memory.md`. It is not read
+  now — one store per repository — and it goes with the worktree, so copy it into the
+  checkout if it holds notes.
 - Notes are markdown on disk, so an edit outside Pi lands on the next read.
 
 ## Settings
