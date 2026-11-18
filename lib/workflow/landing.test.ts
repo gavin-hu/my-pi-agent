@@ -7,8 +7,15 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { Card } from "./card.ts";
-import { applyOp, boardOf, CORE, doneOf, executing, LEAD, NOW } from "../../test/helpers/fixtures/board-rules.ts";
+import {
+	applyOp,
+	boardOf,
+	closingCard,
+	CORE,
+	doneOf,
+	landingFor as proofOf,
+	NOW,
+} from "../../test/helpers/fixtures/board-rules.ts";
 import {
 	type LandingCommit,
 	type LandingProof,
@@ -20,6 +27,7 @@ import {
 	unlandedReview,
 	unprovedLanding,
 } from "./landing.ts";
+import { workStartedAt } from "./lanes.ts";
 
 /**
  * The shas a landing case reads: a base commit, the merge that carried a review, and one on top.
@@ -218,23 +226,13 @@ describe("the gate a landing answers", () => {
 });
 
 describe("closing a card by instruction", () => {
-	/** A reviewed card in `execute` whose sign names a commit. */
-	const closing = (owner = CORE): Card => ({
-		...executing(),
-		owner: { id: owner.id, label: owner.label },
-		review: {
-			by: LEAD.label,
-			at: NOW,
-			verified: { cmd: "bun run check", exit: 0, at: NOW, sha: "5d0dd0".padEnd(40, "0") },
-		},
-	});
 	/** The refusal a squash leaves, which is the only shape an instruction answers. */
 	const refused = { refusal: "no merge on `main` carries it" };
 
 	test("writes the instruction as a note, and no landing, when the door handed one in", () => {
 		// The decision moved to where the chain is read, so `applyOp` applies both halves it is handed:
 		// a verdict and an accepted instruction. What it must never do is invent a landing.
-		const card = closing();
+		const card = closingCard();
 		const held = applyOp(
 			card,
 			{ ...doneOf(card), landed: refused, instruction: { text: "landed as a squash on main" } },
@@ -250,7 +248,7 @@ describe("closing a card by instruction", () => {
 	});
 
 	test("writes no note when the door refused the instruction", () => {
-		const card = closing();
+		const card = closingCard();
 		const held = applyOp(
 			card,
 			{ ...doneOf(card), landed: refused, instruction: { error: "an instruction cannot stand in for code" } },
@@ -262,7 +260,7 @@ describe("closing a card by instruction", () => {
 	});
 
 	test("records the landing the verdict names, stamped with the write's own moment", () => {
-		const card = closing();
+		const card = closingCard();
 		const landed = applyOp(
 			card,
 			{ ...doneOf(card), landed: { landing: { sha: "abc1234" } } },
@@ -271,5 +269,24 @@ describe("closing a card by instruction", () => {
 			boardOf(card),
 		);
 		expect("ok" in landed && landed.ok ? landed.card.landed : undefined).toEqual({ sha: "abc1234", at: NOW });
+	});
+
+	test("the window is the rule's, not the case's: a merge before the work names nothing", () => {
+		// The assertion the cases above need in order to mean anything: their chains carry the reviewed
+		// commit *after* the work began, so a pass is the rule answering rather than an empty candidate
+		// set. This one moves the same merge behind `workStartedAt` and the answer flips.
+		const card = closingCard();
+		const started = workStartedAt(card);
+		const chain = [
+			{ sha: "0".repeat(39) + "1", at: started - 3_000, parents: ["0".repeat(39) + "1"] },
+			{ sha: "5d0dd0".padEnd(40, "0"), at: started - 2_000, parents: ["0".repeat(39) + "1"] },
+			{ sha: "b".repeat(40), at: started - 1_000, parents: ["5d0dd0".padEnd(40, "0")] },
+		];
+		const inside = proofOf(card, chain);
+		expect(landingGate(card.id, card.review?.verified?.sha, inside)).toContain("on `main`");
+		// The same chain read from a card whose work began before it: the window opens, and the refusal
+		// above is the rule rather than an empty set.
+		const early = { ...card, log: [], createdAt: started - 9_000 };
+		expect(landingGate(card.id, card.review?.verified?.sha, proofOf(early, chain))).toContain("on `main`");
 	});
 });
