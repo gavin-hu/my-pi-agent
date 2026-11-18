@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { duplicatePairs, formatHealth, memoryHealth } from "./doctor.ts";
+import { notesOf } from "../../test/helpers/fixtures/memory.ts";
 import { MAX_STORE_BYTES } from "./store.ts";
 
 const CONFIG = { inject: true, maxInjectBytes: 8192 };
@@ -25,7 +26,7 @@ describe("memory health", () => {
 		} = {},
 	) {
 		return memoryHealth({
-			entries: { project: over.project ?? [], global: over.global ?? [] },
+			entries: { project: notesOf(over.project ?? []), global: notesOf(over.global ?? []) },
 			sizes: { project: over.sizes?.project, global: over.sizes?.global },
 			paths: PATHS,
 			trusted: over.trusted ?? true,
@@ -63,14 +64,16 @@ describe("memory health", () => {
 	});
 
 	test("pairs notes the conservative key already treats as one fact", () => {
-		expect(duplicatePairs({ project: ["Use bun", "other", "use bun."], global: [] })).toEqual([
+		expect(duplicatePairs({ project: notesOf(["Use bun", "other", "use bun."]), global: [] })).toEqual([
 			{ scope: "project", kept: "Use bun", duplicate: "use bun." },
 		]);
 	});
 
 	test("keeps paraphrases apart", () => {
 		// The key never folds word order or internal punctuation.
-		expect(duplicatePairs({ project: ["Run unit tests with bun", "Use bun for tests"], global: [] })).toEqual([]);
+		expect(duplicatePairs({ project: notesOf(["Run unit tests with bun", "Use bun for tests"]), global: [] })).toEqual(
+			[],
+		);
 	});
 
 	test("prints counts, bytes, the budget, and that the store is clean", () => {

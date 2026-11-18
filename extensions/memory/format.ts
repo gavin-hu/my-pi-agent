@@ -6,7 +6,7 @@
  * bounded by a byte cap so a large store cannot crowd out the conversation.
  */
 
-import type { MemoryDetails, MemoryScope } from "./types.ts";
+import { noteLabel, type MemoryDetails, type MemoryNote, type MemoryScope } from "./types.ts";
 
 /** Marker heading the hidden injected context message. */
 export const MEMORY_CONTEXT_MARKER = "[MEMORY]";
@@ -18,8 +18,8 @@ const TAIL_RESERVE = 96;
 const LIST_CAP = 12;
 
 export interface MemoryEntries {
-	project: string[];
-	global: string[];
+	project: MemoryNote[];
+	global: MemoryNote[];
 }
 
 /** UTF-8 bytes, which is the unit every cap and byte count here speaks. */
@@ -32,7 +32,7 @@ export function scopeLabel(scope: MemoryScope): string {
 }
 
 /** `N project, M global` summary. */
-function countLine(entries: MemoryEntries): string {
+function countLine(entries: { project: unknown[]; global: unknown[] }): string {
 	return `${entries.project.length} project, ${entries.global.length} global`;
 }
 
@@ -58,6 +58,11 @@ export function formatCallText(
 	return text ? `→ ${action} (${scope}): ${text}` : `→ ${action} (${scope})`;
 }
 
+/** The labels a reader sees for one scope's notes: `[jack] text`, or the bare text. */
+export function noteLabels(notes: MemoryNote[]): string[] {
+	return notes.map(noteLabel);
+}
+
 function listLines(label: string, list: string[], expanded: boolean): string[] {
 	if (list.length === 0) return [`${label}: none`];
 	const shown = expanded ? list : list.slice(0, LIST_CAP);
@@ -69,7 +74,8 @@ function listLines(label: string, list: string[], expanded: boolean): string[] {
 /** Model-facing result text. */
 export function formatResultText(details: MemoryDetails, expanded = false): string {
 	if (details.error) return `Error: ${details.error}`;
-	const entries: MemoryEntries = { project: details.project, global: details.global };
+	// The details carry labels, so this half of the module renders strings and never unwraps a note.
+	const entries = { project: details.project, global: details.global };
 	switch (details.action) {
 		case "list":
 			return [
@@ -99,9 +105,11 @@ export function formatResultText(details: MemoryDetails, expanded = false): stri
 /** Multi-line text for the `/memory` command. */
 export function formatNotice(entries: MemoryEntries): string {
 	if (entries.project.length + entries.global.length === 0) return "No durable memory stored yet.";
-	return ["Memory:", ...listLines("project", entries.project, true), ...listLines("global", entries.global, true)].join(
-		"\n",
-	);
+	return [
+		"Memory:",
+		...listLines("project", noteLabels(entries.project), true),
+		...listLines("global", noteLabels(entries.global), true),
+	].join("\n");
 }
 
 /**
@@ -122,9 +130,11 @@ export interface InjectionPlan {
 
 /** Plan the injected body, or `undefined` when nothing is stored. */
 export function injectionPlan(entries: MemoryEntries, maxBytes: number): InjectionPlan | undefined {
+	const project = noteLabels(entries.project);
+	const global = noteLabels(entries.global);
 	const sections: Array<[MemoryScope, string[]]> = [];
-	if (entries.project.length > 0) sections.push(["project", entries.project]);
-	if (entries.global.length > 0) sections.push(["global", entries.global]);
+	if (project.length > 0) sections.push(["project", project]);
+	if (global.length > 0) sections.push(["global", global]);
 	if (sections.length === 0) return undefined;
 
 	const lines = [MEMORY_CONTEXT_MARKER, INTRO];

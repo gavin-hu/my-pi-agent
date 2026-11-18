@@ -35,6 +35,7 @@ import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { messageOf } from "../errors.ts";
 import { scopeLabel, type MemoryEntries } from "../format.ts";
+import { noteLabel } from "../types.ts";
 import type { MemoryScope } from "../types.ts";
 
 /** Note limit enforced by the `memory` tool; the picker mirrors it so a save is never rejected late. */
@@ -70,6 +71,8 @@ export interface MemoryPickerCallbacks {
 interface Note {
 	scope: MemoryScope;
 	text: string;
+	/** The session label that wrote it, when the store records one. */
+	by?: string;
 }
 
 /** Identity of a note: its scope and exact text (unique within a scope). */
@@ -128,7 +131,8 @@ export class MemoryPickerComponent implements Component {
 			filter === "all" ? (this.callbacks.trusted() ? ["project", "global"] : ["global"]) : [filter];
 		const notes: Note[] = [];
 		for (const scope of scopes) {
-			for (const text of entries[scope]) notes.push({ scope, text });
+			for (const note of entries[scope])
+				notes.push({ scope, text: note.text, ...(note.by === undefined ? {} : { by: note.by }) });
 		}
 		return notes;
 	}
@@ -458,13 +462,13 @@ export class MemoryPickerComponent implements Component {
 		return listRow(this.theme, width, {
 			selected,
 			leading: marked ? `${tag} ${paint(this.theme, "warn", "merge")}` : tag,
-			label: sanitizeLine(note.text),
+			label: sanitizeLine(noteLabel(note)),
 			labelRole: selected ? "accent" : "label",
 		});
 	}
 
 	private confirmPrompt(note: Note): string {
-		const label = sanitizeLine(note.text);
+		const label = sanitizeLine(noteLabel(note));
 		const clipped = label.length > 40 ? `${label.slice(0, 39)}…` : label;
 		return `Forget ${scopeLabel(note.scope)} note "${clipped}"? y/N`;
 	}

@@ -8,11 +8,11 @@ import type { MemoryPickerCallbacks } from "../../../extensions/memory/view/memo
 /** Notes the `/memory` picker lists, project scope first. */
 export const MEMORY_ENTRIES: MemoryEntries = {
 	project: [
-		"Run bun run check before every commit",
-		"Worktrees live in .pi/worktrees; one per task",
-		"Stage explicit paths; never git add -A",
+		{ text: "Run bun run check before every commit" },
+		{ text: "Worktrees live in .pi/worktrees; one per task" },
+		{ text: "Stage explicit paths; never git add -A" },
 	],
-	global: ["Prefer rg over grep for searches", "Ask before publishing a release"],
+	global: [{ text: "Prefer rg over grep for searches" }, { text: "Ask before publishing a release" }],
 };
 
 /**

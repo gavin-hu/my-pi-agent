@@ -229,6 +229,17 @@ describe("memory tool actions", () => {
 		expect(text).not.toContain("more)");
 	});
 
+	test("list names each note's author, and leaves an unattributed one bare", async () => {
+		suite.write("project", "- [jack] a peer's lesson\n- by hand\n");
+		await suite.start();
+
+		const listed = await execute({ action: "list" });
+		const text = listed.content[0]?.text ?? "";
+
+		expect(text).toContain("- [jack] a peer's lesson");
+		expect(text).toContain("- by hand");
+	});
+
 	test("a reworded add is a no-op that names the stored note", async () => {
 		suite.write("project", "- Use tabs\n");
 		await suite.start();

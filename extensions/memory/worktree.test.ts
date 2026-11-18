@@ -68,7 +68,7 @@ describe("an isolated session", () => {
 		const runtime = createMemoryRuntime(suite.pi);
 		await runtime.load(suite.cwd, true);
 
-		expect(runtime.entries().project).toEqual(["from the checkout"]);
+		expect(runtime.entries().project).toEqual([{ text: "from the checkout" }]);
 		runtime.reset();
 	});
 
@@ -156,7 +156,7 @@ describe.skipIf(!runSlowSuites)("the store of a real linked worktree", () => {
 
 			const checkout = createMemoryRuntime(realPi);
 			await checkout.load(repo, true);
-			expect(checkout.entries().project).toEqual(["written in a worktree"]);
+			expect(checkout.entries().project).toEqual([{ text: "written in a worktree" }]);
 			checkout.reset();
 		});
 	});

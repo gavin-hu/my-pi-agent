@@ -46,7 +46,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/goal/tools.test.ts": 792,
 	"extensions/job/tools.test.ts": 476,
 	"extensions/memory/store.test.ts": 655,
-	"extensions/memory/view/memory-picker.test.ts": 423,
+	"extensions/memory/view/memory-picker.test.ts": 406,
 	"extensions/plan/commands.test.ts": 563,
 	"extensions/plan/extension.test.ts": 493,
 	"extensions/plan/feedback.test.ts": 499,

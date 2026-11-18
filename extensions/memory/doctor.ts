@@ -18,6 +18,7 @@ import { clip } from "../../lib/tui/columns.ts";
 import type { MemoryConfig } from "./config.ts";
 import { injectionPlan, type MemoryEntries } from "./format.ts";
 import { duplicateKey, MAX_STORE_BYTES, type MemoryPaths } from "./store.ts";
+import { noteLabel, type MemoryNote } from "./types.ts";
 import { MEMORY_SCOPES, type MemoryScope } from "./types.ts";
 
 /** Longest note text a duplicate line shows. */
@@ -52,6 +53,8 @@ export interface MemoryHealth {
 	global: ScopeHealth;
 	/** Present while injection is on: the body's bytes and what did not fit. */
 	injection?: { bytes: number; omitted: Record<MemoryScope, number> };
+	/** How many notes each author wrote, most first, unattributed last. */
+	authors: AuthorCount[];
 	duplicates: DuplicatePair[];
 }
 
@@ -64,16 +67,41 @@ export interface HealthInput {
 	config: MemoryConfig;
 }
 
+/** What a note with no label is counted under. */
+export const UNATTRIBUTED = "unattributed";
+
+/** One author's share of a store. */
+export interface AuthorCount {
+	/** The session label, or {@link UNATTRIBUTED}. */
+	by: string;
+	notes: number;
+}
+
+/** How many notes each author wrote, most first and the unattributed last. */
+export function authorCounts(entries: MemoryEntries): AuthorCount[] {
+	const counts = new Map<string, number>();
+	for (const scope of MEMORY_SCOPES) {
+		for (const note of entries[scope]) {
+			const by = note.by ?? UNATTRIBUTED;
+			counts.set(by, (counts.get(by) ?? 0) + 1);
+		}
+	}
+	const last = (by: string) => (by === UNATTRIBUTED ? 1 : 0);
+	return [...counts]
+		.map(([by, notes]) => ({ by, notes }))
+		.sort((a, b) => last(a.by) - last(b.by) || b.notes - a.notes || a.by.localeCompare(b.by));
+}
+
 /** Every near-duplicate pair, computed with the store's own comparison key. */
 export function duplicatePairs(entries: MemoryEntries): DuplicatePair[] {
 	const pairs: DuplicatePair[] = [];
 	for (const scope of MEMORY_SCOPES) {
-		const kept = new Map<string, string>();
+		const kept = new Map<string, MemoryNote>();
 		for (const note of entries[scope]) {
-			const key = duplicateKey(note);
+			const key = duplicateKey(note.text);
 			const first = kept.get(key);
 			if (first === undefined) kept.set(key, note);
-			else pairs.push({ scope, kept: first, duplicate: note });
+			else pairs.push({ scope, kept: noteLabel(first), duplicate: noteLabel(note) });
 		}
 	}
 	return pairs;
@@ -93,6 +121,7 @@ export function memoryHealth({ entries, sizes, paths, trusted, config }: HealthI
 		project: scope("project"),
 		global: scope("global"),
 		...(plan ? { injection: { bytes: Buffer.byteLength(plan.lines.join("\n"), "utf-8"), omitted: plan.omitted } } : {}),
+		authors: authorCounts(entries),
 		duplicates: duplicatePairs(entries),
 	};
 }
@@ -123,6 +152,12 @@ function injectionText(health: MemoryHealth): string {
 	return `${bytes} B of ${health.cap} B · ${missing} omitted (${scopes.join(", ")})`;
 }
 
+/** The authors of a store, most first, or what an empty one says. */
+function authorText(health: MemoryHealth): string {
+	if (health.authors.length === 0) return "none";
+	return health.authors.map((author) => `${author.by} ${author.notes}`).join(" \u00b7 ");
+}
+
 function pairLine(pair: DuplicatePair): string {
 	const kept = clip(pair.kept, PAIR_NOTE_WIDTH);
 	const duplicate = clip(pair.duplicate, PAIR_NOTE_WIDTH);
@@ -138,6 +173,7 @@ export function formatHealth(health: MemoryHealth): string {
 		row("project", scopeText(health, "project")),
 		row("global", scopeText(health, "global")),
 		row("injection", injectionText(health)),
+		row("authors", authorText(health)),
 		row("duplicates", duplicates),
 		...health.duplicates.map(pairLine),
 	].join("\n");

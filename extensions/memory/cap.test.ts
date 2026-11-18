@@ -91,12 +91,13 @@ describe("a store over the ceiling", () => {
 		await runtime.load(suite.cwd, true);
 		const before = statSync(suite.projectPath).size;
 		const [first] = runtime.entries().project;
+		if (first === undefined) throw new Error("the store should hold a note");
 		if (!first) throw new Error("the store should hold notes");
 
-		expect(await runtime.forget("project", first)).toBe(true);
+		expect(await runtime.forget("project", first.text)).toBe(true);
 
 		expect(statSync(suite.projectPath).size).toBeLessThan(before);
-		expect(suite.read("project")).not.toContain(first);
+		expect(suite.read("project")).not.toContain(first.text);
 	});
 
 	test("is emptied by a clear, which always lands", async () => {

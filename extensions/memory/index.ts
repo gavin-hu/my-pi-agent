@@ -10,8 +10,9 @@
  */
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { sessionIdOf, sessionNameOf } from "../../lib/session-label.ts";
 import { registerCommands } from "./commands.ts";
 import { loadMemoryConfig } from "./config.ts";
 import { buildInjection, MEMORY_CONTEXT_MARKER } from "./format.ts";
@@ -20,6 +21,27 @@ import { registerTools } from "./tools.ts";
 import { MEMORY_CONTEXT_TYPE } from "./types.ts";
 
 export { MEMORY_CONTEXT_MARKER };
+
+/**
+ * The label this session's notes carry.
+ *
+ * The bus record's own name for this session, else the session's name, else nothing: an
+ * unattributed note is better than a wrong name on someone's fact, so nothing here guesses.
+ * The record is read through the store's own resolver rather than the board's `who()`, which
+ * opens the board's store.
+ */
+async function labelOfSession(pi: Pick<ExtensionAPI, "exec">, ctx: ExtensionContext): Promise<string | undefined> {
+	const { normalizeLabel } = await import("../../lib/session-label.ts");
+	const named = normalizeLabel(sessionNameOf(ctx), "");
+	const id = sessionIdOf(ctx);
+	if (id === undefined) return named || undefined;
+	try {
+		const { busLabelFor } = await import("./store.ts");
+		return normalizeLabel((await busLabelFor(pi, id, ctx.cwd)) ?? named, "") || undefined;
+	} catch {
+		return named || undefined;
+	}
+}
 
 function isMemoryContext(message: AgentMessage): boolean {
 	return (message as AgentMessage & { customType?: string }).customType === MEMORY_CONTEXT_TYPE;
@@ -36,6 +58,9 @@ export default function memory(pi: ExtensionAPI): void {
 	// through `ready`, so one turn no longer pays for a scan the session may never need.
 	pi.on("session_start", (_event, ctx) => {
 		runtime.setConfig(loadMemoryConfig(ctx.cwd));
+		// Started beside the read: a write waits for the label, and the label waits for one git
+		// call and one roster read, neither of which a session that only reads notes needs.
+		runtime.setActor(labelOfSession(pi, ctx));
 		runtime.load(ctx.cwd, ctx.isProjectTrusted()).then(
 			(warning) => {
 				if (warning && ctx.hasUI) ctx.ui.notify(`memory: ${warning}`, "warning");

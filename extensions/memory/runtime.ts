@@ -9,6 +9,8 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { sanitizeLine } from "../../lib/format.ts";
+import { MAX_LABEL } from "../../lib/session-label.ts";
 import { DEFAULT_MEMORY_CONFIG, type MemoryConfig } from "./config.ts";
 import { type MemoryEntries, scopeLabel } from "./format.ts";
 import {
@@ -19,14 +21,14 @@ import {
 	applyUpdate,
 	memoryFileStamp,
 	mutateMemoryFile,
-	parseEntries,
+	parseNotes,
 	readMemoryFile,
 	resolveMemoryPaths,
 	sameStamp,
 	type MemoryFileStamp,
 	type MemoryPaths,
 } from "./store.ts";
-import { MEMORY_SCOPES, type MemoryScope } from "./types.ts";
+import { MEMORY_SCOPES, noteLabel, type MemoryNote, type MemoryScope, type NoteStamp } from "./types.ts";
 
 interface MemoryRefreshResult {
 	/** Scopes whose on-disk content differed and was re-read. */
@@ -68,6 +70,12 @@ export interface MemoryRuntime {
 	write(scope: MemoryScope, content: string): Promise<void>;
 	/** Returns whether the store changed, and the matched note for a duplicate. */
 	add(scope: MemoryScope, entry: string): Promise<AddResult>;
+	/**
+	 * The label this session's writes are stamped with, resolved when the session starts.
+	 * A promise, because the bus record is read rather than assumed: a write waits for it and
+	 * an unresolved or failing one writes an unattributed note rather than inventing a name.
+	 */
+	setActor(actor: Promise<string | undefined> | string | undefined): void;
 	update(scope: MemoryScope, from: string, to: string): Promise<boolean>;
 	forget(scope: MemoryScope, entry: string): Promise<boolean>;
 	clear(scope: MemoryScope): Promise<boolean>;
@@ -85,12 +93,20 @@ export interface MemoryRuntime {
 	reset(): void;
 }
 
-export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRuntime {
+/** What the runtime needs beyond the host: a clock, so a stamp's moment is a test's to drive. */
+export interface MemoryRuntimeOptions {
+	now?: () => number;
+}
+
+export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: MemoryRuntimeOptions = {}): MemoryRuntime {
+	const now = options.now ?? Date.now;
 	let paths: MemoryPaths | undefined;
 	let config: MemoryConfig = DEFAULT_MEMORY_CONFIG;
 	let trusted = false;
 	let entries: MemoryEntries = { project: [], global: [] };
 	let stamps: Record<MemoryScope, MemoryFileStamp | undefined> = { project: undefined, global: undefined };
+	/** The label this session's writes carry; unresolved until `setActor` lands. */
+	let actor: Promise<string | undefined> = Promise.resolve(undefined);
 
 	const pathFor = (scope: MemoryScope): string => {
 		if (!paths) throw new Error("memory is not initialized yet.");
@@ -103,8 +119,19 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		}
 	};
 
-	const setEntries = (scope: MemoryScope, next: string[]): void => {
+	const setEntries = (scope: MemoryScope, next: MemoryNote[]): void => {
 		entries = { ...entries, [scope]: next };
+	};
+
+	/**
+	 * What `add`, `update` and `merge` write beside the note: who, and when.
+	 *
+	 * The label is the session's, not the model's, so a write can be attributed without asking
+	 * the caller. A label nobody resolved writes no trailer at all, which reads as unattributed.
+	 */
+	const stamp = async (): Promise<NoteStamp> => {
+		const by = sanitizeLine((await actor.catch(() => undefined)) ?? "").slice(0, MAX_LABEL);
+		return by === "" ? {} : { by, at: new Date(now()).toISOString() };
 	};
 
 	const stampOf = (scope: MemoryScope): MemoryFileStamp | undefined => {
@@ -117,7 +144,7 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 
 	/** Adopt freshly read notes and record the stamp they were read at, so a
 	 * self-write is not mistaken for an external change. */
-	const commit = (scope: MemoryScope, next: string[]): void => {
+	const commit = (scope: MemoryScope, next: MemoryNote[]): void => {
 		setEntries(scope, next);
 		stamps = { ...stamps, [scope]: stampOf(scope) };
 	};
@@ -135,7 +162,7 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 			const stamp = stampOf(scope);
 			if (sameStamp(stamp, stamps[scope])) continue;
 			try {
-				const next = parseEntries(readMemoryFile(pathFor(scope)));
+				const next = parseNotes(readMemoryFile(pathFor(scope)));
 				commit(scope, next);
 				changed.push(scope);
 			} catch (error) {
@@ -159,10 +186,10 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		const resolved = await resolveMemoryPaths(pi, cwd);
 		paths = resolved;
 		const warnings: string[] = [];
-		const read = (scope: MemoryScope): string[] => {
+		const read = (scope: MemoryScope): MemoryNote[] => {
 			const path = scope === "global" ? resolved.global : resolved.project;
 			try {
-				return parseEntries(readMemoryFile(path));
+				return parseNotes(readMemoryFile(path));
 			} catch (error) {
 				warnings.push(error instanceof Error ? error.message : String(error));
 				return [];
@@ -181,6 +208,9 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 			return reading;
 		},
 		ready: () => reading.then(() => undefined),
+		setActor: (next) => {
+			actor = Promise.resolve(next);
+		},
 		setConfig: (next) => {
 			config = next;
 		},
@@ -204,11 +234,12 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		async write(scope, content) {
 			requireTrusted(scope);
 			await mutateMemoryFile(pathFor(scope), () => ({ content, changed: true }));
-			commit(scope, parseEntries(content));
+			commit(scope, parseNotes(content));
 		},
 		async add(scope, entry) {
 			requireTrusted(scope);
-			const result = await mutateMemoryFile(pathFor(scope), (content) => applyAdd(content, entry));
+			const written = await stamp();
+			const result = await mutateMemoryFile(pathFor(scope), (content) => applyAdd(content, entry, written));
 			commit(scope, result.entries);
 			return result.existing === undefined
 				? { changed: result.changed }
@@ -222,7 +253,8 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		},
 		async update(scope, from, to) {
 			requireTrusted(scope);
-			const result = await mutateMemoryFile(pathFor(scope), (content) => applyUpdate(content, from, to));
+			const written = await stamp();
+			const result = await mutateMemoryFile(pathFor(scope), (content) => applyUpdate(content, from, to, written));
 			commit(scope, result.entries);
 			return result.changed;
 		},
@@ -234,7 +266,10 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		},
 		async merge(scope, first, second, merged) {
 			requireTrusted(scope);
-			const result = await mutateMemoryFile(pathFor(scope), (content) => applyMerge(content, first, second, merged));
+			const written = await stamp();
+			const result = await mutateMemoryFile(pathFor(scope), (content) =>
+				applyMerge(content, first, second, merged, written),
+			);
 			commit(scope, result.entries);
 			return result.changed;
 		},
@@ -245,7 +280,7 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 			requireTrusted(to);
 			// `entries()` refreshes both stores from disk first, so the check is against
 			// what is on disk now, not the cache a previous call left behind.
-			if (!this.entries()[from].includes(entry)) {
+			if (!this.entries()[from].some((note) => noteLabel(note) === entry || note.text === entry)) {
 				throw new Error(`No ${scopeLabel(from)} memory note matches "${entry}".`);
 			}
 			// Target first: the one failure possible across two files then leaves the note
@@ -261,6 +296,7 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 			trusted = false;
 			entries = { project: [], global: [] };
 			stamps = { project: undefined, global: undefined };
+			actor = Promise.resolve(undefined);
 		},
 	};
 }

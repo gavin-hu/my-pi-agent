@@ -13,6 +13,31 @@ export type MemoryScope = (typeof MEMORY_SCOPES)[number];
 /** What a call did, used by the result schema, details, and transcript renderer. */
 export const MEMORY_ACTIONS = ["add", "update", "forget", "list"] as const;
 
+/**
+ * One note: what it says, and who asserted it and when.
+ *
+ * The **text** is the note's identity — `forget` and `update` match it, duplicates compare
+ * it, the picker edits it — so the trailer on disk is metadata and never part of a match.
+ */
+export interface MemoryNote {
+	text: string;
+	/** The session label that wrote it; absent for a note from before attribution, or by hand. */
+	by?: string;
+	/** When it was written, ISO-8601; absent with `by`. */
+	at?: string;
+}
+
+/** What a write knows about the session making it. */
+export interface NoteStamp {
+	by?: string;
+	at?: string;
+}
+
+/** `[jack] the note`, or the bare text for one nobody is named on. */
+export function noteLabel(note: MemoryNote): string {
+	return note.by === undefined ? note.text : `[${note.by}] ${note.text}`;
+}
+
 export type MemoryAction = (typeof MEMORY_ACTIONS)[number];
 
 /** Custom-message type for the hidden injected memory context. */

@@ -20,6 +20,7 @@ import {
 import { sanitizeLine } from "../../lib/format.ts";
 import { writeTextAtomic } from "../../lib/json.ts";
 import { bytes } from "./format.ts";
+import { noteLabel, type MemoryNote, type NoteStamp } from "./types.ts";
 
 /**
  * Largest store Pi will write to, in bytes. A write that grows a store past this is refused
@@ -45,6 +46,78 @@ const HEADER = "<!-- Pi memory: one note per bullet; written by the memory tool 
 
 /** A bullet line's note text. */
 const BULLET = /^\s*[-*]\s+(.+?)\s*$/;
+
+/** Bullet line as marker, note, and trailing whitespace. */
+const BULLET_PARTS = /^(\s*[-*]\s+)(.+?)(\s*)$/;
+
+/**
+ * The attribution trailer: written last on the bullet, anchored to the end of the line so a
+ * `-->` inside a label or a note can never close it early. The label is captured without its
+ * surrounding space, and the moment exactly as written.
+ */
+const TRAILER = /\s*<!--\s*by:\s*(.+?)\s*@\s*(\S+)\s*-->\s*$/;
+
+/** One bullet line as a note, or `undefined` when the line is not a bullet with text. */
+function parseNote(line: string): MemoryNote | undefined {
+	const match = BULLET_PARTS.exec(line);
+	if (!match) return undefined;
+	const trailer = TRAILER.exec(match[2]);
+	if (!trailer) {
+		const text = sanitizeLine(match[2]);
+		return text ? { text } : undefined;
+	}
+	const text = sanitizeLine(match[2].slice(0, trailer.index));
+	if (!text) return undefined;
+	// A trailer without a label is not one: the note reads as text and keeps its words.
+	const by = sanitizeLine(trailer[1]);
+	return by ? { text, by, at: trailer[2] } : { text };
+}
+
+/** Every note in a store's text, in file order. */
+export function parseNotes(content: string): MemoryNote[] {
+	const notes: MemoryNote[] = [];
+	for (const line of content.split(/\r?\n/)) {
+		const note = parseNote(line);
+		if (note !== undefined) notes.push(note);
+	}
+	return notes;
+}
+
+/** Note text of every bullet line, sanitized to one terminal-safe line. */
+export function parseEntries(content: string): string[] {
+	return parseNotes(content).map((note) => note.text);
+}
+
+/** The bullet a note is written as, with its trailer when there is a stamp to write. */
+function noteLine(note: MemoryNote, marker = "- "): string {
+	const trailer = note.by !== undefined && note.at !== undefined ? ` <!-- by: ${note.by} @ ${note.at} -->` : "";
+	return `${marker}${note.text}${trailer}`;
+}
+
+/** Whether a stored note is the one a caller named: its text, or the label a reader saw. */
+function noteIsNamed(note: MemoryNote, named: string): boolean {
+	return [note.text, noteLabel(note)].includes(named);
+}
+
+/**
+ * The label the bus records for a session, or `undefined` when it has no record here.
+ *
+ * The directory is built here because this is the module that already anchors on the agent
+ * directory; a session that never writes a note pays for neither the roster nor the key.
+ */
+export async function busLabelFor(
+	pi: Pick<ExtensionAPI, "exec">,
+	sessionId: string,
+	cwd: string,
+): Promise<string | undefined> {
+	const [{ repoKeyFor }, { readRoster }, { BUS_DIR_NAME }] = await Promise.all([
+		import("../../lib/repo-key.ts"),
+		import("../../lib/session-roster.ts"),
+		import("../../lib/session-files.ts"),
+	]);
+	const dir = join(getAgentDir(), BUS_DIR_NAME, (await repoKeyFor(pi, cwd)).key);
+	return (await readRoster(dir))?.find((entry) => entry.id === sessionId)?.label;
+}
 
 export interface MemoryPaths {
 	/** Project store path (the repository root's `.pi/memory.md`). */
@@ -131,18 +204,6 @@ export function sameStamp(a: MemoryFileStamp | undefined, b: MemoryFileStamp | u
 	return a.mtimeNs === b.mtimeNs && a.size === b.size;
 }
 
-/** Note text of every bullet line, sanitized to one terminal-safe line. */
-export function parseEntries(content: string): string[] {
-	const entries: string[] = [];
-	for (const line of content.split(/\r?\n/)) {
-		const match = BULLET.exec(line);
-		if (!match) continue;
-		const text = sanitizeLine(match[1]);
-		if (text) entries.push(text);
-	}
-	return entries;
-}
-
 interface FileChange {
 	content: string;
 	changed: boolean;
@@ -171,26 +232,28 @@ function endWithNewline(text: string): string {
 
 /**
  * Append a note, unless it is already present — exactly or as a near-duplicate.
- * A duplicate is a no-op that reports the stored note in `existing`, so the
- * caller can point at `update` instead of storing a reworded copy.
+ * A duplicate is a no-op that reports the stored note in `existing` (as a reader sees it,
+ * `[jack] text`), so the caller can point at `update` instead of storing a reworded copy.
  */
-export function applyAdd(content: string, entry: string): FileChange {
-	const entries = parseEntries(content);
-	if (entries.includes(entry)) return { content, changed: false, existing: entry };
+export function applyAdd(content: string, entry: string, stamp: NoteStamp = {}): FileChange {
+	const notes = parseNotes(content);
+	const found = notes.find((note) => noteIsNamed(note, entry));
+	if (found !== undefined) return { content, changed: false, existing: noteLabel(found) };
 	const key = duplicateKey(entry);
-	const existing = entries.find((note) => duplicateKey(note) === key);
-	if (existing !== undefined) return { content, changed: false, existing };
+	const near = notes.find((note) => duplicateKey(note.text) === key);
+	if (near !== undefined) return { content, changed: false, existing: noteLabel(near) };
 	const trimmed = content.replace(/\s+$/, "");
-	const next = trimmed ? `${trimmed}\n- ${entry}\n` : `${HEADER}\n\n- ${entry}\n`;
+	const line = noteLine({ text: entry, ...stamp });
+	const next = trimmed ? `${trimmed}\n${line}\n` : `${HEADER}\n\n${line}\n`;
 	return { content: next, changed: true };
 }
 
-/** Remove every bullet whose note matches `entry` exactly. */
+/** Remove every bullet whose note a caller names, by its text or by `[by] text`. */
 export function applyForget(content: string, entry: string): FileChange {
 	let changed = false;
 	const kept = content.split(/\r?\n/).filter((line) => {
-		const match = BULLET.exec(line);
-		if (match && sanitizeLine(match[1]) === entry) {
+		const note = parseNote(line);
+		if (note !== undefined && noteIsNamed(note, entry)) {
 			changed = true;
 			return false;
 		}
@@ -199,60 +262,63 @@ export function applyForget(content: string, entry: string): FileChange {
 	return changed ? { content: endWithNewline(kept.join("\n")), changed: true } : { content, changed: false };
 }
 
-/** Bullet line as marker, note, and trailing whitespace. */
-const BULLET_PARTS = /^(\s*[-*]\s+)(.+?)(\s*)$/;
-
 /**
- * Replace every bullet whose note matches `from` with one `to` at the end of the store,
+ * Replace every bullet whose note a caller names with one `to` at the end of the store,
  * keeping the first match's marker and every line of prose.
  *
  * A note's position is its age: `applyAdd` appends, and the injected body keeps the
  * newest notes when its byte cap is hit. An update that stayed where it stood would make
- * a corrected fact the first one the cap drops, which is the opposite of a correction.
+ * a corrected fact the first one the cap drops, which is the opposite of a correction. The
+ * trailer is refreshed too: whoever last corrected a note is the one asserting it now.
  */
-export function applyUpdate(content: string, from: string, to: string): FileChange {
+export function applyUpdate(content: string, from: string, to: string, stamp: NoteStamp = {}): FileChange {
 	if (from === to) return { content, changed: false };
 	let marker: string | undefined;
 	const kept: string[] = [];
 	for (const line of content.split(/\r?\n/)) {
-		const match = BULLET_PARTS.exec(line);
-		if (match && sanitizeLine(match[2]) === from) {
-			marker ??= match[1];
+		const note = parseNote(line);
+		if (note !== undefined && noteIsNamed(note, from)) {
+			marker ??= BULLET_PARTS.exec(line)?.[1] ?? "- ";
 			continue;
 		}
 		kept.push(line);
 	}
 	if (marker === undefined) return { content, changed: false };
 	const trimmed = kept.join("\n").replace(/\s+$/, "");
-	const note = `${marker}${to}`;
-	return { content: trimmed ? `${trimmed}\n${note}\n` : `${note}\n`, changed: true };
+	const line = noteLine({ text: to, ...stamp }, marker);
+	return { content: trimmed ? `${trimmed}\n${line}\n` : `${line}\n`, changed: true };
 }
 
 /**
- * Merge two notes into one: replace `first` in place with `merged` and drop
- * `second`, so the pair becomes a single bullet where the first one stood. One
- * transform, so the caller's write is atomic; a missing note or two identical
- * names changes nothing.
+ * Merge two notes into one: replace `first` in place with `merged` and drop `second`, so
+ * the pair becomes a single bullet where the first one stood. One transform, so the
+ * caller's write is atomic; a missing note or two identical names changes nothing. The
+ * merging session's stamp replaces both: it is the one asserting the merged text.
  */
-export function applyMerge(content: string, first: string, second: string, merged: string): FileChange {
+export function applyMerge(
+	content: string,
+	first: string,
+	second: string,
+	merged: string,
+	stamp: NoteStamp = {},
+): FileChange {
 	if (first === second) return { content, changed: false };
 	const lines = content.split(/\r?\n/);
-	const notes = lines.map((line) => {
-		const match = BULLET_PARTS.exec(line);
-		return match ? sanitizeLine(match[2]) : undefined;
-	});
-	if (!notes.includes(first) || !notes.includes(second)) return { content, changed: false };
+	const notes = lines.map((line) => parseNote(line));
+	const named = (value: string) => notes.find((note) => note !== undefined && noteIsNamed(note, value));
+	if (named(first) === undefined || named(second) === undefined) return { content, changed: false };
 
 	let changed = false;
 	const out: string[] = [];
 	for (const line of lines) {
-		const match = BULLET_PARTS.exec(line);
-		if (match && sanitizeLine(match[2]) === first) {
-			out.push(`${match[1]}${merged}${match[3]}`);
+		const note = parseNote(line);
+		if (note !== undefined && noteIsNamed(note, first)) {
+			const marker = BULLET_PARTS.exec(line)?.[1] ?? "- ";
+			out.push(noteLine({ text: merged, ...stamp }, marker));
 			changed = true;
 			continue;
 		}
-		if (match && sanitizeLine(match[2]) === second) continue;
+		if (note !== undefined && noteIsNamed(note, second)) continue;
 		out.push(line);
 	}
 
@@ -283,7 +349,7 @@ function tightenMode(path: string): void {
 }
 
 interface MutationResult {
-	entries: string[];
+	entries: MemoryNote[];
 	changed: boolean;
 	/** The stored note an `add` matched, when the transform reported a duplicate. */
 	existing?: string;
@@ -316,7 +382,7 @@ export async function mutateMemoryFile(
 			}
 			writeTextAtomic(path, result.content, { mode: FILE_MODE });
 		} else tightenMode(path);
-		const entries = parseEntries(result.content);
+		const entries = parseNotes(result.content);
 		return result.existing === undefined
 			? { entries, changed: result.changed }
 			: { entries, changed: result.changed, existing: result.existing };

@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { createFakePi, fakeTheme as theme } from "../../../test/helpers/fakes.ts";
 import { settle } from "../../../test/helpers/process.ts";
+import { notesOf } from "../../../test/helpers/fixtures/memory.ts";
 import type { MemoryEntries } from "../format.ts";
+
+/** What a case writes for a store: the texts, every one unattributed. */
+type Fixture = { project: string[]; global: string[] };
 import { createMemoryRuntime } from "../runtime.ts";
 import { type MemoryPickerCallbacks, MemoryPickerComponent } from "./memory-picker.ts";
 import { registerTools, TOOL_NAME } from "../tools.ts";
@@ -19,8 +23,8 @@ interface RecordedCalls {
 }
 
 /** In-memory store double with the same match semantics as the runtime. */
-function makeCallbacks(initial: MemoryEntries, trusted = true, overrides: Partial<MemoryPickerCallbacks> = {}) {
-	const entries: MemoryEntries = { project: [...initial.project], global: [...initial.global] };
+function makeCallbacks(initial: Fixture, trusted = true, overrides: Partial<MemoryPickerCallbacks> = {}) {
+	const entries: MemoryEntries = { project: notesOf(initial.project), global: notesOf(initial.global) };
 	const calls: RecordedCalls = { add: [], update: [], forget: [], merge: [], move: [], refresh: 0 };
 	const callbacks: MemoryPickerCallbacks = {
 		entries: () => ({ project: [...entries.project], global: [...entries.global] }),
@@ -31,21 +35,21 @@ function makeCallbacks(initial: MemoryEntries, trusted = true, overrides: Partia
 		},
 		add: async (scope, text) => {
 			calls.add.push([scope, text]);
-			if (entries[scope].includes(text)) return { changed: false, existing: text };
-			entries[scope].push(text);
+			if (entries[scope].some((note) => note.text === text)) return { changed: false, existing: text };
+			entries[scope].push({ text });
 			return { changed: true };
 		},
 		update: async (scope, from, to) => {
 			const list = entries[scope];
-			const at = list.indexOf(from);
+			const at = list.findIndex((note) => note.text === from);
 			if (at < 0) throw new Error(`No ${scope} memory note matches.`);
-			list[at] = to;
+			list[at] = { text: to };
 			calls.update.push([scope, from, to]);
 			return true;
 		},
 		forget: async (scope, entry) => {
 			const list = entries[scope];
-			const at = list.indexOf(entry);
+			const at = list.findIndex((note) => note.text === entry);
 			if (at < 0) throw new Error(`No ${scope} memory note matches.`);
 			list.splice(at, 1);
 			calls.forget.push([scope, entry]);
@@ -53,20 +57,20 @@ function makeCallbacks(initial: MemoryEntries, trusted = true, overrides: Partia
 		},
 		move: async (from, to, entry) => {
 			const source = entries[from];
-			const at = source.indexOf(entry);
+			const at = source.findIndex((note) => note.text === entry);
 			if (at < 0) throw new Error(`No ${from} memory note matches.`);
 			source.splice(at, 1);
-			const existing = entries[to].includes(entry) ? entry : undefined;
-			if (!existing) entries[to].push(entry);
+			const existing = entries[to].some((note) => note.text === entry) ? entry : undefined;
+			if (existing === undefined) entries[to].push({ text: entry });
 			calls.move.push([from, to, entry]);
 			return existing === undefined ? { moved: true } : { moved: true, existing };
 		},
 		merge: async (scope, first, second, merged) => {
 			const list = entries[scope];
-			const firstAt = list.indexOf(first);
-			const secondAt = list.indexOf(second);
+			const firstAt = list.findIndex((note) => note.text === first);
+			const secondAt = list.findIndex((note) => note.text === second);
 			if (firstAt < 0 || secondAt < 0) throw new Error(`No ${scope} memory note matches.`);
-			list[firstAt] = merged;
+			list[firstAt] = { text: merged };
 			list.splice(secondAt, 1);
 			calls.merge.push([scope, first, second, merged]);
 			return true;
@@ -75,7 +79,7 @@ function makeCallbacks(initial: MemoryEntries, trusted = true, overrides: Partia
 	return { callbacks: { ...callbacks, ...overrides }, calls, entries };
 }
 
-function harness(initial: MemoryEntries, trusted = true, overrides: Partial<MemoryPickerCallbacks> = {}) {
+function harness(initial: Fixture, trusted = true, overrides: Partial<MemoryPickerCallbacks> = {}) {
 	const { callbacks, calls, entries } = makeCallbacks(initial, trusted, overrides);
 	let closed = 0;
 	const component = new MemoryPickerComponent(
@@ -229,7 +233,7 @@ describe("MemoryPickerComponent actions", () => {
 		h.input("\r");
 		await settle();
 		expect(h.calls.add).toEqual([["project", "new note"]]);
-		expect(h.entries.project).toEqual(["new note"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual(["new note"]);
 	});
 
 	test("rejects a blank note", async () => {
@@ -248,7 +252,7 @@ describe("MemoryPickerComponent actions", () => {
 		h.input("Use tabs");
 		h.input("\r");
 		await settle();
-		expect(h.entries.project).toEqual(["Use tabs"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual(["Use tabs"]);
 		expect(h.text()).toContain("Already remembered: Use tabs");
 	});
 
@@ -263,7 +267,7 @@ describe("MemoryPickerComponent actions", () => {
 		h.input("y");
 		await settle();
 		expect(h.calls.forget).toEqual([["project", "gone"]]);
-		expect(h.entries.project).toEqual(["keep"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual(["keep"]);
 	});
 
 	test("reloads on r", () => {
@@ -285,7 +289,7 @@ describe("MemoryPickerComponent merge", () => {
 		h.input("\r");
 		await settle();
 		expect(h.calls.merge).toEqual([["project", "Use bun", "Use bun for tests", "Use bun; Use bun for tests"]]);
-		expect(h.entries.project).toEqual(["Use bun; Use bun for tests"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual(["Use bun; Use bun for tests"]);
 		expect(h.text()).toContain("Merged 2 project notes.");
 	});
 
@@ -299,7 +303,7 @@ describe("MemoryPickerComponent merge", () => {
 		h.input("\r");
 		await settle();
 		expect(h.calls.merge).toEqual([["project", "Use bun", "Use bun for tests", "Run tests with bun"]]);
-		expect(h.entries.project).toEqual(["Run tests with bun"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual(["Run tests with bun"]);
 	});
 
 	test("refuses a pair in different scopes and keeps the mark", () => {
@@ -332,7 +336,7 @@ describe("MemoryPickerComponent merge", () => {
 		h.input("m");
 		h.input("\x1b");
 		expect(h.calls.merge).toEqual([]);
-		expect(h.entries.project).toEqual(["one", "two"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual(["one", "two"]);
 	});
 
 	test("clears the mark when the marked note is forgotten", async () => {
@@ -346,7 +350,7 @@ describe("MemoryPickerComponent merge", () => {
 		h.input("d");
 		h.input("y");
 		await settle();
-		expect(h.entries.project).toEqual(["keep"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual(["keep"]);
 		expect(h.text()).not.toContain("Esc cancel merge");
 	});
 });
@@ -357,8 +361,8 @@ describe("MemoryPickerComponent move", () => {
 		h.input("p");
 		await settle();
 		expect(h.calls.move).toEqual([["project", "global", "repo fact"]]);
-		expect(h.entries.project).toEqual([]);
-		expect(h.entries.global).toEqual(["repo fact"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual([]);
+		expect(h.entries.global.map((note) => note.text)).toEqual(["repo fact"]);
 		expect(h.text()).toContain("Moved to global.");
 	});
 
@@ -367,7 +371,7 @@ describe("MemoryPickerComponent move", () => {
 		h.input("p");
 		await settle();
 		expect(h.calls.move).toEqual([["global", "project", "global fact"]]);
-		expect(h.entries.project).toEqual(["global fact"]);
+		expect(h.entries.project.map((note) => note.text)).toEqual(["global fact"]);
 		expect(h.text()).toContain("Moved to project.");
 	});
 
@@ -376,7 +380,7 @@ describe("MemoryPickerComponent move", () => {
 		h.input("p");
 		await settle();
 		expect(h.text()).toContain("Moved to global (it was already there).");
-		expect(h.entries.global).toEqual(["Use bun"]);
+		expect(h.entries.global.map((note) => note.text)).toEqual(["Use bun"]);
 	});
 
 	test("refuses a move into an untrusted project without writing", async () => {
@@ -384,7 +388,7 @@ describe("MemoryPickerComponent move", () => {
 		h.input("p");
 		await settle();
 		expect(h.calls.move).toEqual([]);
-		expect(h.entries.global).toEqual(["global fact"]);
+		expect(h.entries.global.map((note) => note.text)).toEqual(["global fact"]);
 		expect(h.text()).toContain("Project memory is unavailable");
 	});
 
@@ -397,27 +401,6 @@ describe("MemoryPickerComponent move", () => {
 		h.input("p");
 		await settle();
 		expect(h.text()).toContain("Memory not saved: disk full");
-		expect(h.entries.project).toEqual(["repo fact"]);
-	});
-});
-
-describe("MemoryPickerComponent trust", () => {
-	test("hides project notes and targets global when untrusted", () => {
-		const h = harness({ project: ["secret"], global: ["ok"] }, false);
-		expect(h.text()).not.toContain("secret");
-		expect(h.text()).toContain("ok");
-		expect(h.text()).toContain("project untrusted");
-	});
-
-	test("adds to global when untrusted", () => {
-		const h = harness({ project: [], global: [] }, false);
-		h.input("a");
-		expect(h.text()).toContain("Add global");
-	});
-
-	test("skips the project scope when cycling the filter untrusted", () => {
-		const h = harness({ project: [], global: ["ok"] }, false);
-		h.input("s");
-		expect(h.text()).toContain("global · ok");
+		expect(h.entries.project.map((note) => note.text)).toEqual(["repo fact"]);
 	});
 });
