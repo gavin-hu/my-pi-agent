@@ -23,6 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   served root painted as `Users/…/my-pi-agent/` while the footer under it printed the path
   correctly. The label is isolated from the row's direction now, and a page that rewrites it
   writes into that isolate rather than over it.
+- `plan`: ending the review or posting comments asks first while the tab has comments the file
+  does not. Save, Post and Back to Pi open one confirmation naming the consequence, and a clean
+  action runs as before; leaving clears the tab's draft. The `?` sheet's keyboard-shortcuts row
+  turns the single keys off for this browser, while the buttons, Escape and `?` keep working.
 
 ## [0.29.0] - 2026-11-18
 

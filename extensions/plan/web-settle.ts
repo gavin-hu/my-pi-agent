@@ -192,6 +192,9 @@ export function cancelReview(deps: SettleDeps): Promise<void> | null {
 	if (deps.role() !== "owner" || deps.settled()) return null;
 	if (deps.confirmNoDraft()) return null;
 	deps.markSettled("closed");
+	// The copy promised a discard, so the tab's draft goes with the review: a later page
+	// must not restore comments the reader was told they left behind.
+	deps.clearDraft();
 	deps.settleStream();
 	deps.lockActions();
 	deps.setStatus("Closing\u2026");
