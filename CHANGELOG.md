@@ -59,6 +59,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `memory`: an `add` appends one line instead of rewriting the store, so two sessions adding a
+  note at the same instant both land. A rewrite publishes by writing a temp and renaming it over
+  the store, so two readers of the same store published one of the two notes and the other was
+  gone without a failure anywhere; an `O_APPEND` write publishes only what it wrote. The read
+  that decides is still made — the duplicate, the cap on the bytes that would land, the header an
+  empty store needs — so a race there is a duplicate note rather than a lost one, and the
+  in-process queue is still taken against this session's own `forget`. What this does not close:
+  `update`, `forget`, `merge` and `clear` still rewrite, and one racing an add can lose the other
+  line — that window needs a cross-process lock the store does not have.
+
 - `memory`: a store cannot be written past its ceiling, and one that is over it can be repaired.
   `MAX_MEMORY_BYTES` was doing two jobs at once — the write policy (a note store is small) and the
   read guard (do not load an absurd file) — so a paste through `/memory edit` could leave a store
