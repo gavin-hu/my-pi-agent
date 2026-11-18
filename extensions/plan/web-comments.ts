@@ -56,7 +56,10 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
    * draft that keeps the text and drops the quote would restore a different note.
    */
   function typingOf() {
-    var area = draftTextarea(planEl);
+    // Only the composer is "typing": an edit's text already lives in this tab's annotations,
+    // which the draft keeps as this writer's own. Reading the edit here would restore it as a
+    // second, empty comment after a reload and leave the edited card beside it.
+    var area = planEl ? planEl.querySelector(".bf-composer textarea") : null;
     // The composer hangs under its block's thread box, and that box is what carries the
     // line: the block itself is the box's previous sibling.
     var box = area && area.closest ? area.closest(".bf-comments") : null;
@@ -115,11 +118,19 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     return typing;
   }
 
+  // The card's own actions repaint too, so they run the guard the ways off the page run: a
+  // resolve, a delete, an undo, or a second editor over a comment being written refuses and
+  // leaves the text where it is. The open editor's own Save and Cancel are the explicit ends
+  // of the draft, so they call neither.
+  function refuseOverDraft() {
+    return guardDraft(planEl, statusEl, DRAFT_REFUSAL, paintStatus);
+  }
+
   function openComposer(wrap, block, quote, initial) {
     // One composer at a time, and the open one holds text the page has not committed:
     // replacing it would drop that text without a word. A restored draft passes its text
     // as the initial value, because it is the thing being reopened, not a draft to protect.
-    if (!initial && guardDraft(planEl, statusEl, DRAFT_REFUSAL, paintStatus)) return;
+    if (!initial && refuseOverDraft()) return;
     closeOpenComposer();
     wrap.classList.add("bf-block--composing");
     var composer = el("div", "bf-composer");
@@ -153,8 +164,9 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         var entry = quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment };
       if (role === "reviewer") entry.author = reviewerName;
       annotations.push(entry);
-      // Close first: the text is now a comment, so the draft keeps one or the other.
-      closeOpenComposer();
+      // The repaint closes the composer, so the draft keeps the comment and not the text — and
+      // the frame is the last place that still knows the field the reader was in, which is how
+      // focus returns to the block instead of to the document.
       markDirty();
       setStatus("Comment added.");
       renderAll();
@@ -168,22 +180,53 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     if (initial) area.setSelectionRange(area.value.length, area.value.length);
   }
 
+  // The open card editor's cancel, so the keymap can peel it without knowing which card it
+  // belongs to. A repaint replaces the editor; the handle is used only while an editor is
+  // still on the page, so a stale one cannot put an older body back over text it kept.
+  var openEdit = null;
+
+  function closeOpenEdit() {
+    var editing = planEl ? planEl.querySelector(".bf-comment textarea") : null;
+    var handle = openEdit;
+    openEdit = null;
+    if (editing && handle) handle();
+  }
+
   function startEdit(card, index) {
+    if (refuseOverDraft()) return;
     var annotation = annotations[index];
+    // The text this editor opened on: Cancel puts it back, and clearing the field keeps the
+    // old text in the draft rather than resurrecting a comment with no body.
+    var before = annotation.comment;
+    // Escape and Cancel end the edit the same way; Save is the only path that keeps the text.
+    var close = function () {
+      annotation.comment = before;
+      markDirty();
+      openEdit = null;
+      renderAll();
+    };
+    openEdit = close;
     card.textContent = "";
     var area = el("textarea", "bf-textarea");
     area.value = annotation.comment;
     area.setAttribute("aria-label", "Edit comment");
     area.maxLength = limits.comment;
     card.appendChild(area);
+    // Every keystroke is the comment's new text and this tab's draft, so a reload or a
+    // repaint that waits for the draft keeps what was typed instead of the old body.
+    area.addEventListener("input", function () {
+      annotation.comment = area.value.trim() === "" ? before : area.value;
+      markDirty();
+    });
     var row = el("div", "bf-comment__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
-    cancel.addEventListener("click", renderAll);
+    cancel.addEventListener("click", close);
     var apply = el("button"); apply.type = "button"; apply.className = "bf-btn bf-btn--primary"; apply.textContent = "Save";
     apply.addEventListener("click", function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
       annotation.comment = comment;
+      openEdit = null;
       markDirty();
       setStatus("Comment updated.");
       renderAll();
@@ -212,6 +255,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     button.id = "undo-delete";
     button.textContent = "Undo delete";
     button.addEventListener("click", function () {
+      if (refuseOverDraft()) return;
       annotations.splice(Math.min(index, annotations.length), 0, annotation);
       markDirty();
       clearUndo();
@@ -225,6 +269,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
   function removeComment(index) {
     var annotation = annotations[index];
     if (!annotation) return;
+    if (refuseOverDraft()) return;
     annotations.splice(index, 1);
     markDirty();
     renderAll();
@@ -278,6 +323,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         var settle = el("button"); settle.type = "button"; settle.className = "bf-btn bf-btn--sm";
         settle.textContent = annotation.resolved ? "Reopen" : "Resolve";
         settle.addEventListener("click", function () {
+          if (refuseOverDraft()) return;
           if (annotation.resolved) delete annotation.resolved;
           else annotation.resolved = true;
           markDirty();

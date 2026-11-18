@@ -154,6 +154,45 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 		}
 	});
 
+	test("a frame arriving over a comment edit refuses and keeps the text", async () => {
+		// The same guard, reached through the editor a card's Edit opens. A repaint replaces the
+		// card, so a frame has to wait for that text too: the composer was the only field the
+		// guard looked for, and an edit went with the next repaint without a word.
+		const local = await mountReview({ ...REVIEW_PAGE, annotations: [{ anchor: 1, comment: "mine to edit" }] });
+		const page = await openReview(browser, local.url);
+		try {
+			await awaitLive(page);
+			await page.click(".bf-comment__actions button:nth-of-type(2)");
+			await page.fill(".bf-comment textarea", "edited but not saved");
+			local.push("comment");
+			await awaitStatus(page, "A change arrived; finish or discard your draft to see it.");
+			expect(await page.inputValue(".bf-comment textarea")).toBe("edited but not saved");
+		} finally {
+			await page.close();
+			await local.close();
+		}
+	});
+
+	test("a reload while editing a comment keeps the text as the writer's unsaved note", async () => {
+		// The editor's text is the annotation's: every keystroke updates the comment and this
+		// tab's draft, so a reload keeps it where the reader left it. It must not come back as a
+		// composer too — `typingOf` reads the composer alone, and the edit already lives in `mine`.
+		const local = await mountReview({ ...REVIEW_PAGE, annotations: [{ anchor: 1, comment: "before" }] });
+		const page = await openReview(browser, local.url);
+		try {
+			await page.click(".bf-comment__actions button:nth-of-type(2)");
+			await page.fill(".bf-comment textarea", "after");
+			await page.reload({ waitUntil: "load" });
+			await page.waitForSelector(".bf-comment__body", { timeout: REVIEW_PAINT_MS });
+			expect(await page.textContent(".bf-comment__body")).toBe("after");
+			expect(await page.textContent("#review-state")).toContain("unsaved");
+			expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(0);
+		} finally {
+			await page.close();
+			await local.close();
+		}
+	});
+
 	test("a reload while typing reopens the composer with its text", async () => {
 		// What a keystroke is worth: the composer's text is this tab's draft, kept in
 		// `sessionStorage` and reopened after a reload. `typingOf()` asked `draftTextarea()`

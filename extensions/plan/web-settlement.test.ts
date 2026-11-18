@@ -177,6 +177,8 @@ describe("review keyboard", () => {
 			role: "owner",
 			composerOpen: () => false,
 			closeComposer: () => calls.push("closeComposer"),
+			editOpen: () => false,
+			closeEdit: () => calls.push("closeEdit"),
 			cancel: () => calls.push("cancel"),
 			sheetOpen: () => false,
 			toggleSheet: () => calls.push("toggleSheet"),
@@ -207,7 +209,13 @@ describe("review keyboard", () => {
 		expect(WEB_KEYS_JS.split(String(rememberSelection)).length).toBe(2);
 	});
 
-	test("Esc peels the composer first, then closes the review", () => {
+	test("Esc peels the editor, then the composer, then closes the review", () => {
+		// The editor is the innermost layer: it is a change to a note already in the plan, so
+		// Escape must put that note back, not close the review over it.
+		const withEdit = harness({ editOpen: () => true, composerOpen: () => true });
+		handleKey(withEdit.event("Escape").sent, withEdit.deps);
+		expect(withEdit.calls).toEqual(["closeEdit"]);
+
 		const withComposer = harness({ composerOpen: () => true });
 		handleKey(withComposer.event("Escape").sent, withComposer.deps);
 		expect(withComposer.calls).toEqual(["closeComposer"]);

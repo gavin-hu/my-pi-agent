@@ -76,13 +76,13 @@ the plan file and the text it now reads.
 `n`/`p` jump sections. `Ctrl+C` interrupts without approving or rejecting
 anything: plan mode stays on.
 
-**Browser review.** `w` opens the same plan as a page: the title, the live comment
+**Browser review.** `w` opens the same plan as a page: the title, the comment
 count, **Approve & run**, **Save feedback**, and **Back to Pi**. Hover a block and press
-the `+` in its margin (a button named "Comment on this block"), or select text to quote
-it, then **Save feedback** to send the comments back; a comment-only review has no
-approve action. The switch above the sections shows **All**, **Changed** (what this
-review changed; off until there is an earlier review to compare against) and
-**Comments**, and the line under it counts what the view hid, or says which nothing it found.
+its `+`, or select text to quote it, then **Save feedback** sends them back. A comment
+being written or edited is this tab's draft: a reload keeps it, a live change waits,
+and card actions and the view switch refuse rather than drop it; `Esc` closes the edit,
+then the composer, then the review. The switch shows **All**, **Changed** (off until
+an earlier review) and **Comments**, and the line under it counts what the view hid.
 Paper is always the whole plan: the switch and its count go, every block returns.
 
 **Sharing.** **Share** mints a link and QR for this Wi-Fi, one per teammate (at
