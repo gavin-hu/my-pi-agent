@@ -1,5 +1,6 @@
 /**
- * Where the project store lives when the session is isolated, and who shares it.
+ * Where the project store lives: when the session is isolated, and when there is no repository
+ * at all.
  *
  * `.pi/` is gitignored, so a worktree that resolved its own root kept a second store that died
  * with the tree — and the worktree is where the work happens. The fixture cases run everywhere;
@@ -8,6 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ENV_ROOT } from "../../lib/env.ts";
@@ -88,6 +90,33 @@ describe("an isolated session", () => {
 
 		expect(text).toContain(`0 notes · ${suite.projectPath}`);
 		runtime.reset();
+	});
+});
+
+describe("a working directory outside a repository", () => {
+	/** A `pi` whose git answers "not a repository", as it does outside one. */
+	const noGit: Pick<ExtensionAPI, "exec"> = {
+		exec: async () => ({
+			stdout: "",
+			stderr: "fatal: not a git repository",
+			code: 128,
+			killed: false,
+			truncated: false,
+		}),
+	};
+
+	test("resolves to itself, because there is no checkout to share", async () => {
+		// The session's own root would answer instead, and it is the one thing that must not.
+		const env = useEnv({ [ENV_ROOT]: undefined });
+		try {
+			const nowhere = join(tmpdir(), "pi-memory-outside-git");
+
+			const paths = await resolveMemoryPaths(noGit, nowhere);
+
+			expect(paths.project).toBe(join(nowhere, ".pi", "memory.md"));
+		} finally {
+			env.restore();
+		}
 	});
 });
 
