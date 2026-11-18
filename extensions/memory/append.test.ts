@@ -103,6 +103,9 @@ describe("an append", () => {
 		expect(statSync(suite.projectPath).ino).toBe(before);
 	});
 
+	// A peer appending between this session's read and its write is what the view has to survive,
+	// and no direct write here can stand in for it without a seam in the append itself. The
+	// re-read is the fix; this note is the honest limit of the cases below.
 	test("carries the stamp, so the appended note says who wrote it", async () => {
 		await runtime.add("project", "attributed on the way in");
 

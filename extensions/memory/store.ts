@@ -384,10 +384,14 @@ export async function appendMemoryNote(path: string, entry: string, stamp: NoteS
 		const content = readMemoryFile(path);
 		// The decision, and the one place a note's bullet is built.
 		const planned = applyAdd(content, entry, stamp);
+		// The view is the file, not our read plus our line: a peer that appended between the two
+		// is in the store and belongs in this session's list. A peer that lands after this read
+		// is the window every `commit` already carries, whose stamp is taken from the file too.
+		const view = () => parseNotes(readMemoryFile(path));
 		if (!planned.changed) {
 			return planned.existing === undefined
-				? { entries: parseNotes(content), changed: false }
-				: { entries: parseNotes(content), changed: false, existing: planned.existing };
+				? { entries: view(), changed: false }
+				: { entries: view(), changed: false, existing: planned.existing };
 		}
 		const prefix = content === "" ? `${HEADER}\n\n` : content.endsWith("\n") ? "" : "\n";
 		const suffix = `${prefix}${noteLine({ text: entry, ...stamp })}\n`;
@@ -397,7 +401,7 @@ export async function appendMemoryNote(path: string, entry: string, stamp: NoteS
 		mkdirSync(dirname(path), { recursive: true });
 		appendFileSync(path, suffix, { encoding: "utf-8", mode: FILE_MODE });
 		tightenMode(path);
-		return { entries: parseNotes(content + suffix), changed: true };
+		return { entries: view(), changed: true };
 	});
 }
 
