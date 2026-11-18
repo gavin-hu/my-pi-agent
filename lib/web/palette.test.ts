@@ -37,7 +37,6 @@ const MAPPED: ReadonlyArray<readonly [token: string, variable: string]> = [
 	["--accent-2", "pink"],
 	["--success", "green"],
 	["--danger", "red"],
-	["--warn", "yellow"],
 	["--success-soft", "successBg"],
 	["--danger-soft", "errorBg"],
 ];
@@ -119,6 +118,27 @@ describe("web tokens", () => {
 				expect(
 					contrast(tokens[tier] as string, paper),
 					`${appearance} ${tier} on the search paper`,
+				).toBeGreaterThanOrEqual(4.5);
+			}
+		}
+	});
+
+	test("steps the warn colour toward the text, so small warn text clears AA on a raised plane", () => {
+		// A terminal wears its yellow as foreground on a dark canvas. A page sets 13px warn text on the
+		// raised plane — the card face's priority word, a warn reason line, the dialog's approval — where
+		// the theme's own value reaches 4.34:1 (light) and 6.03:1 (dark). So the colour is a step from
+		// the yellow toward the text, held to its inputs rather than to the hex it produces, the way
+		// `--dim`, the border pair and the search paper are.
+		const STEPS = { dark: 0, light: 0.1 } as const;
+		for (const appearance of ["dark", "light"] as const) {
+			const vars = THEMES[appearance].vars;
+			const tokens = WEB_THEME_TOKENS[appearance];
+			expect(tokens["--warn"]).toBe(mix(vars.yellow ?? "", vars.text ?? "", STEPS[appearance]));
+			// The two surfaces a page draws it on: the raised plane it was failing, and the canvas.
+			for (const surface of ["--raised", "--canvas"] as const) {
+				expect(
+					contrast(tokens["--warn"] as string, tokens[surface] as string),
+					`${appearance} warn on ${surface}`,
 				).toBeGreaterThanOrEqual(4.5);
 			}
 		}
