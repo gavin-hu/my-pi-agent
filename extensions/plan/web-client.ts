@@ -29,6 +29,7 @@ import {
 } from "../../lib/web/index.ts";
 import { WEB_CHROME_JS } from "./web-chrome.ts";
 import { WEB_COMMENTS_JS } from "./web-comments.ts";
+import { WEB_CONFIRM_JS } from "./web-confirm.ts";
 import { WEB_COLLAB_JS } from "./web-collab.ts";
 import { WEB_MARKDOWN_JS } from "./web-markdown.ts";
 import { WEB_BLOCKS_JS } from "./web-blocks.ts";
@@ -73,6 +74,8 @@ ${CLIENT_BASE_JS}
   var approved = false;
   var closed = false;
   var dirty = false;
+  /** Whether the single keys answer; the ? sheet's toggle sets it, and a reload reads it. */
+  var shortcutsOn = true;
 
   var sectionObserver = null;
   var pendingQuote = null;
@@ -370,10 +373,6 @@ ${WEB_MARKDOWN_JS}
     cancelReview(settlement());
   }
 
-  if (postButton) postButton.addEventListener("click", postComments);
-  if (saveButton) saveButton.addEventListener("click", save);
-  if (cancelButton) cancelButton.addEventListener("click", cancel);
-
   // Approving runs the plan and cannot be undone from the page, so the header
   // button and the a key open the confirmation instead of posting. The dialog
   // script is the same one the shortcut sheet uses: Tab trapped, Esc, focus back
@@ -394,6 +393,17 @@ ${WEB_MARKDOWN_JS}
   if (approveButton) approveButton.addEventListener("click", askApprove);
   var approveConfirm = document.getElementById("approve-confirm");
   if (approveConfirm) approveConfirm.addEventListener("click", confirmApprove);
+
+  // Save, Post and Back to Pi share one confirmation: the review has comments the file does
+  // not have, and the action they end would drop them. The words and the action behind the
+  // accept button change; the dialog runtime, the Tab trap and the Esc are the shared one.
+  ${dialogScript({ dialogId: "confirm-dialog", closeId: "confirm-cancel", globalName: "bfConfirm" })}
+  var confirmDialog = document.getElementById("confirm-dialog");
+  var confirmTitle = document.getElementById("confirm-title");
+  var confirmBody = document.getElementById("confirm-body");
+  var confirmAccept = document.getElementById("confirm-accept");
+
+${WEB_CONFIRM_JS}
 
   // The share and name dialogs. The fragment above holds their behaviour; this
   // is the wiring, which needs the page's own element handles.
@@ -432,6 +442,54 @@ ${WEB_MARKDOWN_JS}
   // is shared with browse; the page keeps only its own keymap.
   ${keysDialogScript("keys-open")}
 
+  // The reader's own switch, in the sheet that documents the keys: a checkbox, persisted for
+  // this browser, that makes the single keys inert while the buttons, Escape, and ? stay.
+  var shortcutsToggle = null;
+  var shortcutsList = null;
+
+  function applyShortcuts() {
+    if (shortcutsToggle) shortcutsToggle.checked = shortcutsOn;
+    if (shortcutsList) shortcutsList.classList.toggle("bf-keys--off", !shortcutsOn);
+    var hints = document.querySelector(".review-hints");
+    if (hints) hints.hidden = !shortcutsOn;
+    var controls = document.querySelectorAll("[data-keyshortcut]");
+    for (var i = 0; i < controls.length; i++) {
+      var control = controls[i];
+      var key = control.getAttribute("data-keyshortcut");
+      if (shortcutsOn) control.setAttribute("aria-keyshortcuts", key);
+      else control.removeAttribute("aria-keyshortcuts");
+    }
+  }
+
+  function setShortcuts(on) {
+    shortcutsOn = on;
+    try { window.localStorage.setItem("bf-review-shortcuts", on ? "on" : "off"); } catch (error) {}
+    applyShortcuts();
+  }
+
+  function setupShortcuts() {
+    var stored = null;
+    try { stored = window.localStorage.getItem("bf-review-shortcuts"); } catch (error) { stored = null; }
+    shortcutsOn = stored !== "off";
+    var panel = document.querySelector("#keys-dialog .bf-dialog__panel");
+    shortcutsList = document.querySelector("#keys-dialog .bf-keys");
+    if (panel && !document.getElementById("shortcuts-toggle")) {
+      var row = el("label", "bf-keys__toggle");
+      shortcutsToggle = el("input");
+      shortcutsToggle.type = "checkbox";
+      shortcutsToggle.id = "shortcuts-toggle";
+      shortcutsToggle.checked = shortcutsOn;
+      shortcutsToggle.addEventListener("change", function () {
+        setShortcuts(shortcutsToggle.checked);
+        setStatus(shortcutsToggle.checked ? "Keyboard shortcuts on." : "Keyboard shortcuts off.");
+      });
+      row.appendChild(shortcutsToggle);
+      row.appendChild(el("span", "bf-keys__toggle-label", "Keyboard shortcuts"));
+      panel.appendChild(row);
+    }
+    applyShortcuts();
+  }
+
   /**
    * What a key may do, built where the state and the handlers are.
    *
@@ -445,7 +503,14 @@ ${WEB_MARKDOWN_JS}
       closeComposer: closeOpenComposer,
       editOpen: function () { return !!(planEl && planEl.querySelector(".bf-comment textarea")); },
       closeEdit: closeOpenEdit,
-      cancel: cancel,
+      modalOpen: function () {
+        return !!((window.bfApprove && window.bfApprove.isOpen()) ||
+          (window.bfConfirm && window.bfConfirm.isOpen()) ||
+          (window.bfShare && window.bfShare.isOpen()) ||
+          (window.bfName && window.bfName.isOpen()));
+      },
+      shortcutsOn: function () { return shortcutsOn; },
+      cancel: askCancel,
       sheetOpen: function () { return window.bfKeys.isOpen(); },
       toggleSheet: function () { window.bfKeys.toggle(); },
       moveActive: function (delta) {
@@ -456,8 +521,8 @@ ${WEB_MARKDOWN_JS}
       cycleView: cycleView,
       commentOnActive: function () { activeIndex = commentOnActive(composer(), activeIndex, blocks()); },
       askApprove: askApprove,
-      save: save,
-      postComments: postComments,
+      save: askSave,
+      postComments: askPost,
       hasSaveControl: function () { return !!saveButton; },
       hasApproveControl: function () { return !!approveButton; },
       typing: typing,
@@ -506,6 +571,7 @@ ${WEB_MARKDOWN_JS}
   // and the composer it was typing into, which needs the blocks rendered first. A viewer
   // writes nothing, so it has no draft to keep and none to restore.
   var restoredTyping = role === "viewer" ? undefined : restoreDraft();
+  setupShortcuts();
   renderName();
   renderAll();
   if (role !== "viewer")

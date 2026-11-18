@@ -6,11 +6,14 @@
  * frame stream, the boot order), and a rule about which key does what does not belong in a
  * list of `addEventListener` calls.
  *
- * Two rules live here:
+ * Three rules live here:
  *
  * - **Esc peels one layer.** The shortcut sheet owns its own Esc (the shared dialog runtime
  *   captures it), so this peels the editor first, then the composer, then closes the review,
  *   which is the order a reader pressing it again and again expects.
+ * - **A dialog owns the keyboard.** An approval, a confirmation, or a share/name dialog is
+ *   modal, so `?` must not open the sheet behind it and no content key may act there; the
+ *   sheet keeps `?` for its own close.
  * - **The selection a reader makes is the quote the next comment carries.** The rail button
  *   collapses the selection when it is pressed, so the text is remembered on `mouseup` and
  *   read again at click time; a block with a composer open is not a selection to quote.
@@ -30,6 +33,10 @@ export interface KeyDeps {
 	/** Whether a card's comment editor is open, and how to cancel it: Esc's inner layer. */
 	editOpen(): boolean;
 	closeEdit(): void;
+	/** Whether a dialog other than the sheet is open: it owns the keyboard, `?` included. */
+	modalOpen(): boolean;
+	/** Whether this reader has the single-key shortcuts on. */
+	shortcutsOn(): boolean;
 	/** Close the review without saving: the owner's, and a no-op for a reviewer. */
 	cancel(): void;
 	/** The shortcut sheet: whether it is open (it then owns the keyboard) and its toggle. */
@@ -232,6 +239,9 @@ export function handleKey(event: KeyEvent, deps: KeyDeps): void {
 	}
 	if (deps.typing(event.target)) return;
 	if (event.metaKey || event.ctrlKey || event.altKey) return;
+	// A dialog owns the keyboard, `?` included: the key that closes the sheet must not open
+	// it behind an approval.
+	if (deps.modalOpen()) return;
 	if (event.key === "?") {
 		event.preventDefault();
 		deps.toggleSheet();
@@ -239,6 +249,9 @@ export function handleKey(event: KeyEvent, deps: KeyDeps): void {
 	}
 	// While the shortcut sheet is open it owns the keyboard.
 	if (deps.sheetOpen()) return;
+	// The reader can turn the single keys off; `?` above still reaches the sheet that turns
+	// them back on, and Escape and the buttons keep working.
+	if (!deps.shortcutsOn()) return;
 	const surface = surfaceOf(deps);
 	for (const row of keyRows(surface)) {
 		if (row.run === undefined || !row.keys.includes(event.key)) continue;
