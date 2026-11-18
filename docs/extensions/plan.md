@@ -76,19 +76,10 @@ the plan file and the text it now reads.
 `n`/`p` jump sections. `Ctrl+C` interrupts without approving or rejecting
 anything: plan mode stays on.
 
-**Browser review.** `w` opens the same plan as a page: **Approve & run**,
-**Save feedback**, and **Back to Pi**. Hover a block and press `+`, or select text to
-quote; **Save feedback** sends them back. A comment being written or edited is this
-tab's draft: a reload keeps it, and card actions and the view switch refuse rather than
-drop it; `Esc` closes the edit, then the composer, then the review. The switch shows
-**All**, **Changed** and **Comments**, and the line counts what was hidden. Save, Post
-and Back to Pi ask first while comments are unsaved; `?` turns the single keys off.
-Paper is always the whole plan: the switch and its count go, every block returns.
-
-**Sharing.** **Share** mints a link and QR for this Wi-Fi, one per teammate (at
-most eight), and each link binds the reviewer's name on its first post;
-**Revoke** drops one. Only the machine that opened the review may approve,
-cancel, save, or share — a reviewer reads and comments.
+**Browser review.** `w` opens the plan as a page: comment in the margin, send feedback, or share a
+link. A reviewer reads and comments and draws no **Approve & run**; only the machine that opened
+the review approves, cancels, saves, or shares. The rules that hold while you comment — the draft,
+`Esc`, the sections switch — are in [the walkthrough](../tutorials/first-plan.md).
 
 **Read-only means:** the model keeps what reads and loses what writes. It can
 still look at the repository's git status and history; a write, an edit, and a shell
