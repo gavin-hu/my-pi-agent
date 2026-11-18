@@ -206,7 +206,7 @@ describe("the page's chrome", () => {
 		const html = reviewPage();
 		expect(html).toContain('<div class="bf-app__id review-bar">');
 		expect(html).toContain(
-			'<span class="bf-context bf-context--subject" id="plan-title" title="~/.pi/agent/plans/repo-key/add-rate-limiting.md">Add rate limiting</span>',
+			'<span class="bf-context bf-context--subject" id="plan-title" title="~/.pi/agent/plans/repo-key/add-rate-limiting.md"><bdi>Add rate limiting</bdi></span>',
 		);
 		expect(html).toContain('<div class="bf-app__facts">');
 		expect(html).toContain('<span class="bf-live bf-tone--accent" id="review-state"');
