@@ -146,7 +146,7 @@ ${pageFooter({ factsId: "board-where", facts: `store ${input.where}` })}
       </section>
       <section class="${N.dialogSection}" id="card-dialog-notes-section" aria-labelledby="card-dialog-notes-head">
         <h3 class="${N.dialogHeading}" id="card-dialog-notes-head">notes<span class="${N.dialogCount}" id="card-dialog-note-count"></span></h3>
-        <ol class="${N.dialogNotes}" id="card-dialog-notes"></ol>
+        <ul class="${N.dialogNotes}" id="card-dialog-notes"></ul>
         <p class="bf-dialog__hint" id="card-dialog-no-notes" hidden>no notes yet</p>
         <p class="bf-dialog__hint" id="card-dialog-earlier" hidden></p>
       </section>

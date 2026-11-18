@@ -44,6 +44,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the card dialog's fields read the way the transcript's lines do. A paths row copies as
+  `a, b, c` instead of running the hints together, and the plan row names the plan — its file name,
+  with the whole path one hover away — because the row elided from the front and the name is the part
+  that identifies it. A section heading is semibold in the text colour rather than a weight step above
+  the labels it ranks, both record rows lead with the age, and the notes are an unordered list: they
+  are drawn newest first, which an ordered one claimed as a chronology. The dialog's picture is
+  recaptured with it.
+
 - `board`: the card dialog's title takes the head's row. A spacer between the title and the card's
   type, owner and lane grew before the title could, so a long title wrapped in the column that was
   left — 271px of a 686px row, six lines for a CJK title, and the panel's height paid for it. The

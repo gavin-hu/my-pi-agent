@@ -210,11 +210,13 @@ __INLINE_MARKDOWN__
     if (approved === undefined) sign.removeAttribute("data-tone");
     else sign.setAttribute("data-tone", board.reasonTone("approval"));
 
-    // A long plan path elides on one line, and the whole of it is on the hover title and
-    // in the text, so it stays copyable: the reason to open a card is often its plan. It is
-    // spelled the way the transcript spells it, against the home the frame carries.
+    // A plan is identified by its name, and the store's key and the plans prefix are machine noise on a
+    // row that has to elide: the transcript prints the path whole because a terminal line can hold it,
+    // and this one cannot. So the name is the value and the shortened path is the hover title, which
+    // keeps the whole of it one gesture away and leaves the row readable.
     var planPath = card.planPath === undefined ? "" : shortenPath(card.planPath, view.home);
-    setRow("plan", Boolean(card.planPath), planPath, card.planPath === undefined ? undefined : planPath);
+    var planName = card.planPath === undefined ? "" : (card.planPath.split(/[\\/]/).pop() || "");
+    setRow("plan", Boolean(card.planPath), planName, card.planPath === undefined ? undefined : planPath);
 
     // The dialog and the card face say one thing, from one field: the ids it was linked
     // to are the storage, and a reader is owed the lanes that make them a decision.
@@ -232,7 +234,7 @@ __INLINE_MARKDOWN__
       reviewed !== undefined,
       reviewed === undefined
         ? ""
-        : stampedRow(reviewed.by + " \u00b7 ", reviewed.at, "reviewed {age}", reviewed.byInstruction !== undefined ? " \u00b7 by instruction" : ranClause(reviewed.verified))
+        : stampedRow("", reviewed.at, "reviewed {age}", " by " + reviewed.by + (reviewed.byInstruction !== undefined ? " \u00b7 by instruction" : ranClause(reviewed.verified)))
     );
 
     // The merge the review became, as a rung of its own: the transcript prints landed: beside the
@@ -251,6 +253,10 @@ __INLINE_MARKDOWN__
       hint.className += " " + N.dialogPath;
       hint.title = card.paths[i];
       item.appendChild(hint);
+      // The separator is a text node, not generated content: a copy of this row is the fact the row
+      // exists for, and a CSS comma is not copied. With it the row reads a, b, c — how the
+      // transcript's paths: line spells the same list.
+      if (i < card.paths.length - 1) item.appendChild(document.createTextNode(", "));
       pathList.appendChild(item);
     }
 
