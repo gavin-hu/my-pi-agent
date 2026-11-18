@@ -7,15 +7,13 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { Card } from "./card.ts";
 import {
 	applyOp,
 	boardOf,
+	closingCard,
 	CORE,
 	doneOf,
-	executing,
 	landingFor as proofOf,
-	LEAD,
 	NOW,
 } from "../../test/helpers/fixtures/board-rules.ts";
 import {
@@ -232,16 +230,6 @@ describe("the gate a landing answers", () => {
 });
 
 describe("closing a card by instruction", () => {
-	/** A reviewed card in `execute` whose sign names a commit. One reader, so it lives here. */
-	const closingCard = (owner = CORE): Card => ({
-		...executing(),
-		owner: { id: owner.id, label: owner.label },
-		review: {
-			by: LEAD.label,
-			at: NOW,
-			verified: { cmd: "bun run check", exit: 0, at: NOW, sha: "5d0dd0".padEnd(40, "0") },
-		},
-	});
 	/** The refusal a squash leaves, which is the only shape an instruction answers. */
 	const refused = { refusal: "no merge on `main` carries it" };
 

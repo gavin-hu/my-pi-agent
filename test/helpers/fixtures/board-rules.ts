@@ -208,6 +208,24 @@ export function doneOf(card: Card): {
 	};
 }
 
+/**
+ * A reviewed card in `execute` whose sign names a commit, owned by whoever holds it.
+ *
+ * Beside `created`, `boardOf` and `stepOf`, which are the same kind of thing: a card shaped for a case,
+ * with the sha a landing case builds its chain around stated here rather than inherited elsewhere.
+ */
+export function closingCard(owner: Actor = CORE): Card {
+	return {
+		...executing(),
+		owner: { id: owner.id, label: owner.label },
+		review: {
+			by: LEAD.label,
+			at: NOW,
+			verified: { cmd: "bun run check", exit: 0, at: NOW, sha: "5d0dd0".padEnd(40, "0") },
+		},
+	};
+}
+
 /** A card whose work the lead has spot-checked, still in `execute`. */
 export function reviewed(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
 	const card = executing(approved(owner));
