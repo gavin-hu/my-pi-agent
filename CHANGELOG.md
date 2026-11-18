@@ -35,8 +35,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `board`: `lib/workflow/lead.ts` was 642 lines holding two jobs, so the sign rules moved to
   `lib/workflow/signs.ts` — who may write a sign, what it records, and which one still speaks:
-  `Lead`, `isLead`, `personActor`/`isPerson`, `signMark`/`signedAs`, `laneReview`/`signStale`/
+  `Lead`, `normalizeLead`, `isLead`, `personActor`/`isPerson`, `signMark`/`signedAs`, `laneReview`/`signStale`/
   `currentReview` with the four bodies the page receives, and the announcement that closes it.
+  `Lead` itself is declared in `contract.ts`, beside the words a sign says, which also removes the
+  contract-to-lead type cycle that would have made `TELL_FIELDS` unindexable once the rules moved.
   `lead.ts` keeps the gate ladder and the refusals it builds, since `mayMove`, `reviewGate` and
   `reclaim` write their own sentences. No behaviour change: every function moved verbatim and no
   message was reworded, and the module leaves the named list — 642 lines to 414 — so
