@@ -18,6 +18,7 @@ import { resolve } from "node:path";
 import { planForContract } from "../../lib/workflow/artifact.ts";
 import { type Card, cardArg, cardRefOf, normalizeCardId } from "../../lib/workflow/card.ts";
 import { type Lane, movableLanes } from "../../lib/workflow/lanes.ts";
+import type { LandingVerdict } from "../../lib/workflow/landing.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
 import { signMark } from "../../lib/workflow/lead.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
@@ -109,6 +110,35 @@ function callSubject(action: BoardAction, args: Record<string, unknown>): string
 	if (card === "") return action;
 	const lane = typeof args.lane === "string" ? ` ${args.lane}` : "";
 	return `${action} ${card}${lane}`;
+}
+
+/**
+ * The instruction a close may carry, or the reason it is refused.
+ *
+ * Here rather than in `steps.ts` because the write must import no landing module: the decision is
+ * made where the chain was read (the lazily loaded `proof.ts`) and this is its other half — the one
+ * fact `proof.ts` cannot know, which is who is asking.
+ */
+async function closingInstruction(
+	store: BoardStore,
+	rawCard: string | undefined,
+	raw: string,
+	actor: BoardDetails["me"],
+	lane: Lane,
+	verdict: LandingVerdict | undefined,
+): Promise<{ text: string } | { error: string } | undefined> {
+	const { instructionFor } = await import("../../lib/workflow/landing.ts");
+	const arg = cardArg(rawCard);
+	const card = "error" in arg ? undefined : await store.read(arg.id);
+	if (card === undefined) return undefined;
+	return instructionFor({
+		card,
+		raw,
+		actor,
+		lead: store.config().lead,
+		target: lane,
+		...(verdict === undefined ? {} : { verdict }),
+	});
 }
 
 export function registerTools(
@@ -270,6 +300,12 @@ export function registerTools(
 						}
 						const { artifact: proved, landed } =
 							lane === "execute" || lane === "done" ? await proofOf(store, args.card, lane) : {};
+						// Decided here, not in `applyOp`: the write must not import the landing module, so the
+						// instruction arrives as an answer beside the verdict it answers for.
+						const instruction =
+							args.override === undefined
+								? undefined
+								: await closingInstruction(store, args.card, args.override, me, lane, landed);
 						const op: CardOp = {
 							kind: "move",
 							lane,
@@ -277,6 +313,7 @@ export function registerTools(
 							...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 							...(proved === undefined ? {} : { artifact: proved }),
 							...(landed === undefined ? {} : { landed }),
+							...(instruction === undefined ? {} : { instruction }),
 							// A close is where a signed card went, and the lead may make it for a holder the bus
 							// has lost: the one fact that door needs, read only for a `done`.
 							...(lane === "done" ? await holderFact(runtime, store, args.card, ctx.cwd) : {}),

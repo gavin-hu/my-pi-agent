@@ -41,7 +41,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	release: "gives it back to `backlog`; an `execute` card re-claims paths, so edit it to hand one over",
 	reclaim:
 		"returns it to `backlog` (a holder's is its own `release`); the lead from anyone, a peer only from a stopped owner",
-	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store",
+	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store, and a `done` with no merge to name takes `override` and the reason",
 	note: "appends to its history",
 	contract:
 		"records the plan file and the four lines a card promises — `goal`, `acceptance`, `scopeOut`, and `verify`, the command the spot-check runs — and drops any approval, because the wording changed",
@@ -72,7 +72,7 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	claim: ["card"],
 	release: ["card"],
 	reclaim: ["card"],
-	move: ["card", "lane", "blockedBy", "blocker"],
+	move: ["card", "lane", "blockedBy", "blocker", "override"],
 	note: ["card", "text"],
 	contract: ["card", "path", "goal", "acceptance", "scopeOut", "verify"],
 	approve: ["card", "text"],

@@ -8,16 +8,26 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+	applyOp,
+	boardOf,
+	closingCard,
+	CORE,
+	doneOf,
+	landingFor as proofOf,
+	NOW,
+} from "../../test/helpers/fixtures/board-rules.ts";
+import {
 	type LandingCommit,
 	type LandingProof,
 	landingFor,
 	landingGate,
 	movedTree,
 	resolveLanding,
-	reviewedAncestor,
-	unlandedReview,
+	landedWithoutMerge,
+	absentFromBranch,
 	unprovedLanding,
-} from "./contract.ts";
+} from "./landing.ts";
+import { workStartedAt } from "./lanes.ts";
 
 /**
  * The shas a landing case reads: a base commit, the merge that carried a review, and one on top.
@@ -77,7 +87,10 @@ describe("resolveLanding", () => {
 		// before this card existed; `done` then named that merge as the landing. A merge older than
 		// the card's own `execute` cannot be its landing, however the chain reads.
 		const late = proof(LANE.chain, CARRIED, { since: CARRIED_AT + 1 });
-		expect(resolveLanding(late, CARRIED, ID)).toEqual({ error: reviewedAncestor("main", CARRIED, ID) });
+		expect(resolveLanding(late, CARRIED, ID)).toEqual({
+			error: landedWithoutMerge("main", CARRIED, ID),
+			shape: "ancestor",
+		});
 	});
 
 	test("answers a reviewed merge that is still the tip, so a review of the merged tree holds", () => {
@@ -92,7 +105,8 @@ describe("resolveLanding", () => {
 		// and that is the defect: #641 closed a card on a merge another card had made. A merge that is
 		// no longer the tip carries nothing of its own, so the close refuses and the door is a re-sign.
 		expect(resolveLanding(proof(LANE.chain, CARRIED), CARRIED, ID)).toEqual({
-			error: reviewedAncestor("main", CARRIED, ID),
+			error: landedWithoutMerge("main", CARRIED, ID),
+			shape: "ancestor",
 		});
 	});
 
@@ -116,7 +130,8 @@ describe("resolveLanding", () => {
 		// The #594/#593 shape: a sign taken in the checkout names main's head, a plain commit the
 		// merge did not carry. Accepting any ancestor wrote a landing that carried nothing.
 		expect(resolveLanding(proof(LANE.chain, BASE), BASE, ID)).toEqual({
-			error: reviewedAncestor("main", BASE, ID),
+			error: landedWithoutMerge("main", BASE, ID),
+			shape: "ancestor",
 		});
 	});
 
@@ -141,20 +156,44 @@ describe("resolveLanding", () => {
 		expect(resolveLanding(crossed, REVIEWED, ID)).toEqual({ sha: CARRIED });
 	});
 
-	test("refuses a review no merge on the branch carries, naming the override", () => {
+	test("refuses a review the branch has never seen, and offers no instruction it cannot take", () => {
+		// The shape a squash or a rebase leaves: the reviewed commit is nowhere on the branch, so there
+		// is nothing for a person's reason to stand in for. The sentence used to promise `override`
+		// here — a door the move gate refuses for exactly this shape — and the assertion below is
+		// that it stopped.
 		const squash = "5d0dd00000000000000000000000000000000000";
 		const refused = resolveLanding(proof(LANE.chain, squash), squash, ID);
-		expect(refused).toEqual({ error: unlandedReview("main", squash, ID) });
+		expect(refused).toEqual({ error: absentFromBranch("main", squash, ID), shape: "unlanded" });
 		if ("error" in refused) {
 			expect(refused.error).toContain("#12's spot-check was of `5d0dd00`");
 			expect(refused.error).toContain("no merge on `main` carries it");
-			expect(refused.error).toContain("`override`");
+			expect(refused.error).not.toContain("`override`");
+			expect(refused.error).toContain("cannot stand in for");
 		}
+	});
+
+	test("takes an instruction for a commit the branch holds, and never for one it does not", () => {
+		// The two shapes an instruction is offered or refused for, asked at the gate rather than through
+		// a card: a commit on the branch that no merge carried can be closed by a person's reason, while
+		// a commit the branch has never seen cannot — and the sentence says which is which.
+		const onBranch = proof(LANE.chain, CARRIED, { since: CARRIED_AT + 1 });
+		expect(landingGate(ID, CARRIED, onBranch, "landed with no merge to point at")).toBeUndefined();
+		// The words say which shape it is: a commit the branch holds, carried by nothing.
+		expect(landingGate(ID, CARRIED, onBranch)).toContain("which is on `main`");
+		expect(landingGate(ID, CARRIED, onBranch)).toContain("may close the card by instruction");
+		const nowhere = "5d0dd00000000000000000000000000000000000";
+		const absent = proof(LANE.chain, nowhere);
+		// And this one says the opposite, because it is the opposite: the commit is nowhere on the branch.
+		expect(landingGate(ID, nowhere, absent, "close it")).toContain("not on the branch at all");
+		expect(landingGate(ID, nowhere, absent, "close it")).toContain("cannot stand in for");
 	});
 
 	test("refuses a merge that moved the tree the review proved, naming the merge", () => {
 		const refused = resolveLanding(proof(LANE.chain, REVIEWED, { moved: ["lib/workflow/steps.ts"] }), REVIEWED, ID);
-		expect(refused).toEqual({ error: movedTree("main", REVIEWED, CARRIED, ["lib/workflow/steps.ts"], ID) });
+		expect(refused).toEqual({
+			error: movedTree("main", REVIEWED, CARRIED, ["lib/workflow/steps.ts"], ID),
+			shape: "moved",
+		});
 		// The distinction the sentence carries: the merge, not the review, is the unchecked tree.
 		if ("error" in refused) {
 			expect(refused.error).toContain("the merge that carried it on `main`, `9a7d2e0`, moved lib/workflow/steps.ts");
@@ -187,5 +226,71 @@ describe("the gate a landing answers", () => {
 	test("records the merge the review became, stamped with the write's moment", () => {
 		expect(landingGate(ID, REVIEWED, LANE)).toBeUndefined();
 		expect(landingFor(ID, REVIEWED, LANE, 7)).toEqual({ sha: CARRIED, at: 7 });
+	});
+});
+
+describe("closing a card by instruction", () => {
+	/** The refusal a squash leaves, which is the only shape an instruction answers. */
+	const refused = { refusal: "no merge on `main` carries it" };
+
+	test("writes the instruction as a note, and no landing, when the door handed one in", () => {
+		// The decision moved to where the chain is read, so `applyOp` applies both halves it is handed:
+		// a verdict and an accepted instruction. What it must never do is invent a landing.
+		const card = closingCard();
+		const held = applyOp(
+			card,
+			{ ...doneOf(card), landed: refused, instruction: { text: "landed as a squash on main" } },
+			CORE,
+			NOW,
+			boardOf(card),
+		);
+		expect("ok" in held && held.ok).toBe(true);
+		if ("ok" in held && held.ok) {
+			expect(held.card.landed).toBeUndefined();
+			expect(held.card.notes.at(-1)?.text).toBe("closed by instruction: landed as a squash on main");
+		}
+	});
+
+	test("writes no note when the door refused the instruction", () => {
+		const card = closingCard();
+		const held = applyOp(
+			card,
+			{ ...doneOf(card), landed: refused, instruction: { error: "an instruction cannot stand in for code" } },
+			CORE,
+			NOW,
+			boardOf(card),
+		);
+		expect("error" in held ? held.error : "").toBe("an instruction cannot stand in for code");
+	});
+
+	test("records the landing the verdict names, stamped with the write's own moment", () => {
+		const card = closingCard();
+		const landed = applyOp(
+			card,
+			{ ...doneOf(card), landed: { landing: { sha: "abc1234" } } },
+			CORE,
+			NOW,
+			boardOf(card),
+		);
+		expect("ok" in landed && landed.ok ? landed.card.landed : undefined).toEqual({ sha: "abc1234", at: NOW });
+	});
+
+	test("the window is the rule's, not the case's: a merge before the work names nothing", () => {
+		// The assertion the cases above need in order to mean anything: their chains carry the reviewed
+		// commit *after* the work began, so a pass is the rule answering rather than an empty candidate
+		// set. This one moves the same merge behind `workStartedAt` and the answer flips.
+		const card = closingCard();
+		const started = workStartedAt(card);
+		const chain = [
+			{ sha: "0".repeat(39) + "1", at: started - 3_000, parents: ["0".repeat(39) + "1"] },
+			{ sha: "5d0dd0".padEnd(40, "0"), at: started - 2_000, parents: ["0".repeat(39) + "1"] },
+			{ sha: "b".repeat(40), at: started - 1_000, parents: ["5d0dd0".padEnd(40, "0")] },
+		];
+		const inside = proofOf(card, chain);
+		expect(landingGate(card.id, card.review?.verified?.sha, inside)).toContain("on `main`");
+		// The same chain read from a card whose work began before it: the window opens, and the refusal
+		// above is the rule rather than an empty set.
+		const early = { ...card, log: [], createdAt: started - 9_000 };
+		expect(landingGate(card.id, card.review?.verified?.sha, proofOf(early, chain))).toContain("on `main`");
 	});
 });

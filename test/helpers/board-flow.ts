@@ -19,7 +19,6 @@ import type { Lane } from "../../lib/workflow/lanes.ts";
 import { type BoardStore, createStore } from "../../lib/workflow/store.ts";
 import { boardConfig } from "../../lib/workflow/config.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../lib/workflow/limits.ts";
-import { landingFor } from "./fixtures/board-rules.ts";
 
 /**
  * A store whose per-session cap is out of the way.
@@ -129,6 +128,6 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 		kind: "move",
 		lane: "done",
 		artifact: { path: contract ?? plan },
-		landed: landingFor(await read()),
+		landed: { landing: { sha: "9a7d2e00000000000000000000000000000000000" } },
 	});
 }

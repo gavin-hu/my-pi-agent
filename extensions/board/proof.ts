@@ -19,7 +19,13 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
 import { type ArtifactProof, planForExecute } from "../../lib/workflow/artifact.ts";
-import { type LandingCommit, resolveLanding, type LandingProof } from "../../lib/workflow/contract.ts";
+import {
+	type LandingCommit,
+	landingVerdict,
+	type LandingProof,
+	type LandingVerdict,
+	resolveLanding,
+} from "../../lib/workflow/landing.ts";
 import { type Lane, workStartedAt } from "../../lib/workflow/lanes.ts";
 
 import { normalizeCardId } from "../../lib/workflow/card.ts";
@@ -143,8 +149,16 @@ export async function moveProofs(
 	rawCard: string | undefined,
 	lane: Lane | undefined,
 	pi: Pick<ExtensionAPI, "exec">,
-): Promise<{ artifact?: ArtifactProof; landed?: LandingProof }> {
+): Promise<{ artifact?: ArtifactProof; landed?: LandingVerdict }> {
 	const artifact = await provedPlan(runtime, cwd, store, rawCard);
-	const landed = lane === "done" ? await landedChain(store, rawCard, pi) : undefined;
+	// The answer, not the question: `landedChain` already resolved the landing to build its verdict, so
+	// what the write applies is that resolution rather than a second evaluation of the same chain.
+	if (lane !== "done") return { ...(artifact === undefined ? {} : { artifact }) };
+	const proof = await landedChain(store, rawCard, pi);
+	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
+	const card = id === undefined ? undefined : await store.read(id);
+	const reviewed = card?.review?.verified?.sha;
+	const landed =
+		proof === undefined || id === undefined || reviewed === undefined ? undefined : landingVerdict(proof, reviewed, id);
 	return { ...(artifact === undefined ? {} : { artifact }), ...(landed === undefined ? {} : { landed }) };
 }

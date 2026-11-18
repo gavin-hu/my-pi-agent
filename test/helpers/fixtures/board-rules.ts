@@ -13,7 +13,7 @@
 import type { Card } from "../../../lib/workflow/card.ts";
 import { boardConfig, type BoardConfig } from "../../../lib/workflow/config.ts";
 import type { Contract } from "../../../lib/workflow/contract.ts";
-import type { LandingCommit, LandingProof } from "../../../lib/workflow/contract.ts";
+import type { LandingCommit, LandingProof, LandingVerdict } from "../../../lib/workflow/landing.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
 import { indexOf } from "../../../lib/workflow/links.ts";
 import {
@@ -196,9 +196,34 @@ export function doneOf(card: Card): {
 	kind: "move";
 	lane: "done";
 	artifact: ReturnType<typeof provedFor>;
-	landed: LandingProof;
+	landed: LandingVerdict;
 } {
-	return { kind: "move", lane: "done", artifact: provedFor(card), landed: landingFor(card) };
+	// The verdict `landingFor`'s chain resolves to: the merge that carried the review, handed to the
+	// write as an answer rather than asked again.
+	return {
+		kind: "move",
+		lane: "done",
+		artifact: provedFor(card),
+		landed: { landing: { sha: "9a7d2e00000000000000000000000000000000000" } },
+	};
+}
+
+/**
+ * A reviewed card in `execute` whose sign names a commit, owned by whoever holds it.
+ *
+ * Beside `created`, `boardOf` and `stepOf`, which are the same kind of thing: a card shaped for a case,
+ * with the sha a landing case builds its chain around stated here rather than inherited elsewhere.
+ */
+export function closingCard(owner: Actor = CORE): Card {
+	return {
+		...executing(),
+		owner: { id: owner.id, label: owner.label },
+		review: {
+			by: LEAD.label,
+			at: NOW,
+			verified: { cmd: "bun run check", exit: 0, at: NOW, sha: "5d0dd0".padEnd(40, "0") },
+		},
+	};
 }
 
 /** A card whose work the lead has spot-checked, still in `execute`. */

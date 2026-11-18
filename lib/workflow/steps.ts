@@ -37,18 +37,15 @@ import {
 	CONTRACT_LINES,
 	type ContractField,
 	contractApproved,
-	type LandingProof,
-	landingFor,
-	landingGate,
 	mergedContract,
 	missingContractFields,
 	normalizeContractField,
 } from "./contract.ts";
+import type { LandingVerdict } from "./landing.ts";
 import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
 import { contractRoute, LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import {
 	appendNote,
-	currentReview,
 	type HolderFact,
 	heldBy,
 	heldState,
@@ -72,10 +69,8 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be claimed.` };
 	if (holds(card, actor)) return { changed: false, fields: null };
 	if (card.owner !== undefined) return { error: heldBy(card) };
-	// A claim enters `plan` from the pool, which `move` cannot do, so the wait is asked here.
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
-	// The session's own cap before the lane's.
 	const carried = ownerRefusal(actor, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
 	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });
@@ -98,18 +93,15 @@ export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: Wip
 	}
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
-	// The target's cap, before the write.
 	const carried = ownerRefusal(to, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
-	// A pool card is the only card this moves: the owner inherits it.
 	const entered = enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
 	return "error" in entered ? entered : { ...entered, notice: "assign" as const };
 }
 
 /** Hand a card back to the pool. The contract and its approval stay: the plan did not change. */
 export function release(card: Card, actor: Actor): Prepared {
-	// Finished work is history: a release that admitted it would reopen the order a dependency
-	// was recorded against.
+	// Finished work is history: a release of it would reopen the order a dependency was recorded against.
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be released.` };
 	if (card.owner === undefined) return { error: `${cardRef(card.id)} is not claimed.` };
 	if (!holds(card, actor)) return { error: `${heldBy(card)} Release is the owner's decision.` };
@@ -158,8 +150,7 @@ export function reseat(card: Card, actor: Actor, now: number, holder?: HolderFac
 	if (owner.label.toLowerCase() !== actor.label.toLowerCase()) {
 		return { error: `${ref} is held by ${owner.label}; only that name can stand in its seat.` };
 	}
-	// A re-seat writes a session id, so a caller the bus cannot name has nothing to write: refused
-	// rather than storing `undefined` and a note about a write that recorded nothing.
+	// A re-seat writes a session id, so a caller the bus cannot name is refused rather than stored empty.
 	if (actor.id === undefined) {
 		return { error: `${ref} can be re-seated only by a session the bus names; this caller has no id.` };
 	}
@@ -168,8 +159,7 @@ export function reseat(card: Card, actor: Actor, now: number, holder?: HolderFac
 		const why = state === undefined ? "nothing says it stopped" : `it is ${state}`;
 		return { error: `${ref}'s owner is not stopped — ${why} — so only the lead takes its card.` };
 	}
-	// The old id goes into a note rather than the card, and never into the lane log: `laneSince` reads
-	// that log to decide whether a spot-check is stale, so a made-up transition would move a rule.
+	// The old id goes into a note, never the lane log: `laneSince` reads it to decide if a sign is stale.
 	const from = owner.id === undefined ? "a label-only owner" : `owner ${shortId(owner.id)}`;
 	return {
 		changed: true,
@@ -198,35 +188,44 @@ export function move(
 	if (target === "backlog") {
 		return { error: `${cardRef(card.id)} cannot be moved to backlog; release it instead.` };
 	}
-	// A block belongs to a move into `blocked`: sent with any other target, it is a refusal rather
-	// than a success that recorded nothing.
+	// A block belongs to a move into `blocked`: sent with any other target it is a refusal, not a no-op.
 	if (target !== "blocked" && (op.blocker !== undefined || op.blockedBy !== undefined)) {
 		return { error: `a blocker is recorded by a move to blocked, not to ${target}.` };
 	}
-	// A block's reason and kind are checked before the no-op: a caller that repeats a move
-	// with a new sentence meant to change it, and a refusal is clearer than a silent nothing.
+	// A block's reason is checked before the no-op, and fixed while the card is parked.
 	const block = target === "blocked" ? blockFields(op.blocker, op.blockedBy) : undefined;
 	if (block !== undefined && "error" in block) return { error: block.error };
-	// A reason is what the card was parked on, fixed while it is parked: changing it means leaving.
 	if (card.lane === "blocked" && target === "blocked") {
 		return {
 			error: `${cardRef(card.id)} is blocked; its reason is fixed while the card is parked — resume it, then park it again with the new sentence.`,
 		};
 	}
 	if (card.lane === target) return { changed: false, fields: null };
+	if (op.instruction !== undefined && "error" in op.instruction) return { error: op.instruction.error };
+	// One or the other: a landed card has nothing for a reason to stand in for.
+	if (op.instruction !== undefined && op.landed !== undefined && "landing" in op.landed) {
+		return { error: `${cardRef(card.id)} names a landing; an instruction has nothing to stand in for.` };
+	}
 	const transition = transitionOf(card.lane, target);
 	if (transition === undefined) return { error: noRoute(card, target) };
 	for (const need of transition.needs) {
+		// An accepted instruction is the door, so the refusal it answered is not asked again.
+		if (need === "landing" && op.instruction !== undefined && "text" in op.instruction) continue;
 		const refusal = unmet(need, card, board, op.artifact, config, op.landed);
 		if (refusal !== undefined) return { error: refusal };
 	}
 	const fields: Partial<Card> = { lane: target };
-	if (target === "done") fields.landed = landingFor(card.id, currentReview(card)?.verified?.sha, op.landed, now);
+	if (op.instruction !== undefined && "text" in op.instruction) {
+		Object.assign(fields, appendNote(card, actor.label, now, `closed by instruction: ${op.instruction.text}`));
+	}
+	// The verdict the door handed in, stamped with the write's own moment.
+	if (target === "done") {
+		fields.landed =
+			op.landed !== undefined && "landing" in op.landed ? { sha: op.landed.landing.sha, at: now } : undefined;
+	}
 	if (block !== undefined && "fields" in block) Object.assign(fields, block.fields);
-	// A spot-check signs the work as it stood, and `done` is the one lane that sign is evidence
-	// for. Parking a card is somebody deciding it is not finished, and re-planning changes the
-	// agreement, so those two exits drop it — and `review` refuses a finished card, so a move
-	// that dropped the sign here could never be signed again.
+	// A spot-check signs the work as it stood, and `done` is the one lane that sign is evidence for:
+	// parking or re-planning drops it, because both change the agreement it spoke for.
 	if (card.lane === "execute" && (target === "blocked" || target === "plan")) fields.review = undefined;
 	if (target === "execute" || target === "plan") return enter(card, target, board, config.wip, fields);
 	return { changed: true, fields };
@@ -272,7 +271,7 @@ export function unmet(
 	board: BoardIndex,
 	artifact: ArtifactProof | undefined,
 	config: BoardConfig,
-	landing?: LandingProof,
+	landing?: LandingVerdict,
 ): string | undefined {
 	switch (need) {
 		case "waiting":
@@ -306,7 +305,7 @@ export function unmet(
 			return (check.recorded ?? check.path) === card.planPath ? undefined : stalePlan(card);
 		}
 		case "landing":
-			return landingGate(card.id, currentReview(card)?.verified?.sha, landing);
+			return landing !== undefined && "refusal" in landing ? landing.refusal : undefined;
 		case "blocker":
 			// Asked and answered by `blockFields`, which needs the op this gate cannot see: the
 			// requirement is named in the table so a reader sees the whole of what `blocked` wants.
