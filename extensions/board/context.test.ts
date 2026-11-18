@@ -126,9 +126,9 @@ describe("the line", () => {
 		expect(long.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
 		// Three cards and a note cannot all fit: the note wins, because it is the one that failed.
 		const many = [1, 2, 3].map((n) => numberedCard(String(n), { lane: "execute", owner: { label: "api-core" } }));
-		const clipped = buildBoardContext(many, ["#4: 2 paths already held by billing-core"]) ?? "";
+		const clipped = buildBoardContext(many, ["#4: nothing claimed — 2 paths already held by billing-core"]) ?? "";
 		expect(clipped.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
-		expect(clipped.split("\n").at(-1)).toBe("- #4: 2 paths already held by billing-core");
+		expect(clipped.split("\n").at(-1)).toBe("- #4: nothing claimed — 2 paths already held by billing-core");
 	});
 
 	test("carries what the sweep released, alone when this session holds nothing", () => {
@@ -289,7 +289,7 @@ describe("the factory's turn", () => {
 
 			const starters = harness.fake.handlers.get("before_agent_start") ?? [];
 			const first = (await starters[0]?.({}, harness.ctx)) as { message: { content: string } } | undefined;
-			expect(first?.message.content).toContain("- #1: 1 path already held by billing-core");
+			expect(first?.message.content).toContain("- #1: nothing claimed — 1 path already held by billing-core");
 		});
 	});
 

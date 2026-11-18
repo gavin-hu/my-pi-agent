@@ -33,6 +33,7 @@ import { plural, sanitizeLine } from "../format.ts";
 import { sameLabel } from "../session-label.ts";
 import {
 	busLoaded,
+	type ClaimConflict,
 	type ClaimPathsResult,
 	claimPaths,
 	type ReleasePathsResult,
@@ -129,7 +130,7 @@ function failedClaim(error: unknown): { ok: false; error: string } {
 function reclaimClause(answer: ClaimPathsResult): string | undefined {
 	if (!answer.ok) return `not claimed (${sanitizeLine(answer.error)})`;
 	if (answer.conflicts.length === 0) return undefined;
-	return `${plural(answer.conflicts.length, "path")} already held by ${holdersOf(answer.conflicts)}`;
+	return nothingClaimed(answer.conflicts);
 }
 
 /**
@@ -152,9 +153,7 @@ async function editedClause(
 	if (added.length > 0) {
 		const answer = await claims.claim(ctx, added).catch(failedClaim);
 		if (!answer.ok) return `paths not claimed (${sanitizeLine(answer.error)})`;
-		if (answer.conflicts.length > 0) {
-			return `${plural(answer.conflicts.length, "path")} already held by ${holdersOf(answer.conflicts)} — nothing released`;
-		}
+		if (answer.conflicts.length > 0) return nothingClaimed(answer.conflicts, " or released");
 		said.push(`claimed ${plural(answer.claimed.length, "path")}`);
 	}
 	if (removed.length > 0) {
@@ -172,7 +171,7 @@ async function claimedClause(claims: Claims, ctx: ExtensionContext, card: Card):
 	const answer = await claims.claim(ctx, card.paths).catch(failedClaim);
 	if (!answer.ok) return `paths not claimed (${sanitizeLine(answer.error)})`;
 	if (answer.conflicts.length === 0) return `claimed ${plural(answer.claimed.length, "path")}`;
-	return `${plural(answer.conflicts.length, "path")} already held by ${holdersOf(answer.conflicts)}`;
+	return nothingClaimed(answer.conflicts);
 }
 
 /**
@@ -202,6 +201,19 @@ async function releasedClause(
 	if (holder === undefined || sameLabel(holder.label, card.by)) return undefined;
 	const verb = answer.notOwned.length === 1 ? "stays" : "stay";
 	return `${plural(answer.notOwned.length, "path")} ${verb} held by ${sanitizeLine(holder.label)} until it stops`;
+}
+
+/**
+ * What a batch that took nothing says: the outcome first, because the all-or-nothing rule means no
+ * path moved, and only then the paths another session holds.
+ *
+ * One body for the three board doors, because the conflict a claim, a re-claim and an edit each meet
+ * is the same fact, and a door that named only the clashes read as partial success. The success
+ * branch of each opens the same way (`claimed 3 paths`), so the pair reads as one verb with two
+ * answers. `tail` is the door's own addition: an edit's claim and release fail together.
+ */
+function nothingClaimed(conflicts: readonly ClaimConflict[], tail = ""): string {
+	return `nothing claimed${tail} — ${plural(conflicts.length, "path")} already held by ${holdersOf(conflicts)}`;
 }
 
 /** The sessions holding a conflict, each named once, in the order the bus listed them. */

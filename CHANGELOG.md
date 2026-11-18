@@ -106,6 +106,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a refused claim batch says nothing was claimed. A claim is all-or-nothing, so a
+  conflict means no path moved — but the board's three doors opened with the clash (`2 paths
+  already held by billing-core`) and left the outcome to be inferred, which a reader took as partial
+  success, and the bus's own confirmation printed the holders with no line at all. One
+  `nothingClaimed` clause now leads with `nothing claimed — …` for the claim, re-claim and edit
+  doors (an edit's adds `or released`, replacing the standalone `— nothing released`), and
+  `formatClaim` prints `Nothing claimed.` before the paths.
+
 - `memory`: the picker reports what it did, not what it tried. `merge`, `update` and `forget`
   discarded the store's answer, so a merge whose pair had gone printed `Merged 2 project notes.`
   after a write that never happened — `applyMerge`, `applyUpdate` and `applyForget` all answer

@@ -97,7 +97,7 @@ describe("the lane crossing", () => {
 			},
 		});
 		expect(await holdPaths(claims, CTX, wrote(card("plan"), card("execute")))).toBe(
-			"2 paths already held by billing-core",
+			"nothing claimed — 2 paths already held by billing-core",
 		);
 	});
 
@@ -156,7 +156,7 @@ describe("an edit inside execute", () => {
 			claim: { ok: true, claimed: [], conflicts: [{ path: "src/db", owner: "s-2", ownerLabel: "billing-core" }] },
 		});
 		expect(await holdPaths(claims, CTX, wrote(card("execute"), edited("src/api", "src/db")))).toBe(
-			"1 path already held by billing-core — nothing released",
+			"nothing claimed or released — 1 path already held by billing-core",
 		);
 		expect(claims.sent).toEqual([{ call: "claim", paths: ["src/db"] }]);
 	});
@@ -301,7 +301,9 @@ describe("reclaimHeld", () => {
 				conflicts: [{ path: "src/api", owner: "s-2", ownerLabel: "billing-core" }],
 			},
 		});
-		expect(await reclaimHeld(claims, CTX, [card("execute")])).toBe("#4: 1 path already held by billing-core");
+		expect(await reclaimHeld(claims, CTX, [card("execute")])).toBe(
+			"#4: nothing claimed — 1 path already held by billing-core",
+		);
 	});
 
 	test("asks nothing without a bus, and turns a throw into its sentence", async () => {
