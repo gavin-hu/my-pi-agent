@@ -106,6 +106,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cap on write only — a longer one still reads on an older build — and the `text` a sign records
   shares the note's 1200.
 
+- `docs`: the drift guard counts a path a document cites once, however often it cites it. It tallied
+  spans, so `AGENTS.md` citing one file twenty-three times cleared the floor while losing every other
+  citation; the floor is now the 20 distinct paths the doc cites, and a `CONTRIBUTING.md` word ceiling
+  of 2357 sits beside `AGENTS.md`'s 981. Both ceilings hold the document's height today, so a growth
+  trims the prose and a trim lowers the number in the same commit, and neither comment can go stale
+  while the gate keeps headroom.
+
 ### Fixed
 
 - `board`: the card dialog's title keeps its half of the head. The meta beside it is nowrap text
