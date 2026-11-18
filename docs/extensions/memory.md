@@ -64,7 +64,7 @@ left out, and the block's last line counts them: `/memory doctor` reports the bu
 and which store overflowed.
 
 **The picker.** `/memory` lists notes with their scope; add, edit, forget, merge
-and move are in place, `/` filters, `r` reloads.
+and move are in place, `s`/Tab filters by scope, `r` reloads.
 
 ## Limits
 

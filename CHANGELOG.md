@@ -23,6 +23,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `memory`: the 500-character note cap has one home. The picker re-declared it as
+  `MAX_NOTE_CHARS` beside the tool's `MAX_ENTRY_CHARS`, so the two agreed by hand; the picker
+  imports the tool's constant now, and a case holds the screen's refusal sentence to that number
+  so moving it moves both. The docs stop claiming two things the package does not do: the picker
+  filters on `s`/Tab, not `/`, and the store is markdown you can read and edit rather than
+  version — `.pi/` is gitignored, in the catalog and in the feature blurb, in both entry
+  READMEs.
+
 - `todo`: an `in_progress` item no longer has to carry an `activeForm`. The label was only ever
   drawn, and the row already fell back to its task text, so refusing the call spent the whole list
   — a rejected write is atomic — on a presentational field, and a pending row's label is never
