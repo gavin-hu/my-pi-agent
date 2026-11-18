@@ -183,7 +183,8 @@ gate is stated in the test.
    test that re-declares or copies a `test/helpers` export, and one test file
    that carries a body another test file already carries, and pins its exception
    maps; `drift.test.ts` keeps every `lib/` module in the `lib/README.md`
-   index and `AGENTS.md` inside its word budget; the module line bar and its
+   index, `AGENTS.md` and `CONTRIBUTING.md` inside their word budgets, and counts
+   a path a doc cites once however often it is cited; the module line bar and its
    `LONG_MODULES` heights live in `module-sizes.test.ts`, and the suite bar in
    `suite-sizes.test.ts`.
    `tool-render.test.ts` renders every registered tool's call
@@ -437,7 +438,7 @@ test/
   prerequisites.test.ts    # REQUIREMENTS, and the config files each extension declares
   doc-links.test.ts        # every relative link, anchor, and table cell in the doc tree
   suite-sizes.test.ts      # the 400-line suite bar: every oversized suite named at its height, and a falling total
-  drift.test.ts            # lib/README index, AGENTS.md and entry README catalog word budgets
+  drift.test.ts            # lib/README index, the doc word budgets, and the entry README catalog's
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
   site-docs.test.ts        # the docs site: the navigation table against the tree, the tutorial walk order and its links, the Pages config, and the copied assets
