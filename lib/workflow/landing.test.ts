@@ -178,9 +178,13 @@ describe("resolveLanding", () => {
 		// a commit the branch has never seen cannot — and the sentence says which is which.
 		const onBranch = proof(LANE.chain, CARRIED, { since: CARRIED_AT + 1 });
 		expect(landingGate(ID, CARRIED, onBranch, "landed with no merge to point at")).toBeUndefined();
+		// The words say which shape it is: a commit the branch holds, carried by nothing.
+		expect(landingGate(ID, CARRIED, onBranch)).toContain("which is on `main`");
 		expect(landingGate(ID, CARRIED, onBranch)).toContain("may close the card by instruction");
 		const nowhere = "5d0dd00000000000000000000000000000000000";
 		const absent = proof(LANE.chain, nowhere);
+		// And this one says the opposite, because it is the opposite: the commit is nowhere on the branch.
+		expect(landingGate(ID, nowhere, absent, "close it")).toContain("not on the branch at all");
 		expect(landingGate(ID, nowhere, absent, "close it")).toContain("cannot stand in for");
 	});
 
