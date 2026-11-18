@@ -1,14 +1,59 @@
 /**
- * `writeJsonFile`: the one atomic JSON write, beside its read twin in `json.ts`.
+ * The one atomic write: the text primitive, its temp name, and the JSON face over both.
  *
- * The document arrives by rename, and the mode rides on the temp file it publishes.
+ * A document arrives by rename, and the mode rides on the temp file it publishes.
  */
 
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../test/helpers/env.ts";
-import { writeJsonFile, memberOf } from "./json.ts";
+import { tempPathFor, writeJsonFile, writeTextAtomic, memberOf } from "./json.ts";
+
+describe("writeTextAtomic", () => {
+	function newPath(): string {
+		return join(tempDir("atomic-write-"), "notes.md");
+	}
+
+	test("replaces the file's text in one rename", () => {
+		const path = newPath();
+		writeTextAtomic(path, "- one\n");
+		writeTextAtomic(path, "- two\n");
+
+		expect(readFileSync(path, "utf-8")).toBe("- two\n");
+		expect(readdirSync(dirname(path))).toEqual(["notes.md"]);
+	});
+
+	test("gives every write its own temp name, which is what two sessions need", () => {
+		const path = newPath();
+		const first = tempPathFor(path);
+		const second = tempPathFor(path);
+
+		// One writer truncating the other's temp is the failure: the pid keeps processes apart
+		// and the random suffix keeps two writes in one process apart.
+		expect(first).not.toBe(second);
+		expect(first).toContain(`.${process.pid}.`);
+		expect(first.endsWith(".tmp")).toBe(true);
+	});
+
+	test.skipIf(process.platform === "win32")("publishes at the mode it was given", () => {
+		const path = newPath();
+		// A wider file is narrowed: the mode is on the temp, so the rename is what makes it
+		// private, and it survives a umask narrowed far enough to strip the create's bits.
+		writeTextAtomic(path, "- open\n");
+		writeTextAtomic(path, "- closed\n", { mode: 0o600 });
+
+		expect(statSync(path).mode & 0o777).toBe(0o600);
+	});
+
+	test("takes its temp with it when the rename fails", () => {
+		const path = newPath();
+		mkdirSync(path);
+
+		expect(() => writeTextAtomic(path, "- lost\n")).toThrow();
+		expect(readdirSync(dirname(path))).toEqual(["notes.md"]);
+	});
+});
 
 describe("writeJsonFile", () => {
 	function newPath(): string {

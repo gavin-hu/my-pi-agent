@@ -7,8 +7,9 @@
  * the caller's fallback answers otherwise. On disk the same boundary is
  * lenient on the way in — `readJson` ignores what is missing or malformed, and
  * `readJsonResult` is the reporting twin that names the file and the parse
- * error a user would otherwise never see — and atomic on the way out: the write
- * is published by a rename, so a reader sees the old document or the new one.
+ * error a user would otherwise never see — and atomic on the way out: `writeTextAtomic`
+ * publishes a file by a rename, and `writeJsonFile` is its JSON face, so a reader sees
+ * the old document or the new one. A markdown store uses the text half directly.
  *
  * Nothing here knows what a document means. The `bytefly.json` document that
  * layers sections, leaves, and metadata over these functions is `config.ts`,
@@ -16,7 +17,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 /** A finite number, or `NaN` when the value does not say one. */
@@ -125,40 +126,50 @@ export function readJson(path: string): Record<string, unknown> | undefined {
 	return result.state === "ok" ? result.value : undefined;
 }
 
-/** How the written document is shaped: one JSON object, indented, newline-terminated. */
-interface JsonWriteOptions {
-	/** File mode for the written file, applied to the temp file the rename publishes. */
+/** How the written file is shaped: the mode a caller keeps private, and nothing else. */
+export interface AtomicWriteOptions {
+	/** File mode for the published file, applied to the temp file the rename publishes. */
 	mode?: number;
 }
 
 /**
- * Write `value` as JSON at `path`, replacing whatever is there in one rename.
+ * The temp name an atomic write publishes from: a sibling of the target carrying this
+ * process's id and fresh randomness.
+ *
+ * Two processes never share a name, and two writes in one process never share one either
+ * — a session that writes its record twice in one tick is the case the pid alone cannot
+ * answer. Exported for {@link writeTextAtomic} and for the case that holds it: a caller
+ * that builds a name must also publish and clean it up, so nothing else calls this.
+ */
+export function tempPathFor(path: string): string {
+	return `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+}
+
+/**
+ * Write `text` at `path`, replacing whatever is there in one rename.
  *
  * A plain truncating write leaves the file empty and half-written for as long as the
  * write takes, and a reader that lands there parses nothing — defaults for a config
- * file, "not logged in" for `wechat`'s credentials. The rename is the publish: a
- * reader sees the old document or the new one, never a fragment. The pid suffix is
- * what keeps two processes from sharing one temp name, and the random suffix what keeps two writes in
- * one process from sharing it — a session that writes its record twice in one tick is the case the
- * pid alone could not answer.
+ * file, "not logged in" for `wechat`'s credentials, no notes for a memory store. The
+ * rename is the publish: a reader sees the old document or the new one, never a
+ * fragment, and never another writer's temp under this one's name.
  *
- * The mode rides on the temp file rather than being applied after the write, so a
- * `0600` file is never readable at a wider mode for even a moment.
+ * The mode rides on the temp file and is set again after the create, so a `0600` file is
+ * never readable at a wider mode for even a moment, and a umask cannot narrow it to
+ * something the owner cannot read back; the published name inherits it through the rename.
  *
- * A value JSON has no form for is refused: `JSON.stringify` answers `undefined` for it,
- * and written out that is the five letters, which the next reader loads as an empty
- * document. A write or rename that fails removes its temp, so the next write is not
- * handed the broken one's name.
+ * A write or rename that fails removes its temp, so the next write is not handed the
+ * broken one's name and nothing is left beside the target.
  */
-export function writeJsonFile(path: string, value: unknown, options: JsonWriteOptions = {}): void {
-	const body = JSON.stringify(value, null, 2);
-	if (body === undefined) throw new TypeError(`writeJsonFile: ${path} has no JSON form`);
+export function writeTextAtomic(path: string, text: string, options: AtomicWriteOptions = {}): void {
 	mkdirSync(dirname(path), { recursive: true });
-	const temp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
-	const text = `${body}\n`;
+	const temp = tempPathFor(path);
 	try {
 		if (options.mode === undefined) writeFileSync(temp, text, "utf-8");
-		else writeFileSync(temp, text, { encoding: "utf-8", mode: options.mode });
+		else {
+			writeFileSync(temp, text, { encoding: "utf-8", mode: options.mode });
+			chmodSync(temp, options.mode);
+		}
 		renameSync(temp, path);
 	} catch (error) {
 		try {
@@ -168,6 +179,19 @@ export function writeJsonFile(path: string, value: unknown, options: JsonWriteOp
 		}
 		throw error;
 	}
+}
+
+/**
+ * Write `value` as JSON at `path`: one document, published by {@link writeTextAtomic}.
+ *
+ * A value JSON has no form for is refused: `JSON.stringify` answers `undefined` for it,
+ * and written out that is the five letters, which the next reader loads as an empty
+ * document.
+ */
+export function writeJsonFile(path: string, value: unknown, options: AtomicWriteOptions = {}): void {
+	const body = JSON.stringify(value, null, 2);
+	if (body === undefined) throw new TypeError(`writeJsonFile: ${path} has no JSON form`);
+	writeTextAtomic(path, `${body}\n`, options);
 }
 
 /** What {@link readJsonResult} found: nothing, a usable object, or why not. */

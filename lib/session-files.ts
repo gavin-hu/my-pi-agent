@@ -12,14 +12,14 @@
  * digest before they reach a file name. Writes are `lib/json.ts`'s rule, asynchronously: written
  * to a temp file beside the target and renamed over it, so a reader sees the document before or
  * after and never half of either; a claim is published by a link instead, which is the exclusive
- * create the claim *is*. The temp's name is `<path>.<pid>.<random>.tmp`, which no reader lists and
- * {@link dropStaleTemps} clears once the process that owned it is gone.
+ * create the claim *is*. The temp's name is `lib/json.ts`'s {@link tempPathFor}, which no reader
+ * lists and {@link dropStaleTemps} clears once the process that owned it is gone.
  */
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { link, mkdir, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { readJson } from "./json.ts";
+import { readJson, tempPathFor } from "./json.ts";
 
 /** The bus directory under the agent dir, `session-bus`. */
 export const BUS_DIR_NAME = "session-bus";
@@ -126,7 +126,7 @@ export function readJsonAs<T>(path: string, guard: (value: unknown) => value is 
  */
 export async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
 	await mkdir(dirname(path), { recursive: true, mode: DIR_MODE });
-	const temp = tempName(path);
+	const temp = tempPathFor(path);
 	await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf-8", mode: FILE_MODE });
 	try {
 		await rename(temp, path);
@@ -151,7 +151,7 @@ export async function writeJsonAtomic(path: string, value: unknown): Promise<voi
  */
 export async function publishNew(path: string, value: unknown): Promise<boolean> {
 	await mkdir(dirname(path), { recursive: true, mode: DIR_MODE });
-	const temp = tempName(path);
+	const temp = tempPathFor(path);
 	await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf-8", mode: FILE_MODE });
 	try {
 		await link(temp, path);
@@ -197,7 +197,5 @@ export async function dropStaleTemps(dir: string): Promise<void> {
 	}
 }
 
-/** The temp file one write publishes from, beside its target and named for this process. */
-function tempName(path: string): string {
-	return `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
-}
+/** The peer's temp file is `lib/json.ts`'s {@link tempPathFor}: one spelling of a name the
+ * cleanup below can recognise, and one process that cannot share it with another. */
