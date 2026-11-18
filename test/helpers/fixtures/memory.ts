@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import memory from "../../../extensions/memory/index.ts";
+import type { MemoryNote } from "../../../extensions/memory/types.ts";
 import { ENV_ROOT } from "../../../lib/env.ts";
 import { fakeCtx } from "../context.ts";
 import { useEnv } from "../env.ts";
@@ -53,6 +54,11 @@ const GIT_REV_PARSE = "rev-parse";
 const SHOW_TOPLEVEL = "--show-toplevel";
 const COMMON_DIR = "--git-common-dir";
 const WORKTREE_TASK = [".pi", "worktrees", "task"];
+
+/** The notes a store holds for the strings a case writes: unattributed, which is the default. */
+export function notesOf(texts: string[]): MemoryNote[] {
+	return texts.map((text) => ({ text }));
+}
 
 /** Build a memory suite rooted in fresh temp directories. */
 export function memorySuite(options: MemorySuiteOptions = {}): MemorySuite {

@@ -48,6 +48,16 @@ checkout — so a subdirectory and every worktree read the same file; it is read
 written only while the project is trusted. Either store is written owner-only
 (`0600`), because a note is instruction the next session trusts.
 
+**Who wrote it.** A note written from a session carries its label and the moment after
+the text, as `<!-- by: jack @ 2026-11-18T05:12:00.000Z -->`; the text before it is the
+note, so `forget` and `update` match what you read. A note with no trailer — written by
+hand, or before this existed — reads as unattributed. An older build does not mistake the
+file, but it does not understand this note either: the trailer shows as part of the text,
+and its `forget` and `update` are given the whole line, so a note written here has to be
+maintained here. An `update` or a `merge` refreshes it: whoever last wrote the note is the
+one asserting it now, so a merged pair carries the name of the session that combined it
+rather than of either original.
+
 **Recall.** Notes are injected as a `[MEMORY]` context block before each run,
 newest first, bounded by a byte cap. Past the cap the **oldest** notes are the ones
 left out, and the block's last line counts them: `/memory doctor` reports the budget
@@ -74,6 +84,8 @@ and move are in place, `/` filters, `r` reloads.
 - A worktree written by an older build may hold its own `.pi/memory.md`. It is not read
   now — one store per repository — and it goes with the worktree, so copy it into the
   checkout if it holds notes.
+- A label is a hint, not a signature: any session can claim any name, and the file is
+  yours to edit by hand. It makes a peer's assertion visible; it does not prove it.
 - Notes are markdown on disk, so an edit outside Pi lands on the next read.
 
 ## Settings

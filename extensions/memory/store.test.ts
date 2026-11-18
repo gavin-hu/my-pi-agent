@@ -99,7 +99,7 @@ describe("store files", () => {
 	test("mutateMemoryFile writes the store and returns the parsed notes", async () => {
 		const path = join(dir, "nested", "memory.md");
 		const result = await mutateMemoryFile(path, (content) => applyAdd(content, "one"));
-		expect(result).toEqual({ entries: ["one"], changed: true });
+		expect(result).toEqual({ entries: [{ text: "one" }], changed: true });
 		expect(readFileSync(path, "utf-8")).toContain("- one");
 	});
 
@@ -279,16 +279,16 @@ describe("memory runtime", () => {
 		const loaded = await load(true);
 
 		expect(loaded.paths()).toEqual({ project: suite.projectPath, global: suite.globalPath });
-		expect(loaded.entries()).toEqual({ project: ["repo fact"], global: ["global fact"] });
+		expect(loaded.entries()).toEqual({ project: [{ text: "repo fact" }], global: [{ text: "global fact" }] });
 	});
 
 	test("returns copies of the notes so a caller cannot mutate the cache", () => {
 		suite.write("project", "- repo fact\n");
 
 		const entries = runtime.entries();
-		entries.project.push("mutated");
+		entries.project.push({ text: "mutated" });
 
-		expect(runtime.entries().project).toEqual(["repo fact"]);
+		expect(runtime.entries().project.map((note) => note.text)).toEqual(["repo fact"]);
 	});
 
 	test("add writes the note to the store and the session view", async () => {
@@ -296,7 +296,7 @@ describe("memory runtime", () => {
 
 		expect(result).toEqual({ changed: true });
 		expect(read("project")).toContain("- Use bun for scripts");
-		expect(runtime.entries().project).toEqual(["Use bun for scripts"]);
+		expect(runtime.entries().project.map((note) => note.text)).toEqual(["Use bun for scripts"]);
 	});
 
 	test("add reports the stored note for an exact or near duplicate", async () => {
@@ -314,7 +314,7 @@ describe("memory runtime", () => {
 		expect(await runtime.update("project", "old note", "corrected note")).toBe(true);
 		// Position is age: a correction is newest, and a reload reads that back off the file.
 		const reloaded = await load(true);
-		expect(reloaded.entries().project).toEqual(["newer note", "corrected note"]);
+		expect(reloaded.entries().project.map((note) => note.text)).toEqual(["newer note", "corrected note"]);
 	});
 
 	test("update is a no-op when the text is unchanged", async () => {
@@ -330,7 +330,7 @@ describe("memory runtime", () => {
 		expect(await runtime.forget("project", "gone")).toBe(true);
 
 		const reloaded = await load(true);
-		expect(reloaded.entries().project).toEqual(["keep"]);
+		expect(reloaded.entries().project.map((note) => note.text)).toEqual(["keep"]);
 	});
 
 	test("clear removes every note and reports whether anything changed", async () => {
@@ -339,7 +339,7 @@ describe("memory runtime", () => {
 
 		expect(await runtime.clear("global")).toBe(true);
 		expect(read("global")).not.toContain("- one");
-		expect(runtime.entries().global).toEqual([]);
+		expect(runtime.entries().global.map((note) => note.text)).toEqual([]);
 		expect(await runtime.clear("global")).toBe(false);
 	});
 
@@ -350,20 +350,20 @@ describe("memory runtime", () => {
 		expect(await runtime.merge("project", "one", "two", "one and two")).toBe(true);
 
 		const reloaded = await load(true);
-		expect(reloaded.entries().project).toEqual(["one and two"]);
+		expect(reloaded.entries().project.map((note) => note.text)).toEqual(["one and two"]);
 	});
 
 	test("merge changes nothing when either note is missing", async () => {
 		await runtime.add("project", "one");
 		expect(await runtime.merge("project", "one", "missing", "merged")).toBe(false);
-		expect(runtime.entries().project).toEqual(["one"]);
+		expect(runtime.entries().project.map((note) => note.text)).toEqual(["one"]);
 	});
 
 	test("write replaces one store's raw text for the editor", async () => {
 		await runtime.write("global", "# manual\n- written by hand\n");
 
 		expect(runtime.raw("global")).toBe("# manual\n- written by hand\n");
-		expect(runtime.entries().global).toEqual(["written by hand"]);
+		expect(runtime.entries().global.map((note) => note.text)).toEqual(["written by hand"]);
 	});
 
 	test("sizes reports each store's bytes and hides an untrusted project", async () => {
@@ -381,7 +381,7 @@ describe("memory runtime", () => {
 
 		const untrusted = await load(false);
 
-		expect(untrusted.entries()).toEqual({ project: [], global: ["shared"] });
+		expect(untrusted.entries()).toEqual({ project: [], global: [{ text: "shared" }] });
 		expect(untrusted.trusted()).toBe(false);
 	});
 
@@ -427,7 +427,7 @@ describe("memory runtime", () => {
 		const warning = await runtime.load(suite.cwd, true);
 
 		expect(warning).toMatch(/larger than/);
-		expect(runtime.entries()).toEqual({ project: [], global: ["shared"] });
+		expect(runtime.entries()).toEqual({ project: [], global: [{ text: "shared" }] });
 	});
 
 	test("refresh re-reads a store changed on disk and reports only that scope", async () => {
@@ -438,7 +438,7 @@ describe("memory runtime", () => {
 		const result = runtime.refresh();
 
 		expect(result.changed).toEqual(["project"]);
-		expect(runtime.entries().project).toEqual(["fresh fact"]);
+		expect(runtime.entries().project.map((note) => note.text)).toEqual(["fresh fact"]);
 	});
 
 	test("refresh is a no-op for an unchanged store", () => {
@@ -454,7 +454,7 @@ describe("memory runtime", () => {
 
 		expect(result.warning).toMatch(/larger than/);
 		expect(result.changed).not.toContain("project");
-		expect(runtime.entries().project).toEqual(["keep"]);
+		expect(runtime.entries().project.map((note) => note.text)).toEqual(["keep"]);
 	});
 
 	test("refresh ignores the project store while untrusted", async () => {
@@ -477,7 +477,7 @@ describe("memory runtime", () => {
 		const result = await runtime.move("project", "global", "Use bun for scripts");
 
 		expect(result).toEqual({ moved: true });
-		expect(runtime.entries()).toEqual({ project: [], global: ["Use bun for scripts"] });
+		expect(runtime.entries()).toEqual({ project: [], global: [{ text: "Use bun for scripts" }] });
 		expect(read("project")).not.toContain("- Use bun for scripts");
 		expect(read("global")).toContain("- Use bun for scripts");
 	});
@@ -487,7 +487,7 @@ describe("memory runtime", () => {
 
 		await runtime.move("global", "project", "Pi lives in ~/.pi");
 
-		expect(runtime.entries()).toEqual({ project: ["Pi lives in ~/.pi"], global: [] });
+		expect(runtime.entries()).toEqual({ project: [{ text: "Pi lives in ~/.pi" }], global: [] });
 		expect(read("project")).toContain("- Pi lives in ~/.pi");
 		expect(read("global")).not.toContain("- Pi lives in ~/.pi");
 	});
@@ -509,8 +509,8 @@ describe("memory runtime", () => {
 		const result = await runtime.move("project", "global", "Use bun");
 
 		expect(result).toEqual({ moved: true, existing: "use bun." });
-		expect(runtime.entries().project).toEqual([]);
-		expect(runtime.entries().global).toEqual(["use bun."]);
+		expect(runtime.entries().project.map((note) => note.text)).toEqual([]);
+		expect(runtime.entries().global.map((note) => note.text)).toEqual(["use bun."]);
 	});
 
 	test("refuses a note the source does not hold, writing nothing to the target", async () => {
@@ -519,7 +519,7 @@ describe("memory runtime", () => {
 		await expect(runtime.move("project", "global", "something else")).rejects.toThrow(/No project memory note/);
 
 		expect(read("global")).not.toContain("something else");
-		expect(runtime.entries().project).toEqual(["only this"]);
+		expect(runtime.entries().project.map((note) => note.text)).toEqual(["only this"]);
 	});
 
 	test("refuses a move that does not change scope", async () => {
@@ -575,7 +575,7 @@ describe("memory runtime", () => {
 
 		await runtime.load(suite.cwd, true);
 
-		expect(runtime.entries().project).toEqual(["persisted"]);
+		expect(runtime.entries().project.map((note) => note.text)).toEqual(["persisted"]);
 	});
 });
 

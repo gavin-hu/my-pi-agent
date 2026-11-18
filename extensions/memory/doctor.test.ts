@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { duplicatePairs, formatHealth, memoryHealth } from "./doctor.ts";
+import { notesOf } from "../../test/helpers/fixtures/memory.ts";
 import { MAX_STORE_BYTES } from "./store.ts";
 
 const CONFIG = { inject: true, maxInjectBytes: 8192 };
@@ -25,7 +26,7 @@ describe("memory health", () => {
 		} = {},
 	) {
 		return memoryHealth({
-			entries: { project: over.project ?? [], global: over.global ?? [] },
+			entries: { project: notesOf(over.project ?? []), global: notesOf(over.global ?? []) },
 			sizes: { project: over.sizes?.project, global: over.sizes?.global },
 			paths: PATHS,
 			trusted: over.trusted ?? true,
@@ -63,14 +64,16 @@ describe("memory health", () => {
 	});
 
 	test("pairs notes the conservative key already treats as one fact", () => {
-		expect(duplicatePairs({ project: ["Use bun", "other", "use bun."], global: [] })).toEqual([
+		expect(duplicatePairs({ project: notesOf(["Use bun", "other", "use bun."]), global: [] })).toEqual([
 			{ scope: "project", kept: "Use bun", duplicate: "use bun." },
 		]);
 	});
 
 	test("keeps paraphrases apart", () => {
 		// The key never folds word order or internal punctuation.
-		expect(duplicatePairs({ project: ["Run unit tests with bun", "Use bun for tests"], global: [] })).toEqual([]);
+		expect(duplicatePairs({ project: notesOf(["Run unit tests with bun", "Use bun for tests"]), global: [] })).toEqual(
+			[],
+		);
 	});
 
 	test("prints counts, bytes, the budget, and that the store is clean", () => {
@@ -94,6 +97,27 @@ describe("memory health", () => {
 		// The session's next decision is what to prune, so the row carries the cap it broke.
 		expect(text).toContain(`past the ${MAX_STORE_BYTES}-byte cap`);
 		expect(text).toContain(PATHS.project);
+	});
+
+	test("prints the authors, most first and the unattributed last", () => {
+		const stamped = memoryHealth({
+			entries: {
+				project: [
+					{ text: "a", by: "gavin", at: "2026-11-18T05:00:00.000Z" },
+					{ text: "b", by: "gavin", at: "2026-11-18T05:01:00.000Z" },
+					{ text: "c", by: "jack", at: "2026-11-18T05:02:00.000Z" },
+					{ text: "d" },
+				],
+				global: [],
+			},
+			sizes: { project: undefined, global: undefined },
+			paths: PATHS,
+			trusted: true,
+			config: CONFIG,
+		});
+
+		// The row a session reads, not just the field behind it.
+		expect(formatHealth(stamped)).toMatch(/authors\s+gavin 2 \u00b7 jack 1 \u00b7 unattributed 1/);
 	});
 
 	test("leaves a store under the ceiling unmarked", () => {

@@ -24,9 +24,15 @@ import {
 	normalizeScope,
 	type MemoryArgs,
 } from "./schema.ts";
-import type { MemoryDetails, MemoryScope } from "./types.ts";
+import { noteLabel, type MemoryDetails, type MemoryScope } from "./types.ts";
 
 export const TOOL_NAME = "memory";
+
+/** The notes as a reader sees them: `[jack] text`, or the bare text of an unattributed one. */
+function labelled(runtime: MemoryRuntime): { project: string[]; global: string[] } {
+	const entries = runtime.entries();
+	return { project: entries.project.map(noteLabel), global: entries.global.map(noteLabel) };
+}
 
 /** JSON-safe mirror of the details for `structuredContent`. */
 function toStructuredContent(details: MemoryDetails): Record<string, JsonValue> {
@@ -89,14 +95,14 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 				scope = normalizeScope(args.scope);
 			} catch (error) {
 				return memoryResult(
-					{ action: "list", scope: "project", ...runtime.entries(), changed: false },
+					{ action: "list", scope: "project", ...labelled(runtime), changed: false },
 					messageOf(error),
 				);
 			}
 
 			try {
 				if (action === "list") {
-					return memoryResult({ action, scope, ...runtime.entries(), changed: false });
+					return memoryResult({ action, scope, ...labelled(runtime), changed: false });
 				}
 				const text = normalizeEntryText(args.text);
 				if (action === "add") {
@@ -104,7 +110,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 					return memoryResult({
 						action,
 						scope,
-						...runtime.entries(),
+						...labelled(runtime),
 						changed: result.changed,
 						entry: text,
 						...(result.existing === undefined ? {} : { existing: result.existing }),
@@ -115,7 +121,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 					// Equal text says nothing about the store, so the read decides: "already set"
 					// is only true for a note this scope holds, and the store may hold it in the
 					// other scope or lack it entirely.
-					const notes = runtime.entries();
+					const notes = labelled(runtime);
 					if (text === to && notes[scope].includes(text)) {
 						return memoryResult({ action, scope, ...notes, changed: false, entry: text, to });
 					}
@@ -130,18 +136,18 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 							`No ${scopeLabel(scope)} memory note matches: ${text}${elsewhere}`,
 						);
 					}
-					return memoryResult({ action, scope, ...runtime.entries(), changed, entry: text, to });
+					return memoryResult({ action, scope, ...labelled(runtime), changed, entry: text, to });
 				}
 				const changed = await runtime.forget(scope, text);
 				if (!changed) {
 					return memoryResult(
-						{ action, scope, ...runtime.entries(), changed: false, entry: text },
+						{ action, scope, ...labelled(runtime), changed: false, entry: text },
 						`No ${scopeLabel(scope)} memory note matches: ${text}`,
 					);
 				}
-				return memoryResult({ action, scope, ...runtime.entries(), changed, entry: text });
+				return memoryResult({ action, scope, ...labelled(runtime), changed, entry: text });
 			} catch (error) {
-				return memoryResult({ action, scope, ...runtime.entries(), changed: false }, messageOf(error));
+				return memoryResult({ action, scope, ...labelled(runtime), changed: false }, messageOf(error));
 			}
 		},
 

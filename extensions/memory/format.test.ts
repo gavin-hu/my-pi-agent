@@ -7,6 +7,7 @@ import {
 	injectionPlan,
 	MEMORY_CONTEXT_MARKER,
 } from "./format.ts";
+import { notesOf } from "../../test/helpers/fixtures/memory.ts";
 import type { MemoryDetails } from "./types.ts";
 
 function details(over: Partial<MemoryDetails> = {}): MemoryDetails {
@@ -19,7 +20,7 @@ describe("injection body", () => {
 	});
 
 	test("lists the project then global sections under the marker", () => {
-		const body = buildInjection({ project: ["p1"], global: ["g1"] }, 8192);
+		const body = buildInjection({ project: notesOf(["p1"]), global: notesOf(["g1"]) }, 8192);
 		expect(body?.startsWith(MEMORY_CONTEXT_MARKER)).toBe(true);
 		expect(body).toContain("project:\n- p1");
 		expect(body).toContain("global:\n- g1");
@@ -27,14 +28,14 @@ describe("injection body", () => {
 	});
 
 	test("omits an empty project section, as for an untrusted project", () => {
-		const body = buildInjection({ project: [], global: ["g1"] }, 8192);
+		const body = buildInjection({ project: [], global: notesOf(["g1"]) }, 8192);
 		expect(body).not.toContain("project:");
 		expect(body).toContain("global:\n- g1");
 	});
 
 	test("caps the body and reports the omitted count", () => {
 		const entries = Array.from({ length: 200 }, (_, index) => `note ${index} ${"x".repeat(40)}`);
-		const body = buildInjection({ project: [], global: entries }, 512);
+		const body = buildInjection({ project: [], global: notesOf(entries) }, 512);
 		expect(body).toBeDefined();
 		expect(Buffer.byteLength(body ?? "", "utf-8")).toBeLessThanOrEqual(512);
 		expect(body).toMatch(/\(\+\d+ more; call list — the store is past the injection cap\)/);
@@ -47,13 +48,13 @@ describe("injection plan", () => {
 	});
 
 	test("reports no omitted notes when everything fits", () => {
-		const plan = injectionPlan({ project: ["p1"], global: ["g1"] }, 8192);
+		const plan = injectionPlan({ project: notesOf(["p1"]), global: notesOf(["g1"]) }, 8192);
 		expect(plan?.omitted).toEqual({ project: 0, global: 0 });
 	});
 
 	test("attributes omissions to the store that overflowed", () => {
 		const entries = Array.from({ length: 200 }, (_, index) => `note ${index} ${"x".repeat(40)}`);
-		const plan = injectionPlan({ project: entries.slice(0, 100), global: entries.slice(100) }, 512);
+		const plan = injectionPlan({ project: notesOf(entries.slice(0, 100)), global: notesOf(entries.slice(100)) }, 512);
 		expect(plan?.omitted.project).toBeGreaterThan(0);
 		expect(plan?.omitted.global).toBeGreaterThan(0);
 		// One tail names the total, not one line per scope.
@@ -63,7 +64,7 @@ describe("injection plan", () => {
 
 	test("keeps the newest notes, counting the oldest as omitted", () => {
 		const entries = Array.from({ length: 20 }, (_, index) => `note ${index} ${"x".repeat(60)}`);
-		const plan = injectionPlan({ project: entries, global: [] }, 600);
+		const plan = injectionPlan({ project: notesOf(entries), global: [] }, 600);
 		const kept = plan?.lines.filter((line) => line.startsWith("- ") && !line.includes(" more")) ?? [];
 		expect(kept.length).toBeGreaterThan(0);
 		expect(kept.length).toBeLessThan(entries.length);
@@ -143,6 +144,8 @@ describe("memory text", () => {
 	});
 
 	test("formatNotice lists both stores", () => {
-		expect(formatNotice({ project: ["p"], global: ["g"] })).toBe("Memory:\nproject (1):\n- p\nglobal (1):\n- g");
+		expect(formatNotice({ project: notesOf(["p"]), global: notesOf(["g"]) })).toBe(
+			"Memory:\nproject (1):\n- p\nglobal (1):\n- g",
+		);
 	});
 });
