@@ -12,9 +12,11 @@
  *   back into prose with nothing red;
  * - the entry README's catalog growing back into a manual too, one long table cell
  *   at a time, which is how a reader stops scanning it and the page starts
- *   restating the extension pages beside it.
+ *   restating the extension pages beside it;
+ * - `CONTRIBUTING.md` growing the same way `AGENTS.md` did, one owned list at a
+ *   time, which is how the workflow at the top stops being read.
  *
- * All three are ratchets: the index is compared against the tree, and the two word
+ * All five are ratchets: the index is compared against the tree, and the three word
  * budgets only ever fall. A duplicate body is not repeated here; that gate owns it.
  */
 
@@ -95,6 +97,41 @@ function words(line: string): number {
 	return line.split(/\s+/).filter(Boolean).length;
 }
 
+/**
+ * A whole document's words, summed line by line through {@link words}: the doc ceilings
+ * hold a file rather than a row, and a second split beside this one is how two counts
+ * start to disagree.
+ */
+function documentWords(markdown: string): number {
+	return markdown.split("\n").reduce((sum, line) => sum + words(line), 0);
+}
+
+/**
+ * A path the doc cites: a code span with a `/` in it and a file extension. That is
+ * narrower than "every filename it names" — a bare `package.json` is a filename
+ * rather than a citation, and `docs/extensions/<name>.md` is a shape, so both are
+ * left out; a span carrying an anchor is a link, which `test/doc-links.test.ts`
+ * resolves. 23 spans cite a file today, over 20 distinct paths; the floor is the 20
+ * distinct, and it may only fall.
+ */
+const CITED = /`([^`\n]*\/[^`\n]*\.(?:ts|json|md))`/g;
+const CITED_FLOOR = 20;
+
+/**
+ * The distinct paths a document cites, each with the line it first appears on. A `Map`
+ * rather than a tally of spans: one path cited twenty times is one piece of evidence,
+ * which is what the floor counts, while a missing file still has a line to name.
+ */
+function citations(markdown: string): Map<string, number> {
+	const paths = new Map<string, number>();
+	for (const match of markdown.matchAll(CITED)) {
+		const path = match[1] ?? "";
+		if (/[<*#]/.test(path)) continue;
+		if (!paths.has(path)) paths.set(path, markdown.slice(0, match.index).split("\n").length);
+	}
+	return paths;
+}
+
 describe("the entry README catalog", () => {
 	/**
 	 * The catalog is what a reader scans to pick an extension: a name, its commands,
@@ -129,40 +166,53 @@ describe("the entry README catalog", () => {
 
 describe("the agent contract", () => {
 	/**
-	 * `AGENTS.md` is the entry point: the rules and their gates, with the reasoning
-	 * in the guides it links. This is the ceiling that keeps a new paragraph from
-	 * turning it back into a manual — lower it when the file shrinks.
+	 * `AGENTS.md` is the entry point: the rules and their gates, with the reasoning in the
+	 * guides it links. 981 words today, ceiling 981, and it may only fall: a new paragraph
+	 * replaces one, and a trim lowers this number in the same commit, so the comment cannot
+	 * go stale while the gate keeps headroom.
 	 */
 	const CEILING = 981;
 
-	/**
-	 * A path the doc cites: a code span with a `/` in it and a file extension. That is
-	 * narrower than "every filename it names" — a bare `package.json` is a filename
-	 * rather than a citation, and `docs/extensions/<name>.md` is a shape, so both are
-	 * left out; a span carrying an anchor is a link, which `test/doc-links.test.ts`
-	 * resolves. 23 spans cite a file today; the floor is a ratchet that falls with it.
-	 */
-	const CITED = /`([^`\n]*\/[^`\n]*\.(?:ts|json|md))`/g;
-	const CITED_FLOOR = 23;
+	const source = readFileSync(join(repo, "AGENTS.md"), "utf-8");
 
-	test("AGENTS.md stays inside its word budget", () => {
-		const words = readFileSync(join(repo, "AGENTS.md"), "utf-8").split(/\s+/).filter(Boolean).length;
-		expect(words, "move the reasoning into a guide and link it").toBeLessThanOrEqual(CEILING);
+	test("AGENTS.md holds its word ceiling", () => {
+		expect(documentWords(source), "replace a paragraph rather than adding one, or move it into a guide").toBe(CEILING);
 	});
 
 	test("every file AGENTS.md cites is still a file", () => {
-		const source = readFileSync(join(repo, "AGENTS.md"), "utf-8");
-		const missing: string[] = [];
-		let cited = 0;
-		for (const match of source.matchAll(CITED)) {
-			const path = match[1] ?? "";
-			if (/[<*#]/.test(path)) continue;
-			cited++;
-			if (existsSync(join(repo, path))) continue;
-			const line = source.slice(0, match.index).split("\n").length;
-			missing.push(`AGENTS.md:${line}: ${path}`);
-		}
-		expect(cited, "the scan cited nothing, so it holds nothing — fix the pattern").toBeGreaterThanOrEqual(CITED_FLOOR);
+		const missing = [...citations(source)]
+			.filter(([path]) => !existsSync(join(repo, path)))
+			.map(([path, line]) => `AGENTS.md:${line}: ${path}`);
 		expect(missing, "cite a file that exists, or say the shape instead").toEqual([]);
+	});
+
+	test("the citation floor counts distinct paths, so one repeated path cannot hold it", () => {
+		// `cited++` ran per span once, so one path cited twenty-three times kept the floor
+		// green while every other citation left the doc. A synthetic source, because the real
+		// doc is the 23-over-20 case rather than this one.
+		const repeated = Array.from({ length: CITED_FLOOR + 3 }, () => "`lib/lazy.ts`").join(" and ");
+		expect(citations(repeated).size).toBe(1);
+	});
+
+	test("AGENTS.md cites enough distinct files to hold the floor", () => {
+		expect(
+			citations(source).size,
+			"the doc lost a citation it had: restore it, or lower the floor with the doc",
+		).toBeGreaterThanOrEqual(CITED_FLOOR);
+	});
+});
+
+describe("the contributor guide", () => {
+	/**
+	 * `CONTRIBUTING.md` is where `AGENTS.md` points for the workflow, so it grows the way the
+	 * entry doc did: one more caveat per gate, until the flow at the top is a wall nobody
+	 * reads. 2357 words today, ceiling 2357, and it may only fall — a trim lowers this number
+	 * in the same commit.
+	 */
+	const CEILING = 2357;
+
+	test("CONTRIBUTING.md holds its word ceiling", () => {
+		const source = readFileSync(join(repo, "CONTRIBUTING.md"), "utf-8");
+		expect(documentWords(source), "move the detail into a guide and link it, then lower this ceiling").toBe(CEILING);
 	});
 });
