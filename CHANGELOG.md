@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-18
+
 ### Added
 
 - `memory`: the tool can consolidate notes. `applyMerge` existed and the picker drove it, but the
@@ -8021,7 +8023,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.1...v0.26.0
