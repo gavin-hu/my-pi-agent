@@ -38,7 +38,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/bytefly/panel/model.test.ts": 429,
 	"extensions/bytefly/update/update.test.ts": 1176,
 	"extensions/file-browse/files/files.test.ts": 911,
-	"extensions/file-browse/transport/router.test.ts": 867,
+	"extensions/file-browse/transport/router.test.ts": 863,
 	"extensions/file-browse/view/pages.test.ts": 1433,
 	"extensions/plan/web-page.test.ts": 408,
 	"extensions/file-read/tool.test.ts": 696,

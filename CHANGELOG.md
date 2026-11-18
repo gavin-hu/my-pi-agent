@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `file-browse`: a request under `/api/` that is refused now answers JSON, whatever refused it —
+  an unmatched path, a method that is not `GET`, a foreign `Host`. Only the catch after routing
+  knew the namespace, so `/api/nope` was 59 KB of the page shell where `/api/tree` is JSON, and a
+  client that asked for JSON parsed a page. One helper now picks the shape for every refusal, and
+  a 405 keeps `Allow` in both. A page path still answers the error page: that is where a reader
+  was going.
+
 - `file-browse`: quick open says which folders it did not search. Its index skips `.git` and
   `node_modules` — indexing them would spend the 20,000-path cap on dependencies — so a file a
   reader could see in the tree answered `No matches` beside it. The empty state now names them,

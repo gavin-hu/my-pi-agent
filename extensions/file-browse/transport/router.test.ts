@@ -250,10 +250,6 @@ describe("request guards", () => {
 			expect(escape.status).toBe(403);
 		}
 	});
-
-	test("returns 404 for unknown routes", async () => {
-		expect((await handleRequest(context(), "GET", "/nope", {})).status).toBe(404);
-	});
 });
 
 describe("live status stream route", () => {

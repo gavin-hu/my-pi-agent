@@ -58,18 +58,43 @@ file and in your todo list together.
 
 `w` opens the review page on `127.0.0.1`. Hover a block and press the `+` in its
 margin, or select text first to quote it; **Save feedback** writes the comments
-into the plan file and returns them to the model as review notes.
+into the plan file and returns them to the model as review notes. The `+` is
+announced as *Comment on this block*, and it is drawn only while the review can
+still take a comment — a settled review has none.
 
-<img src="../../assets/screens/plan-review.png" alt="The review page in a browser: a plan title bar with live, quick keys, and the theme toggle; the page's own actions — Share, Approve and run, Save feedback, Back to Pi — in a second header row under it; a rail of the plan's steps, comments, and sections; the plan body with a comment being written in its margin; and the plan's checklist drawn as ticked boxes" width="1280" height="2098">
+<img src="../../assets/screens/plan-review.png" alt="The review page in a browser: a plan title bar with live, quick keys, and the theme toggle; the page's own actions — Share, Approve and run, Save feedback, Back to Pi — in a second header row under it; a rail holding the All, Changed and Comments tabs above the plan's steps and sections; the plan body with a comment being written in its margin; and the plan's checklist drawn as ticked boxes" width="1280" height="2098">
 
 *The review page: the plan's sections in the rail, the comments in the margin,
 and the approval at the top.*
 
-For a teammate, **Share** prints a reviewer link and a QR code a phone can scan.
-Each person gets a link of their own (**New link**), a reviewer's first post binds
-her name to that link, and **Revoke** drops one link without touching the rest.
-Only the machine that opened the review may approve; a reviewer reads and
-comments.
+A comment being written or edited is this tab's draft: a reload keeps it, and so
+does a repaint the page makes on its own. While it is open, Resolve, Edit, Delete
+and the switch refuse rather than drop the text. `Esc` closes the edit, then the
+composer, then the review, one layer at a time. **Save**, **Post** and **Back to
+Pi** ask first while comments are unsaved.
+
+A change that arrives from the model while a draft is open is held back with "A
+change arrived; finish or discard your draft to see it." rather than repainted
+under your cursor; it lands on the next frame, or on a reload.
+
+The `?` in the corner opens the keys sheet, whose switch turns the single keys
+off for this browser — the buttons, `Esc` and `?` still answer, and a reload
+keeps them off. Paper is always the whole plan: with a shorter view the switch
+and its count go, and every block returns.
+
+For a teammate, **Share** prints a reviewer link and a QR code a phone can scan —
+one per teammate, at most eight. Each person gets a link of their own (**New
+link**), a reviewer's first post binds her name to that link, and **Revoke**
+drops one link without touching the rest. Only the machine that opened the
+review may approve; a reviewer's page reads and comments and draws no
+**Approve & run**.
+
+## Read only what changed
+
+The switch at the head of the rail shows **All**, the **Changed** blocks, or the
+**Comments**, and the line under it counts what the view hides. **Changed** is
+off until this plan has an earlier review to compare against, and the button
+says which: a first review has nothing to diff.
 
 ## Refine and approve again
 
