@@ -45,8 +45,11 @@ export const CONTRACT_LINES = [...CONTRACT_FIELDS, "verify"] as const;
 /** One line of a contract. */
 export type ContractField = (typeof CONTRACT_LINES)[number];
 
-/** Longest single contract line, in characters. One line, so it fits a row and a dialog rung. */
-export const MAX_CONTRACT = 400;
+/**
+ * Longest single contract line, in characters: one line, so a promise reads in one breath, and the
+ * card dialog's 720px panel wraps it, so this bounds how long it reads rather than a row it must fit.
+ */
+export const MAX_CONTRACT = 600;
 
 /**
  * What a printer says for a line the contract still owes.

@@ -69,7 +69,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/web-access/search/search.test.ts": 975,
 	"extensions/worktree/flow.test.ts": 825,
 	"extensions/worktree/git.test.ts": 893,
-	"lib/workflow/rules.test.ts": 675,
+	"lib/workflow/rules.test.ts": 673,
 	"lib/workflow/store.test.ts": 606,
 	"lib/workflow/view.test.ts": 418,
 	"lib/core.test.ts": 844,

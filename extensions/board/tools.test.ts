@@ -22,6 +22,7 @@ import { type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import { MAX_NOTES } from "../../lib/workflow/card.ts";
+import { MAX_CONTRACT } from "../../lib/workflow/contract.ts";
 import { shortenPath } from "../../lib/format.ts";
 import { buildRound } from "../../lib/workflow/round.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
@@ -353,8 +354,7 @@ describe("list", () => {
 			const card = await store.create({ title: `${label} shipped ${index}`, paths: [] }, owner, NOW);
 			await advance(store, card.id, "done", { owner }, NOW);
 		}
-		// This session is on the bus, so its own row is not history — and the rollup is the only
-		// read that goes near it.
+		// This session is on the bus, so its own row is not history — the rollup is the only read near it.
 		await joinBus(board.runtime, board.ctx, LEAD_ID, LEAD);
 		await call({ action: "add", title: "Held here" });
 		await call({ action: "claim", card: "3" });
@@ -803,9 +803,9 @@ describe("the flow: contract, approval, spot-check", () => {
 			"Error: contract needs the plan file #1 is executed against: pass `path` as `plan` action `write` returned it.",
 		);
 		const plan = await writePlan(board);
-		expect(resultText(await call({ action: "contract", card: "1", path: plan, goal: "x".repeat(401) }))).toBe(
-			"Error: goal is 401 characters; the limit is 400 — trim 1.",
-		);
+		expect(
+			resultText(await call({ action: "contract", card: "1", path: plan, goal: "x".repeat(MAX_CONTRACT + 1) })),
+		).toBe(`Error: goal is ${MAX_CONTRACT + 1} characters; the limit is ${MAX_CONTRACT} — trim 1.`);
 	});
 
 	test("execute is refused until the lead approves the contract", async () => {

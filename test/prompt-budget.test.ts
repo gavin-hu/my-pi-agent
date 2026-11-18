@@ -10,6 +10,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { BoardParams } from "../extensions/board/schema.ts";
+import { MAX_BLOCKED, MAX_NOTE } from "../lib/workflow/card.ts";
+import { MAX_CONTRACT } from "../lib/workflow/contract.ts";
 import {
 	SESSION_DESCRIPTION,
 	SESSION_GUIDELINES,
@@ -213,11 +215,33 @@ describe("the board tool surface", () => {
 		// say so), paid by `edit`'s field list that every parameter description already states (-69).
 		// 7,013, measured rather than quoted: the surface stood 77 under the 7,090 this comment had
 		// been calling "today", and `query` took the card's id in for no character at all —
-		// `or a note matches` → `or note match` funds `id, `. The gate is the number; this comment
-		// is why.
+		// `or a note matches` → `or note match` funds `id, `. It then stood 15 under 7,013 without this
+		// comment hearing of it — 6,998 at the base of the cap raise. That raise cost 31: 2 for the two
+		// note descriptions' digits, and 29 for the cap clause `verify` never stated until it shared
+		// `MAX_CONTRACT` with its three siblings. It gave back 30, which is why the surface is 6,999:
+		// `review` repeated `approve`'s "the lead, who does not hold the card" and now says "the same
+		// lead" (-23), and `blockedBy` writes `≤` where it wrote "at most" (-7) — which is how its 200
+		// came to be the `MAX_BLOCKED` every other capped description reads. The gate is the number;
+		// this comment is why.
 		expect(boardSurface()).toBeLessThanOrEqual(7_013);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
+	});
+
+	test("spells every write cap from the constant that owns it, so a raise cannot strand a number", () => {
+		// The fields whose description states a cap: each has to read the constant rather than the number
+		// it renders today, which is what the de-literalized refusals in `tools.test.ts` rely on.
+		const capped: readonly (readonly [string, number])[] = [
+			["goal", MAX_CONTRACT],
+			["acceptance", MAX_CONTRACT],
+			["scopeOut", MAX_CONTRACT],
+			["verify", MAX_CONTRACT],
+			["blockedBy", MAX_BLOCKED],
+			["note", MAX_NOTE],
+			["text", MAX_NOTE],
+		];
+		const properties = BoardParams.properties as Record<string, { description?: string }>;
+		for (const [field, cap] of capped) expect(properties[field]?.description, field).toContain(`≤${cap} characters`);
 	});
 
 	test("keeps each guideline to a bullet-sized line", () => {
