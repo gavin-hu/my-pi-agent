@@ -15,6 +15,10 @@ export const PALETTE_CLIENT_JS = `	// Quick open: a fuzzy path palette backed by
 	var paletteResults = [];
 	var paletteActive = -1;
 	var paletteTimer = null;
+	// What the last answer said: how many paths the walk found, and the folders it never
+	// entered. Both come from the server, so this bundle names no directory.
+	var paletteTotal = 0;
+	var paletteSkipped = [];
 
 	function paletteOpen() {
 		return paletteBackdrop !== null && paletteBackdrop.hidden === false;
@@ -129,6 +133,8 @@ export const PALETTE_CLIENT_JS = `	// Quick open: a fuzzy path palette backed by
 			})
 			.then(function (data) {
 				if (paletteInput.value.trim() !== query) return;
+				paletteTotal = data.total || 0;
+				paletteSkipped = data.skipped || [];
 				if (query === "") {
 					renderResults([], data.total + " files indexed" + (data.truncated ? " (truncated)" : ""));
 				} else {
@@ -178,9 +184,42 @@ export const PALETTE_CLIENT_JS = `	// Quick open: a fuzzy path palette backed by
 			paletteList.appendChild(option);
 		});
 		if (hint) paletteStatus.textContent = hint;
-		else if (results.length === 0) paletteStatus.textContent = "No matches";
+		else if (results.length === 0) paletteStatus.textContent = noMatchText();
 		else paletteStatus.textContent = results.length + (results.length === 1 ? " match" : " matches");
 		updateActive();
+	}
+
+	/** "a", "a and b", "a, b and c": the list the server sent, in the order it sent it. */
+	function joinNames(names) {
+		if (names.length < 2) return names.join("");
+		return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+	}
+
+	/**
+	 * Why a search found nothing.
+	 *
+	 * The walk never enters the folders in INDEX_IGNORED_DIRS, so the palette owed a reader the
+	 * reason rather than "No matches" beside a file they can see in the tree. A query that opens
+	 * with one of those folders says so directly, because that is the reader asking for the
+	 * excluded thing; anything else names the whole excluded set, and a root without one keeps
+	 * the words it had.
+	 */
+	function noMatchText() {
+		// A leading slash is how a reader pastes a path, and the index holds root-relative ones;
+		// stripped by hand because this fragment is a template literal: an escaped slash written
+		// for a regex arrives at the browser as a bare one, and the whole script stops parsing.
+		var query = paletteInput.value.trim();
+		while (query.charAt(0) === "/") query = query.slice(1);
+		var inside = "";
+		paletteSkipped.forEach(function (name) {
+			if (inside === "" && (query === name || query.indexOf(name + "/") === 0)) inside = name;
+		});
+		if (inside !== "") return "Not indexed: " + inside + " — open it from the tree.";
+		if (paletteSkipped.length === 0) return "No matches";
+		// A one-file project is a real root, and "1 files" is the kind of detail a reader reads
+		// as a bug in the page rather than in their tree.
+		var counted = paletteTotal === 1 ? "1 file" : paletteTotal + " files";
+		return "No matches in " + counted + "; " + joinNames(paletteSkipped) + " not searched.";
 	}
 
 	function updateActive() {

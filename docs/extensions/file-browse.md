@@ -77,6 +77,9 @@ moving — a worktree switch — reloads the page onto the new tree.
   an icon; long listings and diffs are truncated with the cap named.
 - It is not a static-file server: the root is confined to the session's working
   directory, and a subdirectory must resolve inside it.
+- The quick-open index skips `.git` and `node_modules`: indexing them would spend its
+  cap on dependencies. The palette says which folders it did not search, and the tree
+  still browses them.
 
 ## Settings
 

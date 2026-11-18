@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   served root painted as `Users/…/my-pi-agent/` while the footer under it printed the path
   correctly. The label is isolated from the row's direction now, and a page that rewrites it
   writes into that isolate rather than over it.
+- `file-browse`: quick open says which folders it did not search. Its index skips `.git` and
+  `node_modules` — indexing them would spend the 20,000-path cap on dependencies — so a file a
+  reader could see in the tree answered `No matches` beside it. The empty state now names them,
+  a query that opens with one says it is not indexed and points at the tree, and a root with
+  neither reads exactly as before.
 
 ## [0.29.0] - 2026-11-18
 
