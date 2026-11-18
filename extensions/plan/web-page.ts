@@ -161,8 +161,11 @@ export const REVIEW_CSS = pageSheet(
 /* A note a refinement carried off its own block: muted, because the complaint is the guess, not the text. */
 .bf-comment__moved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 6px}
 .bf-comment__spacer{flex:1 1 auto}
-/* A settled note keeps its quote and loses its body: the record stays, the eye moves on. */
-.bf-comment--resolved{opacity:.72}
+/* A settled note dims its head and quote but keeps its body: the text is the record, and a
+   quote is not stored, so fading the whole card would leave a reloaded note unreadable. */
+.bf-comment--resolved .bf-comment__label,
+.bf-comment--resolved .bf-comment__quote{opacity:.72}
+.bf-comment--resolved .bf-comment__body{color:var(--muted)}
 .bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--success)}
 .bf-comment__actions{display:flex;gap:4px}
 /* A quote is read at the record's own line height, not the document's: it is one line of context. */
