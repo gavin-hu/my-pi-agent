@@ -14,7 +14,7 @@ import {
 	applyMerge,
 	applyUpdate,
 	duplicateKey,
-	MAX_MEMORY_BYTES,
+	MAX_READ_BYTES,
 	memoryFileStamp,
 	mutateMemoryFile,
 	parseEntries,
@@ -53,9 +53,9 @@ describe("store files", () => {
 		expect(readMemoryFile(join(dir, "memory.md"))).toBe("");
 	});
 
-	test("readMemoryFile refuses a file larger than the cap", () => {
+	test("readMemoryFile refuses a file past the read ceiling", () => {
 		const path = join(dir, "memory.md");
-		writeFileSync(path, Buffer.alloc(MAX_MEMORY_BYTES + 1, "a"));
+		writeFileSync(path, Buffer.alloc(MAX_READ_BYTES + 1, "a"));
 		expect(() => readMemoryFile(path)).toThrow(/larger than/);
 	});
 
@@ -421,7 +421,7 @@ describe("memory runtime", () => {
 	});
 
 	test("load warns about an unreadable store and still reads the other", async () => {
-		suite.write("project", "a".repeat(MAX_MEMORY_BYTES + 1));
+		suite.write("project", "a".repeat(MAX_READ_BYTES + 1));
 		suite.write("global", "- shared\n");
 
 		const warning = await runtime.load(suite.cwd, true);
@@ -448,7 +448,7 @@ describe("memory runtime", () => {
 	test("refresh keeps the last good view and warns when a store becomes unreadable", async () => {
 		suite.write("project", "- keep\n");
 		await runtime.load(suite.cwd, true);
-		suite.write("project", "a".repeat(MAX_MEMORY_BYTES + 1));
+		suite.write("project", "a".repeat(MAX_READ_BYTES + 1));
 
 		const result = runtime.refresh();
 

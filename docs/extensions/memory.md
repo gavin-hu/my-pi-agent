@@ -67,6 +67,10 @@ and move are in place, `/` filters, `r` reloads.
   size on every run: prune it when it says so.
 - A project's notes are trusted only while that project is; a global note is
   always read.
+- A store stops taking new notes at 256 KB. Growth past that is refused, and a write that
+  shrinks it always lands — so `forget`, `/memory clear` and a shorter `/memory edit` are the
+  way back — while a store that reached the ceiling is still listed, read and injected.
+  `/memory doctor` names it with the byte count; Pi never writes one that large.
 - A worktree written by an older build may hold its own `.pi/memory.md`. It is not read
   now — one store per repository — and it goes with the worktree, so copy it into the
   checkout if it holds notes.

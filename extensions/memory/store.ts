@@ -19,9 +19,23 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { writeTextAtomic } from "../../lib/json.ts";
+import { bytes } from "./format.ts";
 
-/** Largest memory file read into memory, in bytes. */
-export const MAX_MEMORY_BYTES = 256 * 1024;
+/**
+ * Largest store Pi will write to, in bytes. A write that grows a store past this is refused
+ * and a write that shrinks one always lands, so pruning is the way back from any store.
+ */
+export const MAX_STORE_BYTES = 256 * 1024;
+
+/**
+ * Largest file read at all, in bytes: an out-of-memory guard, not a policy.
+ *
+ * The two ceilings are deliberately different numbers. Conflated, the policy became the
+ * guard and a store that reached it could not be read, listed, edited or cleared — while
+ * a copy pasted through `/memory edit` was what put it there. A store between the two is
+ * readable now, which is how one that grew outside Pi comes back.
+ */
+export const MAX_READ_BYTES = 4 * 1024 * 1024;
 
 /** A note is instruction the session trusts, so the store is the owner's alone. */
 const FILE_MODE = 0o600;
@@ -79,8 +93,11 @@ export function readMemoryFile(path: string): string {
 	if (isSymlink(path)) throw new Error(`Refusing to use the symlinked memory file: ${path}`);
 	if (!existsSync(path)) return "";
 	const size = statSync(path).size;
-	if (size > MAX_MEMORY_BYTES) {
-		throw new Error(`Memory file is ${size} bytes, larger than the ${MAX_MEMORY_BYTES}-byte limit: ${path}`);
+	if (size > MAX_READ_BYTES) {
+		throw new Error(
+			`Memory file is ${size} bytes, larger than the ${MAX_READ_BYTES}-byte limit: ${path}. ` +
+				"Pi does not write a file this large, so trim or remove it by hand.",
+		);
 	}
 	return readFileSync(path, "utf-8");
 }
@@ -275,15 +292,30 @@ interface MutationResult {
 /**
  * Apply a content transform to `path` as one read-modify-write under the host's
  * file-mutation queue, so concurrent writers for the same file serialize.
+ *
+ * The store's ceiling is checked on the transform's **result**, not on the action: a write
+ * that grows the store past `MAX_STORE_BYTES` is refused, and a write that shrinks it lands
+ * however large it was, so `forget`, `clear` and a trimming edit are always the way back.
+ * The refusal names the file and both sizes, because deciding what to prune is the next act.
  */
 export async function mutateMemoryFile(
 	path: string,
 	transform: (content: string) => FileChange,
 ): Promise<MutationResult> {
 	return withFileMutationQueue(path, async () => {
-		const result = transform(readMemoryFile(path));
-		if (result.changed) writeTextAtomic(path, result.content, { mode: FILE_MODE });
-		else tightenMode(path);
+		const content = readMemoryFile(path);
+		const result = transform(content);
+		if (result.changed) {
+			const before = bytes(content);
+			const after = bytes(result.content);
+			if (after > MAX_STORE_BYTES && after >= before) {
+				throw new Error(
+					`The store would reach ${after} bytes, past the ${MAX_STORE_BYTES}-byte cap: ${path}. ` +
+						"Prune it first — `clear`, a `forget`, or a shorter `write` still lands.",
+				);
+			}
+			writeTextAtomic(path, result.content, { mode: FILE_MODE });
+		} else tightenMode(path);
 		const entries = parseEntries(result.content);
 		return result.existing === undefined
 			? { entries, changed: result.changed }

@@ -17,7 +17,7 @@
 import { clip } from "../../lib/tui/columns.ts";
 import type { MemoryConfig } from "./config.ts";
 import { injectionPlan, type MemoryEntries } from "./format.ts";
-import { duplicateKey, type MemoryPaths } from "./store.ts";
+import { duplicateKey, MAX_STORE_BYTES, type MemoryPaths } from "./store.ts";
 import { MEMORY_SCOPES, type MemoryScope } from "./types.ts";
 
 /** Longest note text a duplicate line shows. */
@@ -108,7 +108,9 @@ function scopeText(health: MemoryHealth, name: MemoryScope): string {
 	if (name === "project" && !health.trusted) return `unavailable (untrusted project)${where}`;
 	const notes = `${scope.notes} note${scope.notes === 1 ? "" : "s"}`;
 	if (scope.bytes === undefined) return scope.notes === 0 ? `${notes}${where}` : `${notes} · size unknown${where}`;
-	return `${notes} · ${scope.bytes} B${where}`;
+	// The number, not just the condition: the next act is deciding what to prune.
+	const over = scope.bytes > MAX_STORE_BYTES ? ` · past the ${MAX_STORE_BYTES}-byte cap` : "";
+	return `${notes} · ${scope.bytes} B${over}${where}`;
 }
 
 function injectionText(health: MemoryHealth): string {
