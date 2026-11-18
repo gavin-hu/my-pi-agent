@@ -13,7 +13,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Card } from "../../lib/workflow/card.ts";
-import { landingFor, landingGate, reviewedAncestor } from "../../lib/workflow/landing.ts";
+import { landingFor, landingGate, landedWithoutMerge } from "../../lib/workflow/landing.ts";
 import { resolvedByMerge } from "../../lib/git/read.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -229,7 +229,7 @@ describe("the landing a close resolves", () => {
 		const proof = await landedChain(storeOf(signedAt(base, ["dir"]), repo), ID, host());
 		// The reviewed commit is on main as a plain ancestor, not the merge: the sign was taken on
 		// an older tree, which is #594's failure and the one the tightening must refuse.
-		expect(landingGate(ID, base, proof)).toBe(reviewedAncestor("main", base, ID));
+		expect(landingGate(ID, base, proof)).toBe(landedWithoutMerge("main", base, ID));
 	});
 
 	test("follows a branch merged and re-merged, so the close needs no second sign", async () => {
@@ -279,7 +279,7 @@ describe("the landing a close resolves", () => {
 			ID,
 			host(),
 		);
-		expect(landingGate(ID, first, proof)).toBe(reviewedAncestor("main", first, ID));
+		expect(landingGate(ID, first, proof)).toBe(landedWithoutMerge("main", first, ID));
 		// The branch head is still resolvable: its merge is the later one, so a worktree sign works.
 		const again = await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, host());
 		expect(landingGate(ID, reviewed, again)).toBeUndefined();

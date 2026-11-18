@@ -25,8 +25,8 @@ import {
 	landingGate,
 	movedTree,
 	resolveLanding,
-	reviewedAncestor,
-	unlandedReview,
+	landedWithoutMerge,
+	absentFromBranch,
 	unprovedLanding,
 } from "./landing.ts";
 import { workStartedAt } from "./lanes.ts";
@@ -90,7 +90,7 @@ describe("resolveLanding", () => {
 		// the card's own `execute` cannot be its landing, however the chain reads.
 		const late = proof(LANE.chain, CARRIED, { since: CARRIED_AT + 1 });
 		expect(resolveLanding(late, CARRIED, ID)).toEqual({
-			error: reviewedAncestor("main", CARRIED, ID),
+			error: landedWithoutMerge("main", CARRIED, ID),
 			shape: "ancestor",
 		});
 	});
@@ -107,7 +107,7 @@ describe("resolveLanding", () => {
 		// and that is the defect: #641 closed a card on a merge another card had made. A merge that is
 		// no longer the tip carries nothing of its own, so the close refuses and the door is a re-sign.
 		expect(resolveLanding(proof(LANE.chain, CARRIED), CARRIED, ID)).toEqual({
-			error: reviewedAncestor("main", CARRIED, ID),
+			error: landedWithoutMerge("main", CARRIED, ID),
 			shape: "ancestor",
 		});
 	});
@@ -132,7 +132,7 @@ describe("resolveLanding", () => {
 		// The #594/#593 shape: a sign taken in the checkout names main's head, a plain commit the
 		// merge did not carry. Accepting any ancestor wrote a landing that carried nothing.
 		expect(resolveLanding(proof(LANE.chain, BASE), BASE, ID)).toEqual({
-			error: reviewedAncestor("main", BASE, ID),
+			error: landedWithoutMerge("main", BASE, ID),
 			shape: "ancestor",
 		});
 	});
@@ -165,7 +165,7 @@ describe("resolveLanding", () => {
 		// that it stopped.
 		const squash = "5d0dd00000000000000000000000000000000000";
 		const refused = resolveLanding(proof(LANE.chain, squash), squash, ID);
-		expect(refused).toEqual({ error: unlandedReview("main", squash, ID), shape: "unlanded" });
+		expect(refused).toEqual({ error: absentFromBranch("main", squash, ID), shape: "unlanded" });
 		if ("error" in refused) {
 			expect(refused.error).toContain("#12's spot-check was of `5d0dd00`");
 			expect(refused.error).toContain("no merge on `main` carries it");

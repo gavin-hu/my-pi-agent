@@ -90,15 +90,15 @@ export function resolveLanding(proof: LandingProof, reviewed: string, id: string
 	}
 	const ancestor = proof.chain.some((commit) => commit.sha === reviewed);
 	return ancestor
-		? { error: reviewedAncestor(proof.branch, reviewed, id), shape: "ancestor" }
-		: { error: unlandedReview(proof.branch, reviewed, id), shape: "unlanded" };
+		? { error: landedWithoutMerge(proof.branch, reviewed, id), shape: "ancestor" }
+		: { error: absentFromBranch(proof.branch, reviewed, id), shape: "unlanded" };
 }
 
 /**
  * What `done` is refused with when the reviewed commit is not on the branch at all: the squash shape,
  * where no instruction may stand in for code.
  */
-export function unlandedReview(branch: string, reviewed: string, id: string): string {
+export function absentFromBranch(branch: string, reviewed: string, id: string): string {
 	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, and no merge on \`${branch}\` carries it: the commit is not on the branch at all, which is what a squashed or rebased branch leaves behind. Land the work it names, then close the card — an instruction cannot stand in for a commit the branch has never seen.`;
 }
 
@@ -106,7 +106,7 @@ export function unlandedReview(branch: string, reviewed: string, id: string): st
  * What `done` is refused with when the reviewed commit is on the branch and no merge carried it — an
  * older tree, or a commit that landed with no merge to point at. Only the second is the instruction's.
  */
-export function reviewedAncestor(branch: string, reviewed: string, id: string): string {
+export function landedWithoutMerge(branch: string, reviewed: string, id: string): string {
 	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, which is on \`${branch}\` and is not the merge that carried this card: either the run was taken on an older tree, or the commit landed with no merge to point at. Sign again from the card's own commit if the tree was older; if the commit is the card's write and it landed without a merge, the lead may close the card by instruction — \`override\` with the one line saying why.`;
 }
 
