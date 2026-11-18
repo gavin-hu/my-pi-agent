@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the browser review keeps the comment a reader is writing or editing through a reload
+  and every repaint. `Escape` closes the edit before the composer and the review, and Resolve,
+  Edit, Delete and the view switch refuse while a draft is open instead of dropping its text; an
+  edit updates the tab's draft as it is typed, and Cancel puts the note back.
+
 ## [0.29.0] - 2026-11-18
 
 ### Added

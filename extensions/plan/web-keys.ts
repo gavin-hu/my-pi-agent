@@ -9,8 +9,8 @@
  * Two rules live here:
  *
  * - **Esc peels one layer.** The shortcut sheet owns its own Esc (the shared dialog runtime
- *   captures it), so this peels the composer first and closes the review second, which is
- *   the order a reader pressing it twice expects.
+ *   captures it), so this peels the editor first, then the composer, then closes the review,
+ *   which is the order a reader pressing it again and again expects.
  * - **The selection a reader makes is the quote the next comment carries.** The rail button
  *   collapses the selection when it is pressed, so the text is remembered on `mouseup` and
  *   read again at click time; a block with a composer open is not a selection to quote.
@@ -27,6 +27,9 @@ export interface KeyDeps {
 	/** Whether a composer is open, and how to close it. */
 	composerOpen(): boolean;
 	closeComposer(): void;
+	/** Whether a card's comment editor is open, and how to cancel it: Esc's inner layer. */
+	editOpen(): boolean;
+	closeEdit(): void;
 	/** Close the review without saving: the owner's, and a no-op for a reviewer. */
 	cancel(): void;
 	/** The shortcut sheet: whether it is open (it then owns the keyboard) and its toggle. */
@@ -215,7 +218,11 @@ function surfaceOf(deps: KeyDeps): KeySurface {
  */
 export function handleKey(event: KeyEvent, deps: KeyDeps): void {
 	if (event.key === "Escape") {
-		// The sheet owns its own Esc; this peels the composer, then the review.
+		// The sheet owns its own Esc; this peels the editor, then the composer, then the review.
+		if (deps.editOpen()) {
+			deps.closeEdit();
+			return;
+		}
 		if (deps.composerOpen()) {
 			deps.closeComposer();
 			return;

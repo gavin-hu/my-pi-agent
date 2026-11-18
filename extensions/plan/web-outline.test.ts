@@ -348,6 +348,8 @@ describe("review view filter", () => {
 });
 
 describe("review draft guard", () => {
+	/** The fields a comment is written in: the composer under a block, and a card's editor. */
+	const DRAFT_FIELDS = ".bf-composer textarea, .bf-comment textarea";
 	const planWith = (value: string) => {
 		const area = {
 			value,
@@ -356,8 +358,9 @@ describe("review draft guard", () => {
 				this.focused += 1;
 			},
 		};
+		// Answers only the selector the source asks for; a field it did not look for is a null plan.
 		const planEl = {
-			querySelector: (selector: string) => (selector === ".bf-composer" ? { querySelector: () => area } : null),
+			querySelector: (selector: string) => (selector === DRAFT_FIELDS ? area : null),
 		};
 		return { area, planEl: planEl as unknown as Parameters<typeof draftTextarea>[0] };
 	};
@@ -368,7 +371,7 @@ describe("review draft guard", () => {
 		}
 	});
 
-	test("a composer with only whitespace is not a draft", () => {
+	test("a field with only whitespace is not a draft", () => {
 		expect(draftTextarea(planWith("  \n\t ").planEl)).toBeNull();
 		expect(draftTextarea(planWith("half a thought").planEl)?.value).toBe("half a thought");
 		expect(draftTextarea(planWith("x").planEl)?.value).toBe("x");

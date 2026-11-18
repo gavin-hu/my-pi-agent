@@ -443,6 +443,8 @@ ${WEB_MARKDOWN_JS}
       role: role,
       composerOpen: function () { return !!(planEl && planEl.querySelector(".bf-composer")); },
       closeComposer: closeOpenComposer,
+      editOpen: function () { return !!(planEl && planEl.querySelector(".bf-comment textarea")); },
+      closeEdit: closeOpenEdit,
       cancel: cancel,
       sheetOpen: function () { return window.bfKeys.isOpen(); },
       toggleSheet: function () { window.bfKeys.toggle(); },

@@ -174,6 +174,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-lazy",
 		"web-anchor",
 		"web-behaviour",
+		"web-drafts",
 		"web-blocks",
 		"web-live",
 		"web-narrow",
