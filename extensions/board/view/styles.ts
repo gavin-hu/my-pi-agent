@@ -382,7 +382,7 @@ ${DECISION_WHY_CSS}
 .board-dialog__body{display:flex;flex-direction:column;gap:var(--space-4);padding-bottom:var(--space-4)}
 .board-dialog__section{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
 /* The heading is a label, not a headline: the title above it is the only headline here. */
-.board-dialog__heading{display:flex;align-items:baseline;gap:var(--space-1);margin:0;padding-bottom:var(--space-1);border-bottom:1px solid var(--border);font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
+.board-dialog__heading{display:flex;align-items:baseline;gap:var(--space-1);margin:0;padding-bottom:var(--space-1);border-bottom:1px solid var(--border);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--text)}
 .board-dialog__count{font:var(--fs-xs) var(--font-ui);color:var(--dim)}
 /* The ladder: labels size to the longest one in the section they belong to, values take the
    width that is left, and every row starts at the same column. */

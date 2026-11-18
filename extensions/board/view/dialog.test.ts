@@ -106,6 +106,20 @@ describe("the dialog's document", () => {
 		expect(ownRules().match(/\.board-dialog__head\{[^}]*\}/)?.[0] ?? "").toContain("padding-right:calc(");
 	});
 
+	test("ranks a section heading over the labels under it, and draws the notes as what they are", () => {
+		// A heading used to be `--fw-medium` in `--muted`, which is the label's own colour one weight
+		// step away: `to start` and `record` read as two more values. Rank is now weight and text colour,
+		// with the rule kept as the bound it draws.
+		const heading = ownRules().match(/\.board-dialog__heading\{[^}]*\}/)?.[0] ?? "";
+		expect(heading).toContain("--fw-semibold");
+		expect(heading).toContain("color:var(--text)");
+		const label = ownRules().match(/\.board-dialog__facts dt\{[^}]*\}/)?.[0] ?? "";
+		expect(label).toContain("--muted");
+		// The notes are drawn newest first, so the list is unordered; its spacing is the class's, which
+		// is why the tag could change without a stylesheet edit.
+		expect(page).toMatch(/<ul class="board-dialog__notes" id="card-dialog-notes">/);
+	});
+
 	test("tones the reason and the signature by the one tone table", () => {
 		// The reason line takes its kind's tone and a sign takes the approval's, so a blocked
 		// card's dialog is as loud as its face and an approved contract reads the same colour
