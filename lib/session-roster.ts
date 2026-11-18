@@ -48,6 +48,10 @@ export interface RosterSession {
 	lastSeen: number;
 	/** Messages waiting in its inbox that the record does not say it was told about. */
 	mail: number;
+	/** Message files in its inbox this build cannot parse; absent when there are none. Not part of
+	 * `mail`, since nobody can open one, but carried because silence about it is what made the page
+	 * disagree with `session status`. */
+	refused?: readonly string[];
 	/**
 	 * The process that owns the record, when the record names one.
 	 *
@@ -472,7 +476,7 @@ export async function readTeam(dir: string, limit?: number): Promise<TeamRead> {
 	);
 	return {
 		roster: records
-			.map((record) => rosterRow(record, mail.untoldIn(ledger, record.id)))
+			.map((record) => rosterRow(record, mail.untoldIn(ledger, record.id), mail.refusedIn(ledger, record.id)))
 			.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id)),
 		waiting: mail.pageOf(ledger, limit),
 	};
@@ -579,14 +583,15 @@ async function readRecords(dir: string): Promise<RecordedSession[] | undefined> 
 	return records;
 }
 
-/** One record as the page's row: what it says about itself, and how much mail it is owed. */
-function rosterRow(record: RecordedSession, mail: number): RosterSession {
+/** One record as the page's row: what it says, how much mail it is owed, and what it cannot read. */
+function rosterRow(record: RecordedSession, mail: number, refused: readonly string[]): RosterSession {
 	return {
 		id: record.id,
 		label: record.label,
 		mode: record.mode,
 		lastSeen: record.lastSeen,
 		mail,
+		...(refused.length === 0 ? {} : { refused }),
 		...(record.pid === undefined ? {} : { pid: record.pid }),
 		...(record.startToken === undefined ? {} : { startToken: record.startToken }),
 		...(record.turnAt === undefined ? {} : { turnAt: record.turnAt }),

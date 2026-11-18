@@ -29,6 +29,7 @@ const fleetTemplate = String.raw`(function () {
   var chipNode = board.chipNode;
   var ago = board.ago;
   var plural = board.plural;
+  var unreadableText = board.unreadableText;
 
 __HISTORY_LINE__
 
@@ -133,6 +134,14 @@ __HISTORY_LINE__
       // is not the number the Waiting pane counts.
       mail.title = plural(agent.mail, "unread file") + " in its inbox";
       chips.appendChild(mail);
+    }
+    if (agent.refused !== undefined && agent.refused.length > 0) {
+      // A second chip rather than a bigger number: this file is not mail its owner can open, so
+      // the count above stays true and the row says the file exists. The title is the whole
+      // sentence, because "unread" here would read as the mail beside it.
+      var refused = el("span", N.agentMail, plural(agent.refused.length, "unreadable file"));
+      refused.title = unreadableText(agent.refused);
+      chips.appendChild(refused);
     }
     // The lead's own card says how much of the queue is its work, so the scan that starts
     // top-left lands on the reason to look right.

@@ -43,6 +43,13 @@ export interface ViewTeammate {
 	seen: number;
 	/** Messages waiting in its inbox. */
 	mail: number;
+	/**
+	 * Message files in its inbox this build cannot parse; absent when there are none.
+	 *
+	 * Kept beside `mail` rather than folded into it: the count is what its owner can open, and
+	 * this is what the page has to say exists without promising a row.
+	 */
+	refused?: readonly string[];
 	/** Whether it is listening for mail; absent means its record does not say so. */
 	listening?: boolean;
 	/** Whether this is the seat the page is read as. */
@@ -81,6 +88,8 @@ export interface ViewWaiting extends Omit<WaitingPage["messages"][number], "to">
 export interface ViewWaitingPage {
 	messages: ViewWaiting[];
 	dropped: number;
+	/** Message files the queue cannot draw, because this build cannot parse them. */
+	refused?: readonly string[];
 }
 
 /**
@@ -344,7 +353,11 @@ export function buildView(input: ViewInput): BoardView {
 		total: cards.length,
 		round,
 		...(teammates === undefined ? {} : { teammates }),
-		waiting: { messages, dropped: waiting.dropped },
+		waiting: {
+			messages,
+			dropped: waiting.dropped,
+			...(waiting.refused === undefined || waiting.refused.length === 0 ? {} : { refused: waiting.refused }),
+		},
 		activity: activityOf(cards),
 		bytes: input.bytes,
 		skipped: input.skipped ?? [],
@@ -362,7 +375,7 @@ export function buildView(input: ViewInput): BoardView {
 			// draws one more name on the row.
 			`|waiting:${messages
 				.map((message) => `${message.id}@${message.to.map((recipient) => recipient.id).join("+")}`)
-				.join(",")}/${String(waiting.dropped)}` +
+				.join(",")}/${String(waiting.dropped)}${refusedSuffix(waiting.refused)}` +
 			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}` +
 			`|untold:${round.untold.map((card) => card.id).join(",")}` +
 			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}` +
@@ -458,6 +471,7 @@ function teammatesOf(
 				...(lead !== undefined && sameLabel(session.label, lead) ? { lead: true as const } : {}),
 				seen: session.lastSeen,
 				mail: session.mail,
+				...(session.refused === undefined ? {} : { refused: session.refused }),
 				// A record that does not say is not a promise either way, so the fact is left out
 				// rather than drawn as "not listening".
 				...(session.watching === undefined ? {} : { listening: session.watching.armed }),
@@ -465,6 +479,16 @@ function teammatesOf(
 			};
 		})
 		.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * The refused names in a frame's signature, or nothing when there are none.
+ *
+ * A file becoming unreadable moves no card and changes no count, so the names are the only part of
+ * the signature that moves — and an inbox with none must sign exactly what it signed before.
+ */
+function refusedSuffix(names: readonly string[] | undefined): string {
+	return names === undefined || names.length === 0 ? "" : `:${names.join("+")}`;
 }
 
 /** What a frame must know about the roster; `seen` is left out on purpose. */
@@ -475,7 +499,7 @@ function rosterSignature(teammates: readonly ViewTeammate[] | undefined): string
 		teammates
 			.map(
 				(teammate) =>
-					`${teammate.label}:${teammate.state}:${teammate.mail}:${teammate.listening}:${String(teammate.working)}:${String(teammate.lead)}`,
+					`${teammate.label}:${teammate.state}:${teammate.mail}:${teammate.listening}:${String(teammate.working)}:${String(teammate.lead)}${refusedSuffix(teammate.refused)}`,
 			)
 			.join(",")
 	);

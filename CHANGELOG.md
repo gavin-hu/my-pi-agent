@@ -113,6 +113,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the Team tab says when a message file exists that it cannot read. A claim that a row's
+  count is "mail its owner can open" is right, but it left a file this build cannot parse invisible:
+  `session status` names it for the reader's own inbox, and the page drew nothing — no chip, no
+  line, no trace of a file that sits there until its TTL. The ledger's `unreadable` names now reach
+  the wire, so a teammate's row carries `2 unreadable files` with the transcript's own sentence on
+  its title, and the Waiting pane prints that sentence under its rows. No count moved: `mail`, the
+  queue's rows and `untold` are the same numbers, which is the half #605 got right.
+
 - `board`: the card dialog's title keeps its half of the head. The meta beside it is nowrap text
   with no floor of its own, so the font that drew it decided the title's width — the macOS family
   left the title most of the row, and the Linux and Windows families took it below half while the

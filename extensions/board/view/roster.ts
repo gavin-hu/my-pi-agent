@@ -24,8 +24,14 @@
  * label use this module's key rather than a fourth spelling.
  */
 
-export function rosterJs(rules: { historyOwner: string; sameLabel: string; labelKey: string }): string {
+export function rosterJs(rules: {
+	historyOwner: string;
+	sameLabel: string;
+	labelKey: string;
+	unreadable: string;
+}): string {
 	return rosterTemplate
+		.replace("__UNREADABLE__", rules.unreadable)
 		.replace("__SAME_LABEL__", rules.sameLabel)
 		.replace("__LABEL_KEY__", rules.labelKey)
 		.replace("__HISTORY_OWNER__", rules.historyOwner);
@@ -34,6 +40,14 @@ export function rosterJs(rules: { historyOwner: string; sameLabel: string; label
 const rosterTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
+
+  /**
+   * The sentence for mail this build cannot read, spliced here because this fragment carries a
+   * refused file onto a teammate's row; the Waiting pane prints it from the same board object,
+   * and that fragment runs after this one.
+   */
+  var unreadableText = __UNREADABLE__;
+  board.unreadableText = unreadableText;
 
 __SAME_LABEL__
 
@@ -85,6 +99,9 @@ __HISTORY_OWNER__
           lead: mate.lead === true,
           you: mate.you === true,
           mail: mate.mail,
+          // Carried rather than derived: the row restates every field it draws, so a fact the
+          // snapshot adds reaches the card only by a line here.
+          refused: mate.refused,
           listening: mate.listening,
           seen: mate.seen,
           cards: owners[labelKey(mate.label)] || { live: [], done: [] }

@@ -40,6 +40,16 @@ describe("the fragments' bodies", () => {
 		expect(BOARD_CLIENT_JS).toContain(LABEL_KEY_JS);
 	});
 
+	test("carries the sentence for mail it cannot read, because two fragments print it", () => {
+		// The row's chip and the pane's line both print one sentence, spliced into the roster
+		// fragment; a page that never received the body throws at the first refused file, which no
+		// static check would report.
+		expect(BOARD_CLIENT_JS).toContain("function unreadableText(files)");
+		expect(BOARD_CLIENT_JS).toContain("unreadableText(agent.refused)");
+		expect(BOARD_CLIENT_JS).toContain("unreadableText(refused)");
+		expect(BOARD_CLIENT_JS).not.toContain("__UNREADABLE__");
+	});
+
 	test("carries the one rule for a current spot-check, and the two bodies it calls", () => {
 		// `reasonFor` asks `currentReview` on the page as well as in the transcript, and the page has no
 		// import graph: the rule, the lane entry it reads and the staleness it reads arrive as bodies, or
