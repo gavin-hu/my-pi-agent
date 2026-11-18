@@ -144,7 +144,7 @@ the session bus, so the person waiting knows the lane opened.
 reload. Filter the cards, fold `done` away, or open the **Team** tab to see who
 is live, quiet, or gone — and which cards are waiting on a decision.
 
-<img src="../../assets/screens/card-dialog.png" alt="The card dialog: a card's title, its type, owner and lane, its reason line, its contract with goal, acceptance, and scope out under an approval note, the plan and paths it is started from, when it last changed, and its two notes" width="1280" height="597">
+<img src="../../assets/screens/card-dialog.png" alt="The card dialog: the card's title with its type, owner, lane and age beside it, its reason line, its contract with goal, acceptance, scope out and verify under the approval note, the plan and path hints it is started from, and when it last changed" width="1280" height="480">
 
 *One card opened: the contract it promises, the plan it is executed against, and
 the notes that explain it.*

@@ -369,10 +369,15 @@ ${DECISION_WHY_CSS}
    Nothing here scrolls on its own — the kit's body is the one scrollbar. */
 /* A little taller than the kit's default: this dialog is the only place a whole card —
    its facts, its plan, and every note it kept — can be read. */
-.board-dialog__panel{width:min(720px,100%);max-height:84vh;background:var(--raised);box-shadow:var(--shadow-2)}
-/* A long title wraps beside its id instead of pushing the close button off the head. */
-.board-dialog__head{flex-wrap:wrap;align-items:baseline;row-gap:var(--space-1)}
-.board-dialog__head h2{flex:1 1 12ch;min-width:0;font-size:var(--fs-lg);line-height:var(--lh-tight);overflow-wrap:anywhere}
+.board-dialog__panel{position:relative;width:min(720px,100%);max-height:84vh;background:var(--raised);box-shadow:var(--shadow-2)}
+/* The title takes the row's slack and the meta wraps beneath it only when it needs the width, which
+   is what a fixed spacer in the head used to prevent: it grew first, so a long title wrapped in the
+   column that was left over. The close sits out of the flow in the panel's corner — pinned rather
+   than last in the line, so a meta that wraps cannot carry it mid-header — and the right padding
+   keeps the title clear of it: the kit's icon button is 30px wide, drawn from its own corner. */
+.board-dialog__head{flex-wrap:wrap;align-items:baseline;row-gap:var(--space-1);padding-right:calc(var(--space-4) + 30px + var(--space-2))}
+.board-dialog__head h2{flex:1 1 22ch;min-width:0;font-size:var(--fs-lg);line-height:var(--lh-tight);overflow-wrap:anywhere}
+.board-dialog__head #card-dialog-close{position:absolute;top:var(--space-2);right:var(--space-4)}
 .board-dialog__id{font:var(--fs-sm) var(--font-mono);color:var(--muted)}
 .board-dialog__body{display:flex;flex-direction:column;gap:var(--space-4);padding-bottom:var(--space-4)}
 .board-dialog__section{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}

@@ -44,6 +44,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the card dialog's title takes the head's row. A spacer between the title and the card's
+  type, owner and lane grew before the title could, so a long title wrapped in the column that was
+  left — 271px of a 686px row, six lines for a CJK title, and the panel's height paid for it. The
+  close now sits in the panel's corner rather than last in the line, so the meta can wrap beneath the
+  title when the title needs the width, and a short title keeps its one-line head.
+
 - `board`: a finished card's dialog names the merge the close recorded, in a `landed` row of its own
   and in the transcript's spelling (the first seven characters), and the spot-check's run above it is
   drawn whole. The `reviewed` row had been one nowrap line with no tooltip of its own, so a run taken
