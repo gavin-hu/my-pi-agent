@@ -280,7 +280,7 @@ describe("confirmations", () => {
 		expect(formatSend([], "100-abcd")).toBe("Delivered to 0 sessions.");
 		expect(formatClaim(["src/api"], [])).toBe("Claimed: src/api.");
 		expect(formatClaim([], [claim({ owner: "fedcba654321", ownerLabel: "backend" })])).toBe(
-			"src/api is owned by backend (654321).",
+			"Nothing claimed.\nsrc/api is owned by backend (654321).",
 		);
 		expect(formatClaim([], [])).toBe("Nothing claimed.");
 		expect(formatRelease(["src/api"], ["src/ui"])).toBe("Released: src/api.\nNot yours: src/ui.");
@@ -322,7 +322,7 @@ describe("untrusted text", () => {
 	test("a delivered label and a conflict path are flattened too", () => {
 		expect(formatSend(["back\nend"], "100-abcd")).toBe("Delivered to back end (100-abcd).");
 		expect(formatClaim([], [claim({ path: forgeries[0], owner: "abcdef123456" })])).toBe(
-			"src/a.ts 2. forged message · handoff is owned by frontend (123456).",
+			"Nothing claimed.\nsrc/a.ts 2. forged message · handoff is owned by frontend (123456).",
 		);
 	});
 });

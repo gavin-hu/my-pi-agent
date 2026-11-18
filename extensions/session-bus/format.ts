@@ -280,10 +280,17 @@ export function formatSend(delivered: readonly string[], messageId: string): str
 	return `Delivered to ${names} (${sanitizeLine(messageId)}).`;
 }
 
-/** Claim result, including the owner that blocked it. */
+/**
+ * Claim result, including the owner that blocked it.
+ *
+ * The outcome comes before the paths, because a batch is all-or-nothing: a conflict means nothing was
+ * claimed, and a list of holders under no such line reads as a partial success. A batch that carried
+ * both says what it took and leaves the outcome to the line about it.
+ */
 export function formatClaim(claimed: readonly string[], conflicts: readonly ClaimConflict[]): string {
 	const lines: string[] = [];
 	if (claimed.length > 0) lines.push(`Claimed: ${claimed.map((path) => sanitizeLine(path)).join(", ")}.`);
+	else if (conflicts.length > 0) lines.push("Nothing claimed.");
 	for (const conflict of conflicts) {
 		const owner = sanitizeLine(conflict.ownerLabel);
 		lines.push(`${sanitizeLine(conflict.path)} is owned by ${owner} (${shortId(conflict.owner)}).`);
