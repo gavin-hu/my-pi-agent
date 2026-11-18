@@ -88,6 +88,14 @@ export interface ServedBoardPageOptions {
 	 * a stub cannot disagree with itself, so a stub cannot show a count being wrong.
 	 */
 	bus?: string;
+	/**
+	 * The hint the page's stream sends its first reconnect, in ms.
+	 *
+	 * A case that reads what the page does once its stream is dead would otherwise wait out
+	 * the product's two seconds twice to get there; this is the same seam as the idle grace's
+	 * timer, one layer out.
+	 */
+	retryMs?: number;
 }
 
 /** One served page: the URL `/board` would open, the listener, and its close. */
@@ -102,7 +110,7 @@ export interface ServedBoardPage {
 
 /** Serve the shipped page over `store`, with a snapshot re-read for every frame. */
 export async function serveBoardPage(options: ServedBoardPageOptions): Promise<ServedBoardPage> {
-	const { store, now, display = {}, roster, waiting, bus } = options;
+	const { store, now, display = {}, roster, waiting, bus, retryMs } = options;
 	// What the page prints for its repository, resolved once so the document and every frame
 	// name the same board: the toolbar is named before the first frame rather than after it.
 	const repo = display.repo ?? store.name();
@@ -147,6 +155,7 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 		page: async (tab) =>
 			renderBoardPage({ view: tab, base: BOARD_BASE, repo, root, where: display.where ?? store.where() }),
 		script: BOARD_CLIENT_JS,
+		...(retryMs === undefined ? {} : { retryMs }),
 		view,
 	});
 	if (started.kind === "refused") throw new Error(started.reason);

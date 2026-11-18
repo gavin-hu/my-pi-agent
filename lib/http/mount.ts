@@ -50,6 +50,13 @@ export interface MountSpec {
 	 * betting its budget on machine load; the seam is how a case fires it instead.
 	 */
 	timer?: ArmTimer;
+	/**
+	 * The hint this page's first reconnect carries, in ms; absent, `RETRY_MS`.
+	 *
+	 * The same seam as `timer`, for the same reason: a browser waits the hint out before it
+	 * tries again, so a case watching a stream die would be spending its budget on that clock.
+	 */
+	retryMs?: number;
 }
 
 /** A prefix this page now serves. */

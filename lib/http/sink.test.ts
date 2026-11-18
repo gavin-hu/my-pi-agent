@@ -205,6 +205,30 @@ describe("the reconnect hint", () => {
 		expect(RETRY_MAX_MS).toBe(60_000);
 	});
 
+	test("climbs from the base a mount injected, and still stops at the cap", () => {
+		const beat = beatTicker();
+		// A case that watches a page's dropped stream would otherwise wait out the product's
+		// two seconds between attempts; a mount asks for a shorter hint, and the ladder is the
+		// same one from the base it was given.
+		const base = 50;
+		const quick = createSinks({ interval: beat.interval, retryMs: base });
+		const hints: number[] = [];
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			const response = pageResponse();
+			quick.attach(response, HEAD).end();
+			hints.push(retryOf(response));
+		}
+		expect(hints).toEqual([base, base * 2]);
+		// The cap belongs to the policy rather than to the base: one that starts at the cap
+		// stays there, so no injected number can buy a browser a longer wait than the product's.
+		const slow = createSinks({ interval: beat.interval, retryMs: RETRY_MAX_MS });
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			const response = pageResponse();
+			slow.attach(response, HEAD).end();
+			expect(retryOf(response)).toBe(RETRY_MAX_MS);
+		}
+	});
+
 	test("resets once a stream delivered a frame, a keepalive included", () => {
 		const beat = beatTicker();
 		const sinks = createSinks({ interval: beat.interval });
