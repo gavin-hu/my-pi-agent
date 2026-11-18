@@ -13,7 +13,7 @@ export const MEMORY_CONTEXT_MARKER = "[MEMORY]";
 
 const INTRO = "Durable notes saved in earlier sessions. Treat them as facts the user asked you to remember.";
 /** Bytes kept in reserve so the omission tail always fits under the cap. */
-const TAIL_RESERVE = 64;
+const TAIL_RESERVE = 96;
 /** Notes listed per scope in an unexpanded result or the command notice. */
 const LIST_CAP = 12;
 
@@ -106,10 +106,12 @@ export function formatNotice(entries: MemoryEntries): string {
 /**
  * The hidden `[MEMORY]` context body split into its lines, plus what did not fit.
  *
- * Sections are emitted project-then-global. When the notes do not fit under
- * `maxBytes`, the remainder is replaced by one `(+N more)` tail so the model
- * knows to call the tool for the rest. `omitted` says which store overflowed, for
- * the health report; `buildInjection` only needs the lines.
+ * Sections are emitted project-then-global, newest note first: a note's position in
+ * the store is its age (`applyAdd` appends, and `applyUpdate` moves a correction to
+ * the end), so a note that does not fit is the oldest one. The remainder is replaced
+ * by one tail naming both the call and the store's size, since the notes a cap leaves
+ * out are ones only a person can prune. `omitted` says which store overflowed, for the
+ * health report; `buildInjection` only needs the lines.
  */
 export interface InjectionPlan {
 	lines: string[];
@@ -132,7 +134,7 @@ export function injectionPlan(entries: MemoryEntries, maxBytes: number): Injecti
 	for (const [scope, list] of sections) {
 		const header = `${scope}:`;
 		const rendered: string[] = [];
-		for (const entry of list) {
+		for (const entry of [...list].reverse()) {
 			const line = `- ${entry}`;
 			if (used + bytes(header) + 1 + bytes(line) + 1 > limit) {
 				omitted[scope] += 1;
@@ -147,7 +149,7 @@ export function injectionPlan(entries: MemoryEntries, maxBytes: number): Injecti
 		}
 	}
 	const missing = omitted.project + omitted.global;
-	if (missing > 0) lines.push(`- (+${missing} more; use the memory tool)`);
+	if (missing > 0) lines.push(`- (+${missing} more; call list — the store is past the injection cap)`);
 	return { lines, omitted };
 }
 

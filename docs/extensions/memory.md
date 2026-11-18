@@ -36,9 +36,11 @@ you ask for later is a no-op that names the note that already says it.
 
 ## Reference
 
-**The tool.** `memory` adds, updates, forgets, and lists notes. Restating a stored
-fact in new words is refused as a duplicate, naming the existing note, so the file
-does not fill with paraphrases.
+**The tool.** `memory` adds, updates, forgets, and lists notes, and `list` returns
+all of them. Restating a stored fact in new words is refused as a duplicate, naming
+the existing note, so the file does not fill with paraphrases. An `update` writes the
+corrected note at the end of the store, because position is age: a correction is the
+newest thing known, not the oldest.
 
 **The stores.** The global file is `~/.pi/agent/memory.md`. The project store is
 anchored at the repository root, so a subdirectory and every worktree read the
@@ -47,8 +49,9 @@ is written owner-only (`0600`), because a note is instruction the next session
 trusts.
 
 **Recall.** Notes are injected as a `[MEMORY]` context block before each run,
-bounded by a byte cap; `/memory doctor` reports the budget and anything the cap
-left out.
+newest first, bounded by a byte cap. Past the cap the **oldest** notes are the ones
+left out, and the block's last line counts them: `/memory doctor` reports the budget
+and which store overflowed.
 
 **The picker.** `/memory` lists notes with their scope; add, edit, forget, merge
 and move are in place, `/` filters, `r` reloads.
@@ -58,7 +61,10 @@ and move are in place, `/` filters, `r` reloads.
 - Short facts only: long-form knowledge belongs in `AGENTS.md`, and a dump of
   prose into memory crowds out the context it is meant to save.
 - The injected body is capped, so a store grown too large starts losing notes from
-  the context rather than from the file.
+  the context rather than from the file — the oldest first, and the founding rules
+  (branch flow, the landing gate) are the oldest notes a project has. That trade is
+  recency over founding, and it is only safe because the cap's tail names the store's
+  size on every run: prune it when it says so.
 - A project's notes are trusted only while that project is; a global note is
   always read.
 - Notes are markdown on disk, so an edit outside Pi lands on the next read.

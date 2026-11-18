@@ -186,17 +186,30 @@ export function applyForget(content: string, entry: string): FileChange {
 /** Bullet line as marker, note, and trailing whitespace. */
 const BULLET_PARTS = /^(\s*[-*]\s+)(.+?)(\s*)$/;
 
-/** Replace every bullet whose note matches `from` exactly, keeping marker and prose. */
+/**
+ * Replace every bullet whose note matches `from` with one `to` at the end of the store,
+ * keeping the first match's marker and every line of prose.
+ *
+ * A note's position is its age: `applyAdd` appends, and the injected body keeps the
+ * newest notes when its byte cap is hit. An update that stayed where it stood would make
+ * a corrected fact the first one the cap drops, which is the opposite of a correction.
+ */
 export function applyUpdate(content: string, from: string, to: string): FileChange {
 	if (from === to) return { content, changed: false };
-	let changed = false;
-	const lines = content.split(/\r?\n/).map((line) => {
+	let marker: string | undefined;
+	const kept: string[] = [];
+	for (const line of content.split(/\r?\n/)) {
 		const match = BULLET_PARTS.exec(line);
-		if (!match || sanitizeLine(match[2]) !== from) return line;
-		changed = true;
-		return `${match[1]}${to}${match[3]}`;
-	});
-	return changed ? { content: lines.join("\n"), changed: true } : { content, changed: false };
+		if (match && sanitizeLine(match[2]) === from) {
+			marker ??= match[1];
+			continue;
+		}
+		kept.push(line);
+	}
+	if (marker === undefined) return { content, changed: false };
+	const trimmed = kept.join("\n").replace(/\s+$/, "");
+	const note = `${marker}${to}`;
+	return { content: trimmed ? `${trimmed}\n${note}\n` : `${note}\n`, changed: true };
 }
 
 /**

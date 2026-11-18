@@ -50,7 +50,7 @@ function toStructuredContent(details: MemoryDetails): Record<string, JsonValue> 
  */
 function memoryResult(details: MemoryDetails, error?: string) {
 	const full: MemoryDetails = error === undefined ? details : { ...details, error };
-	const text = formatResultText(full);
+	const text = formatResultText(full, true);
 	const structuredContent = toStructuredContent(full);
 	return error === undefined ? textResult(text, full, structuredContent) : failedResult(text, full, structuredContent);
 }

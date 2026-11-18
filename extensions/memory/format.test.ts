@@ -37,7 +37,7 @@ describe("injection body", () => {
 		const body = buildInjection({ project: [], global: entries }, 512);
 		expect(body).toBeDefined();
 		expect(Buffer.byteLength(body ?? "", "utf-8")).toBeLessThanOrEqual(512);
-		expect(body).toMatch(/\(\+\d+ more; use the memory tool\)/);
+		expect(body).toMatch(/\(\+\d+ more; call list — the store is past the injection cap\)/);
 	});
 });
 
@@ -58,7 +58,23 @@ describe("injection plan", () => {
 		expect(plan?.omitted.global).toBeGreaterThan(0);
 		// One tail names the total, not one line per scope.
 		const missing = (plan?.omitted.project ?? 0) + (plan?.omitted.global ?? 0);
-		expect(plan?.lines.at(-1)).toBe(`- (+${missing} more; use the memory tool)`);
+		expect(plan?.lines.at(-1)).toBe(`- (+${missing} more; call list — the store is past the injection cap)`);
+	});
+
+	test("keeps the newest notes, counting the oldest as omitted", () => {
+		const entries = Array.from({ length: 20 }, (_, index) => `note ${index} ${"x".repeat(60)}`);
+		const plan = injectionPlan({ project: entries, global: [] }, 600);
+		const kept = plan?.lines.filter((line) => line.startsWith("- ") && !line.includes(" more")) ?? [];
+		expect(kept.length).toBeGreaterThan(0);
+		expect(kept.length).toBeLessThan(entries.length);
+		// A note's position is its age, so what survives is a suffix of the store, reversed.
+		expect(kept).toEqual(
+			[...entries]
+				.reverse()
+				.slice(0, kept.length)
+				.map((entry) => `- ${entry}`),
+		);
+		expect(plan?.omitted.project).toBe(entries.length - kept.length);
 	});
 });
 
