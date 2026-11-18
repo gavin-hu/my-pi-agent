@@ -136,12 +136,18 @@ export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void
 				}
 				case "doctor": {
 					// Read-only: the report names what to fix, and `m` in the picker merges a pair.
+					const paths = runtime.paths();
+					if (!paths) {
+						notify(ctx, "Memory is not initialized yet.");
+						return;
+					}
 					notify(
 						ctx,
 						formatHealth(
 							memoryHealth({
 								entries: runtime.entries(),
 								sizes: runtime.sizes(),
+								paths,
 								trusted: runtime.trusted(),
 								config: runtime.config(),
 							}),

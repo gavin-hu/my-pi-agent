@@ -26,7 +26,6 @@ import {
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { repoRootFor } from "../../lib/git/index.ts";
 
 /** Largest memory file read into memory, in bytes. */
 export const MAX_MEMORY_BYTES = 256 * 1024;
@@ -58,12 +57,19 @@ function globalMemoryPath(): string {
 }
 
 /**
- * Resolve both store paths, anchoring the project store at the repository root
- * so notes survive running from a subdirectory and are shared across worktrees.
+ * Resolve both store paths, anchoring the project store at the checkout the repository
+ * states its settings in.
+ *
+ * `.pi/` is gitignored, so a worktree's own copy would be a second store that dies with
+ * the tree — and the worktree is where the work happens. `settingsRootFor` answers the
+ * checkout every worktree of the repository shares, from a subdirectory or a linked
+ * worktree alike; outside a repository it answers `cwd`.
  */
 export async function resolveMemoryPaths(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<MemoryPaths> {
-	// Local `rev-parse` is fast; cap it so a stuck call cannot hang startup.
-	const root = await repoRootFor(pi, cwd, 5_000);
+	// Loaded where it is used: the store read is the first thing a session asks for, and the
+	// registration path pays nothing for a resolver that reaches `node:crypto`.
+	const { settingsRootFor } = await import("../../lib/repo-key.ts");
+	const root = await settingsRootFor(pi, cwd);
 	return { project: projectMemoryPath(cwd, root), global: globalMemoryPath() };
 }
 

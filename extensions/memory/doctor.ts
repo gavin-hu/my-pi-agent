@@ -17,7 +17,7 @@
 import { clip } from "../../lib/tui/columns.ts";
 import type { MemoryConfig } from "./config.ts";
 import { injectionPlan, type MemoryEntries } from "./format.ts";
-import { duplicateKey } from "./store.ts";
+import { duplicateKey, type MemoryPaths } from "./store.ts";
 import { MEMORY_SCOPES, type MemoryScope } from "./types.ts";
 
 /** Longest note text a duplicate line shows. */
@@ -25,11 +25,13 @@ const PAIR_NOTE_WIDTH = 60;
 /** Label column for the report's rows. */
 const LABEL_WIDTH = 11;
 
-/** One store's counts. */
+/** One store's counts and the file they came from. */
 export interface ScopeHealth {
 	notes: number;
 	/** File size in bytes; `undefined` when the store was not read. */
 	bytes?: number;
+	/** The store file this row describes, so a report names what a session actually read. */
+	path: string;
 }
 
 /** Two notes the comparison key treats as one fact, in stored order. */
@@ -56,6 +58,8 @@ export interface MemoryHealth {
 export interface HealthInput {
 	entries: MemoryEntries;
 	sizes: Record<MemoryScope, number | undefined>;
+	/** The resolved store files: a row names the file, not only the count. */
+	paths: MemoryPaths;
 	trusted: boolean;
 	config: MemoryConfig;
 }
@@ -76,10 +80,10 @@ export function duplicatePairs(entries: MemoryEntries): DuplicatePair[] {
 }
 
 /** Derive the report from the current stores and config. */
-export function memoryHealth({ entries, sizes, trusted, config }: HealthInput): MemoryHealth {
+export function memoryHealth({ entries, sizes, paths, trusted, config }: HealthInput): MemoryHealth {
 	const scope = (name: MemoryScope): ScopeHealth => {
 		const size = sizes[name];
-		return size === undefined ? { notes: entries[name].length } : { notes: entries[name].length, bytes: size };
+		return { notes: entries[name].length, path: paths[name], ...(size === undefined ? {} : { bytes: size }) };
 	};
 	const plan = config.inject ? injectionPlan(entries, config.maxInjectBytes) : undefined;
 	return {
@@ -97,13 +101,14 @@ function row(label: string, text: string): string {
 	return `  ${label.padEnd(LABEL_WIDTH)}${text}`;
 }
 
-/** `3 notes · 412 B`, or the reason a store was not read. */
+/** `3 notes · 412 B · /repo/.pi/memory.md`, or the reason a store was not read. */
 function scopeText(health: MemoryHealth, name: MemoryScope): string {
 	const scope = health[name];
-	if (name === "project" && !health.trusted) return "unavailable (untrusted project)";
+	const where = ` · ${scope.path}`;
+	if (name === "project" && !health.trusted) return `unavailable (untrusted project)${where}`;
 	const notes = `${scope.notes} note${scope.notes === 1 ? "" : "s"}`;
-	if (scope.bytes === undefined) return scope.notes === 0 ? notes : `${notes} · size unknown`;
-	return `${notes} · ${scope.bytes} B`;
+	if (scope.bytes === undefined) return scope.notes === 0 ? `${notes}${where}` : `${notes} · size unknown${where}`;
+	return `${notes} · ${scope.bytes} B${where}`;
 }
 
 function injectionText(health: MemoryHealth): string {
