@@ -34,7 +34,7 @@ import { emptyState, listRow } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { messageOf } from "../errors.ts";
-import { scopeLabel, type MemoryEntries } from "../format.ts";
+import { mutationNotice, scopeLabel, type MemoryEntries } from "../format.ts";
 import { noteLabel } from "../types.ts";
 import type { MemoryScope } from "../types.ts";
 
@@ -269,9 +269,11 @@ export class MemoryPickerComponent implements Component {
 
 		this.run(async () => {
 			if (pair) {
-				await this.callbacks.merge(pair.first.scope, pair.first.text, pair.second.text, text);
-				this.notice = `Merged 2 ${scopeLabel(pair.first.scope)} notes.`;
-				this.selectedKey = noteKey({ scope: pair.first.scope, text });
+				const changed = await this.callbacks.merge(pair.first.scope, pair.first.text, pair.second.text, text);
+				this.notice = mutationNotice("merge", changed, pair.first.scope);
+				// A merge that wrote nothing leaves the focus where it was: the note it names
+				// does not exist, so moving to it would strand the cursor.
+				if (changed) this.selectedKey = noteKey({ scope: pair.first.scope, text });
 				return;
 			}
 			if (editing) {
@@ -279,9 +281,9 @@ export class MemoryPickerComponent implements Component {
 					this.notice = "Unchanged.";
 					return;
 				}
-				await this.callbacks.update(scope, editing.text, text);
-				this.notice = `Updated ${scopeLabel(scope)} note.`;
-				this.selectedKey = noteKey({ scope, text });
+				const changed = await this.callbacks.update(scope, editing.text, text);
+				this.notice = mutationNotice("update", changed, scope);
+				if (changed) this.selectedKey = noteKey({ scope, text });
 				return;
 			}
 			const result = await this.callbacks.add(scope, text);
@@ -300,9 +302,11 @@ export class MemoryPickerComponent implements Component {
 		const at = before.findIndex((item) => noteKey(item) === noteKey(note));
 		const neighbour = before[at + 1] ?? before[at - 1];
 		this.run(async () => {
-			await this.callbacks.forget(note.scope, note.text);
-			this.notice = `Forgot ${scopeLabel(note.scope)} note.`;
-			this.selectedKey = neighbour ? noteKey(neighbour) : undefined;
+			const changed = await this.callbacks.forget(note.scope, note.text);
+			this.notice = mutationNotice("forget", changed, note.scope);
+			// Only a note that left the store hands the focus to its neighbour; one that was
+			// already gone is still on screen, and the cursor stays on it.
+			this.selectedKey = changed ? (neighbour ? noteKey(neighbour) : undefined) : noteKey(note);
 		});
 	}
 

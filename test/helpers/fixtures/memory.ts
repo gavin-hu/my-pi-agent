@@ -12,12 +12,14 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { type MemoryEntries } from "../../../extensions/memory/format.ts";
 import memory from "../../../extensions/memory/index.ts";
 import type { MemoryNote } from "../../../extensions/memory/types.ts";
 import { ENV_ROOT } from "../../../lib/env.ts";
 import { fakeCtx } from "../context.ts";
 import { useEnv } from "../env.ts";
-import { createFakePi, emitCollect } from "../fakes.ts";
+import { createFakePi, emitCollect, fakeTheme } from "../fakes.ts";
+import { MemoryPickerComponent, type MemoryPickerCallbacks } from "../../../extensions/memory/view/memory-picker.ts";
 
 type Scope = "project" | "global";
 
@@ -54,6 +56,78 @@ const GIT_REV_PARSE = "rev-parse";
 const SHOW_TOPLEVEL = "--show-toplevel";
 const COMMON_DIR = "--git-common-dir";
 const WORKTREE_TASK = [".pi", "worktrees", "task"];
+
+/** What a case wrote to the picker's store, and what the screen was asked to do with it. */
+export interface PickerCase {
+	/** The screen as text. */
+	text(width?: number): string;
+	/** One key, as the TUI would deliver it. */
+	input(data: string): void;
+	/** The store the screen reads, so a case can change it mid-test — a peer taking a note. */
+	entries: MemoryEntries;
+	/** How many times each callback was asked, which is a different fact from what it answered. */
+	calls: Record<"add" | "update" | "forget" | "merge" | "move" | "refresh", number>;
+}
+
+const PICKER_TUI = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as any;
+
+/**
+ * The picker over a store double: the texts a case writes, the trust level, and any callback
+ * it wants to answer for itself. The store is live, so a case can empty it under the screen.
+ */
+export function pickerOver(
+	options: {
+		project?: string[];
+		global?: string[];
+		trusted?: boolean;
+		overrides?: Partial<MemoryPickerCallbacks>;
+	} = {},
+): PickerCase {
+	const entries: MemoryEntries = { project: notesOf(options.project ?? []), global: notesOf(options.global ?? []) };
+	const calls = { add: 0, update: 0, forget: 0, merge: 0, move: 0, refresh: 0 };
+	const component = new MemoryPickerComponent(
+		PICKER_TUI,
+		fakeTheme,
+		{
+			entries: () => ({ project: [...entries.project], global: [...entries.global] }),
+			trusted: () => options.trusted ?? true,
+			refresh: () => {
+				calls.refresh += 1;
+				return false;
+			},
+			add: async () => {
+				calls.add += 1;
+				return { changed: true };
+			},
+			update: async () => {
+				calls.update += 1;
+				return true;
+			},
+			forget: async () => {
+				calls.forget += 1;
+				return true;
+			},
+			merge: async () => {
+				calls.merge += 1;
+				return true;
+			},
+			move: async () => {
+				calls.move += 1;
+				return { moved: true };
+			},
+			...options.overrides,
+		},
+		() => {},
+		() => {},
+		() => PICKER_TUI.terminal?.rows,
+	);
+	return {
+		text: (width = 70) => component.render(width).join("\n"),
+		input: (data) => component.handleInput(data),
+		entries,
+		calls,
+	};
+}
 
 /** The notes a store holds for the strings a case writes: unattributed, which is the default. */
 export function notesOf(texts: string[]): MemoryNote[] {

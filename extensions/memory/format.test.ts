@@ -6,6 +6,7 @@ import {
 	formatResultText,
 	injectionPlan,
 	MEMORY_CONTEXT_MARKER,
+	mutationNotice,
 } from "./format.ts";
 import { notesOf } from "../../test/helpers/fixtures/memory.ts";
 import type { MemoryDetails } from "./types.ts";
@@ -141,6 +142,15 @@ describe("memory text", () => {
 
 	test("formatNotice reports an empty store", () => {
 		expect(formatNotice({ project: [], global: [] })).toBe("No durable memory stored yet.");
+	});
+
+	test("mutationNotice reports what the store did, not what the screen tried", () => {
+		expect(mutationNotice("merge", true, "project")).toBe("Merged 2 project notes.");
+		expect(mutationNotice("merge", false, "project")).toBe("Those notes are no longer both here.");
+		expect(mutationNotice("update", true, "global")).toBe("Updated global note.");
+		expect(mutationNotice("update", false, "global")).toBe("That note is no longer here.");
+		expect(mutationNotice("forget", true, "project")).toBe("Forgot project note.");
+		expect(mutationNotice("forget", false, "project")).toBe("That note was already gone.");
 	});
 
 	test("formatNotice lists both stores", () => {
