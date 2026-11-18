@@ -35,6 +35,21 @@ const CORE: Actor = { id: "s-core", label: "billing-core" };
 /** The note the waiting card carries, which its reason line falls back to. */
 const NOTE = "from the support thread";
 
+/**
+ * Whether the toolbar's subject still carries the label's isolate.
+ *
+ * The row is `direction: rtl` so a long path keeps the folder it names, and the isolate is what
+ * keeps a label opening with a neutral character — `.` of a repository under `.config/` — where
+ * the reader put it. A frame rewrites the name, so a write over the span rather than into it
+ * would drop that element on the first frame.
+ */
+async function isolated(page: Page): Promise<boolean> {
+	return page.$eval("#board-repo", (node) => {
+		const repo = node as unknown as { querySelector(selector: string): unknown };
+		return repo.querySelector("bdi") !== null;
+	});
+}
+
 let board: BoardBrowser;
 
 /**
@@ -355,5 +370,30 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 			Array.from(nodes as ArrayLike<ElementLike>, (node) => (node.textContent ?? "").trim()),
 		);
 		expect(drawn.some((text) => text.includes("Export orders as CSV"))).toBe(true);
+	});
+
+	test("writes the repository into the label's isolate, never over it", async () => {
+		const page = await board.reuse();
+		// The header is the server's, so the isolate is in the document before any frame paints.
+		expect(await isolated(page)).toBe(true);
+		const printed = await page.textContent("#board-repo");
+		// A card arrives, which is a frame, and the frame rewrites the subject's name.
+		const added = await board.store.create(
+			{ title: "A card the frame carries", paths: [] },
+			LEAD,
+			clock.now() + 30_000,
+		);
+		await page.waitForFunction(
+			(id) => {
+				const doc = (globalThis as unknown as { document: Doc }).document;
+				return doc.querySelector(`[data-card="${id}"]`) !== null;
+			},
+			added.id,
+			{ timeout: PAINT_MS },
+		);
+		// The same name in the same isolate: a write over the span would leave the text and drop
+		// the element, and a name opening with a dot would then be reordered by the row's rtl.
+		expect(await page.textContent("#board-repo")).toBe(printed);
+		expect(await isolated(page)).toBe(true);
 	});
 });

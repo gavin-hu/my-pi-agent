@@ -286,11 +286,11 @@ __RUNTIME__
   function renderChrome(view) {
     // The board's subject, which the header carries: the repository's name, with the root's
     // whole path on the hover, because a name alone cannot tell two clones of one repository
-    // apart. It arrives in the document too, so the toolbar is complete before the first
-    // frame; this keeps it true if a frame ever names a different store.
+    // apart. It arrives in the document too, so this keeps it true if a frame ever names a
+    // different store; it writes into the kit's isolate, never over it, because the row is rtl.
     var repo = document.getElementById("board-repo");
     if (repo) {
-      repo.textContent = view.repo;
+      (repo.querySelector("bdi") || repo).textContent = view.repo;
       repo.title = view.root;
     }
     var progress = document.getElementById("board-progress");

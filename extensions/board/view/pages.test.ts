@@ -241,7 +241,6 @@ describe("the client bundle", () => {
 		// The header carries the subject and the path that tells two clones apart; the foot the
 		// store, the counts, and the size. No surface paints the seat this page is served as.
 		expect(BOARD_CLIENT_JS).toContain('getElementById("board-repo")');
-		expect(BOARD_CLIENT_JS).toContain("repo.textContent = view.repo;");
 		expect(BOARD_CLIENT_JS).toContain("repo.title = view.root;");
 		expect(BOARD_CLIENT_JS).toContain('"store " + view.where');
 		expect(BOARD_CLIENT_JS).not.toContain('view.repo + " · store "');
