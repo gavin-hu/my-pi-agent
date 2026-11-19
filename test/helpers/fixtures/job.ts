@@ -13,6 +13,9 @@ import { tempDir } from "../env.ts";
 import type { TempTracker } from "../git.ts";
 import { makeJobSpawn, type JobChild } from "../process.ts";
 import { fakeCtx as sharedFakeCtx, type FakeCtxResult } from "../context.ts";
+import { createFakePi } from "../fakes.ts";
+import jobs from "../../../extensions/job/index.ts";
+import { TOOL_NAME } from "../../../extensions/job/tools.ts";
 
 export { makeJobSpawn as makeFakeSpawn, JobChild as FakeChild, waitFor } from "../process.ts";
 
@@ -207,4 +210,33 @@ export function runtimeWithFailedSpawn(dir: string): JobsRuntime {
 		config: { ...DEFAULT_CONFIG, registryDir: dir },
 		isWindows: () => false,
 	});
+}
+
+/**
+ * The job tool on a harness, the way a suite drives it: one `cleanup()` per file, one `setup()` per
+ * case. Owned here because two suites call the tool rather than the runtime — the tool's own
+ * behaviour and the transcript it renders — and a body copied into both is what the shared-helper
+ * guard fails.
+ */
+export function makeJobToolSuite() {
+	const suite = makeHarnessSuite();
+	return {
+		cleanup: () => suite.cleanup(),
+		setup: async (options: Parameters<typeof suite.makeHarness>[0] = {}) => {
+			const h = suite.makeHarness(options);
+			const { pi, tools } = createFakePi();
+			jobs(pi, { runtime: h.runtime });
+			const { ctx } = makeCtx();
+			await h.runtime.load(ctx);
+			const tool = tools.get(TOOL_NAME);
+			const call = (params: Record<string, unknown>) =>
+				tool.execute("t", params, undefined, undefined, ctx) as Promise<any>;
+			return { h, tool, call, ctx };
+		},
+	};
+}
+
+/** A job record as the tool's suites read one, with the defaults they all share. */
+export function recordOf(overrides: Partial<JobRecord> = {}): JobRecord {
+	return jobRecord({ label: "tests", command: "bun test", pid: 1234, startedAt: 1000, sessionId: "s1", ...overrides });
 }

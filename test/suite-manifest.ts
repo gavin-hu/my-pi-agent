@@ -141,6 +141,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"stdin",
 		"seam",
 		"tools",
+		"transcript",
 		"view/jobs-screen",
 		"extension",
 	],
