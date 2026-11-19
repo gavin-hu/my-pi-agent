@@ -18,7 +18,7 @@
 
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 /** A finite number, or `NaN` when the value does not say one. */
 function coerceNumber(value: unknown): number {
@@ -132,17 +132,32 @@ export interface AtomicWriteOptions {
 	mode?: number;
 }
 
+/** How a temp name is spelled, for the one caller that writes into a directory a person lists. */
+export interface TempNameOptions {
+	/**
+	 * Put the dot on the target's own name, so a mid-write temp is hidden from a plain `ls`.
+	 *
+	 * Nothing reads by this: a plan reader takes a name for a plan only when it ends `.md` and is
+	 * not a dotfile (`isPlanFileName`), and a temp ends `.tmp`, so both spellings are invisible to
+	 * it — the dot is the courtesy, and the extension is the rule. Do not treat it as load-bearing.
+	 */
+	hidden?: boolean;
+}
+
 /**
  * The temp name an atomic write publishes from: a sibling of the target carrying this
  * process's id and fresh randomness.
  *
  * Two processes never share a name, and two writes in one process never share one either
  * — a session that writes its record twice in one tick is the case the pid alone cannot
- * answer. Exported for {@link writeTextAtomic} and for the case that holds it: a caller
- * that builds a name must also publish and clean it up, so nothing else calls this.
+ * answer. Exported for {@link writeTextAtomic}, for the case that holds it, and for the
+ * plans directory, whose writer keeps its own exclusive create and link publish but not its
+ * own naming rule.
  */
-export function tempPathFor(path: string): string {
-	return `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+export function tempPathFor(path: string, options: TempNameOptions = {}): string {
+	const name = basename(path);
+	const stem = options.hidden === true ? `.${name}` : name;
+	return join(dirname(path), `${stem}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
 }
 
 /**

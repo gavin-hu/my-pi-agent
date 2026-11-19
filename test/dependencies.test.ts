@@ -309,8 +309,8 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * has to justify the raise here, and a deferral that lands lowers it. The budget
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
- * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 731.
+ * so a total lets one entry balloon while another's deferral pays for it — and a total
+ * nothing asserts is a fact with nothing holding it, so the rows are the fact.
  *
  * `board` 62 -> 63, `team` 52 -> 53, `job` 45 -> 46 and `session-bus` 44 -> 45 for
  * `lib/session-files.ts`: the bus's layout, its one stored-name rule and its two publishes are the
@@ -390,8 +390,10 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
 	board: 64,
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
-	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks).
-	plan: 58,
+	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks), and
+	// one more for lib/json: the temp name plan-files used to spell for itself is the owner's
+	// now, so the entry pays the module rather than a second copy of its rule (59 = 58 + json).
+	plan: 59,
 	team: 54,
 	job: 46,
 	"session-bus": 45,

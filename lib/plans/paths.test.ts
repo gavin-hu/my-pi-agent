@@ -45,6 +45,11 @@ describe("plansDirFor", () => {
 
 describe("isPlanFileName", () => {
 	test("accepts markdown, at any depth", () => {
+		// A temp an atomic write leaves beside a plan is not a plan, in either spelling: both fail
+		// on the extension, and a dotless one also fails the dotfile rule. The dot in the plans
+		// directory is a courtesy to `ls`, not what keeps a reader away.
+		expect(isPlanFileName("2026-10-08-1530-a.md.4711.a1b2c3d4.tmp")).toBe(false);
+		expect(isPlanFileName(".2026-10-08-1530-a.md.4711.a1b2c3d4.tmp")).toBe(false);
 		expect(isPlanFileName("a.md")).toBe(true);
 		expect(isPlanFileName("2026-10-08-1530-add-rate-limiting.md")).toBe(true);
 		expect(isPlanFileName("A.MD")).toBe(true);

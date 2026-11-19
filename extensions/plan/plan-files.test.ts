@@ -66,6 +66,24 @@ describe("a new plan's name", () => {
 		expect(readFileSync(path, "utf-8")).toBe("mine\n");
 	});
 
+	test("names the temp as a dotfile while it exists", () => {
+		const dir = realpathSync.native(scratchDir(temps, "pi-plan-files-"));
+		const base = "2026-10-08-1530-hidden";
+		const seen: string[] = [];
+		createAtomic(dir, base, "hidden\n", {
+			// The seam runs after the text is on disk and before the name is claimed: the one moment
+			// the temp exists and the plan does not.
+			beforeLink: () => seen.push(...readdirSync(dir)),
+		});
+
+		// The name comes from `tempPathFor(path, { hidden: true })` now, so this is what stops a
+		// migration quietly giving a person a visible half-written file in their plans directory.
+		expect(seen).toHaveLength(1);
+		expect(seen[0]).toMatch(/^\..*\.tmp$/);
+		expect(seen[0]).toContain(base);
+		expect(readdirSync(dir)).toEqual([`${base}.md`]);
+	});
+
 	test("leaves no temp file behind, on the way out or on a failure", () => {
 		const dir = realpathSync.native(scratchDir(temps, "pi-plan-files-"));
 		const base = "2026-10-08-1530-one";
