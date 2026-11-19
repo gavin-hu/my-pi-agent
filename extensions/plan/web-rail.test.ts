@@ -97,6 +97,16 @@ describe("the rail's markup and rules", () => {
 		expect(REVIEW_CSS).toContain("background:var(--accent-soft);color:var(--text);font:var(--fs-xs)/18px");
 	});
 
+	test("labels a block's comment badge in the text colour", () => {
+		// The badge sits on the block's own margin, over the surface a hovered block takes, so the
+		// accent on the wash measured 4.48 at best and 4.27 on the raised rail — #736's pairing, and
+		// the last of the five rules it moved. The block is the page's, the pairing is the kit's.
+		const badge = /\.bf-block__count\{([^}]*)\}/.exec(REVIEW_CSS)?.[1] ?? "";
+		expect(badge, "the badge is drawn on the wash").toContain("background:var(--accent-soft)");
+		expect(badge, "and its label is the text colour").toContain("color:var(--text)");
+		expect(badge, "never the accent").not.toContain("color:var(--accent)");
+	});
+
 	test("draws a seam the rail can see between the switch and the outline", () => {
 		// --border on the rail measures 1.05:1, so the heading under the tab row sat flush against
 		// it at gap 0 and read as a fourth segment; the seam is the stronger line plus the rail's

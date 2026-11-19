@@ -234,3 +234,37 @@ describe("the faint tier on a card", () => {
 		}
 	});
 });
+
+describe("the agent monogram", () => {
+	test("labels a monogram in the text colour, and leaves the lead's inverted", () => {
+		// A monogram is a 12px semibold label on the accent wash, and the accent's own ratio on that
+		// wash is 4.27 on the raised paper a card sits on — the pairing #736 moved off five rules.
+		// The lead's is the other mark: it fills with the accent and takes --on-accent, which is a
+		// statement about who leads rather than a quieter way to say the same thing.
+		// Anchored to a line, because the lead's selector contains this one as a substring.
+		const body = (pattern: RegExp): string => {
+			const found = pattern.exec(BOARD_CSS)?.[1];
+			expect(found, String(pattern)).toBeDefined();
+			return found ?? "";
+		};
+		const plain = body(/^\.board-agent__monogram\{([^}]*)\}/m);
+		expect(plain, "a monogram sits on the wash").toContain("background:var(--accent-soft)");
+		expect(plain, "and its label is the text colour").toContain("color:var(--text)");
+		expect(plain, "never the accent").not.toMatch(/(^|[;{])color:var\(--accent\)/);
+		const lead = body(/^\.board-agent\[data-lead="1"\] \.board-agent__monogram\{([^}]*)\}/m);
+		expect(lead, "the lead's monogram is the accent fill").toContain("background:var(--accent)");
+		expect(lead, "with the canvas colour on it").toContain("color:var(--on-accent)");
+		// Both pairings clear AA where the board paints them, in both appearances.
+		for (const appearance of ["dark", "light"] as const) {
+			const tokens = WEB_THEME_TOKENS[appearance];
+			const wash = over(tokens["--accent-soft"] as string, tokens["--raised"] as string);
+			expect(contrast(tokens["--text"] as string, wash), `${appearance} monogram on the wash`).toBeGreaterThanOrEqual(
+				4.5,
+			);
+			expect(
+				contrast(tokens["--on-accent"] as string, tokens["--accent"] as string),
+				`${appearance} lead monogram on the fill`,
+			).toBeGreaterThanOrEqual(4.5);
+		}
+	});
+});
