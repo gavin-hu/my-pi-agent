@@ -121,7 +121,7 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 | [`init`](./skills/init/SKILL.md) | 通过交互式访谈与先审阅的计划，创建或更新 Pi 实际读取的指令文件。 |
 | [`refactor`](./skills/refactor/SKILL.md) | 审计重复代码、过大模块、耦合与结构漂移，并把你选定的重构带到完成。 |
 | [`next`](./skills/next/SKILL.md) | 从本次会话建议接下来做什么；会话为空时则基于代码树。 |
-| [`triage-board`](./skills/triage-board/SKILL.md) | 把看板上未完成的卡片整理成有优先级的波次计划，只读，不写任何东西。 |
+| [`board-triage`](./skills/board-triage/SKILL.md) | 把看板上未完成的卡片整理成有优先级的波次计划，只读，不写任何东西。 |
 
 ### 主题
 

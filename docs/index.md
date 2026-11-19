@@ -62,7 +62,7 @@ advertised to the model, and its instructions load only when the task matches
 | [`init`](./skills/init.md) | Creates or updates the instruction file Pi reads, through an interactive interview and a plan you review. |
 | [`refactor`](./skills/refactor.md) | Audits for duplication, oversized modules, coupling, and drift, then carries the refactor you pick. |
 | [`next`](./skills/next.md) | Suggests what to do next from this conversation, or from the tree when it is empty. |
-| [`triage-board`](./skills/triage-board.md) | Turns a board's open cards into a prioritized wave plan with evidence, without writing. |
+| [`board-triage`](./skills/board-triage.md) | Turns a board's open cards into a prioritized wave plan with evidence, without writing. |
 
 ### Themes
 

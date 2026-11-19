@@ -1,6 +1,6 @@
-# triage-board — turn a board into waves
+# board-triage — turn a board into waves
 
-`triage-board` reads a repository's board and returns a prioritized wave plan: duplicates
+`board-triage` reads a repository's board and returns a prioritized wave plan: duplicates
 folded by root cause, cards grouped by the area they touch, a refactor placed before the
 bugs it moves, the cards waiting on your decision named, and the first wave with its
 evidence. Discovery is read-only; the writes it proposes are applied with `board` after you
@@ -10,17 +10,17 @@ pick.
 
 | What you want | What to do |
 |---|---|
-| Triage the whole open board | `/skill:triage-board` |
-| Triage one lane | `/skill:triage-board backlog` |
-| Triage one area | `/skill:triage-board @extensions/board` |
-| Ask about one card | `/skill:triage-board card 24` |
-| Turn a large backlog into a first wave | `/skill:triage-board` |
+| Triage the whole open board | `/skill:board-triage` |
+| Triage one lane | `/skill:board-triage backlog` |
+| Triage one area | `/skill:board-triage @extensions/board` |
+| Ask about one card | `/skill:board-triage card 24` |
+| Turn a large backlog into a first wave | `/skill:board-triage` |
 | Apply a row's writes | name the row; the skill hands off to `board` |
 
 ## Try it
 
 ```text
-/skill:triage-board
+/skill:board-triage
 ```
 
 The reply opens with the board's size, lanes and limits, then a table — one row per card,

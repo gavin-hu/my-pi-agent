@@ -81,6 +81,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: a settled comment keeps its body. The card hid the note and kept a quote that the plan
   never stores, so a reloaded settled comment was an author and a chip with nothing to read; the
   body now stays, dimmed, and the record is readable.
+- `skills`: `triage-board` is renamed `board-triage`. The old name read as the verb and buried the
+  surface it works on; `/skill:board-triage` is how it starts now, and the skill's instructions are
+  unchanged. Nothing answers to `/skill:triage-board`, so a saved command has to be retyped.
 
 ## [0.29.0] - 2026-11-18
 
