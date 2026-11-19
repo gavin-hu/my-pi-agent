@@ -311,8 +311,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-comment", { timeout: REVIEW_PAINT_MS });
 			expect(await page.textContent("#comment-total")).toBe("2");
-			// The owner's own note offers the action; the reviewer's does not.
-			expect(await page.$$eval(".bf-comment__actions", (nodes) => nodes.length)).toBe(1);
+			// Both notes carry an action: the owner settles either; the reviewer's gets Resolve alone.
+			expect(await page.$$eval(".bf-comment__actions", (nodes) => nodes.length)).toBe(2);
 
 			await page.click(".bf-comment__actions .bf-btn");
 			expect(await page.$eval(".bf-comment", (node) => node.className)).toContain("bf-comment--resolved");

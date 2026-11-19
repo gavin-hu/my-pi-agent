@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the owner can settle a reviewer's note. Resolve appears on a teammate's card, and the
+  owner's save flips only that note's `resolved` flag — matched by author, anchor and text — so
+  her words stay as written; Edit and Delete remain the writer's.
 - `check`: a gate that may not signal the pane holding the lock now waits for it instead of stealing
   it. `alive()` read every refusal from `process.kill` as "gone", so a lock held by another user was
   reclaimed as dead — and so was a corrupt file naming pid 0, which probes the caller's own process

@@ -13,6 +13,7 @@ import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { pageRevision } from "./plan-text.ts";
 import { createPlanStore, MAX_PLAN_BYTES, PlanMovedError, PlanTooLargeError } from "./plans.ts";
+import { readFeedback, stripFeedback } from "./feedback.ts";
 import { saveOwnerAnnotations } from "./web-write.ts";
 import { repoKeyOf } from "../../lib/repo-key.ts";
 import { shortenPath } from "../../lib/format.ts";
@@ -137,6 +138,42 @@ describe("a save anchored to a revision", () => {
 			expect: pageRevision(file.content),
 		});
 		expect(saved.content).toContain("> [!REVIEW] right");
+	});
+});
+
+describe("an owner's save of a reviewer's note", () => {
+	test("flips the flag and keeps her words", async () => {
+		const root = tempDir("pi-plan-write-");
+		const store = createPlanStore(planRepoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Settle", content: "# Plan\n\nBody." });
+		// A reviewer posts first: a new plan's own body carries no markers, so the fixture is the
+		// reviewer's write, the same path the page uses.
+		await store.saveFeedback(root, file.path, [{ anchor: 2, author: "priya", comment: "why?" }], { author: "priya" });
+		const posted = readFileSync(file.path, "utf-8");
+		const note = readFeedback(posted).annotations[0];
+		expect(note).toBeDefined();
+
+		// The owner's write carries both lists: their own note and the reviewer's settlement.
+		const saved = await store.saveFeedback(root, file.path, [
+			{ ...note!, resolved: true },
+			{ anchor: 2, comment: "owner note" },
+		]);
+		expect(saved.content).toContain("> [!REVIEW resolved] @priya: why?");
+		expect(saved.content).toContain("> [!REVIEW] owner note");
+		// The body is unchanged: the reviewer's line and the owner's note are both markers.
+		expect(stripFeedback(saved.content)).toBe(stripFeedback(posted));
+	});
+
+	test("never rewrites her note when the payload's text differs", async () => {
+		const root = tempDir("pi-plan-write-");
+		const store = createPlanStore(planRepoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Settle", content: "# Plan\n\nBody." });
+		await store.saveFeedback(root, file.path, [{ anchor: 2, author: "priya", comment: "why?" }], { author: "priya" });
+		const posted = readFileSync(file.path, "utf-8");
+		const note = readFeedback(posted).annotations[0];
+
+		const saved = await store.saveFeedback(root, file.path, [{ ...note!, comment: "rewritten", resolved: true }]);
+		expect(saved.content).toBe(posted);
 	});
 });
 

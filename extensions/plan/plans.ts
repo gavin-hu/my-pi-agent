@@ -455,13 +455,15 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 				throw new PlanMovedError();
 			}
 			const author = normalizeAuthor(options.author);
-			// An untagged entry is the writer's own; one tagged with a different name is
-			// another writer's comment, so it is dropped rather than re-signed.
+			// An untagged entry is the writer's own; one tagged with a different name is another
+			// writer's comment, which the owner may settle but never rewrite. It is dropped from the
+			// written list and passed as a settlement, so its words stay as its author wrote them.
 			const own = annotations.filter((annotation) => {
 				const who = normalizeAuthor(annotation.author);
 				return who === "" || who === author;
 			});
-			const content = formatFeedback(plan.content, own, { author });
+			const settle = author === "" ? annotations.filter((annotation) => normalizeAuthor(annotation.author) !== "") : [];
+			const content = formatFeedback(plan.content, own, { author, settle });
 			// The same cap `write` keeps: a page can hold more comments than a plan may carry, and
 			// a file past this limit is one `write` then refuses to refine — the plan would be
 			// stuck behind its own comments. Checked here, inside the queue and before the write.

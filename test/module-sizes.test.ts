@@ -32,8 +32,8 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 		why: "one prerequisite table plus the pure probe over its injected seams",
 	},
 	"extensions/plan/feedback.ts": {
-		lines: 642,
-		why: "one codec: the marker grammar, its escapes, and where a marker lands",
+		lines: 616,
+		why: "one codec: the marker grammar and its escapes",
 	},
 };
 
@@ -41,7 +41,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 2447;
+const LONG_MODULE_TOTAL = 2421;
 
 describe("module sizes", () => {
 	test("a module over the line bar states the responsibility that keeps it whole", () => {
