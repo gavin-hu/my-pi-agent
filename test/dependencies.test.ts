@@ -410,15 +410,19 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// feedback-write is the same trade one card later: feedback.ts was at its named height (642),
 	// so the size ratchet moved the write helpers — marker placement and the owner's settlement
 	// match — into their own module rather than let a named module grow (60 = 59 + feedback-write).
-	// 60 is not a step, and #719 measured what the next one would buy: 16 of the entry's modules
-	// run at registration and 44 are reached later, of which four edges are deferrable —
-	// `repo-key` from `plans.ts` (-4, taking `git/index`, `git/runner` and `git/read` with it),
-	// `plan-files` (-2, with `json`), `rails` (-1) and `review-lazy` (-1) — so a deferral card
-	// naming those four is worth 60 -> 52. Two stay walled: `feedback-write` behind synchronous
-	// `formatFeedback` (`feedback.ts:313`), which is why this row cannot come back the same way,
-	// and `tools/nested` behind synchronous `planMerge` (`todo-seed.ts:37`). Re-derive any price
-	// with `staticGraph` (`test/helpers/graph.ts`) over a reader that drops one specifier.
-	plan: 60,
+	// #719 measured that 60 rather than raise it again: 16 modules run at registration and 44 are
+	// reached later, four of those edges from an async call and nothing else. #720 deferred all
+	// four and the row fell to what the tree then measured — `repo-key` out of `plans.ts` (-4,
+	// taking `git/index`, `git/runner` and `git/read` with it), `plan-files` (-2, with `json`),
+	// `rails` (-1) and `review-lazy` (-1): 60 -> 52, so the `git` cluster loads when a plan is
+	// first written or read instead of on every start. Two candidates price at zero and are not
+	// edges to take: `tools/refusal.ts` and `tools/todo-seed.ts` are each kept by a second static
+	// parent, which is why they were named and dropped rather than missed. Two stay walled, and
+	// one is permanent: `feedback-write` behind synchronous `formatFeedback` (`feedback.ts:313`),
+	// so that +1 cannot come back the way `json` did, and `tools/nested` behind synchronous
+	// `planMerge` (`todo-seed.ts:37`). Re-derive any price with `staticGraph`
+	// (`test/helpers/graph.ts`) over a reader that drops one specifier.
+	plan: 52,
 	team: 53,
 	job: 45,
 	"session-bus": 45,
@@ -501,6 +505,26 @@ describe("registration module budget", () => {
 			},
 		);
 		expect(offenders, "static module evaluations per entry; each row in ENTRY_BUDGET may only fall").toEqual([]);
+	});
+
+	test("plan pays for nothing it only reaches from a call", () => {
+		// The property, not the row: put any of #720's edges back as a static import and this
+		// fails on the module itself, where reading `ENTRY_BUDGET` would still pass — a reverted
+		// deferral with the row left lowered is exactly the drift a row alone cannot see. Each
+		// path is named with the call that owns it now.
+		const deferred: readonly (readonly [string, string])[] = [
+			["lib/repo-key.ts", "`plans.ts`'s resolve, when a plan path is first needed"],
+			["lib/git/index.ts", "the cluster repo-key loads with it"],
+			["lib/git/runner.ts", "the cluster repo-key loads with it"],
+			["lib/git/read.ts", "the cluster repo-key loads with it"],
+			["extensions/plan/plan-files.ts", "the write, setSteps and saveFeedback calls"],
+			["lib/json.ts", "the temp name plan-files keeps"],
+			["lib/rails.ts", "the index command, which loads it with the dock"],
+			["extensions/plan/review-lazy.ts", "the review screen, on exit"],
+		];
+		const graph = [...staticGraph(join(REPO, "extensions", "plan", "index.ts"))].map(repoRelative);
+		const reached = deferred.filter(([path]) => graph.includes(path)).map(([path]) => path);
+		expect(reached, "a deferral was reverted: load the module inside the call that needs it").toEqual([]);
 	});
 
 	test("the bus's file layer reaches only the entry that owns it", () => {

@@ -22,7 +22,6 @@ import { feedbackSummary } from "../feedback.ts";
 import { mergeSummary, overCap, preview, TICK_CALL, verificationNote } from "../format.ts";
 import { sanitizePlanText, taskMarker } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
-import { reviewPlan } from "../review-lazy.ts";
 import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
 import { goalSection, MAX_STEPS, planStepSummary } from "../steps.ts";
 import type { ExitPlanModeDetails, PlanDetails } from "../types.ts";
@@ -154,6 +153,7 @@ export async function executeExit(
 	const seeded = seededCount(pi, ctx, file.content, runtime.seeded(file.path));
 	// One decision, however the session is attached; `review.ts` owns the loop,
 	// the baseline, and closing the browser review when the turn is aborted.
+	const { reviewPlan } = await import("../review-lazy.ts");
 	const decision = await reviewPlan({
 		ctx,
 		web,

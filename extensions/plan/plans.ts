@@ -41,10 +41,8 @@ import {
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { createAtomic, keepRevision, writeAtomic } from "./plan-files.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isContainedPlan, isPlanFileName, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
-import { repoKeyFor } from "../../lib/repo-key.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
 import { pageRevision } from "./plan-text.ts";
 import { extractSections } from "./sections.ts";
@@ -279,6 +277,9 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	const baseOf = (cwd: string): string => resolveEffectiveCwd(cwd);
 
 	const resolve = async (cwd: string): Promise<{ dir: string; root: string | undefined }> => {
+		// The repository key needs `git`, the heaviest thing a planning start could pay for: no plan
+		// is read or written before this call, so the cluster loads here rather than at import.
+		const { repoKeyFor } = await import("../../lib/repo-key.ts");
 		const base = baseOf(cwd);
 		const cached = dirCache.get(base);
 		if (cached) return cached;
@@ -297,6 +298,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	const dirFor = async (cwd: string): Promise<string> => (await resolve(cwd)).dir;
 
 	const write = async (cwd: string, input: WritePlanInput): Promise<WrittenPlan> => {
+		const { createAtomic, keepRevision, writeAtomic } = await import("./plan-files.ts");
 		const base = baseOf(cwd);
 		const title = input.title.trim();
 		if (!title) throw new Error("A plan title is required.");
@@ -388,6 +390,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		resolvePlanArg(await dirFor(cwd), planPath);
 
 	const setSteps = async (cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan> => {
+		const { writeAtomic } = await import("./plan-files.ts");
 		const resolved = await queueKey(cwd, planPath);
 		// One read-modify-write per plan file: a browser save or a refinement arriving beside
 		// this call would otherwise be written back over from the copy read before it landed.
@@ -441,6 +444,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		annotations: PlanAnnotation[],
 		options: { author?: string; expect?: string } = {},
 	): Promise<StoredPlan> => {
+		const { writeAtomic } = await import("./plan-files.ts");
 		const resolved = await queueKey(cwd, planPath);
 		// The same per-plan turn `setSteps` takes: a tick that lands between this save's read and
 		// its write would be discarded, which is how a comment vanished under a tick.
