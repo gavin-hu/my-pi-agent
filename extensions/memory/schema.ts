@@ -88,16 +88,32 @@ export function normalizeScope(raw: unknown): MemoryScope {
 }
 
 /**
- * Sanitize and validate one note to a single terminal-safe line.
+ * Sanitize and validate the text a caller names a stored note by.
  *
- * Control characters (including ESC) become spaces and whitespace runs collapse
- * to one space, matching `goal`'s one-line rule, so a stored note can never
- * inject terminal sequences when it is injected or rendered.
+ * One-line, like a note: a selector is copied from what a reader sees, and the store is a file
+ * a reader edits by hand, so a tab or a wrapped line still matches once `sanitizeLine` collapsed
+ * it. No length cap, because a capped name cannot bound a write — it only makes a note past the
+ * cap unreachable by the one string that would match it. The role decides: `text` is a note for
+ * `add` and a selector for `update` and `forget` (`registerTools` picks), and `merge` names two
+ * notes and writes a third.
  */
-export function normalizeEntryText(raw: unknown, field = "text"): string {
+export function normalizeNoteSelector(raw: unknown, field = "text"): string {
 	if (typeof raw !== "string") throw new Error(`${field} is required.`);
 	const text = sanitizeLine(raw);
 	if (!text) throw new Error(`${field} is required.`);
+	return text;
+}
+
+/**
+ * Sanitize and validate one note to a single terminal-safe line of at most `MAX_ENTRY_CHARS`.
+ *
+ * The note being written is the capped role; a note being named goes through
+ * `normalizeNoteSelector` instead. Control characters (including ESC) become spaces and
+ * whitespace runs collapse to one space, matching `goal`'s one-line rule, so a stored note can
+ * never inject terminal sequences when it is injected or rendered.
+ */
+export function normalizeEntryText(raw: unknown, field = "text"): string {
+	const text = normalizeNoteSelector(raw, field);
 	if (text.length > MAX_ENTRY_CHARS) throw new Error(overLimit(field, text.length, MAX_ENTRY_CHARS));
 	return text;
 }
