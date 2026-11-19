@@ -18,6 +18,10 @@ import type { ClientNode } from "../../lib/web/client-runtime.ts";
 export interface IslandBlock {
 	start: number;
 	kind?: string;
+	/** The block's source lines, for the rail control's accessible name. */
+	lines?: readonly string[];
+	/** A heading's own text, when the block is one. */
+	text?: string;
 }
 
 /**

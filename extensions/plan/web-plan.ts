@@ -7,10 +7,12 @@
  * callbacks, so the client keeps every variable it owns — `activeIndex`, the quote a click
  * is waiting for, the observer — and this function holds only the shape of one frame.
  *
- * Two rules it owns, both about a repaint not stealing the reader's place:
+ * Three rules it owns, all about a repaint not stealing the reader's place:
  *
  * - focus is restored only when it was inside the plan to begin with, so a frame the stream
  *   caused cannot pull the keyboard out of the page the reviewer is working in;
+ * - a write names the card it changed, and the frame puts the tab stop there; a frame no
+ *   write asked for keeps the old fallback, the block's control;
  * - the active block's class is put back in place rather than by scrolling, so the arrow
  *   keys resume where they were instead of jumping to the top.
  */
@@ -57,7 +59,7 @@ export interface PlanRenderDeps {
 	/** The block's content, from the Markdown half. */
 	renderBlock(wrap: ClientNode, block: IslandBlock): void;
 	/** The cards under one block, and the loose ones that lost their anchor. */
-	renderComments(scope: ClientNode, line: number): void;
+	renderComments(scope: ClientNode, line: number, label: string): void;
 	renderCommentCards(scope: ClientNode, list: readonly unknown[]): void;
 	/** The text a reader selected inside a block, used as the next comment's quote. */
 	selectionIn(wrap: ClientNode): string;
@@ -65,6 +67,9 @@ export interface PlanRenderDeps {
 	/** The facts and the header chip, repainted after the blocks. */
 	facts(): void;
 	updateState(): void;
+	/** The card a write wants focused after this frame, or null; read and cleared once. */
+	focusAfter?(): { line: number; index: number } | null;
+	clearFocusAfter?(): void;
 }
 
 /**
@@ -90,6 +95,26 @@ export function renderPlanFrame(
 	closePlan();
 	const scrollTop = planEl.scrollTop;
 	planEl.replaceChildren();
+	/**
+	 * The block's own words, short enough to name the control beside it: a heading's text, else
+	 * its first line that is not a fence, with list, quote, emphasis and code markers
+	 * stripped. A block with no words falls back to "this block".
+	 */
+	const blockLabel = (block: IslandBlock): string => {
+		const clean = (line: string): string =>
+			line
+				.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
+				.replace(/[`#>*_~]/g, "")
+				.replace(/\s+/g, " ")
+				.trim();
+		if (block.kind === "heading" && block.text) return clean(block.text).slice(0, 40) || "this block";
+		for (const line of block.lines ?? []) {
+			if (/^\s*(?:```|~~~)/.test(line)) continue;
+			const text = clean(line);
+			if (text) return text.slice(0, 40);
+		}
+		return "this block";
+	};
 	const anchored: Record<number, boolean> = {};
 	const blocks = deps.blocks();
 	// Whether the block after this one continues a run of items. A blank block draws nothing, so a
@@ -106,6 +131,7 @@ export function renderPlanFrame(
 		const block = blocks[index];
 		if (block === undefined || block.kind === "blank") continue;
 		anchored[block.start] = true;
+		const label = blockLabel(block);
 		const wrap = el("div", "bf-block");
 		wrap.setAttribute("data-line", String(block.start));
 		wrap.setAttribute("data-kind", String(block.kind));
@@ -126,7 +152,7 @@ export function renderPlanFrame(
 			const add = el("button", "bf-block__add");
 			add.type = "button";
 			add.textContent = "+";
-			add.setAttribute("aria-label", "Comment on this block");
+			add.setAttribute("aria-label", "Comment on \u201c" + label + "\u201d");
 			add.addEventListener("click", function () {
 				// Read at click time, not at render time: a selection made after this frame is
 				// the quote the reader means.
@@ -141,6 +167,10 @@ export function renderPlanFrame(
 			const badge = el("span", "bf-block__count");
 			badge.textContent = String(mine.length);
 			badge.title = mine.length === 1 ? "1 review comment" : mine.length + " review comments";
+			badge.setAttribute("role", "img");
+			// A fact beside the thread, not a status: aria-live would announce the count on every
+			// frame and talk over the comment being written.
+			badge.setAttribute("aria-label", badge.title);
 			rail.appendChild(badge);
 		}
 		wrap.appendChild(rail);
@@ -149,11 +179,13 @@ export function renderPlanFrame(
 			if (next !== null) deps.setActiveIndex(next);
 		});
 		planEl.appendChild(wrap);
-		deps.renderComments(planEl, block.start);
+		deps.renderComments(planEl, block.start, label);
 	}
 	const orphans = deps.annotations().filter((annotation) => !anchored[annotation.anchor]);
 	if (orphans.length > 0) {
 		const box = el("div", "bf-comments bf-comments--orphans");
+		box.setAttribute("role", "list");
+		box.setAttribute("aria-label", "Comments not attached to a current block");
 		const note = el("p");
 		note.textContent = "Comments not attached to a current block";
 		box.appendChild(note);
@@ -166,9 +198,25 @@ export function renderPlanFrame(
 	const activeIndex = deps.activeIndex();
 	const active = activeIndex >= 0 ? blockElements(planEl)[activeIndex] : null;
 	if (active) active.classList.add("bf-block--active");
-	// The focused element went with the old DOM, so put the tab stop back on the block's
-	// comment control: that is where adding, editing, or deleting left it.
-	if (keepFocus && active) {
+	// A write asks for the card it changed; a stream frame asks for nothing, so the old tab
+	// stop falls back to the block's control. An empty thread has no card to take it.
+	const hint = deps.focusAfter ? deps.focusAfter() : null;
+	let wanted: ClientNode | null = null;
+	if (hint) {
+		const thread = planEl.querySelector('.bf-comments[data-line="' + hint.line + '"]');
+		const cards = thread ? thread.querySelectorAll(".bf-comment") : [];
+		wanted = cards[Math.max(0, Math.min(hint.index, cards.length - 1))] ?? null;
+		if (!wanted) {
+			// The thread empties on the last delete: the block's control is the only place left
+			// for the tab stop, even when no block was active before the click.
+			const wrap = planEl.querySelector('.bf-block[data-line="' + hint.line + '"]');
+			wanted = wrap ? wrap.querySelector(".bf-block__add") : null;
+		}
+		if (deps.clearFocusAfter) deps.clearFocusAfter();
+	}
+	if (wanted && wanted.focus) {
+		wanted.focus();
+	} else if (keepFocus && active) {
 		const stop = active.querySelector(".bf-block__add");
 		if (stop) stop.focus();
 	}

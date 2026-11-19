@@ -6,7 +6,7 @@
  * guards; the editor did not, so Escape closed the review over it, a card action repainted
  * it away, and a live frame dropped it. These cases drive the shipped page through both
  * fields: the text survives a repaint, one draft at a time, Escape peels the editor, and a
- * write puts the tab stop back on the block.
+ * write puts the tab stop on the card it changed.
  *
  * Where the machine has no browser the suite skips, naming `PI_CHROME`, so `bun run check`
  * stays green there.
@@ -132,10 +132,10 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 		}
 	});
 
-	test("adding a comment leaves focus on the block's control", async () => {
+	test("adding a comment leaves focus on the new comment", async () => {
 		// The composer used to close before the repaint, so the field the reader was in was gone
 		// when the frame read focus and every add dropped the caret to the document. The frame
-		// closes it now, and the block's own + is where the tab stop comes back.
+		// closes it now, and the write's hint puts the tab stop on the new card.
 		const local = await mountReview(REVIEW_PAGE);
 		const page = await openReview(browser, local.url);
 		try {
@@ -147,7 +147,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 				undefined,
 				{ timeout: REVIEW_PAINT_MS },
 			);
-			expect(await page.$$eval('#plan .bf-block[data-line="1"] .bf-block__add:focus', (nodes) => nodes.length)).toBe(1);
+			expect(await page.$eval(".bf-comment:focus", (node) => node.textContent)).toContain("a committed note");
 		} finally {
 			await page.close();
 			await local.close();

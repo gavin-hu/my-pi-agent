@@ -76,6 +76,8 @@ ${CLIENT_BASE_JS}
   var dirty = false;
   /** Whether the single keys answer; the ? sheet's toggle sets it, and a reload reads it. */
   var shortcutsOn = true;
+  /** The card a write asked the next frame to focus; the renderer consumes it once. */
+  var pendingFocus = null;
 
   var sectionObserver = null;
   var pendingQuote = null;
@@ -193,6 +195,8 @@ ${WEB_MARKDOWN_JS}
       setActiveIndex: function (index) { activeIndex = index; },
       pendingQuote: function () { return pendingQuote; },
       clearPendingQuote: function () { pendingQuote = null; },
+      focusAfter: function () { return pendingFocus; },
+      clearFocusAfter: function () { pendingFocus = null; },
       settled: function () { return saved || approved || closed; },
       composer: composer,
       // A viewer's page has nothing to write, so no rail button is drawn at all: a control
@@ -303,6 +307,11 @@ ${WEB_MARKDOWN_JS}
    * the nodes those headings were in. This is the one repaint entry — every fragment, the
    * view switch, and the boot path below come through it.
    */
+  // A write asks the next frame for the card it changed; the frame clears the request.
+  function requestFocus(line, index) {
+    pendingFocus = { line: line, index: index };
+  }
+
   function renderAll() {
     outlineItems = renderOutline(outlineList, outlineEntries());
     sectionObserver = renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver);
