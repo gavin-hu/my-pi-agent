@@ -64,7 +64,7 @@ the quoted text, so another reader sees the note without it. The `+` is
 announced by its block — *Comment on “Approach”* — and it is drawn only while the
 review can still take a comment — a settled review has none.
 
-<img src="../../assets/screens/plan-review.png" alt="The review page in a browser: a plan title bar with live, quick keys, and the theme toggle; the page's own actions — Share, Approve and run, Save feedback, Back to Pi — in a second header row under it; a rail holding the All, Changed and Comments tabs above the plan's steps and sections; the plan body with a comment being written in its margin; and the plan's checklist drawn as ticked boxes" width="1280" height="2098">
+<img src="../../assets/screens/plan-review.png" alt="The review page in a browser: a plan title bar with the live chip, the shortcut key and the theme toggle; the page's own actions — Approve and run, Save feedback, Share, Back to Pi — in a second header row under it; a rail holding the finish sentence, the plan's step progress and comment total, the All, Changed and Comments switch, the sections list and the shortcut hints; the plan body with two comment threads in their margins, each with Resolve, Edit and Delete; and the plan's checklist drawn as ticked boxes" width="1280" height="2112">
 
 *The review page: the plan's sections in the rail, the comments in the margin,
 and the approval at the top.*

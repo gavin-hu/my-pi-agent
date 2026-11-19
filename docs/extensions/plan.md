@@ -94,8 +94,9 @@ that changes. A delegated agent runs with writing forced off.
 - A plan holds at most 50 steps and 256 KiB; a bigger one is refused, not trimmed.
 - Plan mode has no PowerShell on Windows: Git Bash is the shell, and it must be installed.
 - The browser review needs `serve` and a local browser; a reviewer's page is only reachable
-  while its link is shared. At 640px and below the sections panel collapses above the
-  document, so the count under the switch scrolls away with it.
+  while its link is shared. At 1180px and below the sections list folds above the document
+  and starts shut, while the switch and its count stay in view; below 640 the four actions
+  become two and a **More** menu.
 - The plans directory is the only index — nothing deletes a plan for you.
 
 ## Settings
