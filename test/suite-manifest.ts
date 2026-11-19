@@ -234,7 +234,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"refusal",
 	],
 	team: ["ask", "commands", "dispatch", "extension", "handoff", "join", "offer", "owner", "tools"],
-	todo: ["tools", "runtime", "view/todo-screen"],
+	todo: ["lag-reminder", "runtime", "tools", "view/todo-screen"],
 	watch: ["files", "format", "runtime", "tools", "view/watch-screen"],
 	serve: ["config", "registry", "extension"],
 	"session-bus": [

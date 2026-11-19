@@ -63,7 +63,6 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/subagent/extension.test.ts": 760,
 	"extensions/subagent/render.test.ts": 599,
 	"extensions/subagent/run.test.ts": 917,
-	"extensions/todo/runtime.test.ts": 459,
 	"extensions/web-access/fetch/fetch.test.ts": 1097,
 	"extensions/web-access/search/search.test.ts": 975,
 	"extensions/worktree/flow.test.ts": 825,
