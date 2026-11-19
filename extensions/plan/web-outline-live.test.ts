@@ -58,6 +58,9 @@ function longPlan(): ReviewPageData {
 /** Every section the rail marks as the pane walks to its end, in the order it marked them. */
 const SECTIONS = ["s-0", "s-11", "s-22", "s-33", "s-44", "s-55"];
 
+/** How long one case may take: a boot, a six-section walk, and the trip back to the top. */
+const CASE_MS = 30_000;
+
 /** The section the rail marks right now, by link id; "" when it marks nothing. */
 async function marked(page: Page): Promise<string> {
 	return page.$eval("#outline-list", (list) => {
@@ -173,8 +176,12 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 		// A short pane is the other half of the old band's range, and a reader scrolls it the same way.
 		[1280, 400],
 	] as const) {
-		test(`marks every section as the reader scrolls at ${width}x${height}`, async () => {
-			expect(await walked(width, height)).toEqual(SECTIONS);
-		});
+		test(
+			`marks every section as the reader scrolls at ${width}x${height}`,
+			async () => {
+				expect(await walked(width, height)).toEqual(SECTIONS);
+			},
+			CASE_MS,
+		);
 	}
 });
