@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `check`: `bun run check` queues behind a lock, so two panes cannot gate at once. Three concurrent
+  runs turned browser suites into 30-second timeouts that were not defects, and each one cost a
+  second full run to show it was the machine; a second gate now prints the holder and its time left
+  before it waits, a lock a killed run left is reclaimed by the next, a wait that outlasts its cap
+  refuses naming the file instead of hanging under a pid something else reused, and a run nested in
+  the gate does not wait on itself. The three commands are unchanged behind `scripts/check.ts`, so CI and
+  `publish.yml` need no edit — and a CI runner runs one gate and never contends, so nothing about
+  that job changes.
 - `plan`: a comment control names its block. Each rail `+` is announced as *Comment on “…”*, the
   count carries its own name, a thread reads as a list, and the rail and card actions reach 24px;
   a write leaves focus on the card it changed, or on the block's `+` when the last comment goes.
