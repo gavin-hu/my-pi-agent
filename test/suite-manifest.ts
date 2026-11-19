@@ -169,6 +169,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"steps",
 		"todos",
 		"feedback",
+		"feedback-settle",
 		"feedback-marks",
 		"tools",
 		"tool-registration",

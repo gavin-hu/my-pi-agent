@@ -340,18 +340,57 @@ function storableComments(
 /**
  * Write `annotations` into `plan` as `options.author`'s comments, replacing the
  * markers that author already had and keeping every other writer's in place.
- * With no author, the writer is the plan owner — the untagged markers.
+ * With no author, the writer is the plan owner — the untagged markers — and
+ * `options.settle` may carry another writer's notes whose `resolved` flag the owner
+ * is setting: they match by author, anchor and text, and only the tag changes.
  */
-export function formatFeedback(plan: string, annotations: PlanAnnotation[], options: { author?: string } = {}): string {
+export function formatFeedback(
+	plan: string,
+	annotations: PlanAnnotation[],
+	options: { author?: string; settle?: readonly PlanAnnotation[] } = {},
+): string {
 	const author = normalizeAuthor(options.author);
 	const { clean, markers } = scanMarkers(plan);
+	const blocks = planBlocks(clean);
+	const settle = [...(options.settle ?? [])];
+	const used = new Set<number>();
+	/**
+	 * The entry that settles one stored marker, or undefined when none matches.
+	 *
+	 * Author, anchor and text must all agree, compared the way the stored body was written:
+	 * `normalizeAuthor` on the name and `sanitizeLine` on the text. Each entry is used once,
+	 * in list order, so two identical notes pair first-to-first instead of both taking one flag.
+	 */
+	const takeSettle = (marker: StoredMarker): PlanAnnotation | undefined => {
+		if (author !== "" || marker.author === "") return undefined;
+		const start = contentBlockAt(blocks, marker.at)?.start;
+		if (start === undefined) return undefined;
+		for (let index = 0; index < settle.length; index++) {
+			if (used.has(index)) continue;
+			const entry = settle[index];
+			if (!entry) continue;
+			if (normalizeAuthor(entry.author) !== marker.author) continue;
+			if (entry.anchor !== start) continue;
+			if (sanitizeLine(entry.comment) !== sanitizeLine(marker.comment)) continue;
+			used.add(index);
+			return entry;
+		}
+		return undefined;
+	};
 	const kept = markers
 		.filter((marker) => marker.author !== author)
-		.map((marker) => ({
-			at: marker.at,
-			line: markerLine(marker.author, marker.comment, marker.moved, marker.resolved),
-		}));
-	const blocks = planBlocks(clean);
+		.map((marker) => {
+			const settled = takeSettle(marker);
+			return {
+				at: marker.at,
+				line: markerLine(
+					marker.author,
+					marker.comment,
+					marker.moved,
+					settled ? settled.resolved === true : marker.resolved,
+				),
+			};
+		});
 	const added = storableComments(annotations).map((item) => {
 		const block = contentBlockAt(blocks, item.anchor);
 		return {
