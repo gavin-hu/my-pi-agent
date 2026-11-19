@@ -309,8 +309,8 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * has to justify the raise here, and a deferral that lands lowers it. The budget
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
- * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 731.
+ * so a total lets one entry balloon while another's deferral pays for it — and a total
+ * nothing asserts is a fact with nothing holding it, so the rows are the fact.
  *
  * `board` 62 -> 63, `team` 52 -> 53, `job` 45 -> 46 and `session-bus` 44 -> 45 for
  * `lib/session-files.ts`: the bus's layout, its one stored-name rule and its two publishes are the
