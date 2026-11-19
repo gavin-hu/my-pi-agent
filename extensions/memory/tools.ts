@@ -21,6 +21,7 @@ import {
 	MemoryResult,
 	normalizeAction,
 	normalizeEntryText,
+	normalizeNoteSelector,
 	normalizeScope,
 	type MemoryArgs,
 } from "./schema.ts";
@@ -107,8 +108,8 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 					return memoryResult({ action, scope, ...labelled(runtime), changed: false });
 				}
 				if (action === "merge") {
-					const first = normalizeEntryText(args.first, "first");
-					const second = normalizeEntryText(args.second, "second");
+					const first = normalizeNoteSelector(args.first, "first");
+					const second = normalizeNoteSelector(args.second, "second");
 					const merged = normalizeEntryText(args.merged, "merged");
 					if (first === second) {
 						// The store's transform would answer false for a note merged with itself, and
@@ -127,7 +128,7 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 					}
 					return memoryResult({ action, scope, ...labelled(runtime), changed, entry: first, to: merged, second });
 				}
-				const text = normalizeEntryText(args.text);
+				const text = action === "add" ? normalizeEntryText(args.text) : normalizeNoteSelector(args.text);
 				if (action === "add") {
 					const result = await runtime.add(scope, text);
 					return memoryResult({

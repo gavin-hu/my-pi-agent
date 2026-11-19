@@ -41,7 +41,10 @@ you ask for later is a no-op that names the note that already says it.
 all of them. Restating a stored fact in new words is refused as a duplicate, naming
 the existing note, so the file does not fill with paraphrases. An `update` writes the
 corrected note at the end of the store, because position is age: a correction is the
-newest thing known, not the oldest.
+newest thing known, not the oldest. `update`, `forget` and `merge` name a note by its exact
+stored text, and a name is not length-capped: it is collapsed to one line like a note, so a
+copied file line still matches, but the cap belongs to the note being written — a note
+longer than it, hand-written into the file, still reads, updates and forgets.
 
 **The stores.** The global file is `~/.pi/agent/memory.md`. The project store is
 anchored at the checkout that holds the repository — from a worktree, the main
