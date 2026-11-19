@@ -15,7 +15,7 @@
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { isBoardReadAction } from "./workflow/actions.ts";
+import { isBoardReadAction, isBoardWorkAction } from "./workflow/actions.ts";
 import { READ_DOC_TOOL } from "./tool-names.ts";
 
 /**
@@ -31,6 +31,21 @@ import { READ_DOC_TOOL } from "./tool-names.ts";
 export function isBoardRead(call: unknown): boolean {
 	if (typeof call !== "object" || call === null) return false;
 	return isBoardReadAction((call as { action?: unknown }).action);
+}
+
+/**
+ * Whether a call to the `board` tool can have changed a working tree.
+ *
+ * Not the complement of {@link isBoardRead}: plan mode must admit a `list` and refuse a card
+ * write, while the todo nudge needs to know whether a call did work — and a card write did
+ * none, because the board lives in the agent directory. `review` is the one action on the other
+ * side, a write that runs the contract's command in a tree. The answer is the board's own
+ * effect table, read from the same place a `tool_execution_end` event carries: the result's
+ * `details`.
+ */
+export function isBoardWork(call: unknown): boolean {
+	if (typeof call !== "object" || call === null) return false;
+	return isBoardWorkAction((call as { action?: unknown }).action);
 }
 
 /**

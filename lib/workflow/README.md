@@ -227,11 +227,17 @@ is the same question asked of another verb.
 The actions and which of them only read the board, as one table. `BOARD_ACTIONS` /
 `BoardAction` is the list the tool publishes, in its description order, and
 `BOARD_ACTION_KIND` is a `Record` over every one of them, so an action added to the tuple
-does not compile until somebody says whether it reads. `BOARD_READ_ACTIONS` is the same
+does not compile until somebody says whether it reads. `BOARD_ACTION_EFFECT` is the same
+device for the other question a call raises — whether it can change a working tree — with
+`review` the one action that can, because it runs the contract's verify command in the tree
+the card names, while every other action writes the board in the agent directory. Every
+action but `list` writes, yet only `review` is work, which is why the two answers are two
+tables rather than one with three values. `BOARD_READ_ACTIONS` is the same
 answer for a reader that has to name the reads, `readActionsText` is that list as the phrase
 plan mode's refusal prints, `boardWriteRefusal` is the refusal a write action gets there,
 and `isBoardReadAction` answers for one unnormalized value, where anything unknown is not a
-read.
+read. `isBoardWorkAction` answers the same way for the effect, where anything unknown is not
+work.
 
 One table, so the tool's enum and the read-only policy cannot disagree: `lib/policy.ts`'s
 `isBoardRead` and `board`'s own schema both read this one, so a second read action cannot be
