@@ -398,14 +398,18 @@ describe("the run's clocks", () => {
 		expect(CASE_BUDGET_MS - SPAWN_WATCHDOG_MS, "the margin a failure reports in").toBeGreaterThanOrEqual(MIN_BUDGET_MS);
 		expect(SPAWN_WATCHDOG_MS).toBe(CASE_BUDGET_MS - REPORT_MARGIN_MS);
 	});
-	test("holds the check command to the same budget, since only the flag reaches a hook", () => {
+	test("holds the gate's wrapper to the same budget, since only the flag reaches a hook", () => {
 		const scripts = (
 			JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as { scripts: Record<string, string> }
 		).scripts;
-		// `bunfig.toml` has no key for it, and `setDefaultTimeout` does not reach a hook, so the number
-		// has to ride the command a person types. Two owners, held together here.
-		const flag = `--timeout ${CASE_BUDGET_MS}`;
-		expect(scripts.check, "bun run check passes the case budget as --timeout").toContain(flag);
+		// One name for the gate: whatever CI and a person type is the wrapper, which is where the lock
+		// and the budget both live. Two owners, held together here.
+		expect(scripts.check, "bun run check is the wrapper").toContain("scripts/check.ts");
+		// `bunfig.toml` has no key for `--timeout` and `setDefaultTimeout` does not reach a hook, so the
+		// number still has to ride the command a person types — now the one in the wrapper.
+		const wrapper = readFileSync(join(repo, "scripts", "check.ts"), "utf-8");
+		const flag = /"--timeout",\s*"(\d+)"/.exec(wrapper);
+		expect(flag?.[1], "scripts/check.ts passes the case budget as --timeout").toBe(String(CASE_BUDGET_MS));
 	});
 
 	test("names a case budget written as a literal, with its line", () => {
