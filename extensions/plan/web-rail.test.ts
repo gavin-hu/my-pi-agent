@@ -22,6 +22,7 @@ import {
 	openReview,
 	REVIEW_CHROME,
 	REVIEW_PAGE,
+	REVIEW_PAINT_MS,
 } from "../../test/helpers/plan-browser.ts";
 import { REVIEW_CSS } from "./web-page.ts";
 
@@ -233,16 +234,29 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's geometry and colours", 
 
 	test("keeps a hovered outline link's label readable", async () => {
 		// Hover is a label state too, so it is measured in it rather than read out of the rule. The
-		// second section, because the first is the current one and keeps its own selected paper.
+		// row measured is one that is not the current one — the outline marks the section the reader
+		// is in, and a marked row keeps its own selected paper — and the pair is read in the same
+		// evaluation that sees the hover: the outline is repainted as the reader scrolls, so a read
+		// in a second call can land on the resting row and report a transparent plane.
 		const review = await mountReview(REVIEW_PAGE);
 		const page = await openReview(browser, review.url);
 		try {
-			await page.hover("#outline-list li:nth-child(2) a");
-			const hovered = (await page.evaluate(`(function () {
-				var link = document.querySelector("#outline-list li:nth-child(2) a");
-				var style = getComputedStyle(link);
-				return { colour: style.color, background: style.backgroundColor };
-			})()`)) as { colour: string; background: string };
+			await page.waitForSelector('#outline-list a[aria-current="true"]', { timeout: REVIEW_PAINT_MS });
+			const resting = page.locator('#outline-list a:not([aria-current="true"])').first();
+			await resting.hover();
+			const link = await resting.elementHandle();
+			const hovered = (await page
+				.waitForFunction(
+					(node) => {
+						const style = getComputedStyle(node);
+						if (!node.matches(":hover")) return false;
+						if (style.backgroundColor === "rgba(0, 0, 0, 0)") return false;
+						return { colour: style.color, background: style.backgroundColor };
+					},
+					link,
+					{ timeout: REVIEW_PAINT_MS },
+				)
+				.then((handle) => handle.jsonValue())) as { colour: string; background: string };
 			const ratio = contrastOf(hovered.colour, hovered.background);
 			expect(ratio, `a hovered outline link draws at ${ratio}:1, not the 4.27 it wore`).toBeGreaterThanOrEqual(4.5);
 		} finally {
