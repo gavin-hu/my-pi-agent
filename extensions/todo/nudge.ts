@@ -15,12 +15,12 @@
  * A hint answers "can it write anything?", which is not the question a list
  * needs: it needs "did the working tree change?". The session trackers below
  * write into the agent directory, and so does every board verb but `review`, and
- * none of it is work.
+ * so does a delegated child asked to read, and none of it is work.
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { isBoardWork } from "../../lib/policy.ts";
-import { BOARD_TOOL, GOAL_TOOL, PLAN_TOOL, SESSION_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
+import { isBoardWork, isSubagentWork } from "../../lib/policy.ts";
+import { BOARD_TOOL, GOAL_TOOL, PLAN_TOOL, SESSION_TOOL, SUBAGENT_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { currentTodo, hasOpenTodos } from "./state.ts";
 import type { Todo } from "./types.ts";
 
@@ -52,10 +52,16 @@ export const SESSION_TOOL_NAMES: ReadonlySet<string> = new Set([TODO_TOOL, GOAL_
  * cannot answer this either: the action the result reports can. A card write is
  * state, because the board lives in the agent directory, and `review` is work,
  * because it runs the contract's command as a child process in a tree.
+ *
+ * `subagent` cannot answer it from its hint either, and does not have to: the
+ * result reports which mode the child ran in. A read-only child is investigation
+ * and a writing child may have changed any file, so its one field answers both of
+ * this module's questions — which is why nothing below separates them.
  */
 export function isMutatingTool(toolName: string, annotations?: ToolAnnotations, details?: unknown): boolean {
 	if (SESSION_TOOL_NAMES.has(toolName)) return false;
 	if (toolName === BOARD_TOOL) return isBoardWork(details);
+	if (toolName === SUBAGENT_TOOL) return isSubagentWork(details);
 	if (MUTATING_TOOL_NAMES.has(toolName)) return true;
 	return annotations?.readOnlyHint === false;
 }
