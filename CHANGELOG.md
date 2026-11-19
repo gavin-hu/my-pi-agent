@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `memory`: a note is named, not written. `update`'s and `forget`'s `text`, and `merge`'s `first`
+  and `second`, went through the write validator, so the 500-character cap applied to the string
+  that has to equal a stored note exactly — and a note past the cap, which the store is markdown
+  enough to hold, was refused by the one string that matched it, while `applyUpdate` would have
+  honoured it and the picker already passed the same text to `runtime.update` uncapped. One store,
+  two front ends that disagreed. `normalizeNoteSelector` now owns the one-line rule both roles
+  share and `normalizeEntryText` is that plus the cap, and the caller picks by action, since `text`
+  is a note for `add` and a name for `update`/`forget`. What is written (`add`, `to`, `merged`)
+  keeps the cap, and matching stays exact.
+
 - `goal`, `todo`, `plan`, `memory`, `board`: one retention rule for injected context. `lib/notice.ts`
   owns `retainNewest` — its own pruner is the notice case — and the five `context` handlers reach it
   through the deferred import board already used, so no module is evaluated at registration that was
