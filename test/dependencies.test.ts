@@ -390,8 +390,10 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
 	board: 64,
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
-	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks).
-	plan: 58,
+	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks), and
+	// one more for lib/json: the temp name plan-files used to spell for itself is the owner's
+	// now, so the entry pays the module rather than a second copy of its rule (59 = 58 + json).
+	plan: 59,
 	team: 54,
 	job: 46,
 	"session-bus": 45,
