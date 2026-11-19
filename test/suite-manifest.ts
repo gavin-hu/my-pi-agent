@@ -184,6 +184,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-narrow",
 		"web-client",
 		"web-composer",
+		"web-controls",
 		"web-outline",
 		"web-page",
 		"web-router",

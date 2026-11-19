@@ -6,19 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: a comment control names its block. Each rail `+` is announced as *Comment on “…”*, the
+  count carries its own name, a thread reads as a list, and the rail and card actions reach 24px;
+  a write leaves focus on the card it changed, or on the block's `+` when the last comment goes.
+- `check`: a headless browser that dies mid-file is reported as that, in milliseconds, instead of
+  as the case's own 30-second budget. The handle records its process's exit, a suite's reload path
+  throws a sentence naming the signal before it spends a case, and our own `close()` is not a
+  death — three full runs tonight went red on one 30,000 ms case in a file the card never touched,
+  in a suite that alone takes four seconds.
 - `lib`: every served page, client bundle and `/api/*` reply is gzipped when the browser asks
   for it — `respond` settles the body once for all three mounts, so a file-browse directory page
   drops from 57,278 bytes to 14,356 and the client bundle from 51,181 to 14,594. `Vary:
   Accept-Encoding` is written on the plain answer too, a `HEAD` names the body it would have sent,
   and `/raw` bytes and the event stream are untouched.
-
 - `file-browse`: a request under `/api/` that is refused now answers JSON, whatever refused it —
   an unmatched path, a method that is not `GET`, a foreign `Host`. Only the catch after routing
   knew the namespace, so `/api/nope` was 59 KB of the page shell where `/api/tree` is JSON, and a
   client that asked for JSON parsed a page. One helper now picks the shape for every refusal, and
   a 405 keeps `Allow` in both. A page path still answers the error page: that is where a reader
   was going.
-
 - `file-browse`: quick open says which folders it did not search. Its index skips `.git` and
   `node_modules` — indexing them would spend the 20,000-path cap on dependencies — so a file a
   reader could see in the tree answered `No matches` beside it. The empty state now names them,

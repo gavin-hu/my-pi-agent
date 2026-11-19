@@ -126,6 +126,12 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     return guardDraft(planEl, statusEl, DRAFT_REFUSAL, paintStatus);
   }
 
+  // A write asks the frame to focus the card it changed; the renderer consumes it once.
+  function requestFocusOn(annotation) {
+    var mine = annotations.filter(function (a) { return a.anchor === annotation.anchor; });
+    requestFocus(annotation.anchor, mine.indexOf(annotation));
+  }
+
   function openComposer(wrap, block, quote, initial) {
     // One composer at a time, and the open one holds text the page has not committed:
     // replacing it would drop that text without a word. A restored draft passes its text
@@ -164,9 +170,9 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         var entry = quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment };
       if (role === "reviewer") entry.author = reviewerName;
       annotations.push(entry);
-      // The repaint closes the composer, so the draft keeps the comment and not the text — and
-      // the frame is the last place that still knows the field the reader was in, which is how
-      // focus returns to the block instead of to the document.
+      // The repaint closes the composer; the frame's hint is what puts the tab stop on the
+      // new card rather than on the block's control.
+      requestFocusOn(entry);
       markDirty();
       setStatus("Comment added.");
       renderAll();
@@ -203,6 +209,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       annotation.comment = before;
       markDirty();
       openEdit = null;
+      requestFocusOn(annotation);
       renderAll();
     };
     openEdit = close;
@@ -229,6 +236,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       openEdit = null;
       markDirty();
       setStatus("Comment updated.");
+      requestFocusOn(annotation);
       renderAll();
     });
     submitOnEnter(area, function () { apply.click(); });
@@ -259,6 +267,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       annotations.splice(Math.min(index, annotations.length), 0, annotation);
       markDirty();
       clearUndo();
+      requestFocusOn(annotation);
       renderAll();
       setStatus("Comment restored.", "saved");
     });
@@ -270,8 +279,13 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     var annotation = annotations[index];
     if (!annotation) return;
     if (refuseOverDraft()) return;
+    var anchor = annotation.anchor;
+    var local = annotations.filter(function (a) { return a.anchor === anchor; }).indexOf(annotation);
     annotations.splice(index, 1);
     markDirty();
+    // The deleted card's place is where the next one now sits; an empty thread falls back
+    // to the block's control in the frame.
+    requestFocus(anchor, local);
     renderAll();
     offerUndo(index, annotation);
     setStatus("Comment deleted.");
@@ -291,6 +305,9 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     list.forEach(function (annotation) {
       var index = annotations.indexOf(annotation);
       var card = el("div", annotation.resolved ? "bf-comment bf-comment--resolved" : "bf-comment");
+      card.setAttribute("role", "listitem");
+      // A write's focus lands here; the card joins no tab order of its own.
+      card.setAttribute("tabindex", "-1");
       var head = el("div", "bf-comment__head");
       // Every card names a person: "Review" was a category, and on a reviewer's page it
       // could be anybody — including the reader.
@@ -318,19 +335,20 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       head.appendChild(el("span", "bf-comment__spacer"));
       if (isMine(annotation)) {
         var actions = el("div", "bf-comment__actions");
-        var edit = el("button"); edit.type = "button"; edit.className = "bf-btn bf-btn--sm"; edit.textContent = "Edit";
+        var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
         edit.addEventListener("click", function () { startEdit(card, index); });
-        var settle = el("button"); settle.type = "button"; settle.className = "bf-btn bf-btn--sm";
+        var settle = el("button"); settle.type = "button"; settle.className = "bf-btn";
         settle.textContent = annotation.resolved ? "Reopen" : "Resolve";
         settle.addEventListener("click", function () {
           if (refuseOverDraft()) return;
           if (annotation.resolved) delete annotation.resolved;
           else annotation.resolved = true;
           markDirty();
+          requestFocusOn(annotation);
           renderAll();
           setStatus(annotation.resolved ? "Comment resolved." : "Comment reopened.");
         });
-        var remove = el("button"); remove.type = "button"; remove.className = "bf-btn bf-btn--sm"; remove.textContent = "Delete";
+        var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
         remove.addEventListener("click", function () { removeComment(index); });
         actions.appendChild(settle); actions.appendChild(edit); actions.appendChild(remove); head.appendChild(actions);
       }
@@ -347,12 +365,17 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     });
   }
 
-  function renderComments(container, anchor) {
+  function renderComments(container, anchor, label) {
     var mine = annotations.filter(function (annotation) { return annotation.anchor === anchor; });
     if (mine.length === 0) return;
     var box = el("div", "bf-comments");
     // The block this thread hangs under, as a line: the view filter hides the two together.
     box.setAttribute("data-line", String(anchor));
+    box.setAttribute("role", "list");
+    box.setAttribute(
+      "aria-label",
+      mine.length + (mine.length === 1 ? " comment" : " comments") + " on \u201c" + label + "\u201d"
+    );
     renderCommentCards(box, mine);
     container.appendChild(box);
   }
