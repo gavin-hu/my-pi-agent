@@ -195,6 +195,18 @@ export function formatNotSent(subject: string, state: { error: string; fix?: str
 }
 
 /**
+ * The wildcard, refused by the two verbs that reach exactly one peer.
+ *
+ * `*` is the bus's broadcast and `offer` is the one verb here that means it, so the sentence names
+ * `offer`: a reader who typed `*` learns the verb that would have done it rather than the transport's
+ * kind rule — which is where this was answered before, after `ask` had joined and after `assign` had
+ * already written the owner.
+ */
+export function formatBroadcast(action: TeamAction): string {
+	return `${action} reaches one peer; \`*\` is \`offer\`'s broadcast to every live session.`;
+}
+
+/**
  * A card offered to the team: who heard, and that nobody holds it yet.
  *
  * `offer` records the moment and no ownership, so the sentence has to say the ownership

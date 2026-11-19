@@ -58,6 +58,7 @@ import { strayField } from "../../lib/stray-fields.ts";
 import { askId, askText, DEFAULT_QUESTION, type ReplyRoute } from "./dispatch.ts";
 import {
 	formatAsk,
+	formatBroadcast,
 	formatHandoff,
 	formatHandoffUnsent,
 	formatHandoffFailure,
@@ -183,6 +184,14 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			// cannot have read a card or sent a message on its way to the refusal.
 			const stray = strayField(action, args, ACTION_FIELDS);
 			if (stray !== undefined) return refusal(action, stray);
+			// The wildcard is the bus's broadcast and `offer` is the one verb that means it: `ask` sends the
+			// `ask` kind and `assign` records one owner, so neither can carry `*` — and the bus refuses it
+			// only after a join (`ask`) or after the owner is written (`assign`). Settled beside the
+			// stray-field rule, which is what keeps a refused call from joining, writing, or sending.
+			// Before `cardArg` deliberately: the argument is wrong whatever the card is, so
+			// `assign card 999 to "*"` says this rather than `#999 does not exist`.
+			const to = typeof args.to === "string" ? args.to.trim() : "";
+			if (to === "*") return refusal(action, formatBroadcast(action));
 			// Past the argument refusals, every branch below waits — on the store, on the bus, or on
 			// the join — so the row says it is working from here rather than staying motionless.
 			startToolProgress(onUpdate);
@@ -197,14 +206,13 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			try {
 				// `ask` is the one verb with no card behind it, so it runs before the id and the store:
 				// what it needs is this session's name, for the reply line, and the bus.
-				if (action === "ask") return await askPeer(me, args.to, args.question, deliver, ctx, join);
+				if (action === "ask") return await askPeer(me, to, args.question, deliver, ctx, join);
 				const arg = cardArg(args.card);
 				if ("error" in arg) return refusal(action, arg.error);
 				const id = arg.id;
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
 				if (action === "offer") return await offerCard(store, me, id, args.note, now, deliver, ctx);
-				const to = typeof args.to === "string" ? args.to.trim() : "";
 				if (to === "") return refusal("assign", 'assign needs a peer: pass `to`, e.g. "billing-core".');
 				return await assignCard(store, me, id, to, args.note, now, deliver, ctx, join);
 			} catch (error) {
@@ -438,13 +446,12 @@ function namesSelf(me: Actor, to: string): boolean {
  */
 async function askPeer(
 	me: Actor,
-	rawTo: unknown,
+	to: string,
 	rawQuestion: unknown,
 	deliver: Deliver,
 	ctx: ExtensionToolContext,
 	join: () => Promise<TeamState>,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
-	const to = typeof rawTo === "string" ? rawTo.trim() : "";
 	if (to === "") return refusal("ask", 'ask needs a peer: pass `to`, e.g. "billing-core".');
 	// The same rule `assign` applies to a card: a question to yourself is mail you already
 	// read, and the round is the better answer to it.
