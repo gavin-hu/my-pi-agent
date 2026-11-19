@@ -1,21 +1,24 @@
 /**
- * The board's action table: the list the tool publishes, the read/write kind each action
- * carries — which plan mode and the todo nudge both classify a call by — and the refusal
- * sentence built from it.
+ * The board's action table: the list the tool publishes, the two classifications each action
+ * carries — the read/write kind plan mode and rewind ask about, and the state/work effect the
+ * todo nudge asks about — the refusal sentence built from the kind, and the answers for a value
+ * the tool has not normalized yet.
  *
  * A table is only worth having if the two halves cannot disagree, so what is pinned here
- * is the shape: one kind per action, the reads being exactly the actions plan mode admits,
- * an unknown string never counting as a read, and a phrase that reads correctly for however
- * many reads the table holds.
+ * is the shape: one kind and one effect per action, the reads being exactly the actions plan
+ * mode admits, `review` being the only action that can change a tree, an unknown string never
+ * counting as either, and a phrase that reads correctly for however many reads the table holds.
  */
 
 import { describe, expect, test } from "bun:test";
 import {
+	BOARD_ACTION_EFFECT,
 	BOARD_ACTION_KIND,
 	BOARD_ACTIONS,
 	BOARD_READ_ACTIONS,
 	boardWriteRefusal,
 	isBoardReadAction,
+	isBoardWorkAction,
 	readActionsText,
 } from "./actions.ts";
 
@@ -44,6 +47,29 @@ describe("the action table", () => {
 		expect(isBoardReadAction("face")).toBe(false);
 		expect(isBoardReadAction(undefined)).toBe(false);
 		expect(isBoardReadAction(42)).toBe(false);
+	});
+
+	test("classifies every action's effect, and makes `review` the one that is work", () => {
+		// A card is written to `~/.pi/agent/board/<repo.key>`, which is not the checkout, so a
+		// claim or a note is the board's state. `review` runs the contract's verify command as a
+		// real child process in the tree the card names, so it is work for the same reason `bash`
+		// is — a distinction the read/write kind cannot draw, because it is a write either way.
+		expect(Object.keys(BOARD_ACTION_EFFECT).sort()).toEqual([...BOARD_ACTIONS].sort());
+		for (const action of BOARD_ACTIONS) expect(["state", "work"]).toContain(BOARD_ACTION_EFFECT[action]);
+		expect(BOARD_ACTIONS.filter((action) => BOARD_ACTION_EFFECT[action] === "work")).toEqual(["review"]);
+	});
+
+	test("answers work for `review` alone, and never for a value it has not normalized", () => {
+		expect(isBoardWorkAction("review")).toBe(true);
+		for (const action of BOARD_ACTIONS) {
+			if (action === "review") continue;
+			expect(isBoardWorkAction(action), action).toBe(false);
+		}
+		// The nudge spends a model request on a false positive, so an unreadable value is not work.
+		expect(isBoardWorkAction("review ")).toBe(false);
+		expect(isBoardWorkAction("REVIEW")).toBe(false);
+		expect(isBoardWorkAction(undefined)).toBe(false);
+		expect(isBoardWorkAction(42)).toBe(false);
 	});
 });
 

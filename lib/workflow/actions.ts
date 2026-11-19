@@ -1,5 +1,5 @@
 /**
- * The board's actions and which of them only read it.
+ * The board's actions, which of them only read it, and which of them can change a tree.
  *
  * The list and the classification are one table because they were once two: the tool
  * registered the actions, and `lib/` compared a call's action to a bare string, so
@@ -8,7 +8,9 @@
  *
  * `BOARD_ACTION_KIND` is a `Record<BoardAction, …>`, so an action added to
  * {@link BOARD_ACTIONS} does not compile until somebody says whether it reads. That is
- * the whole point: the answer is a type error, not a comment.
+ * the whole point: the answer is a type error, not a comment. `BOARD_ACTION_EFFECT` is
+ * the same device for a different question — whether the call can touch a working tree —
+ * because "writes the board" and "does work" stopped being one answer.
  *
  * The refusal that names the reads is built here too, beside the table it derives from,
  * for the same reason `limits.ts` keeps `wipRefusal` beside its limit: a sentence a model
@@ -62,6 +64,38 @@ export const BOARD_ACTION_KIND: Record<BoardAction, BoardActionKind> = {
 };
 
 /**
+ * Whether an action's call can change a working tree.
+ */
+export type BoardActionEffect = "state" | "work";
+
+/**
+ * What each action does to the working tree, as against {@link BOARD_ACTION_KIND}'s "to the
+ * board".
+ *
+ * Every action but `review` writes `~/.pi/agent/board/<repo.key>` — the agent directory a plan
+ * file and the bus already live in — so the call is the board's state and says nothing about
+ * the checkout. `review` is the exception: it runs the contract's verify command as a real
+ * child process in the tree the card names, so it can format a file or write build output, and
+ * that is work by the same test `bash` meets. Exhaustive like the kind table, so a new action
+ * is a compile error here before a reader can assume its answer.
+ */
+export const BOARD_ACTION_EFFECT: Record<BoardAction, BoardActionEffect> = {
+	list: "state",
+	add: "state",
+	claim: "state",
+	release: "state",
+	reclaim: "state",
+	move: "state",
+	note: "state",
+	contract: "state",
+	approve: "state",
+	review: "work",
+	edit: "state",
+	archive: "state",
+	drop: "state",
+};
+
+/**
  * The actions that only read, in the tool's own order.
  *
  * Plan mode names them in its refusal, so the sentence a model reads is built from the
@@ -108,4 +142,17 @@ export function isBoardReadAction(raw: unknown): boolean {
 	if (typeof raw !== "string") return false;
 	if (!BOARD_ACTIONS.includes(raw as BoardAction)) return false;
 	return BOARD_ACTION_KIND[raw as BoardAction] === "read";
+}
+
+/**
+ * Whether a value is a board action that can have changed a working tree.
+ *
+ * A call's `action` is whatever the model sent, and a result recorded before the tool was
+ * folded may carry none. An unknown or missing action is not work: the todo nudge spends a
+ * whole model request on a false positive, so a missed reminder is the cheaper failure.
+ */
+export function isBoardWorkAction(raw: unknown): boolean {
+	if (typeof raw !== "string") return false;
+	if (!BOARD_ACTIONS.includes(raw as BoardAction)) return false;
+	return BOARD_ACTION_EFFECT[raw as BoardAction] === "work";
 }

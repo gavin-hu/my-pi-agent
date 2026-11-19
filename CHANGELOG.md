@@ -12,7 +12,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   times, forced a `[TODO SYNC]` continuation for work nobody had done and, with no list yet, asked for
   one before any work existed. `todo`, `goal` and `plan` publish session state instead of changing
   the checkout, so they are one set checked before the hint, and `isFileWrite` follows it: a plan-file
-  write is not a file write.
+  write is not a file write. `session` joins that set, since no bus verb can reach the checkout, and
+  `board` splits instead of joining it: `review` runs the card's verify command as a child process in
+  the tree the card names, so it stays work, while every other card verb writes `~/.pi/agent/board`
+  and is state — a new exhaustive `BOARD_ACTION_EFFECT` table says which, read from the result's
+  action the same way a board read is.
 - `plan`: the owner can settle a reviewer's note. Resolve appears on a teammate's card, and the
   owner's save flips only that note's `resolved` flag — matched by author, anchor and text — so
   her words stay as written; Edit and Delete remain the writer's.
