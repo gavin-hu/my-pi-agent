@@ -25,7 +25,6 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../env.ts";
 import { plansDirFor } from "../plans/paths.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import { BUS_DIR_NAME } from "../session-files.ts";
 import { agentLabel, defaultLabel, labelKey, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
 import { presenceOf, type RosterSession, readRoster, readTeam, type TeamRead } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
@@ -171,8 +170,14 @@ export interface BoardSessionOptions {
  * the board's directory layout load-bearing for the roster, and regrouping those files
  * would leave every peer reading as no record at all. It takes the key and nothing else,
  * so there is no directory here to read one off.
+ *
+ * The bus's directory name is loaded here rather than imported at the top of the module: this
+ * file is registered by `board` and `team`, and a static import of `lib/session-files.ts` put the
+ * whole file layer in both their graphs. Every caller already awaits this — `session.busDir` is a
+ * promise — so the `import()` costs the first call and nothing else, and Node caches the module.
  */
-export function busDirFor(agentDir: string, store: Pick<BoardStore, "key">): string {
+export async function busDirFor(agentDir: string, store: Pick<BoardStore, "key">): Promise<string> {
+	const { BUS_DIR_NAME } = await import("../session-files.ts");
 	return join(agentDir, BUS_DIR_NAME, store.key);
 }
 
