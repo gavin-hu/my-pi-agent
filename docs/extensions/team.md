@@ -66,8 +66,8 @@ Backlog with its notes and contract (the lead from anyone, a peer only from a st
 the lane moves, the contract and the two signs are the rest — all [`board`](board.md)'s, one door.
 `/team`'s stalled line names it: `board reclaim 1, 2 — api-core stopped`.
 
-A flat parameter object means an action refuses a field it does not read, naming
-the action that takes it — `offer` does not take `to`.
+A flat parameter object refuses a field an action does not read, naming the verb that takes it —
+`offer` takes no `to`, and `assign` and `ask` refuse `*`: it is `offer`'s broadcast.
 
 **Who is who.** `/team` lists who is live, who is live but not listening, who is quiet (a heartbeat past ten
 minutes), and who is absent from the bus — an owner a card names that no record answers. A label nobody answers

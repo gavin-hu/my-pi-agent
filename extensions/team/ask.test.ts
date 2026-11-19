@@ -114,6 +114,18 @@ describe("ask", () => {
 		expect(sent).toEqual([]);
 	});
 
+	test("refuses the bus's wildcard before the join, so nothing is sent and nothing is joined", async () => {
+		const { call, joined, sent } = harness();
+		const result = await call({ action: "ask", to: "*", question: "any blockers?" });
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toBe("ask reaches one peer; `*` is `offer`'s broadcast to every live session.");
+		// The tool's sentence, not the transport's: reaching `a broadcast needs kind: event` meant the join
+		// had already run, so the session was on the team for a question that was never asked.
+		expect(resultText(result)).not.toContain("broadcast needs kind");
+		expect(sent).toEqual([]);
+		expect(joined).toEqual([]);
+	});
+
 	test("an ask that names a card is refused by the field table", async () => {
 		const { call, sent } = harness();
 		const result = await call({ action: "ask", card: "1", to: "billing-core" });

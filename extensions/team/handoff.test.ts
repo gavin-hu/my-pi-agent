@@ -123,6 +123,25 @@ describe("assign", () => {
 		expect(sent).toEqual([]);
 	});
 
+	test("refuses the wildcard before it joins, writes, or looks for the card", async () => {
+		const { call, joined, seed, sent, store } = harness();
+		const id = await seed();
+		const result = await call({ action: "assign", card: id, to: "*" });
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toBe("assign reaches one peer; `*` is `offer`'s broadcast to every live session.");
+		expect(sent).toEqual([]);
+		expect(joined).toEqual([]);
+		// The half-apply this closes: without the guard `ownerFor("*", …)` writes the owner, and only the
+		// send after it meets `a broadcast needs kind: event` — a card owned by a label nobody answers to.
+		const card = await (await store()).read(id);
+		expect(card?.owner).toBeUndefined();
+		expect(card?.lane).toBe("backlog");
+		// The argument is wrong whatever the card is, so a missing one does not change the sentence.
+		const missing = await call({ action: "assign", card: "999", to: "*" });
+		expect(resultText(missing)).toContain("assign reaches one peer");
+		expect(resultText(missing)).not.toContain("does not exist");
+	});
+
 	test("refuses a card that does not exist, before sending anything", async () => {
 		const { call, sent } = harness();
 		const result = await call({ action: "assign", card: "9", to: "billing-core" });

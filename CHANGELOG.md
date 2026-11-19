@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team`: `assign` and `ask` refuse `to: "*"` in the argument layer. The wildcard is the bus's broadcast
+  and `offer`'s alone — `ask` sends the `ask` kind and `assign` records one owner — so the refusal used to
+  arrive from the transport, after `ask` had already joined the team and after `assign` had written the
+  owner, leaving a card owned by a label nothing answers to. The sentence now names `offer`, the verb that
+  does broadcast, and answers before the join, the write, and the send.
+
 - `memory`: a note is named, not written. `update`'s and `forget`'s `text`, and `merge`'s `first`
   and `second`, went through the write validator, so the 500-character cap applied to the string
   that has to equal a stored note exactly — and a note past the cap, which the store is markdown
