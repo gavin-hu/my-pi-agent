@@ -14,9 +14,9 @@
  * Value-only, as a store helper must be: the paths and the text are the caller's.
  */
 
-import { randomBytes } from "node:crypto";
 import { linkSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { tempPathFor } from "../../lib/json.ts";
 import { hasErrorCode } from "../../lib/errors.ts";
 
 /**
@@ -38,7 +38,7 @@ const MAX_REVISIONS = 5;
  * lookup ever mistakes it for a plan.
  */
 export function writeAtomic(path: string, content: string): void {
-	const temp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString("hex")}.tmp`);
+	const temp = tempPathFor(path, { hidden: true });
 	try {
 		writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
 		renameSync(temp, path);
@@ -81,7 +81,7 @@ export interface CreateSeams {
  * mid-create leaves nothing under a plan's name for a review to open.
  */
 export function createAtomic(dir: string, base: string, content: string, seams: CreateSeams = {}): string {
-	const temp = join(dir, `.${base}.${randomBytes(6).toString("hex")}.tmp`);
+	const temp = tempPathFor(join(dir, base), { hidden: true });
 	writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
 	try {
 		for (let attempt = 1; attempt <= MAX_CREATE_ATTEMPTS; attempt += 1) {
