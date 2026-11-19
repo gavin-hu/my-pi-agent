@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card row keeps its number and title on a narrow terminal. The row clipped its facts to the whole
+  width and then handed both cells to `splitRow`, whose anchor is the right one: at 44 columns the title was gone
+  (`#2 Re…`), at 40 the number (`#…`), and at a 38-column body — a 40-column terminal — the row was the facts alone,
+  `billing-core · execute · needs review`. That landed exactly where a row is worth most: a `round` lists each card
+  under a gate heading that already says what the card owes, so the section that said *needs review* could not say
+  which card needed it. The number and title now keep a 24-column floor and the facts move to their own line —
+  indented when the indent costs no column, the rule `fitCells` uses for its separator — so at 40 columns every row
+  of `board-round` still names its card (24 lines become 32) and at 80 the row is the byte it was. Session mail's
+  fold is untouched: it promotes its meta to a heading and wraps prose, a different operation, so the two folds are
+  named for what they own (`foldCardRow`, `messageRowLines`). `test/tool-render.test.ts` now holds a fixture's
+  `identity` at 80, 48 and 40 columns, because a line that fits its width is not the same as a block that still says
+  what it lists.
+
 - web: a label on the accent wash is the text colour, on every surface that paints one. `--accent-soft`
   is the accent at 6% in light and 8% in dark, so the accent's own ratio on it moved with the plane
   beneath — 4.77 on the canvas, 4.48 on a surface and 4.27 on a raised panel, the last two under the
