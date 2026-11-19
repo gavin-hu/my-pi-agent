@@ -285,7 +285,7 @@ describe("the page's chrome", () => {
 		// The kit renamed the segmented control to tabs; a page that kept the old class drew three bare
 		// buttons with no current mark, which is a dead class and not a style choice.
 		const html = reviewPage();
-		expect(html).toContain('<div class="bf-tabs review-view" role="group" aria-label="What to show" id="review-view">');
+		expect(html).toContain('aria-labelledby="review-view-label" id="review-view"');
 		expect(html).toContain(
 			'<button type="button" class="bf-tabs__item" data-view="all" aria-pressed="true">All</button>',
 		);
