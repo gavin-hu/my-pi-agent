@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `check`: `bun run check` queues behind a lock, so two panes cannot gate at once. Three concurrent
+  runs turned browser suites into 30-second timeouts that were not defects, and each one cost a
+  second full run to show it was the machine; a second gate now prints the holder and its time left
+  before it waits, a lock a killed run left is reclaimed by the next, and a run nested in the gate
+  does not wait on itself. The three commands are unchanged behind `scripts/check.ts`, so CI and
+  `publish.yml` need no edit — and a CI runner runs one gate and never contends, so nothing about
+  that job changes.
 - `check`: a headless browser that dies mid-file is reported as that, in milliseconds, instead of
   as the case's own 30-second budget. The handle records its process's exit, a suite's reload path
   throws a sentence naming the signal before it spends a case, and our own `close()` is not a

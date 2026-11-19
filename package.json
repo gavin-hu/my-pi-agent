@@ -135,7 +135,7 @@
     "video": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/video/demo.mp4"
   },
   "scripts": {
-    "check": "bun run check:format && bun run check:types && bun test --timeout 90000",
+    "check": "bun run scripts/check.ts",
     "check:format": "biome format .",
     "check:types": "tsc --noEmit",
     "format": "biome format --write .",

@@ -409,6 +409,7 @@ export const SCRIPT_SUITES: readonly string[] = [
 	"board-fixture",
 	"cards",
 	"docs-assets",
+	"gate-lock",
 	"load-bench",
 	"plan-shot",
 	"screenshots",
