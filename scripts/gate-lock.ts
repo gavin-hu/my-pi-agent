@@ -13,7 +13,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 /** Who is gating, as the file records it. */
@@ -56,6 +56,9 @@ const DEFAULT_WAIT_MS = 20 * 60_000;
 const DEFAULT_REPORT_MS = 30_000;
 const DEFAULT_POLL_MS = 250;
 
+/** How old a file that names no holder must be before it is read as garbage rather than a take in flight. */
+const TAKING_GRACE_MS = 2_000;
+
 /** Set by a run that already holds the lock, so a suite shelling out to its own gate does not wait on it. */
 const NESTED_ENV = "PI_GATE_HELD";
 
@@ -75,24 +78,49 @@ export function gateLockPath(cwd: string = process.cwd()): string {
 	return join(root, ".pi", "cache", "check.lock");
 }
 
-/** The holder a file records, or undefined when it cannot be read as one. */
+/** The holder a file records, or undefined when it does not name one. */
 function holderIn(path: string): GateHolder | undefined {
 	try {
 		const parsed: unknown = JSON.parse(readFileSync(path, "utf-8"));
 		if (typeof parsed !== "object" || parsed === null) return undefined;
 		const { pid, startedAt } = parsed as Partial<GateHolder>;
-		if (typeof pid !== "number" || typeof startedAt !== "string") return undefined;
+		// A positive integer, because `process.kill(0, 0)` is not a probe of pid 0 — it signals the
+		// caller's own process group and answers happily, so a corrupt `{"pid": 0}` would read as a
+		// live holder and hold the gate for the whole wait instead of being reclaimed.
+		if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return undefined;
+		if (typeof startedAt !== "string") return undefined;
 		return { pid, startedAt };
 	} catch {
 		return undefined;
 	}
 }
 
-/** Whether a process answers on this machine, which is the only liveness a lock can ask for. */
+/**
+ * Whether a process exists on this machine, which is the only liveness a lock can ask for.
+ *
+ * Existence is the question, not permission: `EPERM` says the pid is there and belongs to somebody
+ * this process may not signal, so a lock held by another user is waited for rather than stolen.
+ * `ESRCH` is the one answer that means gone.
+ */
 function alive(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
 		return true;
+	} catch (error) {
+		return (error as NodeJS.ErrnoException).code === "EPERM";
+	}
+}
+
+/**
+ * Whether a lock file has been there long enough to be garbage rather than a writer mid-take.
+ *
+ * `take` creates the file and then writes it, so a reader can meet a file that parses as nothing;
+ * that window is microseconds and `take` is already holding the name, so only age separates it from
+ * a file left corrupt. Reclaiming a fresh one would delete a lock that is being taken.
+ */
+function staleEnough(path: string, at: number): boolean {
+	try {
+		return at - statSync(path).mtimeMs >= TAKING_GRACE_MS;
 	} catch {
 		return false;
 	}
@@ -163,6 +191,13 @@ export function acquireGate(options: AcquireOptions = {}): GateLock | undefined 
 		// next gate takes it, saying so rather than inheriting a mystery.
 		if (current !== undefined && !alive(current.pid)) {
 			log(`${GATE_PREFIX} reclaiming the lock pid ${current.pid} left (gating since ${current.startedAt})`);
+			rmSync(path, { force: true });
+			continue;
+		}
+		// A file that names no holder is garbage once it is old enough to rule out a take in flight;
+		// before that it is waited on, because deleting it would steal the name from its writer.
+		if (current === undefined && staleEnough(path, now())) {
+			log(`${GATE_PREFIX} reclaiming a lock that names no holder (${path})`);
 			rmSync(path, { force: true });
 			continue;
 		}

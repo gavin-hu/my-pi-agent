@@ -407,7 +407,10 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks), and
 	// one more for lib/json: the temp name plan-files used to spell for itself is the owner's
 	// now, so the entry pays the module rather than a second copy of its rule (59 = 58 + json).
-	plan: 59,
+	// feedback-write is the same trade one card later: feedback.ts was at its named height (642),
+	// so the size ratchet moved the write helpers — marker placement and the owner's settlement
+	// match — into their own module rather than let a named module grow (60 = 59 + feedback-write).
+	plan: 60,
 	team: 53,
 	job: 45,
 	"session-bus": 45,

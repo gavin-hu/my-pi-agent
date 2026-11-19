@@ -75,6 +75,9 @@ and the switch refuse rather than drop the text. `Esc` closes the edit, then the
 composer, then the review, one layer at a time. **Save**, **Post** and **Back to
 Pi** ask first while comments are unsaved.
 
+On the owner's page a teammate's note carries Resolve too. Settling it flips the
+note's flag and leaves her words as she wrote them; Edit and Delete stay hers.
+
 A change that arrives from the model while a draft is open is held back with "A
 change arrived; finish or discard your draft to see it." rather than repainted
 under your cursor; it lands on the next frame, or on a reload.
