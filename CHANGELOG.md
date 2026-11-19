@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `todo`: a planning or goal-only turn no longer counts as work. The lag reminder judged every tool it
+  did not list by `readOnlyHint: false`, a hint that claims writing *anything* — plan's five verbs
+  share the strictest set and goal declares it too — so entering plan mode, or refining a plan three
+  times, forced a `[TODO SYNC]` continuation for work nobody had done and, with no list yet, asked for
+  one before any work existed. `todo`, `goal` and `plan` publish session state instead of changing
+  the checkout, so they are one set checked before the hint, and `isFileWrite` follows it: a plan-file
+  write is not a file write.
 - `plan`: the owner can settle a reviewer's note. Resolve appears on a teammate's card, and the
   owner's save flips only that note's `resolved` flag — matched by author, anchor and text — so
   her words stay as written; Edit and Delete remain the writer's.
