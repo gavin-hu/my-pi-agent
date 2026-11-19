@@ -31,14 +31,14 @@ function priya(plan = PLAN): PlanAnnotation[] {
 }
 
 /** The owner's write: no own annotations, and the given settlements. */
-function settle(plan: string, entries: readonly PlanAnnotation[]): string {
+function settlePlan(plan: string, entries: readonly PlanAnnotation[]): string {
 	return formatFeedback(plan, [], { author: "", settle: entries });
 }
 
 describe("the owner settles a reviewer's note", () => {
 	test("resolves a tagged note and leaves its words and its moved flag alone", () => {
 		const note = priya()[0] as PlanAnnotation;
-		const out = settle(PLAN, [{ ...note, resolved: true }]);
+		const out = settlePlan(PLAN, [{ ...note, resolved: true }]);
 		const back = readFeedback(out).annotations;
 		expect(back.map((annotation) => annotation.comment)).toEqual(["why one?", "moved note"]);
 		expect(back[0]?.resolved).toBe(true);
@@ -49,7 +49,7 @@ describe("the owner settles a reviewer's note", () => {
 
 	test("carries a moved note's flag in markerLine's order", () => {
 		const note = priya()[1] as PlanAnnotation;
-		const out = settle(PLAN, [{ ...note, resolved: true }]);
+		const out = settlePlan(PLAN, [{ ...note, resolved: true }]);
 		expect(out).toContain("[!REVIEW moved resolved] @priya: moved note");
 		expect(stripFeedback(out)).toBe(stripFeedback(PLAN));
 	});
@@ -57,7 +57,7 @@ describe("the owner settles a reviewer's note", () => {
 	test("reopening clears the flag and keeps the text", () => {
 		const resolvedPlan = PLAN.replace("[!REVIEW] @priya: why one?", "[!REVIEW resolved] @priya: why one?");
 		const note = priya(resolvedPlan)[0] as PlanAnnotation;
-		const out = settle(resolvedPlan, [{ anchor: note.anchor, author: "priya", comment: note.comment }]);
+		const out = settlePlan(resolvedPlan, [{ anchor: note.anchor, author: "priya", comment: note.comment }]);
 		expect(readFeedback(out).annotations[0]?.resolved).toBeUndefined();
 		expect(out).toContain("[!REVIEW] @priya: why one?");
 	});
@@ -65,10 +65,10 @@ describe("the owner settles a reviewer's note", () => {
 	test("matches text after sanitising, and refuses the near miss", () => {
 		const note = priya()[0] as PlanAnnotation;
 		// Trailing spaces and a newline collapse to the stored line: the same note.
-		const padded = settle(PLAN, [{ ...note, comment: "  why one?  \n", resolved: true }]);
+		const padded = settlePlan(PLAN, [{ ...note, comment: "  why one?  \n", resolved: true }]);
 		expect(readFeedback(padded).annotations[0]?.resolved).toBe(true);
 		// One word different is not the same note: no flag is applied and no text is written.
-		const changed = settle(PLAN, [{ ...note, comment: "why one now?", resolved: true }]);
+		const changed = settlePlan(PLAN, [{ ...note, comment: "why one now?", resolved: true }]);
 		expect(readFeedback(changed).annotations[0]?.resolved).toBeUndefined();
 		expect(stripFeedback(changed)).toBe(stripFeedback(PLAN));
 	});
@@ -85,14 +85,14 @@ describe("the owner settles a reviewer's note", () => {
 		].join("\n");
 		const notes = priya(plan);
 		expect(notes).toHaveLength(2);
-		const out = settle(plan, [{ ...notes[0]!, resolved: true }, { ...notes[1]! }]);
+		const out = settlePlan(plan, [{ ...notes[0]!, resolved: true }, { ...notes[1]! }]);
 		const flags = readFeedback(out).annotations.map((annotation) => annotation.resolved);
 		expect(flags).toEqual([true, undefined]);
 	});
 
 	test("keeps another writer's note untouched", () => {
 		const plan = PLAN.replace("[!REVIEW] @priya: why one?", "[!REVIEW] @alice: why one?");
-		const out = settle(plan, [
+		const out = settlePlan(plan, [
 			{ anchor: priya(plan)[0]?.anchor ?? 0, author: "priya", comment: "why one?", resolved: true },
 		]);
 		expect(readFeedback(out).annotations[0]?.resolved).toBeUndefined();

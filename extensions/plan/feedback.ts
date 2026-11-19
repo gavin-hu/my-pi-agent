@@ -22,6 +22,7 @@
 
 import { sanitizeLine } from "../../lib/format.ts";
 import { blockAt, contentBlockAt, hasClosingFence, planBlocks, type PlanBlock } from "./blocks.ts";
+import { compose, settlementLines } from "./feedback-write.ts";
 import { extractSections, sectionKeys } from "./sections.ts";
 
 /** Marker that opens every stored feedback line. */
@@ -171,7 +172,7 @@ function fencedLines(plan: string): Set<number> {
 }
 
 /** A stored marker, with the clean-plan line it followed and who wrote it. */
-interface StoredMarker {
+export interface StoredMarker {
 	/** Index in the clean plan of the line the marker followed; `-1` is the top. */
 	at: number;
 	comment: string;
@@ -231,41 +232,6 @@ function markerLine(author: string, comment: string, moved = false, resolved = f
 	// comment: after the closing bracket, a comment that begins "moved …" would read as one.
 	const tag = moved || resolved ? `[!REVIEW${moved ? " moved" : ""}${resolved ? " resolved" : ""}]` : REVIEW_MARKER;
 	return author ? `> ${tag} @${author}: ${body}` : `> ${tag} ${body}`;
-}
-
-/** A marker waiting to be placed after clean-plan line `at`. */
-interface Placed {
-	at: number;
-	line: string;
-}
-
-/**
- * Rebuild `clean` with `entries` inserted after the lines they name, grouping
- * several entries on one line in the order given. `-1` places at the top.
- */
-function compose(clean: string, entries: Placed[]): string {
-	if (entries.length === 0) return clean;
-	if (clean === "") return entries.map((entry) => entry.line).join("\n");
-	const buckets = new Map<number, string[]>();
-	for (const entry of entries) {
-		const bucket = buckets.get(entry.at) ?? [];
-		bucket.push(entry.line);
-		buckets.set(entry.at, bucket);
-	}
-	const lines = clean.split("\n");
-	const out: string[] = [];
-	const flush = (at: number): void => {
-		const bucket = buckets.get(at);
-		if (bucket) out.push(...bucket);
-	};
-	flush(-1);
-	lines.forEach((line, index) => {
-		out.push(line);
-		flush(index);
-	});
-	// A marker placed past the last line still lands after it rather than nowhere.
-	flush(lines.length);
-	return out.join("\n");
 }
 
 /** Remove every stored feedback line, leaving the plan body as authored. */
@@ -352,45 +318,14 @@ export function formatFeedback(
 	const author = normalizeAuthor(options.author);
 	const { clean, markers } = scanMarkers(plan);
 	const blocks = planBlocks(clean);
-	const settle = [...(options.settle ?? [])];
-	const used = new Set<number>();
-	/**
-	 * The entry that settles one stored marker, or undefined when none matches.
-	 *
-	 * Author, anchor and text must all agree, compared the way the stored body was written:
-	 * `normalizeAuthor` on the name and `sanitizeLine` on the text. Each entry is used once,
-	 * in list order, so two identical notes pair first-to-first instead of both taking one flag.
-	 */
-	const takeSettle = (marker: StoredMarker): PlanAnnotation | undefined => {
-		if (author !== "" || marker.author === "") return undefined;
-		const start = contentBlockAt(blocks, marker.at)?.start;
-		if (start === undefined) return undefined;
-		for (let index = 0; index < settle.length; index++) {
-			if (used.has(index)) continue;
-			const entry = settle[index];
-			if (!entry) continue;
-			if (normalizeAuthor(entry.author) !== marker.author) continue;
-			if (entry.anchor !== start) continue;
-			if (sanitizeLine(entry.comment) !== sanitizeLine(marker.comment)) continue;
-			used.add(index);
-			return entry;
-		}
-		return undefined;
-	};
-	const kept = markers
-		.filter((marker) => marker.author !== author)
-		.map((marker) => {
-			const settled = takeSettle(marker);
-			return {
-				at: marker.at,
-				line: markerLine(
-					marker.author,
-					marker.comment,
-					marker.moved,
-					settled ? settled.resolved === true : marker.resolved,
-				),
-			};
-		});
+	const kept = settlementLines(
+		markers,
+		blocks,
+		author,
+		options.settle ?? [],
+		(marker, resolved) => markerLine(marker.author, marker.comment, marker.moved, resolved),
+		normalizeAuthor,
+	);
 	const added = storableComments(annotations).map((item) => {
 		const block = contentBlockAt(blocks, item.anchor);
 		return {
