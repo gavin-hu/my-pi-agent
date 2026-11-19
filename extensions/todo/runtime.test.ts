@@ -363,6 +363,24 @@ describe("lag reminder integration", () => {
 		expect(await emitFirst(emptyRun.pi, "agent_before_settle", settle, emptyRun.ctx)).toBeUndefined();
 	});
 
+	test("does not remind for a session tracker's call, though its hint says it may write", async () => {
+		// plan and goal really do write — a plan file outside the checkout, session entries — so
+		// their hint is `readOnlyHint: false` and the fall-through counted a planning turn as work.
+		// The host supplies the hint; this double gives it the two trackers as that host would.
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		pi.allTools = [
+			{ name: "plan", annotations: { readOnlyHint: false } },
+			{ name: "goal", annotations: { readOnlyHint: false } },
+		];
+		for (const toolName of ["plan", "goal"]) {
+			await emit(pi, "tool_execution_end", { type: "tool_execution_end", toolName }, ctx);
+			expect(await emitFirst(pi, "agent_before_settle", settle, ctx), toolName).toBeUndefined();
+		}
+		// An edit in the same session still reminds, so the case cannot pass by silencing the rule.
+		await emit(pi, "tool_execution_end", work, ctx);
+		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeDefined();
+	});
+
 	test("reminds after repeated work with no list", async () => {
 		const { pi, ctx } = await started();
 		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);
