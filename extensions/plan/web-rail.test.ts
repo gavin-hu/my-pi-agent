@@ -16,7 +16,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TestBrowser } from "../../test/helpers/browser.ts";
 import { islandOf, reviewPage } from "../../test/helpers/fixtures/plan-web.ts";
-import { launchReviewBrowser, mountReview, openReview, REVIEW_CHROME, REVIEW_PAGE } from "../../test/helpers/plan-browser.ts";
+import {
+	launchReviewBrowser,
+	mountReview,
+	openReview,
+	REVIEW_CHROME,
+	REVIEW_PAGE,
+} from "../../test/helpers/plan-browser.ts";
 import { REVIEW_CSS } from "./web-page.ts";
 
 /** Where a rail part starts in the page, which is the whole of what its order is. */
@@ -82,7 +88,9 @@ describe("the rail's markup and rules", () => {
 		expect(REVIEW_CSS).toContain(
 			'.review-view .bf-tabs__item[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}',
 		);
-		expect(REVIEW_CSS).toContain(".review-nav a:hover{background:var(--surface);color:var(--text);text-decoration:none}");
+		expect(REVIEW_CSS).toContain(
+			".review-nav a:hover{background:var(--surface);color:var(--text);text-decoration:none}",
+		);
 		expect(REVIEW_CSS).toContain("background:var(--accent-soft);color:var(--text);font:var(--fs-xs)/18px");
 	});
 
