@@ -98,6 +98,29 @@ describe("lag reminder integration", () => {
 		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeDefined();
 	});
 
+	test("does not remind for a card write or a bus message, and does remind for a review", async () => {
+		// The other half of the class: a card and the bus live in the agent directory too, so a claim,
+		// a note or a send says nothing about the checkout. `review` is the one board call that can have
+		// done work, because it runs the contract's command in the tree the card names. It comes last
+		// because the reminder is capped at one per user turn, so an earlier one would mask it.
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		pi.allTools = [
+			{ name: "board", annotations: { readOnlyHint: false } },
+			{ name: "session", annotations: { readOnlyHint: false } },
+		];
+		const call = (toolName: string, action: string) => ({
+			type: "tool_execution_end",
+			toolName,
+			result: { details: { action } },
+		});
+		await emit(pi, "tool_execution_end", call("board", "contract"), ctx);
+		await emit(pi, "tool_execution_end", call("session", "send"), ctx);
+		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeUndefined();
+
+		await emit(pi, "tool_execution_end", call("board", "review"), ctx);
+		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeDefined();
+	});
+
 	test("reminds after repeated work with no list", async () => {
 		const { pi, ctx } = await started();
 		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);

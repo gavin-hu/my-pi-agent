@@ -64,7 +64,7 @@ export default function todo(pi: ExtensionAPI) {
 		// event, which is why the board's read action is read from here.
 		const details = (event.result as { details?: unknown } | undefined)?.details;
 		if (!isMutatingTool(event.toolName, annotations, details)) return;
-		runtime.noteWork(isFileWrite(event.toolName, annotations));
+		runtime.noteWork(isFileWrite(event.toolName, annotations, details));
 	});
 
 	// When the run is about to settle with unfinished work done since the last

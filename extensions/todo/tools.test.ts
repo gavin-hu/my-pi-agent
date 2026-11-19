@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_TODOS } from "../../lib/todo-state.ts";
+import { BOARD_ACTIONS } from "../../lib/workflow/actions.ts";
 import {
 	EMPTY_LIST_MUTATIONS,
 	formatNudge,
@@ -229,10 +230,10 @@ describe("nudge rules", () => {
 	});
 
 	test("a session tracker is not work, and not a file write", () => {
-		// plan and goal both declare `readOnlyHint: false` — they do write, a plan file outside
-		// the checkout and session entries — so the hint alone made a planning turn look like
-		// work and forced a reminder for a list nobody had fallen behind on.
-		expect([...SESSION_TOOL_NAMES].sort()).toEqual(["goal", "plan", "todo"]);
+		// plan, goal and the bus all declare `readOnlyHint: false` — they do write, a plan file and
+		// a session's messages in the agent directory — so the hint alone made a planning turn look
+		// like work and forced a reminder for a list nobody had fallen behind on.
+		expect([...SESSION_TOOL_NAMES].sort()).toEqual(["goal", "plan", "session", "todo"]);
 		for (const name of SESSION_TOOL_NAMES) {
 			expect(isMutatingTool(name, { readOnlyHint: false })).toBe(false);
 			expect(isFileWrite(name, { readOnlyHint: false })).toBe(false);
@@ -241,14 +242,19 @@ describe("nudge rules", () => {
 		expect(isMutatingTool("plan_file", { readOnlyHint: false })).toBe(true);
 	});
 
-	test("a board read is not work, and any other board verb is", () => {
-		// The board is one tool over ten actions, so its hint says "may write" and the
-		// action the result reports is what tells a read from a change.
-		expect(isMutatingTool("board", { readOnlyHint: false }, { action: "list" })).toBe(false);
-		expect(isMutatingTool("board", { readOnlyHint: false }, { action: "claim" })).toBe(true);
-		// A result with no detail to read is a mutation, because the hint says so.
-		expect(isMutatingTool("board", { readOnlyHint: false })).toBe(true);
-		expect(isMutatingTool("board", undefined, { action: "list" })).toBe(false);
+	test("a board card write is state, and `review` is the only work", () => {
+		// This reverses what this case said before: a card is written to `~/.pi/agent/board/<repo.key>`
+		// — the agent directory a plan file and the bus already live in — so a claim, a move or a note
+		// is the board's state and says nothing about the checkout. `review` is the exception and stays
+		// work: it runs the contract's verify command as a child process in the tree the card names, so
+		// it can format a file or write build output, which is work by the same test `bash` meets.
+		for (const action of BOARD_ACTIONS) {
+			expect(isMutatingTool("board", { readOnlyHint: false }, { action }), action).toBe(action === "review");
+		}
+		// A result with no action to read is not work either: the bias is a missed reminder, never a
+		// spent model request.
+		expect(isMutatingTool("board", { readOnlyHint: false })).toBe(false);
+		expect(isMutatingTool("board", undefined, { action: "nonesuch" })).toBe(false);
 	});
 
 	test("a known reader is not work, and an unknown tool needs an explicit mutation hint", () => {
@@ -265,9 +271,13 @@ describe("nudge rules", () => {
 		expect(isFileWrite("bash")).toBe(false);
 		expect(isFileWrite("powershell")).toBe(false);
 		expect(isFileWrite("todo", { readOnlyHint: false })).toBe(false);
+		expect(isFileWrite("session", { readOnlyHint: false })).toBe(false);
 		expect(isFileWrite("read")).toBe(false);
 		expect(isFileWrite("some_mcp_tool")).toBe(false);
 		expect(isFileWrite("some_mcp_tool", { readOnlyHint: false })).toBe(true);
+		// A review is the one board call that can have written files, and it needs the details to say so.
+		expect(isFileWrite("board", { readOnlyHint: false }, { action: "review" })).toBe(true);
+		expect(isFileWrite("board", { readOnlyHint: false }, { action: "contract" })).toBe(false);
 	});
 
 	const state = (overrides: Partial<NudgeState> = {}): NudgeState => ({
