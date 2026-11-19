@@ -11,7 +11,7 @@
  * killed run left, and it never waits on itself.
  */
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,6 +22,12 @@ const roots: string[] = [];
 
 /** Another live process, standing in for the pane that holds the box. */
 const OTHER = process.ppid;
+
+beforeEach(() => {
+	// A gate that runs these suites sets the marker for its children, and these cases are about
+	// acquiring: inheriting it would turn every one of them into the nested run they also pin.
+	delete process.env.PI_GATE_HELD;
+});
 
 afterEach(() => {
 	// A case that took the lock leaves the marker on the process; the next case must not inherit it.
