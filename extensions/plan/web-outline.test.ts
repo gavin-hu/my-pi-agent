@@ -87,7 +87,7 @@ describe("review outline", () => {
 
 			const watcher = observeSections(planEl, list, null) as unknown as FakeObserver;
 			expect(watcher.observed).toEqual(["s-1", "s-8"]);
-			expect(watcher.rootMargin).toBe("-88px 0px -68% 0px");
+			expect(watcher.rootMargin).toBe("0px 0px -60% 0px");
 
 			watcher.fire("s-8");
 			expect(links[1]?.getAttribute("aria-current")).toBe("true");
