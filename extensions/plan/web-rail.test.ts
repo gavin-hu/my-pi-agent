@@ -247,11 +247,16 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's geometry and colours", 
 			const link = await resting.elementHandle();
 			const hovered = (await page
 				.waitForFunction(
-					(node) => {
-						const style = getComputedStyle(node);
+					(node: { matches(selector: string): boolean }) => {
+						// The page's own resolver, named structurally: this suite compiles without the DOM lib.
+						const paint = (
+							globalThis as unknown as {
+								getComputedStyle(element: unknown): { color: string; backgroundColor: string };
+							}
+						).getComputedStyle(node);
 						if (!node.matches(":hover")) return false;
-						if (style.backgroundColor === "rgba(0, 0, 0, 0)") return false;
-						return { colour: style.color, background: style.backgroundColor };
+						if (paint.backgroundColor === "rgba(0, 0, 0, 0)") return false;
+						return { colour: paint.color, background: paint.backgroundColor };
 					},
 					link,
 					{ timeout: REVIEW_PAINT_MS },
