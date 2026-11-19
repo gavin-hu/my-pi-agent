@@ -20,7 +20,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `board` splits instead of joining it: `review` runs the card's verify command as a child process in
   the tree the card names, so it stays work, while every other card verb writes `~/.pi/agent/board`
   and is state — a new exhaustive `BOARD_ACTION_EFFECT` table says which, read from the result's
-  action the same way a board read is.
+  action the same way a board read is. A `subagent` call is judged the same way, from the result
+  rather than the hint: its details carry `readOnly`, so a read-only child is investigation like `rg`
+  and a writing child is work and a file write — three delegated explorations no longer ask for a
+  list that no one started.
 - `plan`: the owner can settle a reviewer's note. Resolve appears on a teammate's card, and the
   owner's save flips only that note's `resolved` flag — matched by author, anchor and text — so
   her words stay as written; Edit and Delete remain the writer's.
