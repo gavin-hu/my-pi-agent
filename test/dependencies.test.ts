@@ -410,6 +410,14 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// feedback-write is the same trade one card later: feedback.ts was at its named height (642),
 	// so the size ratchet moved the write helpers — marker placement and the owner's settlement
 	// match — into their own module rather than let a named module grow (60 = 59 + feedback-write).
+	// 60 is not a step, and #719 measured what the next one would buy: 16 of the entry's modules
+	// run at registration and 44 are reached later, of which four edges are deferrable —
+	// `repo-key` from `plans.ts` (-4, taking `git/index`, `git/runner` and `git/read` with it),
+	// `plan-files` (-2, with `json`), `rails` (-1) and `review-lazy` (-1) — so a deferral card
+	// naming those four is worth 60 -> 52. Two stay walled: `feedback-write` behind synchronous
+	// `formatFeedback` (`feedback.ts:313`), which is why this row cannot come back the same way,
+	// and `tools/nested` behind synchronous `planMerge` (`todo-seed.ts:37`). Re-derive any price
+	// with `staticGraph` (`test/helpers/graph.ts`) over a reader that drops one specifier.
 	plan: 60,
 	team: 53,
 	job: 45,
