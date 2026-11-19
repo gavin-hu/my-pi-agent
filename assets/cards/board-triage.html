@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=1200" />
+		<title>Triage first, parallel after — @gavin-hu/my-pi-agent</title>
+		<link rel="stylesheet" href="./cards.css" />
+	</head>
+	<body>
+		<main class="card card--glow">
+			<div class="brand">
+				<span><span class="brand__chip">@gavin-hu/my-pi-agent</span> · board</span>
+				<span class="brand__right">
+					<span class="live"><span class="live__dot"></span>live · 3m</span>
+				</span>
+			</div>
+
+			<h1 class="title title--compact">
+				<span class="title__accent">Triage</span> first, parallel after<br /><span class="title__zh"
+					>先分波，再并行</span
+				>
+			</h1>
+
+			<svg
+				class="diagram diagram--triage"
+				viewBox="0 0 1104 380"
+				role="img"
+				aria-label="Three bands, read to right. Read: one call, board list round, reads 17 open cards and 4 are ready — #24 billing-core is ready, #31 is a duplicate of #24 and folds, #40 billing-core is the refactor, #44 api-null is the bug it moves, and #52 naming is a decision that only a person can make. Nothing is written while reading. Waves: W0 is the refactor first, before the bugs it moves; W1 is three cards — #24, #26, #29 — at most the plan limit in flight; W2 is #44 and #47, later, because their area or a dependency puts them behind. The limits come from bytefly.json, plan 3 and execute 5. Wave 1: the same three cards run at once, each crossing the approve line, which only a session that does not hold the card may sign, then the review spot-check into done. Three are in flight under gavin, tom and jack, and one execute slot is kept free."
+			>
+				<defs>
+					<marker
+						id="tip"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+					<marker
+						id="tip-go"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip tip--go" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+				</defs>
+
+				<!-- ① read: one call, seventeen cards, and not one write. -->
+				<rect class="lane" x="0" y="40" width="356" height="326" rx="16" />
+				<text class="lane-label" x="2" y="30">read · board list round · 读取</text>
+
+				<text class="verb-note verb-note--hi" x="14" y="66">17 open · 4 ready</text>
+
+				<rect class="node" x="14" y="78" width="328" height="42" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="26" y="104">#24 · billing-core</text>
+				<text class="verb-note verb-note--hi" x="262" y="104">ready</text>
+
+				<rect class="node" x="14" y="128" width="328" height="42" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="26" y="154">#31 · dup of #24</text>
+				<text class="verb-note verb-note--hi" x="262" y="154">fold</text>
+
+				<rect class="node" x="14" y="178" width="328" height="42" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="26" y="204">#40 · billing-core</text>
+				<text class="verb-note" x="262" y="204">refactor</text>
+
+				<rect class="node" x="14" y="228" width="328" height="42" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="26" y="254">#44 · api-null</text>
+				<text class="verb-note" x="262" y="254">bug</text>
+
+				<rect class="node" x="14" y="278" width="328" height="42" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="26" y="304">#52 · naming</text>
+				<text class="verb-note verb-note--hi" x="262" y="304">decision</text>
+
+				<text class="verb-note verb-note--hi" x="14" y="338">4 ready · 13 need a fold, a wave, or a call</text>
+				<text class="verb-note" x="14" y="356">nothing written while reading · 只读</text>
+
+				<!-- ② waves: the refactor first, then at most the plan limit, then the rest. -->
+				<rect class="lane lane--plan" x="372" y="40" width="344" height="326" rx="16" />
+				<text class="lane-label lane-label--plan" x="384" y="30">waves · W0 W1 W2 · 分波</text>
+
+				<rect class="band" x="384" y="54" width="320" height="86" rx="12" />
+				<text class="verb-label" x="398" y="78">W0 · refactor first</text>
+				<text class="node-label node-label--mono node-label--start" x="398" y="102">#40 · billing-core</text>
+				<text class="verb-note verb-note--hi" x="398" y="124">before the bugs it moves</text>
+
+				<rect class="band" x="384" y="152" width="320" height="118" rx="12" />
+				<text class="verb-label" x="398" y="176">W1 · wave one</text>
+				<text class="node-label node-label--mono node-label--start" x="430" y="200">#24 · billing-core</text>
+				<text class="node-label node-label--mono node-label--start" x="430" y="220">#26 · api-core</text>
+				<text class="node-label node-label--mono node-label--start" x="430" y="240">#29 · web-core</text>
+				<text class="verb-note" x="398" y="260">≤ 3 in flight · the plan limit</text>
+
+				<rect class="band band--quiet" x="384" y="282" width="320" height="58" rx="12" />
+				<text class="verb-label verb-label--dim" x="398" y="304">W2 · later</text>
+				<text class="node-label node-label--mono node-label--start" x="398" y="324">#44 · api-null · #47 · docs</text>
+
+				<text class="verb-note" x="384" y="356">limits from bytefly.json · plan 3 · execute 5</text>
+
+				<!-- ③ wave 1: three rows crossing the same two gates at once. -->
+				<rect class="lane lane--write" x="732" y="40" width="372" height="326" rx="16" />
+				<text class="lane-label lane-label--write" x="744" y="30">wave 1 · 3 in flight · 并行执行</text>
+
+				<text class="edge-label edge-label--loop" x="866" y="56">approve</text>
+				<text class="edge-label edge-label--loop" x="1006" y="56">review</text>
+
+				<!-- row ①: #24 -->
+				<rect class="node" x="744" y="74" width="82" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="785" y="106">#24</text>
+				<line class="edge" x1="826" y1="100" x2="852" y2="100" marker-end="url(#tip)" />
+				<line class="edge edge--go" x1="872" y1="100" x2="898" y2="100" marker-end="url(#tip-go)" />
+				<rect class="node" x="906" y="74" width="90" height="52" rx="10" />
+				<text class="node-label" x="951" y="100">▶ run</text>
+				<text class="node-label node-label--zh" x="951" y="118">运行</text>
+				<line class="edge edge--go" x1="1012" y1="100" x2="1034" y2="100" marker-end="url(#tip-go)" />
+				<text class="edge-label edge-label--go" x="1064" y="104">✓ done</text>
+
+				<!-- row ②: #26 -->
+				<rect class="node" x="744" y="166" width="82" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="785" y="198">#26</text>
+				<line class="edge" x1="826" y1="192" x2="852" y2="192" marker-end="url(#tip)" />
+				<line class="edge edge--go" x1="872" y1="192" x2="898" y2="192" marker-end="url(#tip-go)" />
+				<rect class="node" x="906" y="166" width="90" height="52" rx="10" />
+				<text class="node-label" x="951" y="192">▶ run</text>
+				<text class="node-label node-label--zh" x="951" y="210">运行</text>
+				<line class="edge edge--go" x1="1012" y1="192" x2="1034" y2="192" marker-end="url(#tip-go)" />
+				<text class="edge-label edge-label--go" x="1064" y="196">✓ done</text>
+
+				<!-- row ③: #29 -->
+				<rect class="node" x="744" y="258" width="82" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="785" y="290">#29</text>
+				<line class="edge" x1="826" y1="284" x2="852" y2="284" marker-end="url(#tip)" />
+				<line class="edge edge--go" x1="872" y1="284" x2="898" y2="284" marker-end="url(#tip-go)" />
+				<rect class="node" x="906" y="258" width="90" height="52" rx="10" />
+				<text class="node-label" x="951" y="284">▶ run</text>
+				<text class="node-label node-label--zh" x="951" y="302">运行</text>
+				<line class="edge edge--go" x1="1012" y1="284" x2="1034" y2="284" marker-end="url(#tip-go)" />
+				<text class="edge-label edge-label--go" x="1064" y="288">✓ done</text>
+
+				<!-- The two gates every row crosses: the lead's approve, the lead's spot-check. -->
+				<line class="edge edge--loop" x1="866" y1="68" x2="866" y2="316" />
+				<line class="edge edge--loop" x1="1006" y1="68" x2="1006" y2="316" />
+
+				<text class="verb-note verb-note--hi" x="744" y="338">3 in flight · one execute slot kept free</text>
+				<text class="verb-note" x="744" y="356">gavin · tom · jack · signed by the lead</text>
+			</svg>
+
+			<div class="foot">
+				<div>
+					Triage reads the board once and writes nothing.<br /><span class="foot__zh"
+						>分波只读一遍看板，不改任何一张卡。</span
+					>
+				</div>
+				<div class="foot__right">
+					claim, approve and drop stay the board's; one execute slot stays free.<br /><span class="foot__zh"
+						>认领、批准、drop 归 board；执行区留一个空位。</span
+					>
+				</div>
+			</div>
+		</main>
+	</body>
+</html>

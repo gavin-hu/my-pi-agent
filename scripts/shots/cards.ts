@@ -41,6 +41,7 @@ export const CARDS: Record<string, Card> = {
 	board: { page: "board.html", png: "board.png" },
 	team: { page: "board-team.html", png: "board-team.png" },
 	parallel: { page: "board-parallel.html", png: "board-parallel.png" },
+	triage: { page: "board-triage.html", png: "board-triage.png" },
 	wechat: { page: "wechat.html", png: "wechat.png" },
 	ends: { page: "ends.html", png: "ends.png" },
 };
