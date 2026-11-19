@@ -255,8 +255,11 @@ ${DECISION_WHY_CSS}
 .board-agent__body{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
 .board-agent__head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
 /* Two letters, in the mono face: a monogram is identity, the note's number in the place a
-   name lives, so it stays where the board's card keeps its id. */
-.board-agent__monogram{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:1.5rem;height:1.5rem;padding:0 var(--space-1);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);text-transform:uppercase}
+   name lives, so it stays where the board's card keeps its id. A label on the accent wash is the
+   text colour — the accent on it read 4.27 on this raised paper — and the lead's own monogram is
+   the one that fills instead, --on-accent on --accent, which is a different mark for a different
+   reason. */
+.board-agent__monogram{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:1.5rem;height:1.5rem;padding:0 var(--space-1);background:var(--accent-soft);color:var(--text);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);text-transform:uppercase}
 .board-agent__name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font:var(--fw-semibold) var(--fs-sm) var(--font-ui)}
 /* The state is the card's foot's opposite end: a word beside a dot, never a colour alone. */
 .board-agent__head .board-agent__state{margin-left:auto;flex:0 0 auto}

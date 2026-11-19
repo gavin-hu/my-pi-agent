@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- web: a label on the accent wash is the text colour, on every surface that paints one. `--accent-soft`
+  is the accent at 6% in light and 8% in dark, so the accent's own ratio on it moved with the plane
+  beneath — 4.77 on the canvas, 4.48 on a surface and 4.27 on a raised panel, the last two under the
+  4.5 AA owes a 13px label. Five rules painted the accent on it: `.bf-btn:hover`,
+  `.bf-btn[aria-pressed="true"]`, `.bf-dialog__option[aria-selected="true"]`, the plan review's
+  `.bf-block__count` and the board's `.board-agent__monogram`. They take `--text` now, the pairing a
+  current tree row has used all along, and the accent keeps drawing the pressed button's border and the
+  lead's monogram fill, which are different marks. The wash keeps both of its jobs — a hover and a
+  selected row. `lib/web/palette.test.ts` composites the wash over all three planes in both themes and
+  holds `--text` to 4.5 (13.00 light, 8.66 dark on the worst). The two quiet `--muted` labels on the
+  wash (`.review-nav__removed`, `.bf-quote-chip`) are left as they are with their number recorded: 4.35
+  in dark on a raised panel, which is `--muted`'s own value to answer. `team.png` and `plan-review.png`
+  are recaptured for the monogram and badge labels; `board.png` and `card-dialog.png` were compared and
+  left, the first differing only in footer antialiasing and the second varying between two runs of the
+  same tree.
+
 - `plan`: the review's narrow band is one row when shut. Below 1180 the rail's head — the step progress,
   the comment count, the view switch and the finish sentence — was band chrome above the fold, which the
   reader could not put away: it cost 207px of a 390×844 phone (the document began 43% down the screen)

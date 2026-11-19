@@ -201,7 +201,9 @@ export const REVIEW_CSS = pageSheet(
 .bf-block__add{appearance:none;width:24px;height:24px;min-width:24px;padding:0;border:1px solid var(--border);border-radius:var(--radius-badge);background:var(--surface);color:var(--muted);font:var(--fs-md)/1 var(--font-ui);cursor:pointer;opacity:0;transition:opacity var(--motion-fast) var(--motion-ease)}
 .bf-block__add:hover{border-color:var(--accent);color:var(--accent)}
 .bf-block:hover .bf-block__add,.bf-block:focus-within .bf-block__add,.bf-block--active .bf-block__add,.bf-block--commented .bf-block__add{opacity:1}
-.bf-block__count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs)/1 var(--font-ui)}
+/* The badge is a label on the accent wash, so it takes the wash's own pairing — --text rather than
+   the accent, which read 4.48 on the plane a block hovers to and 4 in the low fours on a raised one. */
+.bf-block__count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--text);font:var(--fw-semibold) var(--fs-xs)/1 var(--font-ui)}
 /* A block the last review did not hold: the one mark that says "read this line again". The
    rule sits at the text edge, inside the gutter the rail already reserves, so it cannot
    reflow the measure or collide with a comment badge. */
