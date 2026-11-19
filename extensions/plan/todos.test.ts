@@ -32,11 +32,7 @@ describe("plan approval merge", () => {
 	});
 
 	test("skips a step already in the list regardless of case and spacing", () => {
-		const merged = mergeTodos(
-			existing,
-			[step("  fix   the FLAKY test "), step("Add a token bucket")],
-			MAX_TODOS,
-		);
+		const merged = mergeTodos(existing, [step("  fix   the FLAKY test "), step("Add a token bucket")], MAX_TODOS);
 		expect(merged.added).toBe(1);
 		expect(merged.skipped).toBe(1);
 		expect(merged.todos.map((todo) => todo.content)).toEqual([
@@ -47,11 +43,7 @@ describe("plan approval merge", () => {
 	});
 
 	test("keeps an existing status rather than the step's", () => {
-		const merged = mergeTodos(
-			[{ content: "Done already", status: "completed" }],
-			[step("Done already")],
-			MAX_TODOS,
-		);
+		const merged = mergeTodos([{ content: "Done already", status: "completed" }], [step("Done already")], MAX_TODOS);
 		expect(merged.todos).toEqual([{ content: "Done already", status: "completed" }]);
 		expect(merged).toMatchObject({ added: 0, skipped: 1, kept: 1 });
 	});
@@ -89,13 +81,7 @@ describe("plan approval merge", () => {
 		const reader: ExistingTodo[] = [{ content: "Wire the limiter", status: "pending" }];
 		const first = mergeTodos(reader, [step("Wire the limiter")], MAX_TODOS);
 		expect(first.seeded).toEqual([]);
-		const refined = mergeTodos(
-			reader,
-			[step("Wire the limiter into the router")],
-			MAX_TODOS,
-			undefined,
-			first.seeded,
-		);
+		const refined = mergeTodos(reader, [step("Wire the limiter into the router")], MAX_TODOS, undefined, first.seeded);
 		expect(refined.todos.map((todo) => todo.content)).toEqual(["Wire the limiter", "Wire the limiter into the router"]);
 		expect(refined).toMatchObject({ replaced: 0, stale: 0, added: 1, skipped: 0 });
 		expect(refined.seeded).toEqual(["Wire the limiter into the router"]);
@@ -309,12 +295,8 @@ describe("plan approval merge", () => {
 		];
 		const merged = mergeTodos(reader, [step("Add the cache")], MAX_TODOS);
 		expect(merged).toMatchObject({ added: 0, skipped: 1, seeded: [] });
-		const mirror = mirrorStepStatuses(merged.todos, [
-			{ step: 1, status: "completed", expected: "Add `the cache`" },
-		]);
-		expect(mirror.todos).toEqual([
-			{ content: "Add the cache", status: "completed", activeForm: "Adding the cache" },
-		]);
+		const mirror = mirrorStepStatuses(merged.todos, [{ step: 1, status: "completed", expected: "Add `the cache`" }]);
+		expect(mirror.todos).toEqual([{ content: "Add the cache", status: "completed", activeForm: "Adding the cache" }]);
 		expect(mirror).toMatchObject({ updated: 1, unmatched: 0 });
 	});
 });
