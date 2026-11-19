@@ -13,6 +13,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { type Card, cardRef, DEFAULT_PRIORITY, holds, priorityOf } from "../../lib/workflow/card.ts";
 import { gateOf } from "../../lib/workflow/round.ts";
 import { GATE_WORD } from "../../lib/workflow/tone.ts";
@@ -20,7 +21,7 @@ import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
 import { type BoardTone, REASON_TONE } from "../../lib/workflow/tone.ts";
 import { sanitizeLine } from "../../lib/format.ts";
-import { clip, splitRow } from "../../lib/tui/columns.ts";
+import { clip, splitRow, usableWidth } from "../../lib/tui/columns.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
@@ -59,14 +60,47 @@ function factsOf(card: Card): Fact[] {
 	return facts;
 }
 
+/**
+ * The narrowest a card's number and title may become before its facts move down.
+ *
+ * The head is the row's identity and the facts are its suffix, so a row that spent its last
+ * columns on the facts stopped saying which card it was. That is worst exactly where a row is
+ * most needed: in a rollup section the heading already says what the card owes, and only the row
+ * can say which card owes it.
+ */
+const MIN_HEAD = 24;
+
 /** One card: the id and title, with its facts trailing. */
-function cardRowText(card: Card, width: number, theme: Theme, self: boolean): string {
+function cardRowText(card: Card, width: number, theme: Theme, self: boolean): string | readonly string[] {
 	const head = paint(theme, self ? "accent" : "label", `${cardRef(card.id)} ${sanitizeLine(card.title)}`);
 	const gap = paint(theme, "meta", SEPARATORS.item);
 	const trailing = factsOf(card)
 		.map((fact) => paint(theme, TONE_ROLE[fact.tone], fact.text))
 		.join(gap);
-	return splitRow(head, clip(trailing, width), width);
+	return foldCardRow(head, trailing, width);
+}
+
+/**
+ * The row, folded when the facts would leave the head below its floor.
+ *
+ * Two cells that fit, or a head that keeps `MIN_HEAD` columns, draw the row the way it has always
+ * been drawn: `splitRow`'s right anchor still wins for a head with room to spare. Past that the
+ * facts move to their own line rather than into the head's last columns, so a narrow terminal
+ * keeps the card's number and the start of its title — the two things the row exists to say.
+ *
+ * Not `messageRowLines` (session-bus's fold) and not shared with it: a card row folds two fixed
+ * cells, while a message row promotes its meta to a heading and wraps prose under it. The two
+ * name different operations on purpose.
+ */
+function foldCardRow(head: string, facts: string, width: number): string | readonly string[] {
+	const w = usableWidth(width);
+	const trailing = clip(facts, w);
+	const headBudget = w - visibleWidth(trailing) - 1;
+	if (visibleWidth(head) <= headBudget || headBudget >= MIN_HEAD) return splitRow(head, facts, w);
+	// The indent is spent only when it costs no column, the rule `fitCells` uses for its separator:
+	// otherwise the facts would lose their last character to a gap.
+	const continuation = w - visibleWidth(trailing) >= 2 ? `  ${trailing}` : trailing;
+	return [clip(head, w), clip(continuation, w)];
 }
 
 /**

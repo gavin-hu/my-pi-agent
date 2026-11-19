@@ -178,6 +178,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		name: "board",
 		group: "package",
 		label: "a board in reading order, collapsed to one line",
+		identity: "#1",
 		args: { action: "list" },
 		result: {
 			content: [{ type: "text", text: "5 cards" }],
@@ -189,6 +190,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		tool: "board",
 		group: "package",
 		label: "the lead's rollup, expanded into owners and groups",
+		identity: "#2",
 		args: { action: "list", round: true },
 		options: { expanded: true },
 		result: {
@@ -213,6 +215,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		tool: "board",
 		group: "package",
 		label: "a finished card set aside, out of the board and still readable",
+		identity: "#4",
 		args: { action: "archive", card: "4" },
 		result: {
 			content: [
@@ -277,6 +280,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		tool: "team",
 		group: "package",
 		label: "the same handoff, expanded to the lines the model got",
+		identity: "#1",
 		args: { action: "assign", card: "1", to: "billing-core" },
 		options: { expanded: true },
 		result: {

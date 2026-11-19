@@ -35,4 +35,11 @@ export interface ToolFixture {
 		/** How far a running call's clock has moved, so the block draws its live number. */
 		elapsedMs?: number;
 	};
+	/**
+	 * A token the block must still show once expanded, e.g. a card's `#2`.
+	 *
+	 * The gate reads it at every width: a row may fold its suffix onto a second line, never its
+	 * identity, which is what a narrow terminal used to drop without any line looking wrong.
+	 */
+	identity?: string;
 }

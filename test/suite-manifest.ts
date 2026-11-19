@@ -70,6 +70,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"render",
 		"result",
 		"rollup",
+		"rows",
 		"signs",
 		"snapshot",
 		"tools",
