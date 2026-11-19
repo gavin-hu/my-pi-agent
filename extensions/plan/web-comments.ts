@@ -301,6 +301,12 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     return !!reviewerName && annotation.author === reviewerName;
   }
 
+  // Resolve is the owner's to give as well as the writer's: the owner answers a teammate's
+  // note. Rewriting and deleting stay the writer's, so the button's permission is not isMine.
+  function canSettle(annotation) {
+    return isMine(annotation) || role === "owner";
+  }
+
   function renderCommentCards(box, list) {
     list.forEach(function (annotation) {
       var index = annotations.indexOf(annotation);
@@ -333,10 +339,11 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         head.appendChild(settled);
       }
       head.appendChild(el("span", "bf-comment__spacer"));
-      if (isMine(annotation)) {
-        var actions = el("div", "bf-comment__actions");
-        var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
-        edit.addEventListener("click", function () { startEdit(card, index); });
+      var actions = null;
+      // Resolve is the owner's decision as well as the writer's: the owner answers a teammate's
+      // note. Edit and Delete stay the writer's, so the two permissions are not one.
+      if (canSettle(annotation)) {
+        actions = el("div", "bf-comment__actions");
         var settle = el("button"); settle.type = "button"; settle.className = "bf-btn";
         settle.textContent = annotation.resolved ? "Reopen" : "Resolve";
         settle.addEventListener("click", function () {
@@ -348,10 +355,17 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
           renderAll();
           setStatus(annotation.resolved ? "Comment resolved." : "Comment reopened.");
         });
+        actions.appendChild(settle);
+      }
+      if (isMine(annotation)) {
+        if (!actions) actions = el("div", "bf-comment__actions");
+        var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
+        edit.addEventListener("click", function () { startEdit(card, index); });
         var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
         remove.addEventListener("click", function () { removeComment(index); });
-        actions.appendChild(settle); actions.appendChild(edit); actions.appendChild(remove); head.appendChild(actions);
+        actions.appendChild(edit); actions.appendChild(remove);
       }
+      if (actions) head.appendChild(actions);
       card.appendChild(head);
       if (annotation.quote) {
         var quote = el("div", "bf-comment__quote");

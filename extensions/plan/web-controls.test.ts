@@ -136,6 +136,39 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment controls", ()
 		}
 	});
 
+	test("offers the owner Resolve on a teammate's note and nothing else", async () => {
+		const local = await mountReview({ ...REVIEW_PAGE, annotations: [{ anchor: 1, comment: "hers", author: "priya" }] });
+		const page = await openReview(browser, local.url);
+		try {
+			expect(
+				await page.$$eval(".bf-comment__actions .bf-btn", (nodes) => nodes.map((node) => node.textContent)),
+			).toEqual(["Resolve"]);
+			// Resolve is the owner's to give; it flips the card and no text is offered for editing.
+			await page.click(".bf-comment__actions .bf-btn");
+			expect(await page.$eval(".bf-comment", (node) => node.className)).toContain("bf-comment--resolved");
+			expect(await page.textContent(".bf-comment__actions .bf-btn")).toBe("Reopen");
+		} finally {
+			await page.close();
+			await local.close();
+		}
+	});
+
+	test("offers a reviewer no action on somebody else's note", async () => {
+		const local = await mountReview({
+			...REVIEW_PAGE,
+			role: "reviewer",
+			canApprove: false,
+			annotations: [{ anchor: 1, comment: "hers", author: "priya" }],
+		});
+		const page = await openReview(browser, local.url);
+		try {
+			expect(await page.$$eval(".bf-comment__actions", (nodes) => nodes.length)).toBe(0);
+		} finally {
+			await page.close();
+			await local.close();
+		}
+	});
+
 	test("keeps focus on the card after Resolve and after an edit", async () => {
 		const local = await mountReview({ ...REVIEW_PAGE, annotations: [{ anchor: 1, comment: "mine to settle" }] });
 		const page = await openReview(browser, local.url);
