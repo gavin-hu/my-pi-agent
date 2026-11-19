@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the review's current-section mark works at every width. The watcher was rooted in the window
+  with a band of `-88px 0px -68% 0px`, both numbers guesses at chrome the page no longer has; at and
+  below 860 the sidebar becomes a band above the document, so the pane started lower than the band's
+  bottom and no heading could ever intersect, and the mark never appeared on a phone or a narrow
+  window at all. The observer now roots in the pane that scrolls, with the band as its top 40%, so no
+  chrome height is modelled; the mark is asserted at 390, 900 and 1280×400 as the reader scrolls.
+
 - `plan`: the review's header actions are evenly spaced. Share and Back to Pi sat flush against each
   other while every other pair was 8px apart: the two buttons live inside the More details, which the
   wide row drew as `display:contents`, so Chrome made the pair one anonymous flex item and the row's

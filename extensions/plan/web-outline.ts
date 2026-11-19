@@ -158,7 +158,11 @@ export function observeSections(
 				if (link) link.setAttribute("aria-current", "true");
 			}
 		},
-		{ rootMargin: "-88px 0px -68% 0px", threshold: 0 },
+		// Rooted in the pane, which is the box that scrolls: a band measured against the window follows
+		// whatever chrome the page grows, and the sidebar becomes a band above the document at 860, so
+		// a window-relative band can sit entirely above the pane and mark nothing. The pane's top edge
+		// is where content becomes visible at every width, so its top 40% is the band.
+		{ root: planEl, rootMargin: "0px 0px -60% 0px", threshold: 0 },
 	);
 	for (let i = 0; i < headings.length; i++) {
 		const heading = headings[i];
