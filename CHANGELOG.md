@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: a comment control names its block. Each rail `+` is announced as *Comment on “…”*, the
+  count carries its own name, a thread reads as a list, and the rail and card actions reach 24px;
+  a write leaves focus on the card it changed, or on the block's `+` when the last comment goes.
 - `check`: a headless browser that dies mid-file is reported as that, in milliseconds, instead of
   as the case's own 30-second budget. The handle records its process's exit, a suite's reload path
   throws a sentence naming the signal before it spends a case, and our own `close()` is not a
@@ -45,9 +48,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: a settled comment keeps its body. The card hid the note and kept a quote that the plan
   never stores, so a reloaded settled comment was an author and a chip with nothing to read; the
   body now stays, dimmed, and the record is readable.
-- `plan`: a comment control names its block. Each rail `+` is announced as *Comment on “…”*, the
-  count carries its own name, a thread reads as a list, and the rail and card actions reach 24px;
-  a write leaves focus on the card it changed, or on the block's `+` when the last comment goes.
 
 ## [0.29.0] - 2026-11-18
 
