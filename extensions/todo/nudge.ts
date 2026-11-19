@@ -11,11 +11,15 @@
  * positive costs a whole extra model request, so an unrecognized reader must
  * not trigger one; missing a reminder is the safer failure. MCP tools that
  * declare `readOnlyHint: false` are still caught.
+ *
+ * A hint answers "can it write anything?", which is not the question a list
+ * needs: it needs "did the working tree change?". The session trackers below
+ * write, and are still not work.
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
 import { isBoardRead } from "../../lib/policy.ts";
-import { BOARD_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
+import { BOARD_TOOL, GOAL_TOOL, PLAN_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { currentTodo, hasOpenTodos } from "./state.ts";
 import type { Todo } from "./types.ts";
 
@@ -30,8 +34,17 @@ const SHELL_TOOL_NAMES: ReadonlySet<string> = new Set(["bash", "powershell"]);
 export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit", ...SHELL_TOOL_NAMES]);
 
 /**
- * Whether a finished tool call counts as work for lag detection. The `todo`
- * tool never does (it is the update itself), a known mutator always does, and
+ * Tools that publish session state instead of changing the working tree: the
+ * todo list, the goal, and plan mode's plan file, which lives outside the
+ * checkout. Their call is the state, so a turn that only planned or recorded an
+ * objective did no work and must not ask for a list. Every other writer is
+ * judged by its hint.
+ */
+export const SESSION_TOOL_NAMES: ReadonlySet<string> = new Set([TODO_TOOL, GOAL_TOOL, PLAN_TOOL]);
+
+/**
+ * Whether a finished tool call counts as work for lag detection. A session
+ * tracker never does (its call is the state), a known mutator always does, and
  * any other tool counts only when it explicitly declares `readOnlyHint: false`.
  *
  * `board` is the one mutator whose read face is provable from what the call
@@ -39,7 +52,7 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit"
  * nothing, so it counts like every other reader.
  */
 export function isMutatingTool(toolName: string, annotations?: ToolAnnotations, details?: unknown): boolean {
-	if (toolName === TODO_TOOL) return false;
+	if (SESSION_TOOL_NAMES.has(toolName)) return false;
 	if (toolName === BOARD_TOOL && isBoardRead(details)) return false;
 	if (MUTATING_TOOL_NAMES.has(toolName)) return true;
 	return annotations?.readOnlyHint === false;
@@ -53,7 +66,7 @@ export function isMutatingTool(toolName: string, annotations?: ToolAnnotations, 
  * mutating call that is not a shell.
  */
 export function isFileWrite(toolName: string, annotations?: ToolAnnotations): boolean {
-	if (toolName === TODO_TOOL || SHELL_TOOL_NAMES.has(toolName)) return false;
+	if (SHELL_TOOL_NAMES.has(toolName)) return false;
 	return isMutatingTool(toolName, annotations);
 }
 

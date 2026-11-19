@@ -66,7 +66,8 @@ interactive terminal; a scripted run gets the tool result only.
 - The list is per session: nothing is shared between sessions or machines.
 - The list can lag by a turn. Say "update the todos" and the model rewrites it;
   the extension also sends one reminder when substantial work lands without an
-  update.
+  update. Planning and recording a goal are not work: those calls change session
+  state, not your files, so they never trigger it.
 - A finished list stays readable in `/todos` until the model changes it.
 
 ## Settings

@@ -10,7 +10,7 @@
  * the item it seeded, so ticking the plan file keeps the list honest.
  */
 
-import type { ExistingTodo } from "../../lib/todo-state.ts";
+import { MAX_TODOS, type ExistingTodo } from "../../lib/todo-state.ts";
 import { elideStep, matchesStepText, normalizeStepText, type PlanStep, type StepUpdate } from "./steps.ts";
 
 /** The merged list plus the counts the approval message reports. */
@@ -47,9 +47,6 @@ export interface TodoMerge {
 	trailing?: "added" | "skipped" | "deferred";
 }
 
-/** Fallback list cap when the registered todo tool does not advertise one. */
-export const DEFAULT_TODO_MAX = 50;
-
 /** What the tick-time mirror did for one `steps` batch. */
 export interface TodoMirror {
 	/** The list after the matching items were brought in line with the plan. */
@@ -64,11 +61,13 @@ export interface TodoMirror {
  * Bring the todo items seeded at approval in line with the plan's new step
  * statuses.
  *
- * Matching is on the text the approval seeded, so an item the user renamed is
- * left alone and counted as unmatched rather than overwritten. Only `status`
- * changes, and the last update for a step number wins, the same rule the plan
- * file's own edit follows. An update that changes nothing is not counted, so a
- * refused or repeated call does not churn the widget.
+ * Matching is on the step's words, not on who wrote the item: an item the reader
+ * already had that names the same task is that task and is ticked with it — the
+ * rule that makes a repeated step one row. An item renamed since says something
+ * else, so it is left alone and counted as unmatched rather than overwritten.
+ * Only `status` changes, and the last update for a step number wins, the same
+ * rule the plan file's own edit follows. An update that changes nothing is not
+ * counted, so a refused or repeated call does not churn the widget.
  */
 export function mirrorStepStatuses(existing: ExistingTodo[], updates: readonly StepUpdate[]): TodoMirror {
 	const byStep = new Map<number, StepUpdate>();
@@ -110,7 +109,7 @@ export function mergeTodos(
 	/** What an earlier approval of this plan seeded, when there was one. */
 	previous?: readonly string[],
 ): TodoMerge {
-	const limit = Number.isInteger(max) && max > 0 ? max : DEFAULT_TODO_MAX;
+	const limit = Number.isInteger(max) && max > 0 ? max : MAX_TODOS;
 	// A plan refined after approval is approved again over the list its first approval
 	// made. An item this plan seeded that is no longer one of its steps is a leftover, and
 	// only an item *this plan seeded* is a candidate: a user's own item is never touched.

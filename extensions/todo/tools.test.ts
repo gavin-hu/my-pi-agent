@@ -7,6 +7,7 @@ import {
 	isMutatingTool,
 	MUTATING_TOOL_NAMES,
 	type NudgeState,
+	SESSION_TOOL_NAMES,
 	shouldNudge,
 	TODO_NUDGE_MARKER,
 } from "./nudge.ts";
@@ -225,6 +226,19 @@ describe("nudge rules", () => {
 		expect([...MUTATING_TOOL_NAMES].sort()).toEqual(["bash", "edit", "powershell", "write"]);
 		expect(isMutatingTool("todo", { readOnlyHint: false })).toBe(false);
 		for (const name of MUTATING_TOOL_NAMES) expect(isMutatingTool(name)).toBe(true);
+	});
+
+	test("a session tracker is not work, and not a file write", () => {
+		// plan and goal both declare `readOnlyHint: false` — they do write, a plan file outside
+		// the checkout and session entries — so the hint alone made a planning turn look like
+		// work and forced a reminder for a list nobody had fallen behind on.
+		expect([...SESSION_TOOL_NAMES].sort()).toEqual(["goal", "plan", "todo"]);
+		for (const name of SESSION_TOOL_NAMES) {
+			expect(isMutatingTool(name, { readOnlyHint: false })).toBe(false);
+			expect(isFileWrite(name, { readOnlyHint: false })).toBe(false);
+		}
+		// The exclusion is by name, so it cannot widen to a tool that merely sounds like one.
+		expect(isMutatingTool("plan_file", { readOnlyHint: false })).toBe(true);
 	});
 
 	test("a board read is not work, and any other board verb is", () => {
