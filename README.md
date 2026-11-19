@@ -134,7 +134,7 @@ advertised to the model, and its instructions load only when the task matches
 | [`init`](./skills/init/SKILL.md) | Creates or updates the instruction file Pi reads, through an interview and a plan you review. |
 | [`refactor`](./skills/refactor/SKILL.md) | Audits for duplication, oversized modules, coupling, and drift, then carries the refactor you pick. |
 | [`next`](./skills/next/SKILL.md) | Suggests what to do next from this conversation, or from the tree when it is empty. |
-| [`triage-board`](./skills/triage-board/SKILL.md) | Turns a board's open cards into a prioritized wave plan with evidence. |
+| [`board-triage`](./skills/board-triage/SKILL.md) | Turns a board's open cards into a prioritized wave plan with evidence. |
 
 ### Themes
 
