@@ -24,13 +24,21 @@ const STEPS: readonly (readonly string[])[] = [
 ];
 
 const lock = acquireGate();
+let code = 0;
 try {
 	for (const [command, ...args] of STEPS) {
 		// Inherited stdio, so the gate reads as it always has and a `Ctrl-C` reaches the child
-		// through the process group. A signal or a failure still runs the `finally` below.
+		// through the process group.
 		const step = spawnSync(command, args, { stdio: "inherit" });
-		if (step.status !== 0) process.exit(step.status ?? 1);
+		if (step.status !== 0) {
+			code = step.status ?? 1;
+			break;
+		}
 	}
 } finally {
+	// The code is carried out rather than exited on inside the `try`: `process.exit` ends the
+	// process without unwinding, so a failing gate would leave its lock behind for the next pane
+	// to reclaim — which is how one dead holder turns into a mystery for a person reading the file.
 	lock?.release();
 }
+process.exit(code);
