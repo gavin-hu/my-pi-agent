@@ -9,21 +9,21 @@
 
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { TODO_TOOL } from "../../../lib/tool-names.ts";
-import { lastTodos } from "../../../lib/todo-state.ts";
+import { lastTodos, MAX_TODOS } from "../../../lib/todo-state.ts";
 import { elideStep, extractPlanSteps, verificationItem, type PlanStep, type StepUpdate } from "../steps.ts";
-import { DEFAULT_TODO_MAX, mergeTodos, mirrorStepStatuses, type TodoMerge } from "../todos.ts";
+import { mergeTodos, mirrorStepStatuses, type TodoMerge } from "../todos.ts";
 import { firstTextLine } from "./nested.ts";
 
 /**
  * The todo tool's item cap, read from its registered schema so the merge stops
- * before the nested call would reject the list. Falls back to the documented
- * default when the tool is absent or has not declared one.
+ * before the nested call would reject the list. Falls back to the cap this
+ * package's `todo` declares, for a session where that tool is not registered.
  */
 function todoMaxItems(pi: ExtensionAPI): number {
 	const info = pi.getAllTools().find((tool) => tool.name === TODO_TOOL);
 	const parameters = info?.parameters as { properties?: { todos?: { maxItems?: unknown } } } | undefined;
 	const max = parameters?.properties?.todos?.maxItems;
-	return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : DEFAULT_TODO_MAX;
+	return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : MAX_TODOS;
 }
 
 /**
