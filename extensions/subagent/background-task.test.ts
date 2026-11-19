@@ -70,4 +70,20 @@ describe("a background run's task", () => {
 
 		expect(outcome.details.background.task).toBe(task);
 	});
+
+	test("a background start's details say whether the child may write", async () => {
+		// The todo nudge classifies a subagent call from this field and never from the hint, so it is a
+		// contract between two extensions: a rename here would leave every writing child counting as no
+		// work at all, and only this case can catch it — the nudge's own cases build their own
+		// `{ readOnly }` object and would stay green while the reminder went missing.
+		const tool = registerSubagentTool(async (options) => success(options.agentName));
+		const args = { agent: "explorer", task: "audit the routes", background: true };
+
+		const writing = await callTool(tool, args, backgroundCtx(tool));
+		const reading = await callTool(tool, { ...args, readOnly: true }, backgroundCtx(tool));
+		await settle();
+
+		expect(writing.details.readOnly).toBe(false);
+		expect(reading.details.readOnly).toBe(true);
+	});
 });

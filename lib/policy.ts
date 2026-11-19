@@ -49,6 +49,28 @@ export function isBoardWork(call: unknown): boolean {
 }
 
 /**
+ * Whether a `subagent` call can have changed a working tree.
+ *
+ * The child's mode is the answer, and the tool publishes it: `makeDetails`
+ * (`extensions/subagent/index.ts`) puts `readOnly: args.readOnly === true` into every result
+ * it builds — a dispatched run, a refused call, and the background start, which spreads that
+ * object. A `tool_execution_end` event carries no input, but it carries this, so the hint —
+ * `readOnlyHint: false`, because a writing child may do anything — never has to be guessed at.
+ *
+ * One answer serves two questions: a read-only child is investigation, the same as `rg`, while a
+ * writing child may have changed any file, so it is work and a file write together.
+ *
+ * The caller gates on the tool's name before asking, and that gate is load-bearing: the field is
+ * read off whatever details it is handed, so another tool that happens to publish `readOnly`
+ * would otherwise answer for this one. A missing field is not work, the bias the nudge states —
+ * a false positive costs a model request, a missed reminder costs nothing.
+ */
+export function isSubagentWork(call: unknown): boolean {
+	if (typeof call !== "object" || call === null) return false;
+	return (call as { readOnly?: unknown }).readOnly === false;
+}
+
+/**
  * Tools that only read the workspace: the built-in structured readers and the
  * packaged document reader. One list for the read-only consumers — plan mode's
  * allowlist, rewind's snapshot policy, and subagent's read-only child allowlist —

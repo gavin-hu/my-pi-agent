@@ -257,6 +257,19 @@ describe("nudge rules", () => {
 		expect(isMutatingTool("board", undefined, { action: "nonesuch" })).toBe(false);
 	});
 
+	test("a subagent answers with the child's own mode, and with nothing else", () => {
+		// The tool publishes the mode in its result — `readOnly: args.readOnly === true` — so the hint
+		// is never consulted. One field answers both questions: a read-only child is investigation,
+		// like `rg`, while a writing child may have changed any file, which is work and a file write.
+		expect(isMutatingTool("subagent", { readOnlyHint: false }, { readOnly: false })).toBe(true);
+		expect(isFileWrite("subagent", { readOnlyHint: false }, { readOnly: false })).toBe(true);
+		expect(isMutatingTool("subagent", { readOnlyHint: false }, { readOnly: true })).toBe(false);
+		expect(isFileWrite("subagent", { readOnlyHint: false }, { readOnly: true })).toBe(false);
+		// No field to read is not work: the bias is a missed reminder, never a spent request.
+		expect(isMutatingTool("subagent", { readOnlyHint: false })).toBe(false);
+		expect(isMutatingTool("subagent", { readOnlyHint: false }, {})).toBe(false);
+	});
+
 	test("a known reader is not work, and an unknown tool needs an explicit mutation hint", () => {
 		expect(isMutatingTool("read")).toBe(false);
 		expect(isMutatingTool("grep", {})).toBe(false);

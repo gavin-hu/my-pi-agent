@@ -31,6 +31,12 @@ describe("lag reminder integration", () => {
 
 	const settle = { type: "agent_before_settle", outcome: "completed", entries: [] } as const;
 	const work = { type: "tool_execution_end", toolName: "edit" } as const;
+	/** A finished `subagent` call, whose result carries the mode the child ran in. */
+	const child = (details: { readOnly: boolean }) => ({
+		type: "tool_execution_end",
+		toolName: "subagent",
+		result: { details },
+	});
 
 	test("injects one reminder when work happened without a todo update", async () => {
 		const { pi, ctx } = await started([resultEntry([pending("one")])]);
@@ -119,6 +125,38 @@ describe("lag reminder integration", () => {
 
 		await emit(pi, "tool_execution_end", call("board", "review"), ctx);
 		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeDefined();
+	});
+
+	test("does not remind for a read-only child, and does remind for a writing one", async () => {
+		// With an open item one mutating call is enough, so the read-only child is asked first: the
+		// reminder is capped at one per user turn, and a writing child behind it would be masked.
+		const open = await started([resultEntry([pending("one")])]);
+		open.pi.allTools = [{ name: "subagent", annotations: { readOnlyHint: false } }];
+
+		await emit(open.pi, "tool_execution_end", child({ readOnly: true }), open.ctx);
+		expect(await emitFirst(open.pi, "agent_before_settle", settle, open.ctx)).toBeUndefined();
+
+		await emit(open.pi, "tool_execution_end", child({ readOnly: false }), open.ctx);
+		expect(await emitFirst(open.pi, "agent_before_settle", settle, open.ctx)).toBeDefined();
+	});
+
+	test("three read-only children with no list ask for nothing, and three writing children still ask", async () => {
+		// The reported defect: three delegated explorations counted as three file writes, so the
+		// empty-list rule asked for a list nobody had started. The writing run is the other half —
+		// without it the case would pass by silencing the rule instead of correcting it.
+		const reading = await started();
+		reading.pi.allTools = [{ name: "subagent", annotations: { readOnlyHint: false } }];
+		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) {
+			await emit(reading.pi, "tool_execution_end", child({ readOnly: true }), reading.ctx);
+		}
+		expect(await emitFirst(reading.pi, "agent_before_settle", settle, reading.ctx)).toBeUndefined();
+
+		const writing = await started();
+		writing.pi.allTools = [{ name: "subagent", annotations: { readOnlyHint: false } }];
+		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) {
+			await emit(writing.pi, "tool_execution_end", child({ readOnly: false }), writing.ctx);
+		}
+		expect(await emitFirst(writing.pi, "agent_before_settle", settle, writing.ctx)).toBeDefined();
 	});
 
 	test("reminds after repeated work with no list", async () => {
