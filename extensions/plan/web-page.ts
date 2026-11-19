@@ -153,10 +153,13 @@ export const REVIEW_CSS = pageSheet(
    details is transparent, so the row is still every action it was; at and below it, the panel
    opens over the document rather than growing a header that already owns 174px of a phone. */
 /* An open details is what makes its children laid out at all: a closed one hides them whatever
-   their display, so the wide row keeps it open and the client shuts it on a phone. */
+   their display, so the wide row keeps it open and the client shuts it on a phone. The pair inside
+   it is a group of its own, so it carries the row's gap: as one display:contents child of the flex
+   row the two buttons were a single anonymous item, and the gap landed beside the pair rather than
+   between them. */
 .review-more[open]{display:contents}
 .review-more__summary{display:none}
-.review-more__panel{display:contents}
+.review-more__panel{display:flex;gap:var(--space-2)}
 @media (max-width:${MORE_ACTIONS_MAX}px){
 .review-more[open]{display:block;position:relative}
 .review-more__summary{display:inline-flex;align-items:center;gap:var(--space-2)}

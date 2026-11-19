@@ -1,5 +1,6 @@
 /**
- * The review's comment controls: what they say, how big they are, and where focus goes.
+ * The review's controls: what they say, how big they are, how they sit beside each other, and
+ * where focus goes.
  *
  * Every rail button used to say "Comment on this block", the count was an unlabelled number,
  * the card actions were 20px high, and a write left the tab stop on the block's control. These
@@ -31,7 +32,7 @@ async function focusedCard(page: Page): Promise<string> {
 	return page.$eval(".bf-comment:focus", (node) => node.textContent ?? "");
 }
 
-describe.skipIf(REVIEW_CHROME === undefined)("the review's comment controls", () => {
+describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 	beforeAll(async () => {
 		browser = await launchReviewBrowser();
 	}, 30_000);
@@ -80,6 +81,26 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment controls", ()
 			);
 			expect(actions.length).toBe(3);
 			for (const height of actions) expect(height).toBeGreaterThanOrEqual(24);
+		} finally {
+			await page.close();
+			await local.close();
+		}
+	});
+
+	test("spaces the header's actions evenly, the pair in a group included", async () => {
+		// The row's gap sits between flex items, and the two actions inside the More details are one
+		// item: `display:contents` on that group handed the gap to the group's outside only, so Share
+		// and Back to Pi touched while every other pair was 8px apart.
+		const local = await mountReview(REVIEW_PAGE);
+		const page = await openReview(browser, local.url);
+		try {
+			const gaps = await page.$$eval("#approve, #save, #share, #cancel", (nodes) =>
+				nodes.slice(1).map((node, index) => {
+					const before = nodes[index]?.getBoundingClientRect();
+					return before ? Math.round(node.getBoundingClientRect().left - before.right) : null;
+				}),
+			);
+			expect(gaps).toEqual([8, 8, 8]);
 		} finally {
 			await page.close();
 			await local.close();

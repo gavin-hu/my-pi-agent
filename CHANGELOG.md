@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the review's header actions are evenly spaced. Share and Back to Pi sat flush against each
+  other while every other pair was 8px apart: the two buttons live inside the More details, which the
+  wide row drew as `display:contents`, so Chrome made the pair one anonymous flex item and the row's
+  gap landed beside it rather than between the two. The panel is a flex group carrying the row's own
+  gap now, and the popup at and below 640 is unchanged. `plan-review.png` is recaptured.
+
 - `plan`: the review's rail lists sections, not the plan's own title. `reviewPageData` built `outline`
   from every heading and read `title` from the first level-1 one, so the heading that named the page
   was drawn twice — in the header and again as list row one, in a section row's own hit shape — and a
