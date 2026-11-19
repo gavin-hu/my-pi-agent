@@ -188,6 +188,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-composer",
 		"web-controls",
 		"web-outline",
+		"web-outline-live",
 		"web-page",
 		"web-payload",
 		"web-rail",
