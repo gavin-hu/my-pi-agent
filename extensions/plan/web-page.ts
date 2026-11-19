@@ -168,9 +168,6 @@ export const REVIEW_CSS = pageSheet(
 .bf-comment--resolved .bf-comment__body{color:var(--muted)}
 .bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--success)}
 .bf-comment__actions{display:flex;gap:4px}
-/* The card's actions are touch targets too: bf-btn--sm is every page's, so the height is
-   raised here rather than in the kit. */
-.bf-comment__actions .bf-btn{min-height:24px;padding-block:3px}
 /* A quote is read at the record's own line height, not the document's: it is one line of context. */
 .bf-comment__body{line-height:var(--lh-snug)}
 .bf-composer{margin:0}

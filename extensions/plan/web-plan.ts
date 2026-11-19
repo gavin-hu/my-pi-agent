@@ -33,29 +33,6 @@ export interface PendingQuote {
 	quote: string;
 }
 
-/**
- * The block's own words, short enough to name the control that sits beside it.
- *
- * A heading carries its text; anything else is read from its first line that is not a fence,
- * with list, quote, emphasis and code markers stripped. A block with no words falls back to
- * "this block", so its control always names something.
- */
-export function blockLabel(block: IslandBlock): string {
-	const clean = (line: string): string =>
-		line
-			.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
-			.replace(/[`#>*_~]/g, "")
-			.replace(/\s+/g, " ")
-			.trim();
-	if (block.kind === "heading" && block.text) return clean(block.text).slice(0, 40) || "this block";
-	for (const line of block.lines ?? []) {
-		if (/^\s*(?:```|~~~)/.test(line)) continue;
-		const text = clean(line);
-		if (text) return text.slice(0, 40);
-	}
-	return "this block";
-}
-
 /** What a repaint reads, and the callbacks it changes the client's state through. */
 export interface PlanRenderDeps {
 	planEl: ClientNode | null;
@@ -118,6 +95,26 @@ export function renderPlanFrame(
 	closePlan();
 	const scrollTop = planEl.scrollTop;
 	planEl.replaceChildren();
+	/**
+	 * The block's own words, short enough to name the control beside it: a heading's text, else
+	 * its first line that is not a fence, with list, quote, emphasis and code markers
+	 * stripped. A block with no words falls back to "this block".
+	 */
+	const blockLabel = (block: IslandBlock): string => {
+		const clean = (line: string): string =>
+			line
+				.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
+				.replace(/[`#>*_~]/g, "")
+				.replace(/\s+/g, " ")
+				.trim();
+		if (block.kind === "heading" && block.text) return clean(block.text).slice(0, 40) || "this block";
+		for (const line of block.lines ?? []) {
+			if (/^\s*(?:```|~~~)/.test(line)) continue;
+			const text = clean(line);
+			if (text) return text.slice(0, 40);
+		}
+		return "this block";
+	};
 	const anchored: Record<number, boolean> = {};
 	const blocks = deps.blocks();
 	// Whether the block after this one continues a run of items. A blank block draws nothing, so a
@@ -230,4 +227,4 @@ export function renderPlanFrame(
 }
 
 /** The block renderer as source, for the client bundle. */
-export const WEB_PLAN_JS = [blockLabel, renderPlanFrame].map(pageSource).join("\n\n");
+export const WEB_PLAN_JS = pageSource(renderPlanFrame);

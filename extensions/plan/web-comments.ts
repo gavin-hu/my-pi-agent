@@ -335,9 +335,9 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       head.appendChild(el("span", "bf-comment__spacer"));
       if (isMine(annotation)) {
         var actions = el("div", "bf-comment__actions");
-        var edit = el("button"); edit.type = "button"; edit.className = "bf-btn bf-btn--sm"; edit.textContent = "Edit";
+        var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
         edit.addEventListener("click", function () { startEdit(card, index); });
-        var settle = el("button"); settle.type = "button"; settle.className = "bf-btn bf-btn--sm";
+        var settle = el("button"); settle.type = "button"; settle.className = "bf-btn";
         settle.textContent = annotation.resolved ? "Reopen" : "Resolve";
         settle.addEventListener("click", function () {
           if (refuseOverDraft()) return;
@@ -348,7 +348,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
           renderAll();
           setStatus(annotation.resolved ? "Comment resolved." : "Comment reopened.");
         });
-        var remove = el("button"); remove.type = "button"; remove.className = "bf-btn bf-btn--sm"; remove.textContent = "Delete";
+        var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
         remove.addEventListener("click", function () { removeComment(index); });
         actions.appendChild(settle); actions.appendChild(edit); actions.appendChild(remove); head.appendChild(actions);
       }
