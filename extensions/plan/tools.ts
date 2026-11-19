@@ -25,14 +25,15 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { StringEnum } from "../../lib/tool-schema.ts";
+import { Text } from "@earendil-works/pi-tui";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { detailsOrLine, messageText, callLine } from "../../lib/tui/tool.ts";
+import { detailsOrLine, messageText, callLine, reuseLines } from "../../lib/tui/tool.ts";
 import { MAX_STEPS, PLAN_OUTLINE } from "./steps.ts";
 import { PLAN_ACTIONS, PLAN_TOOL, type PlanAction, type PlanRuntime } from "./runtime.ts";
 import { callCancel, executeCancel, textCancel } from "./tools/cancel.ts";
 import { callEnter, executeEnter, textEnter } from "./tools/enter.ts";
-import { callExit, executeExit, textExit } from "./tools/exit.ts";
+import { callExit, executeExit, exitText } from "./tools/exit.ts";
 import { callSteps, executeSteps, StepUpdateParams, textSteps } from "./tools/steps.ts";
 import { callWrite, executeWrite, textWrite } from "./tools/write.ts";
 import type { PlanDetails } from "./types.ts";
@@ -183,11 +184,17 @@ export function registerTools(
 					text.setText(textEnter(found, theme));
 					break;
 				case "write":
-					text.setText(textWrite(found, theme));
-					break;
-				case "exit":
-					text.setText(textExit(found, options.expanded, theme));
-					break;
+					// The saved path is an identity: one token whose tail names the file, so the line
+					// takes the middle clip at the width instead of breaking mid-segment.
+					return reuseLines(context?.lastComponent, [{ text: textWrite(found, theme), clip: "middle" }]);
+				case "exit": {
+					const block = exitText(found, options.expanded, theme);
+					return reuseLines(
+						context?.lastComponent,
+						block.lines,
+						block.body === undefined ? undefined : new Text(block.body),
+					);
+				}
 				case "steps":
 					text.setText(textSteps(found, theme));
 					break;

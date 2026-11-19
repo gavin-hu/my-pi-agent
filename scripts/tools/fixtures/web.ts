@@ -39,6 +39,9 @@ export const WEB_FIXTURES: ToolFixture[] = [
 		name: "web_search",
 		group: "package",
 		label: "search results",
+		// The URL row's tail, from where the head cut: before #738 the URL wrapped at the width and
+		// split this token, so the joined lines read "Exponent ial_backoff" and this was absent.
+		identity: "ponential_backoff",
 		args: { query: "exponential backoff retry best practice", maxResults: 3 },
 		result: {
 			content: [{ type: "text", text: 'DuckDuckGo results for "exponential backoff retry best practice"' }],

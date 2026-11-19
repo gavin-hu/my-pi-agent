@@ -95,6 +95,9 @@ export const PLAN_FIXTURES: ToolFixture[] = [
 		tool: "plan",
 		group: "package",
 		label: "a saved plan",
+		// The saved path is the row's identity: a middle clip keeps its tail from where the head
+		// cuts, so the file is still named at 40 columns (#738).
+		identity: "rate-limiting.md",
 		args: { action: "write", title: "Add rate limiting", content: "# Add rate limiting\n" },
 		result: {
 			content: [{ type: "text", text: `Wrote the plan to ${shown(PLAN_PATH)}` }],
@@ -106,6 +109,7 @@ export const PLAN_FIXTURES: ToolFixture[] = [
 		tool: "plan",
 		group: "package",
 		label: "an approved plan",
+		identity: "rate-limiting.md",
 		args: { action: "exit", plan_path: PLAN_PATH },
 		result: {
 			content: [{ type: "text", text: "Plan approved. Plan mode is off and write access is restored." }],
