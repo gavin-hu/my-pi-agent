@@ -13,8 +13,11 @@
  * is the renderer's whole input, so a producer states the facts once and the
  * renderer decides the look. `burstText` is the one assembly of that content for
  * a burst of pending outcomes, so a job completion, a watch match, and a bus
- * message are laid out by the same code. Value-only: constants and pure
- * functions, no state.
+ * message are laid out by the same code. It also owns the retention rule its own
+ * pruner is the notice case of, {@link retainNewest}, which every extension that
+ * injects one message per run calls from its `context` handler — `goal`, `todo`,
+ * `plan`, `memory` and `board` — so the conversation keeps the newest and drops
+ * the rest. Value-only: constants and pure functions, no state.
  */
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
@@ -101,14 +104,36 @@ export function isNotice(message: AgentMessage): message is NoticeEntry {
 }
 
 /**
+ * The retention rule for context an extension injects once per run: keep only the
+ * newest of its own messages, or drop them all when the caller says the injection
+ * is no longer current.
+ *
+ * Generic over the message type, so a caller keeps whatever narrowing its own
+ * predicate gives it. The answer holds the same references in the same order, and
+ * `undefined` means nothing is stale, so a `context` handler can return it and leave
+ * the request untouched.
+ */
+export function retainNewest<M>(
+	messages: readonly M[],
+	isOwn: (message: M) => boolean,
+	options: { active?: boolean } = {},
+): M[] | undefined {
+	const own = messages.filter(isOwn);
+	if (options.active === false) return own.length === 0 ? undefined : messages.filter((message) => !isOwn(message));
+	if (own.length <= 1) return undefined;
+	const newest = own[own.length - 1];
+	return messages.filter((message) => !isOwn(message) || message === newest);
+}
+
+/**
  * Keep only the newest notice of `source` in a transcript, so stale injected
  * context does not accumulate. Notices of other sources and every non-notice
  * are left alone. Returns `undefined` when nothing is stale, so a `context`
  * handler can leave the messages untouched.
+ *
+ * The notice case of {@link retainNewest}, so an injected notice and an injected
+ * context message are pruned by one body.
  */
 export function pruneStaleNotices(messages: readonly AgentMessage[], source: string): AgentMessage[] | undefined {
-	const ofSource = messages.filter((message) => isNotice(message) && message.details?.source === source);
-	if (ofSource.length <= 1) return undefined;
-	const keep = ofSource[ofSource.length - 1];
-	return messages.filter((message) => !(isNotice(message) && message.details?.source === source && message !== keep));
+	return retainNewest(messages, (message) => isNotice(message) && message.details?.source === source);
 }

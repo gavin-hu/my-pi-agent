@@ -44,6 +44,9 @@ function isGoalContext(message: AgentMessage): boolean {
 export default function goal(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("goal")) return;
 	const runtime = createGoalRuntime(pi);
+	// The retention rule, loaded by the first request that needs it: a `context`
+	// filter is not a surface a session start should pay for.
+	let retention: Promise<typeof import("../../lib/notice.ts")> | undefined;
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
@@ -86,15 +89,12 @@ export default function goal(pi: ExtensionAPI): void {
 
 	// Keep stale goal restatements out of later turns (for example after the goal
 	// is cleared or achieved, or when /resume replays old history).
-	pi.on("context", (event) => {
-		const pursued = isPursuedGoal(runtime.getGoal());
-		const contexts = event.messages.filter(isGoalContext);
-		if (contexts.length === 0) return undefined;
-		if (!pursued) return { messages: event.messages.filter((message) => !isGoalContext(message)) };
-		// `before_agent_start` injects one each turn; keep only the newest so
-		// repeated instructions do not accumulate.
-		if (contexts.length <= 1) return undefined;
-		const last = contexts[contexts.length - 1];
-		return { messages: event.messages.filter((message) => !isGoalContext(message) || message === last) };
+	pi.on("context", async (event) => {
+		// The phase is read before the deferred load, so the flag describes the request
+		// being filtered rather than whatever the mode became while the module loaded.
+		const active = isPursuedGoal(runtime.getGoal());
+		const { retainNewest } = await (retention ??= import("../../lib/notice.ts"));
+		const kept = retainNewest(event.messages, isGoalContext, { active });
+		return kept ? { messages: kept } : undefined;
 	});
 }

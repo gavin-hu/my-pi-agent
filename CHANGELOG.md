@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `goal`, `todo`, `plan`, `memory`, `board`: one retention rule for injected context. `lib/notice.ts`
+  owns `retainNewest` — its own pruner is the notice case — and the five `context` handlers reach it
+  through the deferred import board already used, so no module is evaluated at registration that was
+  not before and no message the host sees changes.
 - `todo`: a planning or goal-only turn no longer counts as work. The lag reminder judged every tool it
   did not list by `readOnlyHint: false`, a hint that claims writing *anything* — plan's five verbs
   share the strictest set and goal declares it too — so entering plan mode, or refining a plan three

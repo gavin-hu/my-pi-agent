@@ -32,6 +32,9 @@ function isTodoNudge(message: AgentMessage): message is AgentMessage & { customT
 export default function todo(pi: ExtensionAPI) {
 	if (!isExtensionEnabled("todo")) return;
 	const runtime = createTodoRuntime(pi);
+	// The retention rule, loaded by the first request that needs it: a `context`
+	// filter is not a surface a session start should pay for.
+	let retention: Promise<typeof import("../../lib/notice.ts")> | undefined;
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
@@ -92,14 +95,12 @@ export default function todo(pi: ExtensionAPI) {
 
 	// Drop a reminder once it is no longer current (a new user turn, or replay),
 	// and keep only the newest while it is, so reminders never accumulate.
-	pi.on("context", (event) => {
-		const contexts = event.messages.filter(isTodoNudge);
-		if (contexts.length === 0) return undefined;
-		if (!runtime.isNudgeActive()) {
-			return { messages: event.messages.filter((message) => !isTodoNudge(message)) };
-		}
-		if (contexts.length <= 1) return undefined;
-		const last = contexts[contexts.length - 1];
-		return { messages: event.messages.filter((message) => !isTodoNudge(message) || message === last) };
+	pi.on("context", async (event) => {
+		// The flag is read before the deferred load, so it describes the request being
+		// filtered rather than whatever the turn became while the module loaded.
+		const active = runtime.isNudgeActive();
+		const { retainNewest } = await (retention ??= import("../../lib/notice.ts"));
+		const kept = retainNewest(event.messages, isTodoNudge, { active });
+		return kept ? { messages: kept } : undefined;
 	});
 }
