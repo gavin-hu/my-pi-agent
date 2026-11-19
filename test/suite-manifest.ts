@@ -364,6 +364,7 @@ export const LIB_SUITES: readonly string[] = [
 	"json",
 	"lazy",
 	"lines",
+	"notice",
 	"plans/paths",
 	"process",
 	"report",

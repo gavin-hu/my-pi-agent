@@ -527,6 +527,24 @@ describe("registration module budget", () => {
 		expect(reached, "a deferral was reverted: load the module inside the call that needs it").toEqual([]);
 	});
 
+	test("the injected-context rule is loaded by the handler that needs it", () => {
+		// The property, not a row: `lib/notice.ts` already sits in bytefly, job, session-bus and
+		// watch, and the five extensions that only prune their own injected message must not pay
+		// it at registration — a static import put back would still pass every row (#658).
+		const viaHandler = ["goal", "todo", "plan", "memory", "board"];
+		const paying = ENTRIES.filter((entry) => viaHandler.includes(extensionOf(entry))).filter((entry) =>
+			[...staticGraph(entry)].some((file) => file.endsWith("lib/notice.ts")),
+		);
+		expect(paying.map(extensionOf), "load the rule inside the context handler that calls it").toEqual([]);
+		// The four entries that already paid it are the premise of no row moving.
+		const loaders = ["bytefly", "job", "session-bus", "watch"];
+		const missing = loaders.filter((name) => {
+			const entry = ENTRIES.find((candidate) => extensionOf(candidate) === name);
+			return entry === undefined || ![...staticGraph(entry)].some((file) => file.endsWith("lib/notice.ts"));
+		});
+		expect(missing, "the notice's own loaders are what make the zero-raise shape work").toEqual([]);
+	});
+
 	test("the bus's file layer reaches only the entry that owns it", () => {
 		// The rows above say `board`, `team` and `job` no longer pay `lib/session-files.ts`; this
 		// says why that is a property rather than a number. Every read of the bus happens inside

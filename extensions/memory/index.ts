@@ -50,6 +50,9 @@ function isMemoryContext(message: AgentMessage): boolean {
 export default function memory(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("memory")) return;
 	const runtime = createMemoryRuntime(pi);
+	// The retention rule, loaded by the first request that needs it: a `context`
+	// filter is not a surface a session start should pay for.
+	let retention: Promise<typeof import("../../lib/notice.ts")> | undefined;
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
@@ -83,11 +86,10 @@ export default function memory(pi: ExtensionAPI): void {
 	});
 
 	// Keep only the newest injection; older runs' copies are dropped.
-	pi.on("context", (event) => {
-		const contexts = event.messages.filter(isMemoryContext);
-		if (contexts.length <= 1) return undefined;
-		const last = contexts[contexts.length - 1];
-		return { messages: event.messages.filter((message) => !isMemoryContext(message) || message === last) };
+	pi.on("context", async (event) => {
+		const { retainNewest } = await (retention ??= import("../../lib/notice.ts"));
+		const kept = retainNewest(event.messages, isMemoryContext);
+		return kept ? { messages: kept } : undefined;
 	});
 
 	pi.on("session_shutdown", async () => {

@@ -103,6 +103,9 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 	if (!isExtensionEnabled("plan")) return;
 	const policy = createPlanPolicy(pi);
 	const runtime = createPlanRuntime(pi, policy, { entryPath: extensionEntryPath() });
+	// The retention rule, loaded by the first request that needs it: a `context`
+	// filter is not a surface a session start should pay for.
+	let retention: Promise<typeof import("../../lib/notice.ts")> | undefined;
 	/** The session this review serves as; its prefix lands on that session's one server. */
 	let sessionId = "";
 	const web = createLazyPlanWebReview(runtime.plans, {
@@ -265,15 +268,14 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 	});
 
 	// Keep stale plan-mode context out of later, non-plan turns (for example after /resume).
-	pi.on("context", (event) => {
-		const planContexts = event.messages.filter(isPlanModeContext);
-		if (runtime.isEnabled()) {
-			// `before_agent_start` injects one each turn; keep only the newest so
-			// repeated instructions do not accumulate during a long plan.
-			if (planContexts.length <= 1) return undefined;
-			const last = planContexts[planContexts.length - 1];
-			return { messages: event.messages.filter((message) => !isPlanModeContext(message) || message === last) };
-		}
-		return { messages: event.messages.filter((message) => !isPlanModeContext(message)) };
+	pi.on("context", async (event) => {
+		// The mode is read before the deferred load, so the flag describes the request being
+		// filtered. Disabled with none of our own it answers `undefined` where this branch used to
+		// hand back the list unchanged: the host sees the same messages, and the helper's one no-op
+		// rule is what lets the five handlers share one body.
+		const active = runtime.isEnabled();
+		const { retainNewest } = await (retention ??= import("../../lib/notice.ts"));
+		const kept = retainNewest(event.messages, isPlanModeContext, { active });
+		return kept ? { messages: kept } : undefined;
 	});
 }

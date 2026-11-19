@@ -56,6 +56,8 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	 */
 	let contextModule: Promise<typeof import("./context.ts")> | undefined;
 	let endedModule: Promise<typeof import("./ended.ts")> | undefined;
+	// The shared retention rule, on the same terms: the `context` handler is where it is used.
+	let retention: Promise<typeof import("../../lib/notice.ts")> | undefined;
 	const page =
 		deps.page ??
 		createLazyBoardPage(session, {
@@ -118,10 +120,9 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	// the newest and the transcript cannot stack them.
 	pi.on("context", async (event) => {
 		const { isBoardContext } = await (contextModule ??= import("./context.ts"));
-		const contexts = event.messages.filter(isBoardContext);
-		if (contexts.length <= 1) return undefined;
-		const newest = contexts[contexts.length - 1];
-		return { messages: event.messages.filter((message) => message === newest || !isBoardContext(message)) };
+		const { retainNewest } = await (retention ??= import("../../lib/notice.ts"));
+		const kept = retainNewest(event.messages, isBoardContext);
+		return kept ? { messages: kept } : undefined;
 	});
 
 	pi.on("session_shutdown", async () => {
