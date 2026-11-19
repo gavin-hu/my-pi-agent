@@ -40,6 +40,7 @@ import { WEB_OUTLINE_JS } from "./web-outline.ts";
 import { WEB_KEYS_JS } from "./web-keys.ts";
 import { WEB_PLAN_JS } from "./web-plan.ts";
 import { WEB_SETTLE_JS } from "./web-settle.ts";
+import { MORE_ACTIONS_MAX, PLAN_COLLAPSE_MAX } from "./web-page.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -580,6 +581,15 @@ ${WEB_CONFIRM_JS}
   // and the composer it was typing into, which needs the blocks rendered first. A viewer
   // writes nothing, so it has no draft to keep and none to restore.
   var restoredTyping = role === "viewer" ? undefined : restoreDraft();
+  // Two folds, at boot only: the sections list under the shell's band width — the switch and its
+  // count sit above it, so a reader keeps the filter — and the row's quieter actions on a phone.
+  // A reader who opens either afterwards is not fought by a repaint, and one who shrinks the
+  // window keeps what they had; that trade is the reason this runs once and not on every resize.
+  var folds = { "review-sections": ${PLAN_COLLAPSE_MAX}, "review-more": ${MORE_ACTIONS_MAX} };
+  for (var foldId in folds) {
+    var fold = document.getElementById(foldId);
+    if (fold && window.matchMedia && window.matchMedia("(max-width:" + folds[foldId] + "px)").matches) fold.open = false;
+  }
   setupShortcuts();
   renderName();
   renderAll();

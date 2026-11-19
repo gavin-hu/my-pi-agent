@@ -11,6 +11,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reclaimed as dead — and so was a corrupt file naming pid 0, which probes the caller's own process
   group rather than the pid. Existence is the question and `EPERM` means the process is there; a file
   that names no holder is only garbage once it is old enough to rule out a writer mid-take.
+- `plan`: at a narrow width the review gives the document the screen. At 1180px and below the
+  sections list starts shut, and the view switch and its count sit above it rather than inside,
+  so folding the outline no longer takes the filter with it; a comment field is 16px, which stops
+  iOS zooming the page on focus; and at 640 and below Share and Back to Pi fold behind a **More**
+  menu, leaving the row reading Approve & run, Save feedback, More.
 - `check`: `bun run check` queues behind a lock, so two panes cannot gate at once. Three concurrent
   runs turned browser suites into 30-second timeouts that were not defects, and each one cost a
   second full run to show it was the machine; a second gate now prints the holder and its time left

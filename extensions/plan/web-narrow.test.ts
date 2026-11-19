@@ -162,3 +162,140 @@ describe.skipIf(REVIEW_CHROME === undefined)("a fenced line at a narrow width", 
 		await page.close();
 	});
 });
+
+/**
+ * The narrow review itself: what the chrome costs the document, and which control answers.
+ *
+ * Every case here reads a box or a computed style, because the defects this card fixes are
+ * invisible to a class name — a list that folds and takes the filter with it, a field that is
+ * 15px, and a row that hides an action behind a menu are all still "present" in the markup.
+ *
+ * The bounds are today's measurements with room, and the comment names the number each one
+ * replaces: at 420 the open band put the plan pane at y=391 of 900 (jack's measurement on
+ * #708), and the switch and its count cost the band 38px of the 317 it now sits at.
+ */
+describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
+	let mount: ReviewMount;
+	let browser: TestBrowser;
+
+	beforeAll(async () => {
+		mount = await mountReview(REVIEW_PAGE);
+		browser = await launchReviewBrowser();
+	}, 30_000);
+
+	afterAll(async () => {
+		await browser?.close();
+		await mount?.close();
+	}, 30_000);
+
+	/** A tab on the served review at one width, with its blocks painted. */
+	async function open(width: number): Promise<Page> {
+		const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+		await page.goto(mount.url, { waitUntil: "load" });
+		await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
+		return page;
+	}
+
+	/** The facts one case reads, measured in the page rather than described by a class. */
+	interface Skin {
+		sectionsOpen: boolean;
+		moreOpen: boolean;
+		planTop: number;
+		viewTop: number;
+		viewInSection: boolean;
+		noteInSection: boolean;
+		shareTop: number;
+		shareVisible: boolean;
+		rowTop: number;
+		rowBottom: number;
+	}
+
+	async function skin(page: Page): Promise<Skin> {
+		return page.evaluate(() => {
+			const doc = (globalThis as unknown as { document: any }).document;
+			const box = (node: any): { top: number; bottom: number; height: number } => {
+				const rect = node.getBoundingClientRect();
+				return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), height: Math.round(rect.height) };
+			};
+			const sections = doc.getElementById("review-sections");
+			const view = doc.getElementById("review-view");
+			const note = doc.getElementById("review-note");
+			const share = doc.getElementById("share");
+			const row = doc.querySelector(".review-actions");
+			return {
+				sectionsOpen: sections ? sections.open : false,
+				moreOpen: doc.getElementById("review-more")?.open ?? false,
+				planTop: box(doc.getElementById("plan")).top,
+				viewTop: view ? box(view).top : -1,
+				viewInSection: view ? sections.contains(view) : true,
+				noteInSection: note ? sections.contains(note) : true,
+				shareTop: share ? box(share).top : -1,
+				shareVisible: share ? box(share).height > 0 : false,
+				rowTop: box(row).top,
+				rowBottom: box(row).bottom,
+			};
+		});
+	}
+
+	test("folds the sections list at 420 and keeps the filter and its count", async () => {
+		const page = await open(420);
+		const shape = await skin(page);
+		// 391 was the open band's pane top on the old markup; the list now starts shut.
+		expect(shape.sectionsOpen, "the list starts shut on a phone").toBe(false);
+		expect(shape.planTop, `the document starts above 391, at ${shape.planTop}`).toBeLessThan(391);
+		// The switch is the page's filter, so it cannot live inside the list it survives.
+		expect(shape.viewInSection, "the switch is outside the sections list").toBe(false);
+		expect(shape.noteInSection, "the count is outside the sections list").toBe(false);
+		expect(shape.viewTop, "the switch is above the document").toBeLessThan(shape.planTop);
+		await page.close();
+	});
+
+	test("leaves the list open at 1280, where the rail is a column", async () => {
+		const page = await open(1280);
+		const shape = await skin(page);
+		expect(shape.sectionsOpen, "a desk keeps the outline open").toBe(true);
+		// Beside, not above: the plan pane starts at the band's own top, not below it.
+		expect(shape.planTop, "the document sits beside the rail").toBeLessThan(200);
+		await page.close();
+	});
+
+	test("sets a comment field at 16px, so a phone does not zoom on focus", async () => {
+		const page = await open(420);
+		await page.click("#plan .bf-block .bf-block__add", { timeout: REVIEW_PAINT_MS });
+		await page.waitForSelector(".bf-composer textarea", { timeout: REVIEW_PAINT_MS });
+		const size = await page.evaluate(() => {
+			const doc = (globalThis as unknown as { document: any; getComputedStyle: any }).document;
+			const style = (globalThis as unknown as { getComputedStyle: any }).getComputedStyle;
+			const area = doc.querySelector(".bf-composer textarea");
+			return area ? Number.parseFloat(style(area).fontSize) : 0;
+		});
+		expect(size, "the kit inherits the 15px body size; the field names 16").toBe(16);
+		await page.close();
+	});
+
+	test("folds sharing and closing behind one control at 640, and shows them when it opens", async () => {
+		const page = await open(640);
+		const shut = await skin(page);
+		expect(shut.moreOpen, "the row starts folded").toBe(false);
+		expect(shut.shareVisible, "a folded action draws nothing").toBe(false);
+
+		await page.click("#review-more > summary");
+		const openShape = await skin(page);
+		expect(openShape.moreOpen).toBe(true);
+		expect(openShape.shareVisible, "the menu draws the action once opened").toBe(true);
+		expect(openShape.shareTop, "the menu covers the document rather than the header's height").toBeGreaterThanOrEqual(
+			shut.rowTop,
+		);
+		await page.close();
+	});
+
+	test("keeps both actions in the row at 1280", async () => {
+		const page = await open(1280);
+		const shape = await skin(page);
+		expect(shape.moreOpen, "the wide row is not a menu").toBe(true);
+		expect(shape.shareVisible, "the action is drawn without opening anything").toBe(true);
+		expect(shape.shareTop, "and it sits in the control row").toBeGreaterThanOrEqual(shape.rowTop);
+		expect(shape.shareTop).toBeLessThan(shape.rowBottom);
+		await page.close();
+	});
+});
