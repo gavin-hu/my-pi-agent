@@ -23,7 +23,6 @@ import { readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { sanitizeLine } from "./format.ts";
 import { asRecord } from "./json.ts";
-import { busPaths, JSON_SUFFIX, listJson, readJsonAs, storedName } from "./session-files.ts";
 
 /** What a message is for: a note, a broadcast, a question, or work handed over. */
 export type MessageKind = "message" | "event" | "ask" | "handoff";
@@ -143,15 +142,24 @@ export function isBusMessage(value: unknown): value is BusMessage {
 	);
 }
 
-/** The message id a file name holds, which is the id a reader compares against. */
-export const idOfFile = (name: string): string => name.slice(0, -JSON_SUFFIX.length);
-
 /** One message file, and the moment it landed in the inbox it sits in. */
 export interface Arrival {
 	/** The file's name, which is where its message id is read from. */
 	name: string;
 	/** The file's mtime: when the message became this inbox's, on the clock every session shares. */
 	at: number;
+}
+
+/**
+ * The bus's layout and its mechanical reads, reached where a read needs them.
+ *
+ * This module is the mail ledger: `board`'s client bundle splices `unreadableText` out of it, and
+ * `session-bus` loads the rest, so a static import of `lib/session-files.ts` put the whole file
+ * layer in that entry's registration graph. Every use is inside an async body — the one exception,
+ * `idOfFile`, moved to its only caller — so the layer is loaded here instead, once per process.
+ */
+async function busFiles(): Promise<typeof import("./session-files.ts")> {
+	return import("./session-files.ts");
 }
 
 /**
@@ -166,6 +174,7 @@ export interface Arrival {
  * already read.
  */
 export async function listArrivals(dir: string): Promise<Arrival[]> {
+	const { listJson } = await busFiles();
 	const names = await listJson(dir);
 	const stamped = await Promise.all(
 		names.map((name) =>
@@ -205,6 +214,7 @@ function sameSend(a: unknown, b: BusMessage): boolean {
  * inbox this asks, and `fromLabel` may have been renamed since — none of them changes the message.
  */
 export async function holdsMessage(dir: string, message: BusMessage): Promise<boolean> {
+	const { readJsonAs } = await busFiles();
 	if (message.key === undefined) return false;
 	for (const { name } of await listArrivals(dir)) {
 		if (sameSend(readJsonAs(join(dir, name), isBusMessage), message)) return true;
@@ -224,6 +234,7 @@ export async function listMessages(dir: string): Promise<string[]> {
 
 /** The inbox directories under one repository's bus, hashed as the bus names them. */
 async function inboxDirs(busDir: string): Promise<string[]> {
+	const { busPaths } = await busFiles();
 	try {
 		const entries = await readdir(busPaths(busDir).inbox, { withFileTypes: true });
 		return entries
@@ -291,6 +302,7 @@ export interface MailLedger {
  * would eat the mail it was describing.
  */
 export async function readMailLedger(busDir: string, records: readonly MailRecord[]): Promise<MailLedger> {
+	const { readJsonAs, storedName } = await busFiles();
 	const held = new Map(records.map((record) => [storedName(record.id), record]));
 	const byId = new Map<string, WaitingMail>();
 	const inboxes: InboxMail[] = [];

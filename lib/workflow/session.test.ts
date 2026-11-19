@@ -277,7 +277,7 @@ describe("busDir", () => {
 		expect(await runtime.busDir(cwd)).toBe(join(agentDir, "session-bus", store.key));
 	});
 
-	test("follows the store's key, not the last segment of the board's own directory", () => {
+	test("follows the store's key, not the last segment of the board's own directory", async () => {
 		// The discriminating case: a board whose directory is called something else entirely.
 		// A key read back off the path — the old `basename(store.dir)` — would put the roster
 		// in `<agent-dir>/session-bus/<that directory's name>`, where no bus ever writes, and
@@ -285,7 +285,7 @@ describe("busDir", () => {
 		// notice.
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const store = createStore(temps.track(tempDir("board-")), { key: "0123456789ab" });
-		expect(busDirFor(agentDir, store)).toBe(join(agentDir, "session-bus", "0123456789ab"));
+		expect(await busDirFor(agentDir, store)).toBe(join(agentDir, "session-bus", "0123456789ab"));
 	});
 
 	test("resolves once per working directory", async () => {

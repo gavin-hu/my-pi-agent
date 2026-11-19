@@ -319,6 +319,20 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * graph. It cannot defer: a record, an inbox name and a claim are spelled by it before the first
  * read, and the board's tab counts a repository's mail through it with no bus running.
  *
+ * That reason was wrong about three of the four, and #658 is the correction rather than a
+ * deletion: nothing spells a path before the first read — every use is inside an async body — so
+ * the layer now loads where a read needs it, and `board` 63 -> 62, `team` 53 -> 52 and
+ * `job` 46 -> 45 pay it back. What could not defer was the *edge*, not the read: the roster's
+ * constants, `workflow/session.ts`'s `BUS_DIR_NAME` and `session-mail.ts`'s four imports were each
+ * a static import used only inside functions, and the one genuine blocker was `idOfFile`, a
+ * synchronous rule over the bus's suffix — it moved to its only caller, `session-bus`'s
+ * `mail-store.ts`, where the suffix is already imported. `session-bus` keeps 45: its
+ * `createBusStore` and `createMailStore` are synchronous factories whose methods close over
+ * `busPaths`, so deferring there means an async factory, which is a refactor of the writer for a
+ * budget three other rows are about. The lesson for a later reader is the one this note exists
+ * to carry: "reached through X" names one carrier, and a static import is a graph edge that can be
+ * moved into a function without changing what any caller waits on.
+ *
  * `plan` went 56 -> 57: the transcript's approved-plan preview draws the review
  * screen's task box through the kit's `checkbox` rather than keeping a second copy
  * of the two roles, and the row grammar brings its own margin with it.
@@ -388,14 +402,14 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
-	board: 64,
+	board: 63,
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
 	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks), and
 	// one more for lib/json: the temp name plan-files used to spell for itself is the owner's
 	// now, so the entry pays the module rather than a second copy of its rule (59 = 58 + json).
 	plan: 59,
-	team: 54,
-	job: 46,
+	team: 53,
+	job: 45,
 	"session-bus": 45,
 	subagent: 34,
 	"web-access": 41,
@@ -476,6 +490,26 @@ describe("registration module budget", () => {
 			},
 		);
 		expect(offenders, "static module evaluations per entry; each row in ENTRY_BUDGET may only fall").toEqual([]);
+	});
+
+	test("the bus's file layer reaches only the entry that owns it", () => {
+		// The rows above say `board`, `team` and `job` no longer pay `lib/session-files.ts`; this
+		// says why that is a property rather than a number. Every read of the bus happens inside
+		// an async body, so the layer loads where a read needs it — a graph that still reaches it
+		// is a static import somebody put back. `session-bus` is the exception and owns the writer:
+		// its store and mail stores are synchronous factories whose methods close over `busPaths`,
+		// so an async factory would be the price of its row falling.
+		const carriers = ENTRIES.filter((entry) => !["session-bus"].includes(extensionOf(entry)));
+		const reached = carriers.filter((entry) =>
+			[...staticGraph(entry)].some((file) => file.endsWith("lib/session-files.ts")),
+		);
+		expect(reached.map(extensionOf), "load the layer inside the read that spells a path").toEqual([]);
+		const owner = ENTRIES.find((entry) => extensionOf(entry) === "session-bus");
+		expect(owner, "the bus's own entry is the layer's owner").toBeDefined();
+		expect(
+			[...staticGraph(owner as string)].some((file) => file.endsWith("lib/session-files.ts")),
+			"session-bus keeps the layer: its factories are synchronous",
+		).toBe(true);
 	});
 
 	test("every entry has a budget, and every budget names an entry", () => {

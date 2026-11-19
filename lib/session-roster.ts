@@ -31,7 +31,6 @@
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { BUS_DIR_NAME, busPaths, JSON_SUFFIX, SESSIONS_DIR_NAME } from "./session-files.ts";
 import type { WaitingPage } from "./session-mail.ts";
 import { sameLabel } from "./session-label.ts";
 import { isPidAlive, type LivenessFn, type StartTokenFn, startTokenOf } from "./spawn.ts";
@@ -381,6 +380,19 @@ function seenOf(value: unknown): string[] | undefined {
 }
 
 /**
+ * The bus's layout, reached where a read spells a path.
+ *
+ * `lib/session-files.ts` is the file layer every bus reader shares, and a module's static imports
+ * are paid by each entry that registers it: `board`, `team` and `job` all carry this reader, so a
+ * static import here cost each of them one registration module. Nothing in this module needs a
+ * path before its first call — every use is inside an async body — so the constants are loaded
+ * here instead, and Node caches the module after the first load.
+ */
+async function busLayout(): Promise<typeof import("./session-files.ts")> {
+	return import("./session-files.ts");
+}
+
+/**
  * One session's own label, found by the id it belongs to.
  *
  * The record is filed under the repository's key, which a caller without a board store
@@ -393,6 +405,7 @@ function seenOf(value: unknown): string[] | undefined {
  * only, answers `undefined` rather than an error.
  */
 export async function readSessionLabel(agentDir: string, id: string): Promise<string | undefined> {
+	const { BUS_DIR_NAME, JSON_SUFFIX, SESSIONS_DIR_NAME } = await busLayout();
 	const root = join(agentDir, BUS_DIR_NAME);
 	let keys: string[];
 	try {
@@ -502,6 +515,7 @@ export async function readTeam(dir: string, limit?: number): Promise<TeamRead> {
  * cadence still builds its frame.
  */
 export async function stampBus(dir: string): Promise<string> {
+	const { busPaths } = await busLayout();
 	const paths = busPaths(dir);
 	const parts: string[] = [
 		await stampOfDir(paths.dir),
@@ -547,6 +561,7 @@ async function namesIn(dir: string): Promise<string[]> {
 
 /** Every record on disk, parsed once, or `undefined` when the bus has never recorded one. */
 async function readRecords(dir: string): Promise<RecordedSession[] | undefined> {
+	const { JSON_SUFFIX, SESSIONS_DIR_NAME } = await busLayout();
 	let names: string[];
 	try {
 		names = await readdir(join(dir, SESSIONS_DIR_NAME));

@@ -7,6 +7,12 @@
  * two while the queue draws one, or a queue naming a recipient the card does not count.
  *
  * The seats: the bus's records name the page's lead, so the column's first card is the page.
+ *
+ * Nothing here registers `session-bus`: the records and inboxes are files its peers wrote, which
+ * is the state a repository is in with the extension switched off, and the tab counts them
+ * anyway because the roster reads them as files. `dependencies.test.ts` holds the graph half of
+ * that fact — no entry but the bus's own reaches `lib/session-files.ts` — so a static import put
+ * back would fail there rather than only costing a start.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";

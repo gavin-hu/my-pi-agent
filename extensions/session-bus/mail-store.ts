@@ -16,10 +16,29 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { sanitizeLine } from "../../lib/format.ts";
-import { busPaths, dropIfEmpty, dropStaleTemps, listJson, readJsonAs, storedName } from "../../lib/session-files.ts";
-import { type BusMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
+import {
+	busPaths,
+	dropIfEmpty,
+	dropStaleTemps,
+	JSON_SUFFIX,
+	listJson,
+	readJsonAs,
+	storedName,
+} from "../../lib/session-files.ts";
+import { type BusMessage, isBusMessage, listMessages } from "../../lib/session-mail.ts";
 import type { BusStore } from "./store.ts";
 import type { DropResult, KeptMail } from "./types.ts";
+
+/**
+ * The message id a file name holds.
+ *
+ * It lives here, beside its only caller, rather than with the readers in `lib/session-mail.ts`
+ * where it started: this is the one use of the bus's suffix that is synchronous, so a static
+ * import of `lib/session-files.ts` would keep the whole file layer in the registration graph of
+ * every entry that loads the mail readers — which is the edge that module's deferral removes.
+ * Do not move it back for tidiness: the module it would return to cannot defer the constant.
+ */
+export const idOfFile = (name: string): string => name.slice(0, -JSON_SUFFIX.length);
 
 /** The half of the store that owns the inboxes. */
 export type MailStore = Pick<BusStore, "peek" | "inbox"> & {
