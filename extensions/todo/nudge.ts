@@ -14,12 +14,13 @@
  *
  * A hint answers "can it write anything?", which is not the question a list
  * needs: it needs "did the working tree change?". The session trackers below
- * write, and are still not work.
+ * write into the agent directory, and so does every board verb but `review`, and
+ * none of it is work.
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { isBoardRead } from "../../lib/policy.ts";
-import { BOARD_TOOL, GOAL_TOOL, PLAN_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
+import { isBoardWork } from "../../lib/policy.ts";
+import { BOARD_TOOL, GOAL_TOOL, PLAN_TOOL, SESSION_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { currentTodo, hasOpenTodos } from "./state.ts";
 import type { Todo } from "./types.ts";
 
@@ -35,25 +36,26 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit"
 
 /**
  * Tools that publish session state instead of changing the working tree: the
- * todo list, the goal, and plan mode's plan file, which lives outside the
- * checkout. Their call is the state, so a turn that only planned or recorded an
- * objective did no work and must not ask for a list. Every other writer is
- * judged by its hint.
+ * todo list, the goal, plan mode's plan file, and the bus. Every one of them
+ * writes the agent directory — `~/.pi/agent` — and none reaches the checkout, so
+ * a turn that only planned, recorded an objective, or sent a message did no work
+ * and must not ask for a list. Every other writer is judged by its hint.
  */
-export const SESSION_TOOL_NAMES: ReadonlySet<string> = new Set([TODO_TOOL, GOAL_TOOL, PLAN_TOOL]);
+export const SESSION_TOOL_NAMES: ReadonlySet<string> = new Set([TODO_TOOL, GOAL_TOOL, PLAN_TOOL, SESSION_TOOL]);
 
 /**
  * Whether a finished tool call counts as work for lag detection. A session
  * tracker never does (its call is the state), a known mutator always does, and
  * any other tool counts only when it explicitly declares `readOnlyHint: false`.
  *
- * `board` is the one mutator whose read face is provable from what the call
- * returned: a result whose `details` say `action: "list"` read the cards and changed
- * nothing, so it counts like every other reader.
+ * `board` is one tool over thirteen actions, so its hint says "may write" and
+ * cannot answer this either: the action the result reports can. A card write is
+ * state, because the board lives in the agent directory, and `review` is work,
+ * because it runs the contract's command as a child process in a tree.
  */
 export function isMutatingTool(toolName: string, annotations?: ToolAnnotations, details?: unknown): boolean {
 	if (SESSION_TOOL_NAMES.has(toolName)) return false;
-	if (toolName === BOARD_TOOL && isBoardRead(details)) return false;
+	if (toolName === BOARD_TOOL) return isBoardWork(details);
 	if (MUTATING_TOOL_NAMES.has(toolName)) return true;
 	return annotations?.readOnlyHint === false;
 }
@@ -63,11 +65,13 @@ export function isMutatingTool(toolName: string, annotations?: ToolAnnotations, 
  * command that may only have read them. The reminder for a run that never
  * started a list needs this: three `rg` calls are investigation, not unplanned
  * work, and a shell call cannot be told apart from one that wrote. So it is a
- * mutating call that is not a shell.
+ * mutating call that is not a shell — with the call's details passed through,
+ * because a board `review` is mutating only when it ran the contract's command
+ * in a tree.
  */
-export function isFileWrite(toolName: string, annotations?: ToolAnnotations): boolean {
+export function isFileWrite(toolName: string, annotations?: ToolAnnotations, details?: unknown): boolean {
 	if (SHELL_TOOL_NAMES.has(toolName)) return false;
-	return isMutatingTool(toolName, annotations);
+	return isMutatingTool(toolName, annotations, details);
 }
 
 /**
