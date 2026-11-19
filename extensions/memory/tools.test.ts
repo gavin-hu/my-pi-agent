@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { overLimit } from "../../lib/format.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
 import { memorySuite, type MemorySuite } from "../../test/helpers/fixtures/memory.ts";
 import memory from "./index.ts";
+import { MAX_ENTRY_CHARS } from "./schema.ts";
 import { TOOL_NAME } from "./tools.ts";
 
 let suite: MemorySuite;
@@ -272,6 +274,44 @@ describe("memory tool actions", () => {
 		expect(updated.details.to).toBe("new note");
 		expect(suite.read("project")).toContain("- new note");
 		expect(suite.read("project")).not.toContain("- old note");
+	});
+
+	test("an over-cap note in the store is updated by its exact text", async () => {
+		// The store is markdown a reader edits by hand, so a note past the cap can exist and is
+		// reachable only by the one string that matches it — the cap belongs to the write.
+		const long = "x".repeat(MAX_ENTRY_CHARS + 100);
+		suite.write("project", `- ${long}\n`);
+		await suite.start();
+
+		const updated = await execute({ action: "update", text: long, to: "short note" });
+		expect(updated.isError).toBeUndefined();
+		expect(updated.details.changed).toBe(true);
+		expect(suite.read("project")).toContain("- short note");
+		expect(suite.read("project")).not.toContain(long);
+	});
+
+	test("an over-cap note in the store is forgotten by its exact text", async () => {
+		const long = "x".repeat(MAX_ENTRY_CHARS + 100);
+		suite.write("project", `- ${long}\n- keep\n`);
+		await suite.start();
+
+		const forgotten = await execute({ action: "forget", text: long });
+		expect(forgotten.isError).toBeUndefined();
+		expect(forgotten.details.changed).toBe(true);
+		expect(suite.read("project")).toBe("- keep\n");
+	});
+
+	test("the cap stays on the note being written", async () => {
+		suite.write("project", "- keep\n");
+		await suite.start();
+		const before = suite.read("project");
+		const long = "x".repeat(MAX_ENTRY_CHARS + 1);
+
+		const added = await execute({ action: "add", text: long });
+		expect(added.details.error).toBe(overLimit("text", long.length, MAX_ENTRY_CHARS));
+		const replaced = await execute({ action: "update", text: "keep", to: long });
+		expect(replaced.details.error).toBe(overLimit("to", long.length, MAX_ENTRY_CHARS));
+		expect(suite.read("project")).toBe(before);
 	});
 
 	test("a non-matching update is an error carrying the unchanged notes", async () => {

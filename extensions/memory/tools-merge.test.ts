@@ -7,7 +7,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { overLimit } from "../../lib/format.ts";
 import { memoryCall, memorySuite, type MemorySuite } from "../../test/helpers/fixtures/memory.ts";
+import { MAX_ENTRY_CHARS } from "./schema.ts";
 
 let suite: MemorySuite;
 
@@ -63,6 +65,39 @@ describe("memory tool merge", () => {
 
 		expect(refused.isError).toBe(true);
 		expect(refused.content[0]?.text).toContain("was named twice");
+		expect(suite.read("project")).toBe(before);
+	});
+
+	test("a merge names an over-cap note by its exact text", async () => {
+		const long = "x".repeat(MAX_ENTRY_CHARS + 100);
+		suite.write("project", `- ${long}\n- Use bun\n`);
+		await suite.start();
+
+		const merged = await memoryCall(suite, {
+			action: "merge",
+			first: long,
+			second: "Use bun",
+			merged: "Use bun for tests",
+		});
+
+		expect(merged.details.changed).toBe(true);
+		expect(suite.read("project")).toContain("- Use bun for tests");
+	});
+
+	test("a merge still caps the note it writes", async () => {
+		suite.write("project", "- Use bun\n- Use bun for tests\n");
+		await suite.start();
+		const before = suite.read("project");
+
+		const refused = await memoryCall(suite, {
+			action: "merge",
+			first: "Use bun",
+			second: "Use bun for tests",
+			merged: "x".repeat(MAX_ENTRY_CHARS + 1),
+		});
+
+		expect(refused.isError).toBe(true);
+		expect(refused.content[0]?.text).toContain(overLimit("merged", MAX_ENTRY_CHARS + 1, MAX_ENTRY_CHARS));
 		expect(suite.read("project")).toBe(before);
 	});
 
