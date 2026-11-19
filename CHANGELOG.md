@@ -5,7 +5,11 @@ All notable changes to this package are documented here. The format is based on
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
+- `plan`: at a narrow width the review gives the document the screen. At 1180px and below the
+  sections list starts shut, and the view switch and its count sit above it rather than inside,
+  so folding the outline no longer takes the filter with it; a comment field is 16px, which stops
+  iOS zooming the page on focus; and at 640 and below Share and Back to Pi fold behind a **More**
+  menu, leaving the row reading Approve & run, Save feedback, More.
 - `check`: `bun run check` queues behind a lock, so two panes cannot gate at once. Three concurrent
   runs turned browser suites into 30-second timeouts that were not defects, and each one cost a
   second full run to show it was the machine; a second gate now prints the holder and its time left
@@ -14,11 +18,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the gate does not wait on itself. The three commands are unchanged behind `scripts/check.ts`, so CI and
   `publish.yml` need no edit — and a CI runner runs one gate and never contends, so nothing about
   that job changes.
-- `plan`: at a narrow width the review gives the document the screen. At 1180px and below the
-  sections list starts shut, and the view switch and its count sit above it rather than inside,
-  so folding the outline no longer takes the filter with it; a comment field is 16px, which stops
-  iOS zooming the page on focus; and at 640 and below Share and Back to Pi fold behind a **More**
-  menu, leaving the row reading Approve & run, Save feedback, More.
 - `plan`: a comment control names its block. Each rail `+` is announced as *Comment on “…”*, the
   count carries its own name, a thread reads as a list, and the rail and card actions reach 24px;
   a write leaves focus on the card it changed, or on the block's `+` when the last comment goes.
