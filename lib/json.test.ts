@@ -5,7 +5,7 @@
  */
 
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../test/helpers/env.ts";
 import { tempPathFor, writeJsonFile, writeTextAtomic, memberOf } from "./json.ts";
@@ -34,6 +34,24 @@ describe("writeTextAtomic", () => {
 		expect(first).not.toBe(second);
 		expect(first).toContain(`.${process.pid}.`);
 		expect(first.endsWith(".tmp")).toBe(true);
+	});
+
+	test("hides the name when the directory is one a person lists", () => {
+		const path = join(newPath(), "2026-10-08-1530-a-plan.md");
+		const visible = tempPathFor(path);
+		const hidden = tempPathFor(path, { hidden: true });
+
+		// A mid-write temp in the plans directory is a dotfile, so a plain `ls` does not show the
+		// half-written file beside the plan; the extension is what actually keeps it out of a plan
+		// reader, and `lib/plans/paths.test.ts` holds that half.
+		expect(basename(hidden).startsWith(".")).toBe(true);
+		expect(basename(hidden)).toContain(".md.");
+		expect(basename(visible).startsWith(".")).toBe(false);
+		expect(dirname(hidden)).toBe(dirname(path));
+		expect(dirname(visible)).toBe(dirname(path));
+		// The pid stays in both: hidden is about who sees it, not about who may collide.
+		expect(hidden).toContain(`.${process.pid}.`);
+		expect(hidden.endsWith(".tmp")).toBe(true);
 	});
 
 	test.skipIf(process.platform === "win32")("publishes at the mode it was given", () => {
