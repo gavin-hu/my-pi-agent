@@ -28,7 +28,9 @@ let code = 0;
 try {
 	for (const [command, ...args] of STEPS) {
 		// Inherited stdio, so the gate reads as it always has and a `Ctrl-C` reaches the child
-		// through the process group.
+		// through the process group. The wrapper does not unwind: `spawnSync` blocks, so no signal
+		// handler of ours can run, and a cancelled gate leaves its lock behind — the next gate's
+		// `check-lock: reclaiming` line is the recovery, and it names the pid it took the file from.
 		const step = spawnSync(command, args, { stdio: "inherit" });
 		if (step.status !== 0) {
 			code = step.status ?? 1;

@@ -13,7 +13,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { acquireGate, GATE_PREFIX, gateLockPath, type GateHolder } from "./gate-lock.ts";
@@ -142,6 +142,57 @@ describe("the gate's lock", () => {
 		expect(waiting.length).toBeGreaterThanOrEqual(2);
 		expect(waiting[0]).toContain("left before this gives up on");
 		lock?.release();
+	});
+
+	test("waits for a holder it may not signal, instead of stealing the lock", () => {
+		const cwd = root();
+		const path = heldByOther(cwd);
+		const original = process.kill.bind(process);
+		const lines: string[] = [];
+		// Another user's gate: the pid exists and the probe is refused rather than answered, which is
+		// what `EPERM` means. Existence is the question, so this is a lock to wait for.
+		process.kill = ((pid: number, signal?: string | number) => {
+			if (pid === OTHER) throw Object.assign(new Error("EPERM"), { code: "EPERM" });
+			return original(pid, signal as never);
+		}) as typeof process.kill;
+		try {
+			expect(() => acquireGate({ cwd, waitMs: 0, log: (line) => lines.push(line), pollMs: 0 })).toThrow(
+				/is still held by pid .*nothing ran/i,
+			);
+		} finally {
+			process.kill = original;
+		}
+		expect(lines.some((line) => line.includes("reclaiming"))).toBe(false);
+		expect(lines.some((line) => line.includes("waiting for pid " + OTHER))).toBe(true);
+		expect((JSON.parse(readFileSync(path, "utf-8")) as GateHolder).pid).toBe(OTHER);
+	});
+
+	test("does not read a corrupt zero pid as a holder, and reclaims it once it is old", () => {
+		const cwd = root();
+		const path = gateLockPath(cwd);
+		mkdirSync(dirname(path), { recursive: true });
+		// `process.kill(0, 0)` probes the caller's own process group and answers true, so a lock
+		// naming pid 0 would hold the gate for the whole wait if it were taken at face value.
+		writeFileSync(path, JSON.stringify({ pid: 0, startedAt: new Date(0).toISOString() }));
+		const old = new Date(Date.now() - 60_000);
+		utimesSync(path, old, old);
+		const lines: string[] = [];
+		const lock = acquireGate({ cwd, log: (line) => lines.push(line) });
+		expect(lock).toBeDefined();
+		expect(lines.some((line) => line.includes("names no holder"))).toBe(true);
+		expect((JSON.parse(readFileSync(path, "utf-8")) as GateHolder).pid).toBe(process.pid);
+		lock?.release();
+	});
+
+	test("waits on a fresh file it cannot read, because its writer may be mid-take", () => {
+		const cwd = root();
+		const path = gateLockPath(cwd);
+		mkdirSync(dirname(path), { recursive: true });
+		writeFileSync(path, JSON.stringify({ pid: 0, startedAt: new Date(0).toISOString() }));
+		const lines: string[] = [];
+		expect(() => acquireGate({ cwd, waitMs: 0, log: (line) => lines.push(line), pollMs: 0 })).toThrow(/nothing ran/i);
+		expect(lines.some((line) => line.includes("reclaiming"))).toBe(false);
+		expect((JSON.parse(readFileSync(path, "utf-8")) as GateHolder).pid).toBe(0);
 	});
 
 	test("gives every root its own lock", () => {

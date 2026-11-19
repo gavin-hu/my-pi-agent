@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `check`: a gate that may not signal the pane holding the lock now waits for it instead of stealing
+  it. `alive()` read every refusal from `process.kill` as "gone", so a lock held by another user was
+  reclaimed as dead — and so was a corrupt file naming pid 0, which probes the caller's own process
+  group rather than the pid. Existence is the question and `EPERM` means the process is there; a file
+  that names no holder is only garbage once it is old enough to rule out a writer mid-take.
 - `check`: `bun run check` queues behind a lock, so two panes cannot gate at once. Three concurrent
   runs turned browser suites into 30-second timeouts that were not defects, and each one cost a
   second full run to show it was the machine; a second gate now prints the holder and its time left
