@@ -1,32 +1,28 @@
 /**
  * Who is on this repository's session bus, read as data.
  *
- * The Team tab lists teammates, and `session-bus` owns those records. Neither
- * extension may import the other, and the board must keep working when the bus is
- * not loaded — so the records are read where the bus already put them,
- * `<agent-dir>/session-bus/<repo-key>/`, as files rather than through its code. The
- * directory names, the record fields this reader trusts, and the liveness rule live
- * here once, and `session-bus` imports them, so a layout change cannot land in one
- * copy and not the other.
+ * The Team tab lists teammates, and `session-bus` owns those records. Neither extension may import the
+ * other, and the board must keep working when the bus is not loaded — so the records are read where the
+ * bus already put them, `<agent-dir>/session-bus/<repo-key>/`, as files rather than through its code. The
+ * directory names, the record fields this reader trusts, and the liveness rule live here once, and
+ * `session-bus` imports them, so a layout change cannot land in one copy and not the other. The layout is
+ * loaded by the read that spells a path rather than at import: `board`, `team` and `job` each pay this
+ * module's static imports, and none of them needs a path before a call.
  *
- * The rule answers three things, not two: a record whose process is gone is `gone` at
- * once, rather than aging into `quiet` for ten minutes while the paths it claimed stay
- * held and the cards it held read `idle`.
+ * The rule answers three things, not two: a record whose process is gone is `gone` at once, rather than
+ * aging into `quiet` while the paths it claimed stay held.
  *
- * A missing directory is an answer, not an error: it means no session has ever
- * joined this repository, and a caller renders that differently from an empty bus.
+ * A missing directory is an answer, not an error: no session ever joined, which reads differently from an
+ * empty bus.
  *
- * Two questions are asked of these records, and both are answered here because they are one
- * rule over one file. `presenceOf` reports what an owner is — live, quiet, gone, or absent from
- * a bus that has pruned it — which is what a card's lane depends on. `peerOf` addresses a name:
- * which record a message goes to, and what that record says about reading it; `lookupPeer` is the
- * same rule with the one fact a caller that words a refusal needs — the several live records a
- * label is shared by. "Which record does this name name" was answered three times before it lived
- * here, once per caller, and the three answers disagreed about a stopped record and about a label
- * two sessions share.
+ * Two questions are asked of these records, and both are answered here because they are one rule over one
+ * file. `presenceOf` reports what an owner is — live, quiet, gone, or absent from a bus that has pruned it
+ * — which is what a card's lane depends on. `peerOf` addresses a name: which record a message goes to, and
+ * what it says about reading it; `lookupPeer` adds the fact a refusal needs, the several live records a
+ * label is shared by — a question answered three times, three different ways, before it lived here.
  *
- * Pure I/O, no state: one read answers one caller, and nothing is cached — a
- * heartbeat is ten seconds old at most, and the caller polls on its own clock.
+ * Pure I/O, no state: one read answers one caller, nothing is cached — a heartbeat is ten seconds old at
+ * most — and the caller polls on its own clock.
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
@@ -380,19 +376,6 @@ function seenOf(value: unknown): string[] | undefined {
 }
 
 /**
- * The bus's layout, reached where a read spells a path.
- *
- * `lib/session-files.ts` is the file layer every bus reader shares, and a module's static imports
- * are paid by each entry that registers it: `board`, `team` and `job` all carry this reader, so a
- * static import here cost each of them one registration module. Nothing in this module needs a
- * path before its first call — every use is inside an async body — so the constants are loaded
- * here instead, and Node caches the module after the first load.
- */
-async function busLayout(): Promise<typeof import("./session-files.ts")> {
-	return import("./session-files.ts");
-}
-
-/**
  * One session's own label, found by the id it belongs to.
  *
  * The record is filed under the repository's key, which a caller without a board store
@@ -405,7 +388,7 @@ async function busLayout(): Promise<typeof import("./session-files.ts")> {
  * only, answers `undefined` rather than an error.
  */
 export async function readSessionLabel(agentDir: string, id: string): Promise<string | undefined> {
-	const { BUS_DIR_NAME, JSON_SUFFIX, SESSIONS_DIR_NAME } = await busLayout();
+	const { BUS_DIR_NAME, JSON_SUFFIX, SESSIONS_DIR_NAME } = await import("./session-files.ts");
 	const root = join(agentDir, BUS_DIR_NAME);
 	let keys: string[];
 	try {
@@ -515,7 +498,7 @@ export async function readTeam(dir: string, limit?: number): Promise<TeamRead> {
  * cadence still builds its frame.
  */
 export async function stampBus(dir: string): Promise<string> {
-	const { busPaths } = await busLayout();
+	const { busPaths } = await import("./session-files.ts");
 	const paths = busPaths(dir);
 	const parts: string[] = [
 		await stampOfDir(paths.dir),
@@ -561,7 +544,7 @@ async function namesIn(dir: string): Promise<string[]> {
 
 /** Every record on disk, parsed once, or `undefined` when the bus has never recorded one. */
 async function readRecords(dir: string): Promise<RecordedSession[] | undefined> {
-	const { JSON_SUFFIX, SESSIONS_DIR_NAME } = await busLayout();
+	const { JSON_SUFFIX, SESSIONS_DIR_NAME } = await import("./session-files.ts");
 	let names: string[];
 	try {
 		names = await readdir(join(dir, SESSIONS_DIR_NAME));
