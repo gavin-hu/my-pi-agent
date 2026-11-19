@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- tui: a path or URL in a tool result stays one token. `plan write`'s saved path, `plan exit`'s plan
+  row and `web_search`'s URL rows were strings handed to Pi's `Text`, which can only wrap — and a
+  path is one token, so at 40 columns the saved path broke after `2026-10` and read as four lines
+  while a search result's URL split mid-word and lost its indent. They return a component now
+  (`LinesAtWidth`, `lib/tui/tool.ts`), which builds its lines at the render width through the same
+  clip the call line uses (`clipLine`, `lib/tui/columns.ts`): the middle clip for an identity,
+  keeping the head that names the file and the tail that identifies it, memoized through
+  `RenderCache` so a frame is one comparison. The fixed column counts in `web_search`
+  (`oneLine(…, 100)`, `160`) go with them, since a width read at render time is the one the reader
+  has; `oneLine` keeps its sanitiser. `read_doc` needed nothing: its call line already takes the
+  middle clip and its result carries no path. `subagent/render.ts`'s four `clip(task, 40/60/50)`
+  are end-clipped prose previews — the `end` clip's own shape — and stay as they are. `bench:render`
+  is unchanged (block 500 at 80 columns 0.1ms; 2,000 records 4,493 lines at 0.2ms, memo
+  1,937/2,000, stable). `assets/tools/plan-exit.png` is recaptured; the sheet and four other tool
+  pictures were already stale before this change, by up to 116px of height, and none of those is
+  this card's.
+
 - web: a label on the accent wash is the text colour, on every surface that paints one. `--accent-soft`
   is the accent at 6% in light and 8% in dark, so the accent's own ratio on it moved with the plane
   beneath — 4.77 on the canvas, 4.48 on a surface and 4.27 on a raised panel, the last two under the

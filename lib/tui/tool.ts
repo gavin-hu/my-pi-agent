@@ -18,9 +18,9 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Component, truncateToWidth } from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 import { formatDuration, sanitizeLine, stripControlChars } from "../format.ts";
-import { clip, clipMiddle } from "./columns.ts";
+import { clip, clipLine, type LineClip } from "./columns.ts";
 import { expandHint, SEPARATORS } from "./glyphs.ts";
 import { RenderCache } from "./render-cache.ts";
 import { paint } from "./tokens.ts";
@@ -89,7 +89,7 @@ export function detailsOrLine<Details extends object>(
 }
 
 /** How a call line gives up columns when the terminal is narrow. */
-export type CallClip = "end" | "middle";
+export type CallClip = LineClip;
 
 /**
  * A tool call line: the same mutable string as Pi's `Text`, but clipped to the
@@ -129,13 +129,63 @@ export class ToolCallText implements Component {
 	render(width: number): string[] {
 		const w = Math.max(1, Math.floor(width));
 		if (this.cachedWidth === w && this.cachedText === this.text) return this.cachedLines;
-		this.cachedLines = this.text
-			.split("\n")
-			.map((line) => (this.clip === "middle" ? clipMiddle(line, w) : truncateToWidth(line, w, "…")));
+		this.cachedLines = this.text.split("\n").map((line) => clipLine(line, w, this.clip));
 		this.cachedWidth = w;
 		this.cachedText = this.text;
 		return this.cachedLines;
 	}
+}
+
+/** One line for a {@link LinesAtWidth}: its text, and how it gives up columns. */
+export interface WidthLine {
+	text: string;
+	clip?: LineClip;
+}
+
+/**
+ * A result built at the render width: identity lines middle-clipped, prose end-clipped, and an
+ * optional body laid out below them.
+ *
+ * A result line handed to Pi's `Text` as a string can only wrap, and a path is one token, so it
+ * hard-breaks mid-segment: at 40 columns a saved plan's path is four lines, and a URL splits
+ * mid-word. This is the call line's rule one rung down the transcript — the same `clipLine`,
+ * memoized the same way — for the results that carry a path or a URL.
+ *
+ * `body` is whatever the result already drew below the identity (a plan's text, a row list): it
+ * is a component, so it keeps its own wrapping, and the memo compares it by identity.
+ */
+export class LinesAtWidth implements Component {
+	private lines: readonly WidthLine[];
+	private body: Component | undefined;
+	private readonly cache = new RenderCache();
+
+	constructor(lines: readonly WidthLine[], body?: Component) {
+		this.lines = lines;
+		this.body = body;
+	}
+
+	setLines(lines: readonly WidthLine[], body?: Component): void {
+		this.lines = lines;
+		this.body = body;
+		this.cache.invalidate();
+	}
+
+	invalidate(): void {
+		this.cache.invalidate();
+	}
+
+	render(width: number): string[] {
+		const w = Math.max(1, Math.floor(width));
+		return this.cache.keyed([w, this.lines, this.body], () => [
+			...this.lines.map((line) => clipLine(line.text, w, line.clip ?? "end")),
+			...(this.body?.render(w) ?? []),
+		]);
+	}
+}
+
+/** Reuse the previous result component when it is one that builds lines at a width. */
+export function reuseLines(last: unknown, lines: readonly WidthLine[], body?: Component): LinesAtWidth {
+	return last instanceof LinesAtWidth ? (last.setLines(lines, body), last) : new LinesAtWidth(lines, body);
 }
 
 /** Reuse the previous call component when it is one with the same clip mode. */
