@@ -10,7 +10,6 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../lib/interaction.ts";
-import { withRailsSuppressed } from "../../lib/rails.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import type { PlanSummary, StoredPlan } from "./plans.ts";
 import { createLazyPlanWebReview, NO_SERVER_DEPS } from "./web-lazy.ts";
@@ -118,6 +117,7 @@ async function openPlanIndex(
 	let selected: (PlanSummary | undefined) | undefined;
 	// A dock list shares the editor slot with the goal and todo rails, so it takes
 	// the dock to itself for as long as it is open, like the other list screens.
+	const { withRailsSuppressed } = await import("../../lib/rails.ts");
 	const { PlanIndexComponent } = await import("./plan-index.ts");
 	await withRailsSuppressed(pi, () =>
 		ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
