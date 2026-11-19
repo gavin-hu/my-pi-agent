@@ -61,8 +61,8 @@ margin, or select text first to quote it; **Save feedback** writes the comments
 into the plan file and returns them to the model as review notes. A selection
 locates the note in this tab: the plan stores the comment beside its block, not
 the quoted text, so another reader sees the note without it. The `+` is
-announced as *Comment on this block*, and it is drawn only while the review can
-still take a comment — a settled review has none.
+announced by its block — *Comment on “Approach”* — and it is drawn only while the
+review can still take a comment — a settled review has none.
 
 <img src="../../assets/screens/plan-review.png" alt="The review page in a browser: a plan title bar with live, quick keys, and the theme toggle; the page's own actions — Share, Approve and run, Save feedback, Back to Pi — in a second header row under it; a rail holding the All, Changed and Comments tabs above the plan's steps and sections; the plan body with a comment being written in its margin; and the plan's checklist drawn as ticked boxes" width="1280" height="2098">
 
