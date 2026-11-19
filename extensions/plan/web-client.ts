@@ -36,6 +36,7 @@ import { WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { WEB_NOTE_JS } from "./web-note.ts";
 import { WEB_COMPOSER_JS } from "./web-composer.ts";
 import { WEB_DRAFT_JS } from "./web-draft.ts";
+import { WEB_BAND_JS } from "./web-band.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
 import { WEB_KEYS_JS } from "./web-keys.ts";
 import { WEB_PLAN_JS } from "./web-plan.ts";
@@ -117,7 +118,7 @@ ${CLIENT_BASE_JS}
 
 ${CLIENT_RUNTIME_JS}
 
-${WEB_OUTLINE_JS}
+${WEB_OUTLINE_JS}${"\n\n"}${WEB_BAND_JS}
 
 ${WEB_BLOCKS_JS}
 
@@ -145,9 +146,9 @@ ${WEB_MARKDOWN_JS}
 
   // Review facts: the plan's step progress, and the comments per section.
   function facts() {
-    // The server counts the same step list approval seeds, so this never disagrees with
-    // the todo list over a checkbox outside the Steps section.
+    // The server counts the same steps approval seeds, so this never disagrees with the todo list.
     renderFacts(data.steps || { done: 0, total: 0 }, annotations, outlineItems, outlineEntries());
+    paintBandCounts(data.steps || { done: 0, total: 0 }, annotations);
     updateState();
   }
 
@@ -229,8 +230,7 @@ ${WEB_MARKDOWN_JS}
       var button = buttons[i];
       var name = button.getAttribute("data-view");
       button.setAttribute("aria-pressed", name === view ? "true" : "false");
-      // A view this page cannot offer is off, and says why: nothing to compare against is
-      // not an empty view.
+      // A view this page cannot offer is off: nothing to compare against is not an empty view.
       button.disabled = offered.indexOf(name) < 0;
       if (name === "changed")
         button.title =
@@ -238,6 +238,7 @@ ${WEB_MARKDOWN_JS}
             ? "Only what this review changed"
             : "No earlier review of this plan to compare against";
     }
+    paintBandView((document.querySelector('[data-view][aria-pressed="true"]') || {}).textContent || null);
     if (viewNoteEl) viewNoteEl.textContent = viewNote(view, counts);
   }
 

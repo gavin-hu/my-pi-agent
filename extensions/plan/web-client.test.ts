@@ -75,8 +75,7 @@ describe("review client", () => {
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("review-note")');
 		expect(REVIEW_CLIENT_JS).toContain("viewNoteEl.textContent = viewNote(view, counts)");
 		expect(clientFunction("syncView")).not.toContain("setStatus");
-		expect(REVIEW_CLIENT_JS).not.toContain("the rest hidden");
-		// The view that matched nothing keeps the document whole, so the words are the only signal —
+		expect(REVIEW_CLIENT_JS).not.toContain("the rest hidden"); // The view that matched nothing keeps the document whole, so the words are the only signal —
 		// and there is one per way it can have nothing: no prose matched, or only headings did.
 		for (const sentence of [
 			"Nothing changed since the last review",
@@ -85,6 +84,23 @@ describe("review client", () => {
 			"The only comments are on headings",
 		])
 			expect(REVIEW_CLIENT_JS).toContain(sentence);
+	});
+
+	test("paints the narrow band's row from the same state the rail reads", () => {
+		// The band is one 44px row, so the folded rail cannot show its own facts: the row carries
+		// the pressed view and both counts instead, and they are a second format of the same
+		// numbers, not a second source — data.steps and annotations, the two the facts rows read.
+		const counts = clientFunction("paintBandCounts");
+		expect(counts).toContain('getElementById("band-steps")');
+		expect(counts).toContain('getElementById("band-comments")');
+		expect(counts).toContain("steps.total === 0");
+		// Short because the row is 44px: the rail's own sentence is for the reader who opened it.
+		expect(counts).not.toContain("ticked");
+		expect(counts).not.toContain("open · ");
+		// The view chip takes its words from the button the reader pressed, not a second list.
+		const view = clientFunction("syncView");
+		expect(view).toContain("paintBandView(");
+		expect(clientFunction("paintBandView")).toContain('getElementById("band-view")');
 	});
 
 	test("puts the tab stop back after it rebuilds the block it was in", () => {
