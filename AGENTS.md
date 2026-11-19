@@ -106,16 +106,15 @@ Three are gates; the fourth is review.
 
 - `unknown` at a boundary, never `any`. A cast names the guarantee it relies on,
   about a value you did not build.
-- "No behaviour change" names the inputs it holds for; a difference only on values this
-  build never makes is untested.
+- A behaviour change lands with a test that fails without it. "No behaviour change" names
+  its inputs: a difference only on values this build never makes is untested.
 - No dead branch, commented-out code, or comment that restates its line.
   `test/conventions.test.ts` fails `TODO` markers, suppression comments, `any`, and
   commented-out statements.
-- TUI surfaces follow Pi's design system and the `lib/tui/` kit, listed under
-  [`#conventions`](./CONTRIBUTING.md#conventions): colors from a role, text sanitized
-  at the boundary, width in terminal columns.
-- Do work once per render rather than per frame, and keep nothing that grows with
-  the transcript; `bun run bench:render` measures it.
+- TUI surfaces follow the `lib/tui/` kit ([`#conventions`](./CONTRIBUTING.md#conventions)):
+  colors from a role, text sanitized at the boundary, width in terminal columns.
+- Do work once per render, not per frame; keep nothing that grows with the transcript;
+  `bun run bench:render` measures it.
 
 ## UI verification
 
