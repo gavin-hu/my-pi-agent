@@ -16,6 +16,7 @@
 
 import { createReadStream } from "node:fs";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
+import { settle } from "./compress.ts";
 import type { ServeResponse } from "./response.ts";
 
 /**
@@ -57,6 +58,13 @@ export async function bindLoopback(server: Server, port: number): Promise<number
  * Write one routed response: headers first, then no body for `HEAD`, the file
  * for a `filePath` response, or the buffered body.
  *
+ * The body is gzipped here when the client asked and the type is worth it
+ * ({@link settle}), which is the one place every mount passes through: a page,
+ * a client bundle and a JSON reply reach a socket as the same kind of buffered
+ * body, so compressing in the routers would be three copies of one policy. The
+ * headers are settled before the `HEAD` branch returns, so a `HEAD` answers the
+ * headers of the body it would have sent without the body being built.
+ *
  * A `stream` response is deliberately not handled here: keeping a connection
  * open is the owning server's lifecycle, so it must check `stream` before
  * calling this and open the stream itself through {@link openEventStream}.
@@ -71,18 +79,19 @@ export function respond(
 	result: ServeResponse,
 	afterFlush?: () => void,
 ): void {
-	response.writeHead(result.status, result.headers);
+	const settled = settle(result, request.headers["accept-encoding"], request.method);
+	response.writeHead(settled.status, settled.headers);
 	if ((request.method ?? "GET").toUpperCase() === "HEAD") {
 		response.end(afterFlush);
 		return;
 	}
-	if (result.filePath) {
-		const stream = createReadStream(result.filePath);
+	if (settled.filePath) {
+		const stream = createReadStream(settled.filePath);
 		stream.on("error", () => response.destroy());
 		stream.pipe(response);
 		return;
 	}
-	response.end(result.body ?? "", afterFlush);
+	response.end(settled.body ?? "", afterFlush);
 }
 
 /**
