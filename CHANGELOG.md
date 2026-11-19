@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the review's rail lists sections, not the plan's own title. `reviewPageData` built `outline`
+  from every heading and read `title` from the first level-1 one, so the heading that named the page
+  was drawn twice — in the header and again as list row one, in a section row's own hit shape — and a
+  plan whose only heading is its title got a rail holding nothing else. The title's mark is now taken
+  once and feeds both: it names the page and is left out of the outline, so a seven-section plan reads
+  as seven rows, a plan written in `# Part` sections keeps them, and a title-only plan has no rail to
+  draw, because `hasOutline` was keyed on that same list. `plan-review.png` is recaptured to match.
+
 - dev: `assets/cards/board-triage.html` is the set's eighth posting card, and the one before
   `board-parallel.html`: `capture:cards triage` writes a 1200×675 poster titled `Triage first,
   parallel after` whose three bands are the step that poster starts from — the lead reads the board

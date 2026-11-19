@@ -33,13 +33,13 @@ describe("review session", () => {
 	});
 
 	test("highlights a fenced code block and builds the outline", async () => {
-		const session = await start("# Plan\n\n```ts\nconst x = 1;\n```\n");
+		const session = await start("# Plan\n\n## Goal\n\n```ts\nconst x = 1;\n```\n");
 		const data = islandOf(await (await fetch(session.url)).text());
 
 		const [key, lines] = Object.entries(data.code)[0] ?? [];
 		expect(key).toBeDefined();
 		expect(lines?.join("")).toContain("tok-keyword");
-		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan" }]);
+		expect(data.outline).toEqual([{ id: "s-2", line: 2, level: 2, text: "Goal" }]);
 	});
 
 	test("reports the Steps section progress, not every checkbox", async () => {
@@ -60,10 +60,12 @@ describe("review session", () => {
 	});
 
 	test("marks the outline section that changed since the previous review", async () => {
-		const session = await start("# Plan\n\nNew body\n", { baseline: sectionDigests("# Plan\n\nOld body\n") });
+		const session = await start("# Plan\n\n## Goal\n\nNew\n", {
+			baseline: sectionDigests("# Plan\n\n## Goal\n\nOld\n"),
+		});
 		const data = islandOf(await (await fetch(session.url)).text());
 
-		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan", changed: true }]);
+		expect(data.outline).toEqual([{ id: "s-2", line: 2, level: 2, text: "Goal", changed: true }]);
 	});
 
 	test("marks the blocks that changed, in the lines the page draws", async () => {
@@ -79,22 +81,20 @@ describe("review session", () => {
 	});
 
 	test("says a section lost blocks, which a document cannot draw in place", async () => {
-		const plan = ["# Plan", "", "One."].join("\n");
-		const previous = ["# Plan", "", "One.", "", "Two."].join("\n");
+		const plan = ["# Plan", "", "## Goal", "", "One."].join("\n");
+		const previous = ["# Plan", "", "## Goal", "", "One.", "", "Two."].join("\n");
 		const session = await start(plan, { baseline: sectionDigests(previous) });
 		const data = islandOf(await (await fetch(session.url)).text());
 
-		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan", changed: true, removed: 1 }]);
+		expect(data.outline).toEqual([{ id: "s-2", line: 2, level: 2, text: "Goal", changed: true, removed: 1 }]);
 	});
 
 	test("marks no blocks against a baseline written before block marks", async () => {
 		// A baseline with section digests but no block digests is honoured at the depth it
 		// can be: the section dot, and no guessed block marks.
-		const aged = sectionDigests("# Plan\n\nOld body\n").map((section) => ({
-			title: section.title,
-			digest: section.digest,
-		}));
-		const session = await start("# Plan\n\nNew body\n", { baseline: aged });
+		const digests = sectionDigests("# Plan\n\n## Goal\n\nOld body\n");
+		const aged = digests.map(({ title, digest }) => ({ title, digest }));
+		const session = await start("# Plan\n\n## Goal\n\nNew body\n", { baseline: aged });
 		const data = islandOf(await (await fetch(session.url)).text());
 
 		expect(data.changed).toBeUndefined();
@@ -108,7 +108,7 @@ describe("review session", () => {
 		const session = await start(plan, { baseline: sectionDigests(previous) });
 		const data = islandOf(await (await fetch(session.url)).text());
 
-		expect(data.outline.map((item) => item.changed === true)).toEqual([false, false, true]);
+		expect(data.outline.map((item) => item.changed === true)).toEqual([false, true]);
 	});
 
 	test("uses the plan's H1 as the review title and falls back to the slug", async () => {

@@ -145,8 +145,12 @@ export function reviewPageData(input: ReviewPayloadInput): ReviewPageData {
 	// Which blocks moved, in the document's own numbering: the page draws these, and a
 	// section's shrinkage is the half of a diff a document cannot place in the flow.
 	const blockMarks = blockChangeMarks(input.baseline, current);
+	// The heading that names the page is the document, not one of its sections: the rail lists
+	// what a reader can jump between below it. The same mark feeds both, so the header and the
+	// list cannot disagree, and a plan whose only heading is its title has no rail at all.
+	const titleMark = marks.find((mark) => mark.section.level === 1);
 	const outline = marks.flatMap(({ section, changed }) =>
-		section.title === ""
+		section.title === "" || section.line === titleMark?.section.line
 			? []
 			: [
 					{
@@ -174,7 +178,7 @@ export function reviewPageData(input: ReviewPayloadInput): ReviewPageData {
 		base: input.base,
 		// The document's own H1 reads better than the file-name slug, and the slug is
 		// still the fallback for a plan that starts with something else.
-		title: marks.find((mark) => mark.section.level === 1)?.section.title || planTitle(basename(input.path)),
+		title: titleMark?.section.title || planTitle(basename(input.path)),
 		path: input.path,
 		blocks,
 		...(blockMarks.starts.length === 0 ? {} : { changed: blockMarks.starts }),

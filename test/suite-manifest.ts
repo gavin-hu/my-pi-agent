@@ -189,6 +189,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-controls",
 		"web-outline",
 		"web-page",
+		"web-payload",
 		"web-router",
 		"web-routes",
 		"web-session",
