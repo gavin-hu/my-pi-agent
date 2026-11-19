@@ -34,18 +34,20 @@ const at = (html: string, part: string): number => {
 };
 
 describe("the rail's markup and rules", () => {
-	test("reads state, then the switch, then the help, then the outline", () => {
+	test("folds the whole rail, and reads state then the switch then the help then the outline", () => {
 		// Measured on main at 1440: the finish block — three lines naming the buttons that sit in
 		// the same viewport — held the rail's top, and the plan's progress was a muted row under
-		// it, so a 400px-tall window scrolled the state away before the help.
+		// it, so a 400px-tall window scrolled the state away before the help. #732 then put the
+		// head inside the fold, so the details opens the rail and the desk reads the summary's
+		// hidden element and an open fold.
 		const html = reviewPage();
 		const order = [
+			'id="review-sections"',
 			'id="review-facts"',
 			'id="review-view-label"',
 			'id="review-view"',
 			'id="review-note"',
 			'class="review-finish"',
-			'id="review-sections"',
 			'class="review-hints"',
 		].map((part) => at(html, part));
 		expect(order).toEqual([...order].sort((left, right) => left - right));
@@ -102,7 +104,9 @@ describe("the rail's markup and rules", () => {
 		expect(REVIEW_CSS).toContain(
 			".review-panel--head{padding-bottom:var(--space-3);border-bottom:1px solid var(--border-strong)}",
 		);
-		expect(REVIEW_CSS).toContain(".review-outline .review-sections>.review-panel{padding-top:var(--space-3)}");
+		expect(REVIEW_CSS).toContain(
+			".review-outline .review-sections>.review-panel+.review-panel{padding-top:var(--space-3)}",
+		);
 	});
 });
 
@@ -207,8 +211,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's geometry and colours", 
 			expect(rail.facts.bottom, "the state leads the rail").toBeLessThanOrEqual(rail.caption?.top ?? -1);
 			expect(rail.caption?.bottom, "the caption sits on the switch").toBeLessThanOrEqual(rail.view.top);
 			expect(rail.view.bottom).toBeLessThanOrEqual(rail.finish.top);
-			expect(rail.finish.top).toBeLessThan(rail.sections.top);
-			expect(rail.sections.top).toBeLessThan(rail.hints.top);
+			expect(rail.finish.top).toBeLessThan(rail.navTitle.top);
+			expect(rail.navTitle.top).toBeLessThan(rail.hints.top);
 			expect(rail.captionText).toBe("Show in the plan");
 			expect(rail.groupName, "the group is named by the caption a reader can see").toBe("review-view-label");
 			// One geometry: the row that carries the progress is the row that carries the count.

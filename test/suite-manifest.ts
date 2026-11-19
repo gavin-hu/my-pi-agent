@@ -179,6 +179,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"review-prompt",
 		"web-lazy",
 		"web-anchor",
+		"web-band",
 		"web-behaviour",
 		"web-drafts",
 		"web-blocks",

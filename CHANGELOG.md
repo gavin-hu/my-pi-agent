@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the review's narrow band is one row when shut. Below 1180 the rail's head — the step progress,
+  the comment count, the view switch and the finish sentence — was band chrome above the fold, which the
+  reader could not put away: it cost 207px of a 390×844 phone (the document began 43% down the screen)
+  and 190px of a 900-wide window. Opened, the outline was a flat wrap of equal 26px rows with no
+  indentation. The fold now owns the whole rail, so a shut band is one 44px row carrying Sections, the
+  pressed view and both counts, and opening it gives one section per row, indented by level and 44px
+  tall under a coarse pointer or a narrow window, scrolling inside the shell's existing 50vh band with
+  the row pinned above it. The document starts at 200 of that phone instead of 362. This reverses #729,
+  which kept the switch outside the fold because a folded list took the filter with it and a filtered
+  plan then read as a short one: the row's chips carry the view and both counts, so the state stays
+  visible while the switch costs a tap, and the counts are painted from the same `data.steps` and
+  annotations the rail's own rows read — a second format, never a second source. The desk rail is
+  unchanged, and the shell is not touched, so the board page and the file browser cannot move.
+
 - `plan`: the review's rail leads with the plan's state. Measured at 1440×900, the three-line finish
   sentence held the rail's top while the step progress was a muted row under it — at 1280×400 the
   facts scrolled out of reach — the tab row's bottom and the `Sections` heading shared one y, so the

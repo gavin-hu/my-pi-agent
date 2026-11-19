@@ -237,16 +237,19 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 		});
 	}
 
-	test("folds the sections list at 420 and keeps the filter and its count", async () => {
+	test("folds the whole rail at 420 into one row, and keeps the filter's answer in it", async () => {
 		const page = await open(420);
 		const shape = await skin(page);
-		// 391 was the open band's pane top on the old markup; the list now starts shut.
+		// 391 was the open band's pane top before #732; the fold is one row now, so the document
+		// starts above 250 of 900 rather than 346.
 		expect(shape.sectionsOpen, "the list starts shut on a phone").toBe(false);
-		expect(shape.planTop, `the document starts above 391, at ${shape.planTop}`).toBeLessThan(391);
-		// The switch is the page's filter, so it cannot live inside the list it survives.
-		expect(shape.viewInSection, "the switch is outside the sections list").toBe(false);
-		expect(shape.noteInSection, "the count is outside the sections list").toBe(false);
-		expect(shape.viewTop, "the switch is above the document").toBeLessThan(shape.planTop);
+		expect(shape.planTop, `the document starts above 250, at ${shape.planTop}`).toBeLessThan(250);
+		// #729 kept the switch outside the list because a folded list took the filter with it, and a
+		// filtered plan then read as a short one. #732 reversed that on purpose — one row shut is the
+		// card — so the switch is inside the fold now and the row's chips are what keep the answer:
+		// the pressed view and both counts live in the summary, and `web-band.test.ts` holds them.
+		expect(shape.viewInSection, "the fold owns the whole rail, the switch included").toBe(true);
+		expect(shape.noteInSection, "and the count it writes").toBe(true);
 		await page.close();
 	});
 
