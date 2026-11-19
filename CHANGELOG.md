@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- dev: `assets/cards/board-triage.html` is the set's eighth posting card, and the one before
+  `board-parallel.html`: `capture:cards triage` writes a 1200×675 poster titled `Triage first,
+  parallel after` whose three bands are the step that poster starts from — the lead reads the board
+  once (`board list round`, 17 open, 4 ready), sorts it into W0, W1 and W2 by the `board-triage`
+  skill's rules, and runs wave 1 as the three rows crossing the same `approve` and `review` lines at
+  once. A duplicate folds by root cause (#31 into #24), the refactor (#40) comes before the bug it
+  moves (#44), a naming decision (#52) waits on a person, and each band's floor carries what the
+  drawing cannot show: nothing is written while reading, wave one is at most the `plan` limit, and
+  one `execute` slot stays free as headroom. `cards.css` gains the 380px box the parallel card's
+  two-line head pays for and its header line lists the card.
+
 - `team`: `assign` and `ask` refuse `to: "*"` in the argument layer. The wildcard is the bus's broadcast
   and `offer`'s alone — `ask` sends the `ask` kind and `assign` records one owner — so the refusal used to
   arrive from the transport, after `ask` had already joined the team and after `assign` had written the

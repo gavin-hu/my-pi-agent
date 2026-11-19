@@ -1,7 +1,7 @@
 /**
  * The shell every posting card shares: the plan pair — `plan-flow.html`, prose-led,
- * and `plan-flow-graphic.html`, graphic-led — the board three — `board.html`,
- * `board-team.html`, and `board-parallel.html` — `wechat.html`, the one session
+ * and `plan-flow-graphic.html`, graphic-led — the board four — `board.html`,
+ * `board-team.html`, `board-parallel.html`, and `board-triage.html` — `wechat.html`, the one session
  * drawn with both of its windows — and `ends.html`, the product poster that shows
  * its three ends. Every card is captured by `capture:cards` at 1200×675, except
  * the ends card, which takes the 1200×1500 portrait a timeline shows uncropped.
@@ -313,6 +313,12 @@ body {
  * of the 675 it has to pay back, so its drawing stands 26px shorter and still clears
  * its own floor notes. */
 .diagram--parallel {
+	height: 380px;
+}
+
+/* The triage card pays the parallel card's two-line head and nothing else, and its
+ * drawing is the same 380px: one row of bands, one row of nodes each, two floor notes. */
+.diagram--triage {
 	height: 380px;
 }
 
