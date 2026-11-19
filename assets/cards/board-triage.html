@@ -25,7 +25,7 @@
 				class="diagram diagram--triage"
 				viewBox="0 0 1104 380"
 				role="img"
-				aria-label="Three bands, read to right. Read: one call, board list round, reads 17 open cards and 4 are ready — #24 billing-core is ready, #31 is a duplicate of #24 and folds, #40 billing-core is the refactor, #44 api-null is the bug it moves, and #52 naming is a decision that only a person can make. Nothing is written while reading. Waves: W0 is the refactor first, before the bugs it moves; W1 is three cards — #24, #26, #29 — at most the plan limit in flight; W2 is #44 and #47, later, because their area or a dependency puts them behind. The limits come from bytefly.json, plan 3 and execute 5. Wave 1: the same three cards run at once, each crossing the approve line, which only a session that does not hold the card may sign, then the review spot-check into done. Three are in flight under gavin, tom and jack, and one execute slot is kept free."
+				aria-label="Three bands, read left to right. Read: one call, board list round, reads 17 open cards and 4 are ready — #24 billing-core is ready, #31 is a duplicate of #24 and folds, #40 billing-core is the refactor, #44 api-null is the bug it moves, and #52 naming is a decision that only a person can make. Nothing is written while reading. Waves: W0 is the refactor first, before the bugs it moves; W1 is three cards — #24, #26, #29 — at most the plan limit in flight; W2 is #44 and #47, later, because their area or a dependency puts them behind. The limits come from bytefly.json, plan 3 and execute 5. Wave 1: the same three cards run at once, each crossing the approve line, which only a session that does not hold the card may sign, then the review spot-check into done. Three are in flight under gavin, tom and jack, and one execute slot is kept free."
 			>
 				<defs>
 					<marker
@@ -99,7 +99,7 @@
 
 				<rect class="band band--quiet" x="384" y="282" width="320" height="58" rx="12" />
 				<text class="verb-label verb-label--dim" x="398" y="304">W2 · later</text>
-				<text class="node-label node-label--mono node-label--start" x="398" y="324">#44 · api-null · #47 · docs</text>
+				<text class="verb-note" x="398" y="324">#44 · api-null · #47 · docs</text>
 
 				<text class="verb-note" x="384" y="356">limits from bytefly.json · plan 3 · execute 5</text>
 
