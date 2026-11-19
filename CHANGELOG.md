@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the review's rail leads with the plan's state. Measured at 1440×900, the three-line finish
+  sentence held the rail's top while the step progress was a muted row under it — at 1280×400 the
+  facts scrolled out of reach — the tab row's bottom and the `Sections` heading shared one y, so the
+  heading read as a fourth segment of the switch, the step row wrapped alone to 51px against the
+  comment row's 20px, the progress's empty half drew `--accent-soft` on `--raised` = 1.08:1, and the
+  pressed segment's label was `--accent` on that wash = 4.27:1. The rail now reads state, filter,
+  outline, then help: the facts lead, the switch sits under a `Show in the plan` caption naming the
+  document it redraws and takes its name from that caption by `aria-labelledby`, the finish sentence
+  follows, and a `--border-strong` seam closes the head before the sections list. Both fact rows share
+  one geometry — a whole label and a value flush right, never a second line — the progress is eight
+  6px pips in `--dim` (4.69:1 on the rail) filled with the accent, and the rail's three labels take
+  pairings that clear 4.5: `--on-accent` on `--accent` when pressed (5.19:1), `--text` on `--surface`
+  hovered, `--text` in a section's count badge. `plan-review.png` is recaptured; the kit's
+  `.bf-btn:hover` and a block's own comment badge still wear the 4.27:1 pairing.
+
 - `plan`: the review's current-section mark works at every width. The watcher was rooted in the window
   with a band of `-88px 0px -68% 0px`, both numbers guesses at chrome the page no longer has; at and
   below 860 the sidebar becomes a band above the document, so the pane started lower than the band's

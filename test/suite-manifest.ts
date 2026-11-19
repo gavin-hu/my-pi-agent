@@ -191,6 +191,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-outline-live",
 		"web-page",
 		"web-payload",
+		"web-rail",
 		"web-router",
 		"web-routes",
 		"web-session",
