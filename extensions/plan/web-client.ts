@@ -40,6 +40,7 @@ import { WEB_OUTLINE_JS } from "./web-outline.ts";
 import { WEB_KEYS_JS } from "./web-keys.ts";
 import { WEB_PLAN_JS } from "./web-plan.ts";
 import { WEB_SETTLE_JS } from "./web-settle.ts";
+import { MORE_ACTIONS_MAX, PLAN_COLLAPSE_MAX } from "./web-page.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -580,6 +581,18 @@ ${WEB_CONFIRM_JS}
   // and the composer it was typing into, which needs the blocks rendered first. A viewer
   // writes nothing, so it has no draft to keep and none to restore.
   var restoredTyping = role === "viewer" ? undefined : restoreDraft();
+  // The sections list starts shut under the width where the shell turns the rail into a band: the
+  // switch and its count sit above it, so a reader keeps the filter while the document gets the
+  // screen. Once, at boot — a reader who opens it afterwards is not fought by a repaint, and one
+  // who shrinks the window keeps what they had, which is the trade this line spends.
+  var sectionsList = document.getElementById("review-sections");
+  if (sectionsList && window.matchMedia && window.matchMedia("(max-width:${PLAN_COLLAPSE_MAX}px)").matches)
+    sectionsList.open = false;
+  // The row's two quieter actions fold behind one control on a phone; the details is open by
+  // default so a wide row lays its buttons out, and shut here so a narrow one starts folded.
+  var moreActions = document.getElementById("review-more");
+  if (moreActions && window.matchMedia && window.matchMedia("(max-width:${MORE_ACTIONS_MAX}px)").matches)
+    moreActions.open = false;
   setupShortcuts();
   renderName();
   renderAll();

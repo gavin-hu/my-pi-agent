@@ -42,7 +42,17 @@ export type { ReviewOutlineItem, ReviewPageData } from "./web-payload.ts";
  * The review keeps the shell's collapse at its own width: its outline is long and its document
  * needs the height, so the band arrives earlier than the shell's sidebar does on browse.
  */
-const PLAN_COLLAPSE_MAX = 1180;
+export const PLAN_COLLAPSE_MAX = 1180;
+
+/**
+ * Viewport width, at and below which the control row folds sharing and closing behind one
+ * control.
+ *
+ * The row holds four actions and a phone holds none of them comfortably: two are what a reader
+ * came to do, and the other two can wait behind a menu that opens over the document rather than
+ * growing a header that already owns 174px of the screen.
+ */
+export const MORE_ACTIONS_MAX = 640;
 
 /** Page styles: the kit's four layers, then the review's own rules. */
 export const REVIEW_CSS = pageSheet(
@@ -87,6 +97,17 @@ export const REVIEW_CSS = pageSheet(
    section outline, then the keys. */
 .bf-app__body--single{grid-template-columns:minmax(0,1fr)}
 .review-panel{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4) var(--space-4) var(--space-2)}
+/* The rail is two parts: what a reader can still reach with the outline shut — the finish block,
+   the facts, the switch and its count — and then the sections list they fold away. The shell
+   collapses the sidebar into a band at 1180, so while the list owned the switch a folded list
+   took the filter with it: the count then read as a shorter plan rather than a filtered one. */
+.review-outline{display:flex;flex-direction:column;min-width:0}
+.review-panel--head{padding-bottom:0}
+.review-outline .review-sections{display:flex;flex-direction:column;min-height:0}
+.review-outline .review-sections>.review-panel{padding-top:0}
+/* The kit's open glyph reads the sidebar's own open attribute; here the disclosure is the nested
+   list, and above the collapse the summary is hidden either way. */
+.review-outline .review-sections[open]>.bf-panel__summary::before{content:"\\25BE"}
 .review-facts{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-3);border-bottom:1px solid var(--border)}
 .review-fact{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
 /* The label is one word or two, never a column: squeezed by the value beside it, it broke
@@ -124,6 +145,26 @@ export const REVIEW_CSS = pageSheet(
 .review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:42px}
 .review-hints{margin:auto 0 0;padding-top:var(--space-3);color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-relaxed)}
 .review-hints .bf-kbd{margin:0 1px}
+/* A comment field under 16px makes iOS zoom the whole page on focus. The kit's textarea inherits
+   the document's body size, so this page names the one size a field on a phone needs. */
+.bf-composer .bf-textarea,.bf-comment .bf-textarea{font-size:16px}
+/* Sharing and closing are the two actions a narrow page can afford to put away — a comment in a
+   served sheet is shipped text, so it names the role rather than a button's words. Above 640 the
+   details is transparent, so the row is still every action it was; at and below it, the panel
+   opens over the document rather than growing a header that already owns 174px of a phone. */
+/* An open details is what makes its children laid out at all: a closed one hides them whatever
+   their display, so the wide row keeps it open and the client shuts it on a phone. */
+.review-more[open]{display:contents}
+.review-more__summary{display:none}
+.review-more__panel{display:contents}
+@media (max-width:${MORE_ACTIONS_MAX}px){
+.review-more[open]{display:block;position:relative}
+.review-more__summary{display:inline-flex;align-items:center;gap:var(--space-2)}
+.review-more__summary::after{content:"\\25BE"}
+.review-more>.review-more__panel{display:none}
+.review-more[open]>.review-more__panel{display:flex;flex-direction:column;gap:var(--space-2);position:absolute;right:0;top:calc(100% + var(--space-2));z-index:2;min-width:190px;padding:var(--space-2);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--raised);box-shadow:var(--shadow-2)}
+.review-more[open]>.review-more__panel .bf-btn{justify-content:flex-start}
+}
 /* The reader's shortcut switch: the sheet documents the keys, so its off state is a row
    under them rather than a setting elsewhere. The list dims; the buttons still act. */
 .bf-keys__toggle{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-2) 0 0;padding:var(--space-2) 0 0;border-top:1px solid var(--border);color:var(--muted);font:var(--fs-sm) var(--font-ui);cursor:pointer}
@@ -325,9 +366,8 @@ export function renderReviewPage(data: ReviewPageData): string {
 <div class="review-identity"><button type="button" class="bf-btn bf-btn--ghost" id="reviewer-name" hidden></button></div>`
 			: "";
 	const outlinePanel = hasOutline
-		? `<details class="bf-app__sidebar review-outline" open>
-<summary class="bf-panel__summary">Sections</summary>
-<div class="bf-panel review-panel">
+		? `<div class="bf-app__sidebar review-outline">
+<div class="bf-panel review-panel review-panel--head">
 ${finishBlock(data.role, data.canApprove)}${identity}
 ${reviewFacts(data.role)}
 <div class="bf-tabs review-view" role="group" aria-label="What to show" id="review-view">
@@ -336,10 +376,15 @@ ${reviewFacts(data.role)}
 <button type="button" class="bf-tabs__item" data-view="comments" aria-pressed="false">Comments</button>
 </div>
 <p class="review-note" id="review-note" aria-live="polite"></p>
+</div>
+<details class="review-sections" id="review-sections" open>
+<summary class="bf-panel__summary">Sections</summary>
+<div class="bf-panel review-panel">
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
 ${reviewHints(data.role, data.canApprove)}
 </div>
 </details>
+</div>
 `
 		: "";
 	// Approve is the decisive action, so it takes the primary button and the
@@ -364,7 +409,19 @@ ${reviewHints(data.role, data.canApprove)}
 		: "";
 	// Sharing belongs to the owner; a reviewer's identity is a row in the panel.
 	const shareControl = isOwner ? `<button type="button" class="bf-btn" id="share">Share</button>` : "";
-	const controls = `${shareControl}${approveButton}${saveControl}${closeControl}`;
+	// Sharing and closing are the two actions a phone can afford to put behind one control: the
+	// details is transparent above 640 (see REVIEW_CSS), so the wide row keeps both buttons, and
+	// below it they open over the document instead of growing the header.
+	const aside = `${shareControl}${closeControl}`;
+	const moreControl =
+		aside === ""
+			? ""
+			: `
+<details class="review-more" id="review-more" open>
+<summary class="bf-btn review-more__summary" aria-label="More actions">More</summary>
+<div class="review-more__panel">${aside}</div>
+</details>`;
+	const controls = `${approveButton}${saveControl}${moreControl}`;
 	// One name for the page, read from the role: a view is not a review, and the tab, the
 	// toolbar lockup, and the section of the docs that explains it must not disagree.
 	const pageName = isViewer ? "plan view" : "plan review";
