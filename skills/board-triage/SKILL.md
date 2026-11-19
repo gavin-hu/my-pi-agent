@@ -1,5 +1,5 @@
 ---
-name: triage-board
+name: board-triage
 description: "Turn a board's open cards into a prioritized wave plan: fold duplicates by root cause, group cards by area, place a refactor before the bugs it moves, surface the cards waiting on your decision, and name the first wave with its evidence. Use when a backlog has many bugs or refactors and the next move is unclear, or when asked to triage the board, plan a wave, or say what to work on first; discovery is read-only and writes nothing."
 ---
 
@@ -30,7 +30,7 @@ counts. Then read the project's board settings in `bytefly.json` for the limits;
 defaults only when the file states none: **plan 3, execute 5, one card per session**. Do not
 read the card store directly — `board list` is the one read this skill needs.
 
-A request after `/skill:triage-board` is the scope: a lane (`backlog`), a path or area
+A request after `/skill:board-triage` is the scope: a lane (`backlog`), a path or area
 (`@extensions/board`), a card id, or a question. With no request, triage the whole open
 board. `board({ action: "list", card: "24" })` is the per-card read; use it for the
 first-wave and duplicate candidates, not for every row.

@@ -293,8 +293,8 @@
       "summary": "Audit for duplication, size, coupling, and drift, then carry the refactor you pick."
     },
     {
-      "path": "skills/triage-board.md",
-      "title": "triage-board",
+      "path": "skills/board-triage.md",
+      "title": "board-triage",
       "group": "Skills",
       "summary": "Turn a board's open cards into a prioritized wave plan with evidence, without writing."
     }

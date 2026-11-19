@@ -12,7 +12,7 @@ that declares `disable-model-invocation`.
   tree when the conversation is empty.
 - [`refactor`](./refactor.md) — audit for duplication, oversized modules, coupling,
   and drift, then carry the refactor you pick.
-- [`triage-board`](./triage-board.md) — turn a board's open cards into a prioritized
+- [`board-triage`](./board-triage.md) — turn a board's open cards into a prioritized
   wave plan with evidence, without writing.
 
 Discovery is read-only in the auditing skills: they report and ask, and
