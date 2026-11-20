@@ -5,8 +5,8 @@
  * what the server already rendered. The sidebar (filter, fold, lazy tree,
  * keyboard) is `tree.ts` and the quick-open palette is `palette.ts`; both are
  * fragments of this same IIFE, interpolated below. What stays here is the shell:
- * sorting, wrapping, copying, the diff's hunk navigation, the reading progress,
- * and the page's keymap. Navigation works without any of it.
+ * sorting, wrapping, copying, the reading progress, and the page's keymap.
+ * Navigation works without any of it.
  *
  * Kept as a string constant so the extension is a single self-contained module
  * and `bun build --no-bundle` needs no separate asset.
@@ -226,50 +226,12 @@ ${PALETTE_CLIENT_JS}
 		document.addEventListener("keyup", captureReference);
 	}
 
-	// Keyboard: the shared shortcut sheet, the per-page actions the server
-	// rendered, and hunk-to-hunk navigation through a diff.
+	// Keyboard: the shared shortcut sheet and the per-page actions the server rendered.
 	${keysDialogScript("keys-open")}
-	var hunkAnchors = Array.prototype.slice.call(document.querySelectorAll("[data-hunk]"));
 
 	function toggleRaw() {
 		var next = document.querySelector(".browse-head-actions .bf-tabs .bf-tabs__item:not([aria-current])");
 		if (next) window.location.assign(next.getAttribute("href") || next.href);
-	}
-
-	// The hunk whose header is pinned (or last passed), then one step either way.
-	function moveHunk(delta) {
-		if (hunkAnchors.length === 0) return;
-		var scroller = primaryScroller();
-		// The line a pinned hunk header sticks to: the code viewport's top inset
-		// by its padding. With no scrolling pane (narrow screens) the page is the
-		// viewport, so the anchor is the window top.
-		var lineTop = 8;
-		if (scroller) lineTop = scroller.getBoundingClientRect().top + (parseFloat(getComputedStyle(scroller).paddingTop) || 0);
-		var current = -1;
-		for (var index = 0; index < hunkAnchors.length; index++) {
-			if (hunkAnchors[index].getBoundingClientRect().top <= lineTop + 2) current = index;
-		}
-		var next = Math.max(0, Math.min(hunkAnchors.length - 1, current + delta));
-		if (scroller) scroller.scrollTop += hunkAnchors[next].getBoundingClientRect().top - lineTop;
-		else hunkAnchors[next].scrollIntoView({ block: "start" });
-	}
-
-	// The page's primary scroller: the card body for a file or diff, the main
-	// column otherwise.
-	function primaryScroller() {
-		var candidates = [
-			document.getElementById("main"),
-			document.querySelector(".bf-md"),
-			document.querySelector("pre.bf-code")
-		];
-		var best = null;
-		var bestRange = 0;
-		candidates.forEach(function (node) {
-			if (!node) return;
-			var range = node.scrollHeight - node.clientHeight;
-			if (range > bestRange) { bestRange = range; best = node; }
-		});
-		return bestRange > 0 ? best : null;
 	}
 
 	// A table wider than the pane scrolls sideways, but an overlay scrollbar is
@@ -323,12 +285,6 @@ ${PALETTE_CLIENT_JS}
 		} else if (event.key === "r" && document.querySelector(".browse-head-actions .bf-tabs")) {
 			event.preventDefault();
 			toggleRaw();
-		} else if (event.key === "n" && hunkAnchors.length > 0) {
-			event.preventDefault();
-			moveHunk(1);
-		} else if (event.key === "p" && hunkAnchors.length > 0) {
-			event.preventDefault();
-			moveHunk(-1);
 		} else if (event.key === "-" && document.getElementById("fold-all")) {
 			event.preventDefault();
 			document.getElementById("fold-all").click();

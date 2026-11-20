@@ -17,7 +17,7 @@ describe("normalizeConfig defaults", () => {
 		expect(normalizeConfig(undefined)).toEqual(DEFAULT_CONFIG);
 	});
 
-	test("defaults the caps, the diff view, and live status", () => {
+	test("defaults the caps, the change chrome, and live status", () => {
 		expect(DEFAULT_CONFIG).toMatchObject({
 			maxFileBytes: 1024 * 1024,
 			maxThumbBytes: 5 * 1024 * 1024,
@@ -28,8 +28,6 @@ describe("normalizeConfig defaults", () => {
 			markdownHtml: true,
 			maxIndexEntries: 20000,
 			gitDiff: true,
-			diffContext: 3,
-			maxDiffLines: 4000,
 			live: true,
 			liveIntervalMs: 5000,
 		});
@@ -41,7 +39,7 @@ describe("normalizeConfig booleans", () => {
 		["thumbnails", "inline thumbnails"],
 		["markdown", "rendered Markdown"],
 		["markdownHtml", "sanitized raw HTML"],
-		["gitDiff", "the diff view"],
+		["gitDiff", "the change chrome"],
 		["live", "the live status channel"],
 	];
 
@@ -66,11 +64,6 @@ describe("normalizeConfig numeric clamps", () => {
 		{ key: "maxDirEntries", raw: 0, expected: 1 },
 		{ key: "maxIndexEntries", raw: 5, expected: 5 },
 		{ key: "maxIndexEntries", raw: 0, expected: 1 },
-		{ key: "diffContext", raw: 1, expected: 1 },
-		{ key: "diffContext", raw: -2, expected: 0 },
-		{ key: "diffContext", raw: 500, expected: 100 },
-		{ key: "maxDiffLines", raw: 10, expected: 10 },
-		{ key: "maxDiffLines", raw: 0, expected: 1 },
 		{ key: "liveIntervalMs", raw: 1000, expected: 1000 },
 		{ key: "liveIntervalMs", raw: 1, expected: LIVE_INTERVAL_MIN },
 		{ key: "liveIntervalMs", raw: LIVE_INTERVAL_MAX * 10, expected: LIVE_INTERVAL_MAX },

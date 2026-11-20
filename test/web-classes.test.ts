@@ -120,16 +120,9 @@ const PAGES: readonly ServedPage[] = [
 	{
 		page: "file-browse",
 		dir: join(root, "extensions/file-browse/view"),
-		// The diff body is a shared module now: a page and the review page both draw it.
-		extraSources: [join(root, "lib/diff")],
 		skip: ["styles.ts"],
 		css: BROWSE_CSS,
-		exceptions: [
-			{
-				name: "bf-diff-line--",
-				why: "a family: every diff line wears a colour modifier, and the sheet rules add/del/hunk/meta/note",
-			},
-		],
+		exceptions: [],
 	},
 ];
 

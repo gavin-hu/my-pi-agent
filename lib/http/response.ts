@@ -44,3 +44,12 @@ export function jsonError(status: number, message: string): ServeResponse {
 export function textResponse(status: number, body: string): ServeResponse {
 	return { status, headers: { ...pageHeaders(), "Content-Type": "text/plain; charset=utf-8" }, body };
 }
+
+/**
+ * A redirect: the status, the `Location`, and nothing to render. `308` keeps the method and the body
+ * a client sent, which is what a page route that moved its own address answers; `301` tells a cache
+ * the move is permanent. No content type: there is no content.
+ */
+export function redirectResponse(status: number, to: string): ServeResponse {
+	return { status, headers: { Location: to }, body: "" };
+}

@@ -224,9 +224,7 @@ ignored, and an absent id keeps its registry default.
 | `markdown` | boolean | `true` | | Render Markdown files as formatted HTML instead of plain text. |
 | `markdownHtml` | boolean | `true` | | Re-emit sanitized raw HTML inside rendered Markdown; `false` escapes it as text. |
 | `maxIndexEntries` | integer | `20000` | `1`–`1000000` | Files collected for the quick-open index before it is truncated. |
-| `gitDiff` | boolean | `true` | | Offer the read-only git diff view. |
-| `diffContext` | integer | `3` | `0`–`100` | Unified diff context lines. |
-| `maxDiffLines` | integer | `4000` | `1`–`1000000` | Diff lines rendered before the view is truncated. |
+| `gitDiff` | boolean | `true` | | Offer the uncommitted-change tags: the changes tag, the row markers, and the links onto the review page. |
 | `live` | boolean | `true` | | Push live status to open pages over `/events`. |
 | `liveIntervalMs` | integer | `5000` | `250`–`60000` | How often a connected page is sent a status frame. |
 
@@ -234,7 +232,9 @@ ignored, and an absent id keeps its registry default.
 
 The page reads the branch against `base`; the other comparisons need no ref.
 `/review base` reports the repository's default branch, so a project whose
-default is not `main` or `master` names it once here.
+default is not `main` or `master` names it once here. `diffContext` and
+`maxDiffLines` live here too: `file-browse` set them while it drew a diff of its
+own, and a project that moved them here keeps what it had.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|

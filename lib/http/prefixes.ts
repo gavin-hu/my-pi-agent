@@ -13,7 +13,7 @@
  * shared names sit here, beside the layer's other boundary vocabulary
  * (`./token.ts`, `./port.ts`).
  *
- * Reached as a leaf, never through the barrel: it is two constants, while
+ * Reached as a leaf, never through the barrel: it is two constants and one pure builder, while
  * `index.ts` is the whole served-page kit.
  *
  * Value-only: no imports, no module state.
@@ -24,3 +24,17 @@ export const FILES_BASE = "/files";
 
 /** The review page's prefix: one review page per session. */
 export const REVIEW_BASE = "/review";
+
+/**
+ * The review page's address for one comparison and, when the link names one, one file.
+ *
+ * Every address this package emits into that page is spelled here — the browse page's redirect,
+ * its changes chip, and a changed file's action — so the query is encoded once, by
+ * `URLSearchParams`: hand-built text would put a `+` in a filename into the query as a `+`, which
+ * the review page reads back as a space.
+ */
+export function reviewHref(scope: string, file?: string): string {
+	const query = new URLSearchParams({ scope });
+	if (file !== undefined) query.set("file", file);
+	return `${REVIEW_BASE}/new?${query.toString()}`;
+}

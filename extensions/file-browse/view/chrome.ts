@@ -9,6 +9,7 @@
  */
 
 import { escapeHtml } from "../../../lib/escape.ts";
+import { reviewHref } from "../../../lib/http/prefixes.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { chip, liveChip, reloadChip } from "../../../lib/web/index.ts";
 import type { GitStatus } from "../git/git.ts";
@@ -64,15 +65,17 @@ export function renderLiveChrome(live: LivePage | undefined): string {
 }
 
 /**
- * The header's changes chip, linking to the diff overview. With live status on,
- * a hidden shell is always rendered so the chip can appear and disappear as the
- * working tree changes, without the client inserting elements into the header.
+ * The header's changes chip, linking to the review page's uncommitted comparison — the same change
+ * list this page counts, compared against `HEAD`. With live status on, a hidden shell is always
+ * rendered so the chip can appear and disappear as the working tree changes, without the client
+ * inserting elements into the header.
  */
-export function renderChanges(summary: ChangeIndex | undefined, live: LivePage | undefined, base: string): string {
+export function renderChanges(summary: ChangeIndex | undefined, live: LivePage | undefined): string {
+	const href = reviewHref("head");
 	const count = summary?.count ?? 0;
 	if (count <= 0) {
 		return live
-			? `<a class="bf-tag browse-changes" id="browse-changes" href="${base}/diff" title="View uncommitted changes" hidden></a>`
+			? `<a class="bf-tag browse-changes" id="browse-changes" href="${href}" title="View uncommitted changes" hidden></a>`
 			: "";
 	}
 	const label = `${count} change${count === 1 ? "" : "s"}`;
@@ -83,5 +86,5 @@ export function renderChanges(summary: ChangeIndex | undefined, live: LivePage |
 			? ` <span class="browse-changes__totals"><span class="browse-diff-add">+${insertions}</span> <span class="browse-diff-del">−${deletions}</span></span>`
 			: "";
 	const aria = `${label} against HEAD${insertions + deletions > 0 ? `, ${insertions} insertions and ${deletions} deletions` : ""}`;
-	return `<a class="bf-tag browse-changes" id="browse-changes" href="${base}/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-changes__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
+	return `<a class="bf-tag browse-changes" id="browse-changes" href="${href}" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-changes__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
 }

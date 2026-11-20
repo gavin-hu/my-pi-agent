@@ -129,16 +129,11 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 	};
 
 	/** The page's read-only git readers for one root; a re-root rebuilds them. */
-	const readersFor = async (root: string, config: ServeConfig): Promise<RootReaders> => {
+	const readersFor = async (root: string): Promise<RootReaders> => {
 		const { createGitDiff, createGitStatus } = await import("./git/git.ts");
 		return {
 			git: createGitStatus(pi, root),
-			diff: createGitDiff(pi, root, {
-				context: config.diffContext,
-				maxLines: config.maxDiffLines,
-				maxFileBytes: config.maxFileBytes,
-				maxTextLines: config.maxTextLines,
-			}),
+			diff: createGitDiff(pi, root),
 		};
 	};
 
@@ -170,7 +165,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		const info = await stat(candidate).catch(() => undefined);
 		const nextRoot = info?.isDirectory() ? candidate : nextBase;
 		try {
-			current.server.reroot(nextRoot, await readersFor(nextRoot, current.config));
+			current.server.reroot(nextRoot, await readersFor(nextRoot));
 		} catch (error) {
 			current.ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
 			return;
@@ -191,7 +186,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 				config,
 				mount: (spec) => requestMount(pi, spec),
 				session: sessionId,
-				...(await readersFor(root, config)),
+				...(await readersFor(root)),
 				onIdle: () => void stopWhenPageLeft(),
 			});
 			if (outcome.kind === "refused") {

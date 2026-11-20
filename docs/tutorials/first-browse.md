@@ -1,8 +1,8 @@
 # Browse your working directory
 
 `/browse` opens a read-only file browser for the project you are working in. It is
-the fastest way to read a Markdown file as a page, look at an image, or check a
-diff without leaving the terminal.
+the fastest way to read a Markdown file as a page, look at an image, or see what
+has changed.
 
 You need Pi and this package installed — see [Install](../install.md).
 
@@ -38,11 +38,13 @@ the lines you selected — which is the form you can paste back into a prompt.
 
 ## Check what changed
 
-The diff view reads the working tree, the staged changes, or `HEAD`:
+The page counts uncommitted changes and marks the rows they name, from the same
+read git does — nothing is written and nothing is staged:
 
-- the **changes** chip opens the overview, with one line per file;
-- `n`/`p` jump between hunks of one file's diff;
-- the markers come from git, so nothing is written and nothing is staged.
+- the **changes** chip opens the review page on everything uncommitted, against `HEAD`;
+- a changed file's **changes** action opens that one file's diff there, with `n`/`p`
+  stepping its hunks;
+- every changed file is one line in the review page's rail, with the same totals.
 
 ## Let it follow you
 

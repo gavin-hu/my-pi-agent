@@ -27,12 +27,8 @@ export interface ServeConfig {
 	markdownHtml: boolean;
 	/** Files collected for the quick-open index before it is truncated. */
 	maxIndexEntries: number;
-	/** Offer the read-only git diff view. */
+	/** Offer the uncommitted-change chrome: the chip, the markers, and the review link. */
 	gitDiff: boolean;
-	/** Unified diff context lines. */
-	diffContext: number;
-	/** Diff lines rendered before the view is truncated. */
-	maxDiffLines: number;
 	/** Push live status to open pages over `/events`. */
 	live: boolean;
 	/** How often a connected page is sent a status frame, in ms. */
@@ -49,8 +45,6 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	markdownHtml: true,
 	maxIndexEntries: 20000,
 	gitDiff: true,
-	diffContext: 3,
-	maxDiffLines: 4000,
 	live: true,
 	liveIntervalMs: 5000,
 };
@@ -95,8 +89,6 @@ export function normalizeConfig(
 		markdownHtml: asBoolean(raw.markdownHtml, base.markdownHtml),
 		maxIndexEntries: clampInteger(raw.maxIndexEntries, base.maxIndexEntries, 1, 1_000_000),
 		gitDiff: asBoolean(raw.gitDiff, base.gitDiff),
-		diffContext: clampInteger(raw.diffContext, base.diffContext, 0, 100),
-		maxDiffLines: clampInteger(raw.maxDiffLines, base.maxDiffLines, 1, 1_000_000),
 		live: asBoolean(raw.live, base.live),
 		liveIntervalMs: clampInteger(raw.liveIntervalMs, base.liveIntervalMs, LIVE_INTERVAL_MIN, LIVE_INTERVAL_MAX),
 	};

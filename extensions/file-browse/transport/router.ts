@@ -17,9 +17,11 @@ import {
 	jsonHeaders,
 	jsonResponse,
 	parseRequestUrl,
+	redirectResponse,
 	scriptHeaders,
 	type ServeResponse,
 } from "../../../lib/http/index.ts";
+import { reviewHref } from "../../../lib/http/prefixes.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
 import { CLIENT_JS } from "../view/client.ts";
 import type { LivePage } from "../view/chrome.ts";
@@ -41,16 +43,9 @@ import {
 } from "../files/files.ts";
 import { FOLDER_ICON, iconHref, languageOf } from "../view/icons.ts";
 import { fuzzySearch } from "../text/fuzzy.ts";
-import {
-	renderDirectoryPage,
-	renderDiffPage,
-	renderErrorPage,
-	renderFileDiffPage,
-	renderFilePage,
-	hrefFor,
-} from "../view/html.ts";
+import { renderDirectoryPage, renderErrorPage, renderFilePage, hrefFor } from "../view/html.ts";
 import type { ChangeSummary } from "../view/html.ts";
-import { HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "../files/paths.ts";
+import { decodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "../files/paths.ts";
 import { listingRevision } from "../live/rev.ts";
 
 export interface ServeContext {
@@ -60,7 +55,7 @@ export interface ServeContext {
 	config: ServeConfig;
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
-	/** Read-only diff provider; omitted when the diff view is unavailable. */
+	/** Read-only change list for the chip and the markers; omitted when unavailable. */
 	diff?: GitDiffProvider;
 	/** Cached quick-open file index; built on demand when omitted. */
 	index?: FileIndexProvider;
@@ -262,59 +257,15 @@ async function fileResponse(ctx: ServeContext, rel: string, raw: boolean): Promi
 	);
 }
 
-/** The change overview page for a mode. A non-repository is an empty state, not an error. */
-async function diffOverview(ctx: ServeContext, mode: DiffMode): Promise<ServeResponse> {
+/**
+ * The diff routes' answer now: a permanent move to the review page, which reads the same change list
+ * and draws one file under `?file=`. The guards keep the sentences the pages gave — an unknown mode
+ * 400s before any path is matched, and a page with the diff view off or no provider is not asked to
+ * advertise a page it could not draw.
+ */
+function diffRedirect(ctx: ServeContext, mode: DiffMode, rawRel?: string): ServeResponse {
 	if (!ctx.config.gitDiff || !ctx.diff) throw new HttpError(404, "The diff view is not available.");
-	const list = await diffFor(ctx, mode);
-	const tree = await treeFor(ctx, "");
-	const git = await gitFor(ctx);
-	return htmlResponse(
-		200,
-		renderDiffPage({
-			base: ctx.base,
-			rootLabel: ctx.root,
-			mode,
-			files: list?.files ?? [],
-			stat: list?.stat ?? "",
-			tree,
-			git,
-			summary: list ? summaryOf(list) : undefined,
-			live: liveOf(ctx),
-		}),
-	);
-}
-
-/** A single file's unified diff for a mode. */
-async function diffFile(ctx: ServeContext, rawRel: string, mode: DiffMode): Promise<ServeResponse> {
-	if (!ctx.config.gitDiff || !ctx.diff) throw new HttpError(404, "The diff view is not available.");
-	const abs = await resolveRequestPath(ctx.root, rawRel);
-	const rel = relativePath(ctx.root, abs);
-	const info = await stat(abs).catch(() => undefined);
-	if (info?.isDirectory()) throw new HttpError(400, "That path is a folder.");
-	let diff: Awaited<ReturnType<GitDiffProvider["file"]>>;
-	try {
-		diff = await ctx.diff.file(rel, mode);
-	} catch {
-		diff = undefined;
-	}
-	if (!diff) throw new HttpError(404, "No diff is available for that file.");
-	const tree = await treeFor(ctx, rel);
-	const git = await gitFor(ctx);
-	const changes = await changed(ctx);
-	return htmlResponse(
-		200,
-		renderFileDiffPage({
-			base: ctx.base,
-			rootLabel: ctx.root,
-			rel,
-			mode,
-			diff,
-			tree,
-			git,
-			summary: changes,
-			live: liveOf(ctx),
-		}),
-	);
+	return redirectResponse(308, reviewHref(mode, rawRel === undefined ? undefined : decodePath(rawRel)));
 }
 
 function disposition(rel: string, inline: boolean): string {
@@ -430,8 +381,8 @@ export async function handleRequest(
 		const rawMode = search.get("mode");
 		if (rawMode !== null && !isDiffMode(rawMode)) return failure(ctx, api, 400, "Unknown diff mode.");
 		const mode: DiffMode = isDiffMode(rawMode) ? rawMode : "head";
-		if (pathname === "/diff" || pathname === "/diff/") return await diffOverview(ctx, mode);
-		if (pathname.startsWith("/diff/")) return await diffFile(ctx, pathname.slice("/diff/".length), mode);
+		if (pathname === "/diff" || pathname === "/diff/") return diffRedirect(ctx, mode);
+		if (pathname.startsWith("/diff/")) return diffRedirect(ctx, mode, pathname.slice("/diff/".length));
 		if (pathname === "/" || pathname === "/browse" || pathname === "/browse/") return await browse(ctx, "");
 		if (pathname.startsWith("/browse/")) return await browse(ctx, pathname.slice("/browse/".length));
 		if (pathname.startsWith("/view/"))

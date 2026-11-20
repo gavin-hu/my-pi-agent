@@ -32,7 +32,7 @@ describe("the header", () => {
 		expect(live).toContain('class="bf-live bf-tone--accent" id="live-state"');
 		expect(live).toContain('<span class="bf-live__text">connecting</span>');
 		expect(live).toContain('id="reload-hint"');
-		expect(live).toContain('id="browse-changes" href="/diff"');
+		expect(live).toContain('id="browse-changes" href="/review/new?scope=head"');
 
 		const off = directoryPage();
 		expect(off).not.toContain("live-state");
@@ -54,6 +54,17 @@ describe("the wrap control", () => {
 		// The width is the kit's number, not a second copy of it: the media rule that wraps the
 		// panel and this query must move together, or the button describes a rule that changed.
 		expect(CLIENT_JS).toContain(`matchMedia("(max-width:${NARROW_MAX_PX}px)")`);
+	});
+});
+
+describe("the diff's keys", () => {
+	test("left for the review page with the pages that read them", () => {
+		// The hunk anchors and `n`/`p` were this page's while it drew a diff. The review page
+		// steps hunks now (its own `n`/`p`, beside `[`/`]`), and a second bundle claiming the
+		// same keys is how two pages answer one press differently.
+		expect(CLIENT_JS).not.toContain("[data-hunk]");
+		expect(CLIENT_JS).not.toContain("hunkAnchors");
+		expect(CLIENT_JS).not.toContain("moveHunk");
 	});
 });
 
@@ -98,13 +109,8 @@ describe("the kit's names", () => {
 		// own suite holds the inward half (it still names no removed class); this is the outward
 		// half, read from the text rather than from imports because the failure is a string no
 		// type checker sees.
-		// `bf-diff-line` is a family, not a class: each line wears a colour modifier and the sheet rules
-		// all five, so the exact name is never the one a reader sees.
-		const families = new Set(["bf-diff-line"]);
 		expect(
-			kitNamesIn(sourcesUnder(import.meta.dir, ["styles.ts"])).filter(
-				(name) => !families.has(name) && !rulesClass(BROWSE_CSS, name),
-			),
+			kitNamesIn(sourcesUnder(import.meta.dir, ["styles.ts"])).filter((name) => !rulesClass(BROWSE_CSS, name)),
 		).toEqual([]);
 	});
 });

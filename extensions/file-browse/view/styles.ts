@@ -27,8 +27,7 @@ export const BROWSE_CSS = pageSheet(`.browse-side{padding:var(--space-3)}
 .browse-link-mark{color:var(--muted);font-size:var(--fs-xs)}
 body.palette-open{overflow:hidden}
 /* The changes tag: the dot marks it, the words are the UI's face, and the totals are figures a
-   reader compares, so they keep the same width from one tick to the next. The changes table is
-   .browse-diff and keeps its paths mono through the kit's name cell. */
+   reader compares, so they keep the same width from one tick to the next. */
 .browse-changes{gap:5px}
 .browse-changes:hover{color:var(--accent);text-decoration:none}
 .browse-changes__dot{color:var(--warn);font-size:9px;line-height:1}
@@ -36,34 +35,7 @@ body.palette-open{overflow:hidden}
 .browse-change{color:var(--warn);font-size:9px;line-height:1;flex:0 0 auto}
 .browse-diff-add{color:var(--success)}
 .browse-diff-del{color:var(--danger)}
-.browse-diff-scope{color:var(--muted);font-size:var(--fs-sm);font-weight:var(--fw-medium)}
-.browse-diff-toolbar{display:flex;align-items:center;gap:var(--space-3);margin:0 0 var(--space-3);flex-wrap:wrap}
-.browse-diff-stat{margin:0 0 var(--space-3);font:var(--fs-xs)/1.5 var(--font-mono);color:var(--muted);white-space:pre-wrap;overflow-x:auto}
-.browse-diff th.browse-diff-status{width:72px}
-.browse-diff th.browse-diff-word{width:130px}
-.browse-diff-badge{display:inline-block;min-width:16px;text-align:center;font:var(--fw-semibold) var(--fs-xs) var(--font-mono);border-radius:var(--radius-sm);padding:1px 5px;border:1px solid var(--border)}
-.browse-diff-badge--M{color:var(--warn);border-color:currentColor}
-.browse-diff-badge--A,.browse-diff-badge--Q{color:var(--success);border-color:currentColor}
-.browse-diff-badge--D{color:var(--danger);border-color:currentColor}
-.browse-diff-badge--R,.browse-diff-badge--C{color:var(--accent);border-color:currentColor}
-.browse-diff-orig{color:var(--muted);font-size:var(--fs-xs)}
-.browse-diff-word{color:var(--muted);font-size:var(--fs-sm)}
-.browse-diff-no{display:inline-block;width:46px;padding-right:var(--space-2);text-align:right;color:var(--dim);user-select:none}
-.browse-diff-sign{display:inline-block;width:16px;text-align:center;color:var(--muted);user-select:none}
-.bf-diff-line--add{background:var(--success-soft)}
-.bf-diff-line--add .browse-diff-sign{color:var(--success)}
-.bf-diff-line--del{background:var(--danger-soft)}
-.bf-diff-line--del .browse-diff-sign{color:var(--danger)}
-.bf-diff-line--hunk{color:var(--accent);background:var(--canvas)}
-.bf-diff-line--meta{color:var(--muted)}
-.bf-diff-line--note{color:var(--muted);font-style:italic}
-/* A hunk header pins to the top of the diff viewport while its body scrolls.
-   Each hunk is a section so the pinned header is bounded by its own body and
-   cannot stack on the next one. */
-.bf-diff-hunk{display:block}
-.bf-diff .bf-diff-line--hunk{position:sticky;top:0;z-index:1}
-/* Reading progress, pinned to the sticky header's bottom edge. */
-/* File and diff pages: a measured reading column inside the card. */
+/* File pages: a measured reading column inside the card. */
 /* The document is one column: the head, then the body, and the shell's scroll box
    scrolls both, so the record takes its content's height and never clips the file
    it holds. The measure lives on the blocks themselves: on .bf-md it would be a
@@ -107,10 +79,6 @@ body.palette-open{overflow:hidden}
    so both step up to the raised plane and the nested span stays with its block. */
 .browse-page .bf-md code{background:var(--raised)}
 .browse-page .bf-md pre code{background:none}
-.browse-diff-summary{white-space:nowrap}
-.browse-diff-summary .browse-diff-add{color:var(--success)}
-.browse-diff-summary .browse-diff-del{color:var(--danger)}
-.browse-hunks{color:var(--muted)}
 /* Wide screens: pin quick open and the filter, and scroll the tree on its own
    box. The sidebar is a details element, whose content sits in an anonymous
    wrapper with no definite height, so the panel fills the sidebar by absolute
@@ -128,15 +96,13 @@ body.palette-open{overflow:hidden}
    and the view tabs clip — so the wrap lands between controls. */
 .browse-head-actions{max-width:100%;flex-wrap:wrap;overflow-x:visible}
 .browse-head-actions>*{flex:0 0 auto}
-/* A trailing date or one-word change state costs the column a reader is choosing
-   between: at 390px the listing gave the name 106px and every entry truncated,
-   and the diff gave a path 140px while "modified" held 130. */
-.browse-listing .bf-table__when,.browse-diff .browse-diff-word{display:none}
+/* A trailing date costs the column a reader is choosing between: at 390px the
+   listing gave the name 106px and every entry truncated. */
+.browse-listing .bf-table__when{display:none}
 }
-/* A printed page scrolls nothing: the card and its body open up, the pinned hunk
-   header stops pinning, and the progress hairline belongs to the screen. */
+/* A printed page scrolls nothing: the card and its body open up, and the progress
+   hairline belongs to the screen. */
 @media print{
 .bf-record{border:0}
-.bf-record,.bf-app__main,.bf-code,.bf-md,.bf-diff,.browse-listing{height:auto!important;max-height:none!important;overflow:visible!important}
-.bf-diff .bf-diff-line--hunk{position:static}
+.bf-record,.bf-app__main,.bf-code,.bf-md,.browse-listing{height:auto!important;max-height:none!important;overflow:visible!important}
 }`);

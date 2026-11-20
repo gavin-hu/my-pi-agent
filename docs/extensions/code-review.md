@@ -74,10 +74,11 @@ comment is a draft until **Send feedback** marks it sent — after that it is th
 session's, and the page shows it as sent.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff,
-which is what a changes tag on a `file-browse` page opens: the rail shows the one
-file and an **all files** link back, and the comparison is still the whole scope,
-so nothing about the snapshot or its token changes. The file's head carries
-**view file** and **download**, which are `file-browse`'s own pages
+which is what a changes tag on a `file-browse` page opens — and what that page's own
+`/files/diff` address now redirects to, a `308` with `scope` for `mode`. The rail
+shows the one file and an **all files** link back, and the comparison is still the
+whole scope, so nothing about the snapshot or its token changes. The file's head
+carries **view file** and **download**, which are `file-browse`'s own pages
 (`/files/view/<path>` and `/files/raw/<path>`) — they need that page serving, and
 answer `404` without it. `n` and `p` step between the focused file's hunks; the
 whole review keeps `[` and `]`. A reference copied from a selection is
@@ -93,7 +94,7 @@ reload sentence rather than a comment landing on a line nobody read.
 - The review is the session's. Its comments live as long as the page does;
   sending is what keeps them, in the transcript notice and in `code_review`.
 - One page per session. Changing scope is refused while a comment is on the page —
-  send or delete it first, because a comment's line numbers belong to one scope.
+  a `409` naming what would be lost. A `file-browse` reader reaches it via `/files/diff`.
 - A focused page (`?file=`) hides the other files without forgetting them: a
   comment already written on one of them is still counted and still sent.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000

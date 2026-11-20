@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- **Breaking** `file-browse`: `/files/diff[/<rel>]` is a `308` onto the review page, and the two keys
+  only its removed diff pages read are gone from its section. `mode=` becomes the review's `scope=`
+  (`head`, `staged`, `worktree`), `<rel>` becomes `?file=`, an unknown mode still answers `400`, and
+  a page with `gitDiff` off still answers `404`. A bookmark, the changes tag and a changed file's
+  **changes** action all land on `/review/new?...`; `code-review`'s section already owns
+  `diffContext` and `maxDiffLines`, with the same defaults, so a project that set them moves them
+  there. Reading a diff is `code-review`'s page now, not a second renderer of the same list.
+
+- `file-browse`: the tree keeps its header — the branch, the change totals, and the marker on each
+  row they name — and stops drawing a diff of its own. The two diff pages, the per-file git read
+  behind them, and the client's hunk navigation (`n`/`p` are the review page's) leave with the
+  route; the config section loses `diffContext` and `maxDiffLines`, which its pages no longer read.
+  A `gitDiff: false` page keeps the tags hidden, and one thing is new to state: the changes tag
+  needs `code-review` serving, because its address is that page's.
+
 - `code-review`: the page's client is one closure assembled from three fragments — `view/client-comments.ts`,
   `view/client-place.ts`, `view/client-keys.ts` — rather than one 920-line module, and its interaction suite waits on
   the condition each case asserts instead of seven fixed sleeps. The sleeps were the real defect behind main's
@@ -16,8 +31,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   suite is named in `LONG_SUITES` at its new height rather than split.
 
 - `code-review`: a review can be read one file at a time — `?file=<path>` on the page's address,
-  which is what the changes tag on a `file-browse` page will open once #763 lands — and the page
-  compares five things rather than four. The new `head` scope (shown as *uncommitted*) is the tree
+  which is what the changes tag on a `file-browse` page opens — and the page compares five things
+  rather than four. The new `head` scope (shown as *uncommitted*) is the tree
   against `HEAD`, the index and the working tree together with untracked files, so the three modes
   `file-browse` publishes map onto the review's scopes one to one instead of losing half of what a
   reader was looking at. The focused page draws that one file with **view file** and **download**
@@ -54,8 +69,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   **Send feedback** marks the drafts sent and the session reads one `[CODE REVIEW]` notice at its next turn —
   nothing is written to the tree and nothing wakes a turn. The page is loopback-only with a 128-bit token, one
   page per session, and it reads the `code-review` section of `bytefly.json` (`base`, `diffContext`,
-  `maxDiffLines`, `maxFiles`). `serve`'s prefix table names it. It is the diff page `#751` converges
-  `/files/diff` onto; that route still answers from `file-browse` here.
+  `maxDiffLines`, `maxFiles`). `serve`'s prefix table names it. It is the page `/files/diff`
+  redirects to, and the one that draws a diff in this release.
 
 - **Breaking** `serve`: whether a page opens a tab is `serve.autoOpen`, and `file-browse.autoOpen` is gone. One
   switch governs `/browse` and `/board`, because the tab belongs to the session's page server rather than to one
