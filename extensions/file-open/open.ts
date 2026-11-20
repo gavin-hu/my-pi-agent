@@ -8,9 +8,9 @@
  * the launcher reports a start failure and a non-zero exit asynchronously.
  */
 
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
+import { launchDetached } from "../../lib/browser.ts";
 import { stripControlChars } from "../../lib/format.ts";
 
 /** Whether to open the target itself or reveal it in the file manager. */
@@ -81,7 +81,7 @@ export interface LauncherChild {
 	on(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
 }
 
-/** A launcher seam; the default spawns the command detached. */
+/** A launcher seam; the default is the shared detached launch, so one body owns it. */
 export type SpawnFn = (command: string, args: string[]) => LauncherChild | undefined;
 
 export interface OpenTargetOptions {
@@ -93,17 +93,10 @@ export interface OpenTargetOptions {
 	onError?: (error: Error) => void;
 }
 
-/** Spawn the handler detached so the application outlives the session. */
-const spawnDetached: SpawnFn = (command, args) => {
-	const child = spawn(command, args, { detached: true, stdio: "ignore" });
-	child.unref();
-	return child;
-};
-
 /** Start the native handler for `target`, detached so it outlives the session. */
 export function openTarget(mode: OpenMode, target: string, options: OpenTargetOptions = {}): void {
 	const { command, args, exitMeansFailure } = buildCommand(mode, target, options.platform);
-	const launch = options.spawn ?? spawnDetached;
+	const launch = options.spawn ?? launchDetached;
 
 	// A start failure and an exit both arrive asynchronously; report at most
 	// one, since both can fire for the same launch.

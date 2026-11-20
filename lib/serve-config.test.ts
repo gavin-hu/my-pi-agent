@@ -1,18 +1,19 @@
 /**
- * The serve config contract: the session's one port, its clamp, and the two
- * documents it resolves over.
+ * The serve config contract: the session's one port, its one switch, and the two
+ * documents both resolve over.
  *
  * A pin is a number a typo can spoil, so every value that does not state one reads
  * as the default `0` — "pick one for the session" — rather than as a port nobody
- * chose.
+ * chose. The switch is the same bargain the other way: only a real `false` stops a
+ * page opening a tab.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tempDir, useAgentDir } from "../../test/helpers/env.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
-import { DEFAULT_SERVE_CONFIG, loadServeConfig, normalizeServeConfig } from "./config.ts";
+import { tempDir, useAgentDir } from "../test/helpers/env.ts";
+import { makeTempTracker } from "../test/helpers/git.ts";
+import { DEFAULT_SERVE_CONFIG, loadServeConfig, normalizeServeConfig } from "./serve-config.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -51,6 +52,20 @@ describe("normalizeServeConfig", () => {
 	test("reads anything that is not a number as no pin at all", () => {
 		for (const raw of ["abc", "", null, true, [], {}]) {
 			expect([raw, normalizeServeConfig({ port: raw }).port]).toEqual([raw, 0]);
+		}
+	});
+
+	test("opens the page unless the document says otherwise", () => {
+		expect(DEFAULT_SERVE_CONFIG.autoOpen).toBe(true);
+		expect(normalizeServeConfig(undefined).autoOpen).toBe(true);
+		expect(normalizeServeConfig({}).autoOpen).toBe(true);
+	});
+
+	test("turns the tab off only on a real boolean", () => {
+		expect(normalizeServeConfig({ autoOpen: false }).autoOpen).toBe(false);
+		expect(normalizeServeConfig({ autoOpen: true }).autoOpen).toBe(true);
+		for (const raw of ["no", 0, "", null]) {
+			expect([raw, normalizeServeConfig({ autoOpen: raw }).autoOpen]).toEqual([raw, true]);
 		}
 	});
 });
@@ -101,6 +116,26 @@ describe("loadServeConfig", () => {
 		try {
 			writeFileSync(join(dir, "bytefly.json"), "{ not json");
 			expect(loadServeConfig(temps.track(tempDir("pi-repo-"))).port).toBe(0);
+		} finally {
+			restore();
+		}
+	});
+
+	test("reads the switch from the document a project states", () => {
+		const { restore } = useAgentDir();
+		try {
+			expect(loadServeConfig(projectWith({ autoOpen: false })).autoOpen).toBe(false);
+			expect(loadServeConfig(projectWith({})).autoOpen).toBe(true);
+		} finally {
+			restore();
+		}
+	});
+
+	test("lets the project turn a global switch back on", () => {
+		const { dir, restore } = useAgentDir();
+		try {
+			globalWith(dir, { autoOpen: false });
+			expect(loadServeConfig(projectWith({ autoOpen: true })).autoOpen).toBe(true);
 		} finally {
 			restore();
 		}

@@ -445,7 +445,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	question: 18,
 	serve: 12,
 	context: 8,
-	"file-open": 5,
+	"file-open": 3,
 	"file-browse": 2,
 };
 

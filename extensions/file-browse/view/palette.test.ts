@@ -116,7 +116,7 @@ async function serveRoots(): Promise<void> {
 	] as const) {
 		const outcome = await createFileServer({
 			root,
-			config: { ...DEFAULT_CONFIG, autoOpen: false, live: false },
+			config: { ...DEFAULT_CONFIG, live: false },
 			mount: testMountSource(),
 			session: `palette-${name}`,
 		});

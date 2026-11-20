@@ -128,7 +128,7 @@ describe.skipIf(CHROME === undefined)("the identity row's subject", () => {
 		writeFileSync(join(root, "README.md"), "# Subject\n");
 		const outcome = await createFileServer({
 			root,
-			config: { ...DEFAULT_CONFIG, autoOpen: false, live: false },
+			config: { ...DEFAULT_CONFIG, live: false },
 			mount: testMountSource(),
 			session: "subject-behaviour",
 		});

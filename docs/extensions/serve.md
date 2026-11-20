@@ -35,7 +35,10 @@ it back.
 
 The page prints the address it opened, on the project's port, and the footer
 shows the chip while it is open. `/board` and a plan review then answer on the
-same one.
+same one. The tab is what `serve.autoOpen` decides: `/browse` and `/board` honour it,
+and a remote turn — a chat, a session over SSH — says the browser needs the local
+machine instead of opening one nobody is looking at. `/plan`'s browser step always
+opens, because the tab there is the step.
 
 ## Reference
 
@@ -85,6 +88,7 @@ carries only that review's prefixes.
 | Key | Default | What it does |
 |---|---|---|
 | `port` | `0` | `0` takes the project's own port; a positive value pins it so a bookmarked address survives a restart. |
+| `autoOpen` | `true` | Whether `/browse` and `/board` open the page in the default browser; `false` prints the URL and asks no launcher, and a turn answered from outside the terminal never opens one. |
 
 It lives in the `serve` section of `bytefly.json`
 ([configuration](../configuration-reference.md#serve--the-sessions-page-server)). To switch

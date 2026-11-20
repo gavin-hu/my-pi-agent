@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- **Breaking** `serve`: whether a page opens a tab is `serve.autoOpen`, and `file-browse.autoOpen` is gone. One
+  switch governs `/browse` and `/board`, because the tab belongs to the session's page server rather than to one
+  extension; move the key, or a project that set it to `false` starts getting tabs again. `/plan`'s browser step is
+  not gated — the tab there is the step.
+
+- `browser`: a page that could not be opened now says why. `lib/browser.ts` launched the handler fire-and-forget, so
+  a missing `xdg-open` arrived as an uncaught async `'error'` that could take the session with it, and a non-zero exit
+  was dropped along with the launcher's own message. `openPageInBrowser` listens for both and reports once, reads
+  `$BROWSER`, opens through `wslview` under WSL and `explorer` on Windows — so `/board team`'s `&view=team` is no
+  longer split by `cmd` — and skips a turn answered from outside the terminal. `/browse` and `/board` print the URL
+  either way; `/plan`'s browser step keeps opening, and names a failed launch with the address to paste. `file-open`
+  now shares that one detached launch, loaded on first use, which took its registration graph from 5 modules to 3.
+
 - `board`: the field that carries a note is `note` on every action, and `text` is gone — `note`, `approve` and
   `review` take `note: "…"` where they took `text: "…"`, and `add`'s first note is that same field rather than a
   second one with another name. It was one concept under two names, one of them the name of the action that

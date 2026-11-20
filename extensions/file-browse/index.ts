@@ -17,15 +17,17 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
-import type { openInBrowser } from "../../lib/browser.ts";
+import type { Launch } from "../../lib/browser.ts";
 import type { ServeConfig } from "./config/config.ts";
 import type { FileServer, RootReaders } from "./transport/server.ts";
 
 export interface FileBrowserDeps {
 	/** Override the server factory (tests). */
 	createServer?: typeof import("./transport/server.ts").createFileServer;
-	/** Override the browser opener (tests). */
-	open?: typeof openInBrowser;
+	/** Record the tab the page asked for, instead of launching one (tests). */
+	open?: (url: string) => void;
+	/** Drive the launcher to a failure, so a case sees the notice (tests). */
+	launch?: Launch;
 }
 
 interface RunningServer {
@@ -85,12 +87,18 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		if (await stop()) current.ctx.ui.notify("browse: stopped — the last page was closed", "info");
 	};
 
-	type ResolvedRoot = { root: string; config: ServeConfig };
+	type ResolvedRoot = { root: string; config: ServeConfig; autoOpen: boolean };
 
 	/** The folder `/browse [path]` names, or undefined after telling the user why. */
 	const resolveRoot = async (target: string, cwd: string, ctx: ExtensionContext): Promise<ResolvedRoot | undefined> => {
-		const { loadConfig } = await import("./config/config.ts");
+		const [{ loadConfig }, { loadServeConfig }] = await Promise.all([
+			import("./config/config.ts"),
+			import("../../lib/serve-config.ts"),
+		]);
 		const config = loadConfig(cwd);
+		// The tab's switch is `serve`'s, read from the directory `serve` reads its port from, so
+		// one project document states both and a worktree session goes on reading the checkout's.
+		const { autoOpen } = loadServeConfig(ctx.cwd);
 		let root = cwd;
 		if (target) {
 			const { HttpError, resolveRequestPath } = await import("./files/paths.ts");
@@ -107,20 +115,32 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 				return undefined;
 			}
 		}
-		return { root, config };
+		return { root, config, autoOpen };
 	};
 
 	/**
-	 * Put the page in front of the user, unless the project asked to stay headless.
+	 * Put the page in front of the user, or say why the page is only a URL.
 	 *
 	 * Every `/browse` opens it, including one that finds the page already served: the
 	 * command's job is showing the page, and a URL printed over a running server leaves
-	 * the user to paste it.
+	 * the user to paste it. What decides is `serve.autoOpen`, the turn's locality, and
+	 * whether the launcher ran — and the last of those is said out loud, because a tab
+	 * that never appeared is otherwise indistinguishable from a page nobody opened.
 	 */
-	const openPage = async (url: string, config: ServeConfig): Promise<void> => {
-		if (!config.autoOpen) return;
-		const open = deps.open ?? (await import("../../lib/browser.ts")).openInBrowser;
-		open(url);
+	const openPage = async (url: string, autoOpen: boolean, ctx: ExtensionContext): Promise<void> => {
+		const [{ openPageInBrowser, urlLauncher }, { isRemoteTurn }] = await Promise.all([
+			import("../../lib/browser.ts"),
+			import("../../lib/interaction.ts"),
+		]);
+		const launch = deps.open === undefined ? deps.launch : urlLauncher(deps.open);
+		const outcome = openPageInBrowser(url, {
+			autoOpen,
+			remote: isRemoteTurn(ctx),
+			...(launch === undefined ? {} : { launch }),
+			onFailure: (reason) => ctx.ui.notify(`browse: could not open the browser (${reason}) — open ${url}`, "warning"),
+		});
+		if (outcome === "skipped-remote")
+			ctx.ui.notify(`browse: the browser needs the local machine — open ${url}`, "info");
 	};
 
 	/** The page's read-only git readers for one root; a re-root rebuilds them. */
@@ -175,7 +195,8 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 	};
 
 	/** Open the page's server; the server, git, HTTP, and browser modules live here. */
-	const openServer = async (base: string, root: string, config: ServeConfig, ctx: ExtensionContext): Promise<void> => {
+	const openServer = async (base: string, resolved: ResolvedRoot, ctx: ExtensionContext): Promise<void> => {
+		const { root, config, autoOpen } = resolved;
 		const create = deps.createServer ?? (await import("./transport/server.ts")).createFileServer;
 		const { requestMount } = await import("../../lib/http/index.ts");
 		const { WORKTREE_CHANGED_CHANNEL } = await import("../../lib/events.ts");
@@ -197,7 +218,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			// open holds no subscription to another extension's channel.
 			running = { server, ctx, config, base, off: pi.events.on(WORKTREE_CHANGED_CHANNEL, () => follow()) };
 			ctx.ui.notify(`browse: ${server.root} at ${server.url}`, "info");
-			await openPage(server.url, config);
+			await openPage(server.url, autoOpen, ctx);
 		} catch (error) {
 			ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
 		}
@@ -220,7 +241,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		const base = baseOf(ctx);
 		const resolved = await resolveRoot(target, base, ctx);
 		if (resolved === undefined) return;
-		const { root, config } = resolved;
+		const { root, autoOpen } = resolved;
 
 		let realRoot = root;
 		try {
@@ -231,12 +252,12 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		if (running && running.server.root === realRoot) {
 			ctx.ui.notify(`browse: ${running.server.url} (already running)`, "info");
 			// The page is already served, so this is an open and not a restart.
-			await openPage(running.server.url, config);
+			await openPage(running.server.url, autoOpen, ctx);
 			return;
 		}
 
 		await stop();
-		await openServer(base, root, config, ctx);
+		await openServer(base, resolved, ctx);
 	};
 
 	pi.registerCommand("browse", {

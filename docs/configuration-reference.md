@@ -214,7 +214,6 @@ ignored, and an absent id keeps its registry default.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `autoOpen` | boolean | `true` | | Open the default browser when the server starts. |
 | `maxFileBytes` | integer | `1048576` | `0`–`1073741824` | Files larger than this are not rendered inline. |
 | `maxThumbBytes` | integer | `5242880` | `0`–`1073741824` | Images larger than this get an icon instead of a thumbnail. |
 | `maxTextLines` | integer | `5000` | `1`–`1000000` | Lines rendered before a text file is truncated. |
@@ -325,6 +324,7 @@ one port for every session.
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `port` | integer | `0` | `0`–`65535` | TCP port on `127.0.0.1` for every page of the session; `0` takes the project's own port in `4780`–`5779`, falling back to an OS-chosen one when it is taken, and a positive value pins it. A pinned port that is already in use is reported with a message naming this key instead of moving the pages to another port. |
+| `autoOpen` | boolean | `true` | | Whether `/browse` and `/board` open their page in the default browser. `false` prints the URL and runs no launcher, so a headless project stays headless; a turn answered from outside the terminal never opens a tab. `/plan`'s browser step is not gated. |
 
 ## `todo` — the todo widget
 
