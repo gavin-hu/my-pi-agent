@@ -72,11 +72,7 @@ export function renderLiveChrome(live: LivePage | undefined): string {
  * chip can appear and disappear as the working tree changes, without the client inserting elements
  * into the header.
  */
-export function renderChanges(
-	summary: ChangeIndex | undefined,
-	live: LivePage | undefined,
-	scope: DiffMode,
-): string {
+export function renderChanges(summary: ChangeIndex | undefined, live: LivePage | undefined, scope: DiffMode): string {
 	const href = reviewHref(scope);
 	const count = summary?.count ?? 0;
 	if (count <= 0) {
