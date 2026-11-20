@@ -46,6 +46,10 @@ export interface ReviewSnapshot {
 	base: string;
 	/** What the header names the comparison by, e.g. `origin/main...HEAD`. */
 	label: string;
+	/** The short sha of HEAD, when the repository has one; display only. */
+	head?: string;
+	/** The short sha of the base ref, when a base resolves; display only. */
+	baseSha?: string;
 	files: ReviewFile[];
 	/** Changed files the cap left out. */
 	omitted: number;
@@ -117,7 +121,11 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 		async snapshot(scope, effectiveBase) {
 			const repo = await repoRoot(run, root);
 			if (!repo) return { kind: "failed", message: NOT_A_REPOSITORY };
-			if (!(await hasCommits(run, repo))) return { kind: "failed", message: NO_COMMITS };
+			// A commit is needed only where the comparison names one. An unborn branch still has an
+			// index and a working tree — git answers `diff --cached` and `status` there — so the
+			// scopes that read those render, with no sha to name.
+			const commits = await hasCommits(run, repo);
+			if (!commits && (scope === "base" || scope === "last")) return { kind: "failed", message: NO_COMMITS };
 			if (scope === "last" && !(await revParse(run, repo, "HEAD~1"))) {
 				return { kind: "failed", message: NO_PARENT };
 			}
@@ -141,17 +149,24 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 			}
 			const insertions = files.reduce((total, file) => total + file.add, 0);
 			const deletions = files.reduce((total, file) => total + file.del, 0);
+			const fingerprint = hash.digest("hex").slice(0, 16);
+			// The shas are read after the digest and never enter it: a sha in the hash would move the
+			// fingerprint between builds of one tree, and every open page would refuse its own write.
+			const head = (await revParse(run, repo, "HEAD"))?.slice(0, 7);
+			const baseSha = base ? (await revParse(run, repo, base))?.slice(0, 7) : undefined;
 			return {
 				kind: "snapshot",
 				snapshot: {
 					scope,
 					base,
 					label: planned.label,
+					...(head === undefined ? {} : { head }),
+					...(baseSha === undefined ? {} : { baseSha }),
 					files,
 					omitted,
 					insertions,
 					deletions,
-					fingerprint: hash.digest("hex").slice(0, 16),
+					fingerprint,
 				},
 			};
 		},

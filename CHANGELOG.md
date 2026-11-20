@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `code-review`: the page's words now name the facts it holds, and one refusal narrowed. The scope segment reads
+  `last` like the URL, the command and the tool (its title says `HEAD~1...HEAD`); the draft and review-id chips stay
+  hidden until there is something to say, the id behind its tooltip; the footer names the comparison and the commits
+  the snapshot holds (`origin/main 3f9c21a → HEAD a5efbb9`), where it used to print a fingerprint a reader could not
+  read — the fingerprint still keys every write; an untouched file says `no comment` instead of `not read yet`, a fact
+  the page cannot know; and a repository with **no commits** now renders `staged` and `worktree`, because an index and
+  a working tree exist before a commit, while `base` and `last` keep refusing with the sentence that names the missing
+  commit. The footer's commits are display-only and are read after the snapshot's fingerprint, so no open page starts
+  refusing its own writes.
+
 - `lib`: Pi 1.6.0's `Component.render()` returns `readonly string[]`, so the two declarations that still promised a
   mutable array say `readonly` too. `bodyLines` hands the inner component's own lines through rather than copying
   them — Pi may return an array it caches across frames, so a copy would cost a fresh array per frame for every

@@ -1,6 +1,6 @@
 # code-review — review a diff as a page, line by line
 
-<img src="../../assets/screens/code-review.png" alt="The review page: a changed-file rail on the left with each file's state, and on the right the branch's diff as hunks, one draft comment under the line it names, a commented file on its warn paper and a reviewed one on its success paper, the scope switch, Send feedback, and the footer's snapshot and progress" width="1280" height="913">
+<img src="../../assets/screens/code-review.png" alt="The review page: a changed-file rail on the left with each file's state, and on the right the branch's diff as hunks, one draft comment under the line it names, a commented file on its warn paper and a reviewed one on its success paper, the scope switch, Send feedback, and the footer's comparison and progress" width="1280" height="913">
 
 A branch, an uncommitted change, or the index, served as a page you can read
 line by line and comment on. The comments are the model's next turn — nothing
@@ -81,6 +81,9 @@ reload sentence rather than a comment landing on a line nobody read.
   send or delete it first, because a comment's line numbers belong to one scope.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
   diff lines per file; the page says what a cap left out.
+- In a repository with no commits yet, the `staged` and `worktree` comparisons
+  still render a page; `base` and `last` say the commit they compare is missing,
+  and the footer names the comparison with no sha beside it.
 - The page needs `git`, `serve`, and a local browser; without `serve` the tool
   says the session has no port, and a launcher that cannot start is reported with
   the address to paste.
