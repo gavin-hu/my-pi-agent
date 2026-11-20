@@ -109,13 +109,8 @@ describe("the kit's names", () => {
 		// own suite holds the inward half (it still names no removed class); this is the outward
 		// half, read from the text rather than from imports because the failure is a string no
 		// type checker sees.
-		// `bf-diff-line` is a family, not a class: each line wears a colour modifier and the sheet rules
-		// all five, so the exact name is never the one a reader sees.
-		const families = new Set(["bf-diff-line"]);
 		expect(
-			kitNamesIn(sourcesUnder(import.meta.dir, ["styles.ts"])).filter(
-				(name) => !families.has(name) && !rulesClass(BROWSE_CSS, name),
-			),
+			kitNamesIn(sourcesUnder(import.meta.dir, ["styles.ts"])).filter((name) => !rulesClass(BROWSE_CSS, name)),
 		).toEqual([]);
 	});
 });

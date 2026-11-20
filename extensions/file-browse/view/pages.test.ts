@@ -229,7 +229,8 @@ describe("page chrome", () => {
 		// inner scroller and a pinned hunk header, and neither belongs on paper.
 		expect(BROWSE_CSS).toContain("@media print{");
 		expect(BROWSE_CSS).toContain("overflow:visible!important}");
-		expect(BROWSE_CSS).toContain(".bf-diff .bf-diff-line--hunk{position:static}");
+		// No diff of this page's owns a rule any more: the review page dresses the one that does.
+		expect(BROWSE_CSS).not.toContain(".bf-diff");
 	});
 
 	test("keeps the listing and the Markdown column inside their panes", () => {
