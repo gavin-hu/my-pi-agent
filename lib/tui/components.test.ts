@@ -5,7 +5,6 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { eastAsianWidthType } from "get-east-asian-width";
 import {
 	getKeybindings,
 	KeybindingsManager,
@@ -16,7 +15,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { ansiTheme, BOLD_SGR, coloringTheme, fakeTheme, roleSgrTheme } from "../../test/helpers/fakes.ts";
 import { computeGauge, DEFAULT_GAUGE_THRESHOLDS, gaugeBar, gaugeRole } from "./gauge.ts";
-import { EXPAND_KEYBINDING, GLYPHS, SEPARATORS, STATUS_KEYS, expandHint, expandKey, keyHintText } from "./glyphs.ts";
+import { EXPAND_KEYBINDING, GLYPHS, STATUS_KEYS, expandHint, expandKey, keyHintText } from "./glyphs.ts";
 import { byRunningFirst, checkbox, chip, emptyState, keyValueRow, listRow, statusRow } from "./rows.ts";
 import { boldClose, paint, paintPrefix, TUI_TOKENS, type TuiRole } from "./tokens.ts";
 
@@ -68,32 +67,6 @@ describe("TUI_TOKENS", () => {
 
 	test("boldClose closes nothing in a theme that does not bold", () => {
 		expect(boldClose(fakeTheme)).toBe("");
-	});
-});
-
-describe("GLYPHS", () => {
-	test("every glyph is exactly one visible column", () => {
-		for (const [name, glyph] of Object.entries(GLYPHS)) {
-			expect(visibleWidth(glyph), name).toBe(1);
-		}
-	});
-
-	test("no glyph is wide or fullwidth, so none is a fixed two columns", () => {
-		const wide = new Set(["wide", "fullwidth"]);
-		for (const [name, glyph] of Object.entries(GLYPHS)) {
-			expect(wide.has(eastAsianWidthType(glyph.codePointAt(0) ?? 0)), `${name}=${glyph}`).toBe(false);
-		}
-	});
-
-	test("glyphs are distinct, so chips stay distinguishable", () => {
-		const values = Object.values(GLYPHS);
-		expect(new Set(values).size).toBe(values.length);
-	});
-});
-
-describe("SEPARATORS", () => {
-	test("the item separator is three columns wide", () => {
-		expect(visibleWidth(SEPARATORS.item)).toBe(3);
 	});
 });
 

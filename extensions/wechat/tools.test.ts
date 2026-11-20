@@ -159,7 +159,7 @@ describe("send_wechat rendering", () => {
 			)
 			.render(80)
 			.join("\n");
-		expect(settled).toContain("sent to WeChat owner");
+		expect(settled).toContain("Sent to WeChat owner");
 		expect(settled).toContain("2.5s");
 		// The settled frame clears the interval the live line started, so nothing ticks after it.
 		expect((context.state as { elapsedTimer?: unknown }).elapsedTimer).toBeUndefined();
