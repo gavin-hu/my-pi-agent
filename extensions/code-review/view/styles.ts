@@ -47,7 +47,9 @@ export const REVIEW_CSS = `
 .rv-banner{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--warn);background:var(--search-soft);border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm)}
 .rv-banner b{color:var(--text)}
 .rv-file{margin-top:var(--space-4)}
-.rv-file__head{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-2) var(--space-5);background:var(--paper,var(--raised));border-left:2px solid var(--role,var(--muted));border-bottom:1px solid var(--border)}
+/* The head is outside the diff's own scroll box, so the page is its scrollport: it pins while
+   the reader scrolls the file, and a hunk jump lands below it (scroll-margin-top, measured). */
+.rv-file__head{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-2) var(--space-5);background:var(--paper,var(--raised));border-left:2px solid var(--role,var(--muted));border-bottom:1px solid var(--border)}
 .rv-file[data-state="commented"] .rv-file__head{--paper:var(--search-soft);--role:var(--warn)}
 .rv-file[data-state="reviewed"] .rv-file__head{--paper:var(--success-soft);--role:var(--success)}
 .rv-file__mark{font:var(--fw-semibold) var(--fs-xs)/1.6 var(--font-mono);color:var(--role,var(--accent));border:1px solid currentColor;border-radius:var(--radius-sm);padding:0 4px}
@@ -75,7 +77,7 @@ export const REVIEW_CSS = `
 .rv-diff .bf-diff-line--add .browse-diff-sign{color:var(--success)}
 .rv-diff .bf-diff-line--del{background:var(--danger-soft)}
 .rv-diff .bf-diff-line--del .browse-diff-sign{color:var(--danger)}
-.rv-diff .bf-diff-line--hunk{color:var(--accent);background:var(--surface)}
+.rv-diff .bf-diff-line--hunk{color:var(--accent);background:var(--surface);scroll-margin-top:var(--rv-head-h,0px)}
 .rv-diff .bf-diff-line--meta{color:var(--muted)}
 .rv-diff .bf-diff-line--note{color:var(--muted);font-style:italic}
 .rv-diff[data-wrap="true"] .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}
