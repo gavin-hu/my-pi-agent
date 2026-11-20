@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- board: a close no longer throws when the chain it was handed carries no commit subject. `#442` added
+  the field and the squash rule, and `landing.ts` reads it on the **tip check**, before it looks at any
+  candidate — so a chain from a `lib/git/read.ts` loaded before that landed (a `/reload` is not a
+  restart, so one session can hold both halves) threw `undefined is not an object` on *every* `done`
+  and left the card where it was. Git is not the source: `read.ts` always writes the field, and this
+  repository's own chain is 1,573 entries with none missing. `LandingCommit.subject` is optional now,
+  `declaredCard` reads a missing one as "this commit declares no card", and the tip is not trusted as
+  its own landing while its declaration is unreadable — naming it would put another card's sha on this
+  one, which is the misattribution `#439` fixed. A merge-landed close resolves exactly as it did; a
+  squash landing keeps `#442`'s refusal. The rejected alternative is worth recording: "restart the
+  session" instructs every user about an internal loading order our own code can tolerate, and a
+  refusal they can act on beats a TypeError they cannot.
+
 - `tui`: a collapsed tool block's height is measured now, not remembered. Nothing read how tall the
   transcript drew a block, so one could grow a row per release with every suite green. `test/tool-render.test.ts`
   draws each package fixture's call and its result through bytefly's frame at 80 columns and holds the
