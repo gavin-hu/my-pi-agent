@@ -88,6 +88,8 @@ export const REVIEW_CSS = `
 .rv-compose__area{display:block;width:100%;min-height:74px;resize:vertical;border:0;outline:0;background:transparent;color:var(--text);padding:var(--space-3);font:var(--fs-sm)/1.6 var(--font-ui);box-sizing:border-box}
 .rv-compose__head{display:flex;align-items:baseline;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border);color:var(--muted);font-size:var(--fs-xs)}
 .rv-compose__acts{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-top:1px solid var(--border)}
+/* A draft carried across a moved diff says so on the composer it lands in. */
+.rv-compose__note{margin-left:auto;color:var(--warn);font:var(--fs-xs)/1.4 var(--font-ui)}
 .rv-selbar{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);display:none;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--raised);border:1px solid var(--border-strong);border-radius:var(--radius-lg);box-shadow:var(--shadow-2);z-index:60}
 .rv-selbar[data-open="true"]{display:flex}
 .rv-selbar__ref{font:var(--fs-sm)/1.5 var(--font-mono);color:var(--text);padding:0 var(--space-2);max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

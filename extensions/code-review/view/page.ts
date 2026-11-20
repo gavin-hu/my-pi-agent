@@ -23,6 +23,7 @@ import {
 	keysSheet,
 	pageFooter,
 	pageSheet,
+	reloadChip,
 	tabTitle,
 } from "../../../lib/web/index.ts";
 import type { ReviewSnapshot } from "../git/diff.ts";
@@ -198,6 +199,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
 		}),
 		chip({ label: input.review === undefined ? "no review yet" : `review ${input.review.id}`, attrs: { id: "rv-id" } }),
 		chip({ label: snapshot.label, className: "bf-tag--mono", attrs: { id: "rv-scope" } }),
+		reloadChip({ title: "The diff moved — reload the page" }),
 	].join("\n    ");
 	const controls = `${scopeSegments(base, snapshot.scope)}
   <div class="bf-app__group">
