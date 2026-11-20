@@ -135,30 +135,50 @@ describe("errorLine", () => {
 	test("names the failure when the message is empty", () => {
 		expect(errorLine(fakeTheme, "  \n ")).toBe("Error: the tool call failed");
 	});
+
+	test("folds a refusal's instruction behind the expand affordance", () => {
+		// The board's refusal is the shape: the verdict, then the route a model needs.
+		const message = "#6 is in plan; its contract is not approved yet. The lead approves with `approve`.";
+		const collapsed = errorLine(fakeTheme, message);
+		expect(collapsed).toContain("Error: #6 is in plan; its contract is not approved yet.");
+		expect(collapsed).not.toContain("The lead approves");
+		expect(collapsed).toMatch(/expand/);
+		const expanded = errorLine(fakeTheme, message, true);
+		expect(expanded).toContain("The lead approves");
+		expect(expanded).not.toMatch(/expand/);
+	});
+
+	test("draws a one-sentence failure whole, with no affordance to offer", () => {
+		expect(errorLine(fakeTheme, "Error: boom")).toBe("Error: boom");
+	});
 });
 
 describe("rejectionLine", () => {
-	test("joins every text block and keeps the error role", () => {
-		const line = rejectionLine(fakeTheme, {
+	test("joins every text block, and folds the instruction the model still receives", () => {
+		const result = {
 			content: [
 				{ type: "text", text: "Permission denied: todo" },
 				{ type: "text", text: "Ask the user to allow it." },
 			],
 			isError: true,
-		});
-		expect(line).toContain("Error: Permission denied: todo");
-		expect(line).toContain("Ask the user to allow it.");
+		};
+		const collapsed = rejectionLine(fakeTheme, result);
+		expect(collapsed).toContain("Error: Permission denied: todo");
+		expect(collapsed).not.toContain("Ask the user to allow it.");
+		const expanded = rejectionLine(fakeTheme, result, true);
+		expect(expanded).toContain("Ask the user to allow it.");
+		// The block is what folds: the payload is what the model was handed, whole.
+		expect(messageText(result)).toContain("Ask the user to allow it.");
 	});
 
-	test("caps collapsed output and expands it with the shared hint", () => {
-		const content = Array.from({ length: 5 }, (_, index) => ({ type: "text", text: `line ${index}` }));
-		const collapsed = rejectionLine(fakeTheme, { content, isError: true }, false, 3);
-		expect(collapsed).toContain("line 2");
-		expect(collapsed).not.toContain("line 3");
-		expect(collapsed).toContain("… 2 more lines");
-		const expanded = rejectionLine(fakeTheme, { content, isError: true }, true, 3);
-		expect(expanded).toContain("line 4");
-		expect(expanded).not.toContain("more lines");
+	test("collapses a long refusal to its first sentence, and draws it all expanded", () => {
+		const content = [{ type: "text", text: "First thing failed. Then this happened. And more." }];
+		const collapsed = rejectionLine(fakeTheme, { content, isError: true });
+		expect(collapsed).toContain("First thing failed.");
+		expect(collapsed).not.toContain("Then this happened");
+		const expanded = rejectionLine(fakeTheme, { content, isError: true }, true);
+		expect(expanded).toContain("And more.");
+		expect(expanded).not.toMatch(/expand/);
 	});
 
 	test("names the rejection when there is no text at all", () => {
@@ -188,9 +208,12 @@ describe("detailsOrLine", () => {
 		expect("line" in outcome && outcome.line).toBe("Error: rate limited");
 	});
 
-	test("keeps a multi-line error readable instead of collapsing it", () => {
-		const outcome = detailsOrLine(fakeTheme, { content: [] }, false, { error: "first\nsecond" });
-		expect("line" in outcome && outcome.line.split("\n")).toEqual(["Error: first", "second"]);
+	test("folds a multi-line error collapsed, and draws its lines expanded", () => {
+		const collapsed = detailsOrLine(fakeTheme, { content: [] }, false, { error: "first\nsecond" });
+		expect("line" in collapsed && collapsed.line).toContain("Error: first");
+		expect("line" in collapsed && collapsed.line).not.toContain("second");
+		const expanded = detailsOrLine(fakeTheme, { content: [] }, true, { error: "first\nsecond" });
+		expect("line" in expanded && expanded.line.split("\n")).toEqual(["Error: first", "second"]);
 	});
 
 	test("treats an empty error as no failure", () => {

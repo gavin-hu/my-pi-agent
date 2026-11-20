@@ -303,7 +303,9 @@ const COLLAPSED_ROWS: Record<string, number> = {
 	board: 2,
 	"board-archived": 2,
 	"board-contract": 2,
-	"board-gated": 4,
+	// 4 -> 2: a refusal draws its verdict and folds the route behind the expand hint; the
+	// instruction is still in the result, which is where the model reads it.
+	"board-gated": 2,
 	"board-refused": 2,
 	goal: 2,
 	job: 3,
@@ -369,10 +371,16 @@ function collapsedFixtures(): ToolFixture[] {
 }
 
 /**
- * One fixture's collapsed block: the call line and the result the transcript draws
- * before any expand, through the frame that draws it there.
+ * One fixture's block: the call line and the result the transcript draws at that
+ * expand state, through the frame that draws it there.
  */
-function collapsedBlock(frame: any, tools: Map<string, any>, fixture: ToolFixture, width: number): string[] {
+function collapsedBlock(
+	frame: any,
+	tools: Map<string, any>,
+	fixture: ToolFixture,
+	width: number,
+	expanded = false,
+): string[] {
 	const name = fixture.tool ?? fixture.name;
 	const wrapped = frame(name, () => tools.get(name));
 	const isPartial = fixture.options?.isPartial ?? false;
@@ -380,11 +388,11 @@ function collapsedBlock(frame: any, tools: Map<string, any>, fixture: ToolFixtur
 	const call = wrapped.renderCall?.(args, fakeTheme, context({ args, isPartial }));
 	const result = wrapped.renderResult?.(
 		fixture.result,
-		{ expanded: false, isPartial },
+		{ expanded, isPartial },
 		fakeTheme,
 		context({
 			args,
-			expanded: false,
+			expanded,
 			isPartial,
 			isError: fixture.result?.isError === true,
 			durationMs: fixture.options?.durationMs,
@@ -406,6 +414,25 @@ describe("collapsed block height", () => {
 			[...named].filter((name) => !drawn.includes(name)),
 			"a stale entry names no collapsed fixture; drop it",
 		).toEqual([]);
+	});
+
+	test("a folded refusal keeps the instruction the model was handed", () => {
+		// The rule is a drawing rule: the block states the verdict, and the result keeps the
+		// sentence written for the model. A fold that trimmed both would be a behaviour change.
+		const fixture = collapsedFixtures().find((item) => item.name === "board-gated");
+		expect(fixture, "the gallery carries a gated-move refusal").toBeDefined();
+		const model = (fixture?.result?.content ?? []).map((block: { text?: string }) => block.text ?? "").join(" ");
+		expect(model, "the fixture names the route").toContain("session send");
+
+		const { frame, tools } = blockHarness();
+		// The frame draws a rail in the indent column; it is punctuation, not the sentence.
+		const flatten = (lines: string[]) => lines.join(" ").replace(/╎/g, " ").replace(/\s+/g, " ");
+		const drawn = flatten(collapsedBlock(frame, tools, fixture as ToolFixture, BUDGET_WIDTH));
+		expect(drawn, "the collapsed block is the verdict").toContain("not approved");
+		expect(drawn, "a collapsed block does not print the route").not.toContain("session send");
+
+		const expanded = flatten(collapsedBlock(frame, tools, fixture as ToolFixture, BUDGET_WIDTH, true));
+		expect(expanded, "expanding draws the instruction").toContain("session send");
 	});
 
 	test("a collapsed block stays inside its row budget", () => {
