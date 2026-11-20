@@ -46,7 +46,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	contract:
 		"records the plan file and the four lines a card promises — `goal`, `acceptance`, `scopeOut`, and `verify`, the command the spot-check runs — and drops any approval, because the wording changed",
 	approve:
-		"approves the contract and the plan it names: the lead, who does not hold the card, says both are right, and `text` records what the signer saw",
+		"approves the contract and the plan it names: the lead, who does not hold the card, says both are right, and `note` records what the signer saw",
 	review:
 		"records a spot-check of the finished work: the same lead, in `execute`; the sign is announced to the owner's inbox (`session send` asks the lead). `override` instead signs a finished card nobody signed",
 	edit: "fixes what the card says",
@@ -73,10 +73,10 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	release: ["card"],
 	reclaim: ["card"],
 	move: ["card", "lane", "blockedBy", "blocker", "override"],
-	note: ["card", "text"],
+	note: ["card", "note"],
 	contract: ["card", "path", "goal", "acceptance", "scopeOut", "verify"],
-	approve: ["card", "text"],
-	review: ["card", "text", "override", "root"],
+	approve: ["card", "note"],
+	review: ["card", "note", "override", "root"],
 	edit: ["card", "title", "paths", "type", "breaking", "priority", "dependsOn"],
 	archive: ["card", "olderThan"],
 	drop: ["card"],

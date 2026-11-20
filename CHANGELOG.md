@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the field that carries a note is `note` on every action, and `text` is gone — `note`, `approve` and
+  `review` take `note: "…"` where they took `text: "…"`, and `add`'s first note is that same field rather than a
+  second one with another name. It was one concept under two names, one of them the name of the action that
+  appends it, so `{"action":"note","note":"…"}` was refused with "note does not act on note" — a sentence that
+  reads as a contradiction because it was one. `team` has called this field `note` since it was written, and the
+  store's `CardOp.text` and the page's own wire field are unchanged; a caller still passing `text` is refused by
+  the stray-field check rather than having it dropped in silence, and no alias is kept. The merge also took the
+  board surface from 6,378 to 6,284 characters, the ceiling falling with it.
+
 - `tools`: every cap a tool enforces is now in its parameter schema, and no tool publishes `anyOf`/`const`.
   `board`'s five union fields (`action`, `lane`, `blocker`, `priority`, `type`) and `team`'s `action` became
   `StringEnum`, the plain `{ type: "string", enum: [...] }` form `lib/tool-schema.ts` documents for a provider that

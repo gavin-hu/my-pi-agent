@@ -293,7 +293,7 @@ describe("the archive result", () => {
 		// and each names the one that is left. The refusal is the pile's, asked before any step, so
 		// it stands even where the step would have refused for a reason of its own (`review` here).
 		for (const args of [
-			{ action: "note", card: card.id, text: "late" },
+			{ action: "note", card: card.id, note: "late" },
 			{ action: "edit", card: card.id, title: "Restated" },
 			{ action: "review", card: card.id, override: "closed on my instruction" },
 		]) {

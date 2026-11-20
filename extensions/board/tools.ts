@@ -216,7 +216,7 @@ export function registerTools(
 					override,
 					// The note the sign will carry: the gate refuses one the card cannot keep before the
 					// command starts, so a too-long note costs no run.
-					note: args.text,
+					note: args.note,
 					// The tree the review names, or the session's own: `root` is the card's worktree (or a checkout
 					// at its commit) when the signer is not in it. It is read now rather than taken from the store: a
 					// store opened before `worktree enter` keeps the checkout it was opened on, so its root is the
@@ -321,7 +321,7 @@ export function registerTools(
 						return await mutate(store, action, me, now, args, op, { cross });
 					}
 					case "note":
-						return await mutate(store, action, me, now, args, { kind: "note", text: args.text });
+						return await mutate(store, action, me, now, args, { kind: "note", text: args.note });
 					case "contract": {
 						// The store is resolved here, and the path proved where the rule asks: only a caller holding the
 						// working directory can say where the plan store is, and only the locked pass can say whether
@@ -403,11 +403,11 @@ export function registerTools(
 							action === "review"
 								? {
 										kind: "review" as const,
-										text: args.text,
+										text: args.note,
 										override: args.override,
 										...(evidence === undefined ? {} : { verified: evidence.verified }),
 									}
-								: { kind: "approve" as const, text: args.text, ...(artifact === undefined ? {} : { artifact }) };
+								: { kind: "approve" as const, text: args.note, ...(artifact === undefined ? {} : { artifact }) };
 						return await mutate(store, action, me, at, args, op, { notice });
 					}
 					case "edit": {

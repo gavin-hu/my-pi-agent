@@ -34,7 +34,7 @@ describe("a sign's note", () => {
 	test("approve records what the lead saw, in the same write", async () => {
 		const board = bench();
 		await claimedWithContract(board);
-		const signed = await board.lead.call({ action: "approve", card: "1", text: "The scope out is doing real work." });
+		const signed = await board.lead.call({ action: "approve", card: "1", note: "The scope out is doing real work." });
 		expect(signed.details.card?.contract?.approved?.by).toBe(LEAD);
 		expect(signed.details.card?.notes.at(-1)).toMatchObject({ by: LEAD, text: "The scope out is doing real work." });
 	});
@@ -44,7 +44,7 @@ describe("a sign's note", () => {
 		await claimedWithContract(board);
 		await board.lead.call({ action: "approve", card: "1" });
 		await board.peer.call({ action: "move", card: "1", lane: "execute" });
-		const checked = await board.lead.call({ action: "review", card: "1", text: "Checked: the gate bites." });
+		const checked = await board.lead.call({ action: "review", card: "1", note: "Checked: the gate bites." });
 		expect(checked.details.card?.review?.by).toBe(LEAD);
 		expect(checked.details.card?.notes.at(-1)).toMatchObject({ by: LEAD, text: "Checked: the gate bites." });
 		expect((await board.peer.call({ action: "move", card: "1", lane: "done" })).details.card?.lane).toBe("done");
@@ -206,7 +206,7 @@ describe("a sign tells the other side", () => {
 		await claimedWithContract(board);
 		await board.lead.call({ action: "approve", card: "1" });
 		sent.length = 0;
-		const again = await board.lead.call({ action: "approve", card: "1", text: "Read it again; still fine." });
+		const again = await board.lead.call({ action: "approve", card: "1", note: "Read it again; still fine." });
 		// The note landed, so the card moved — but the signature did not, and the message a sign
 		// sends is about the stamp rather than about the file.
 		expect(again.details.card?.notes.at(-1)?.text).toBe("Read it again; still fine.");
