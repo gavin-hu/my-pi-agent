@@ -57,6 +57,17 @@ describe("the wrap control", () => {
 	});
 });
 
+describe("the diff's keys", () => {
+	test("left for the review page with the pages that read them", () => {
+		// The hunk anchors and `n`/`p` were this page's while it drew a diff. The review page
+		// steps hunks now (its own `n`/`p`, beside `[`/`]`), and a second bundle claiming the
+		// same keys is how two pages answer one press differently.
+		expect(CLIENT_JS).not.toContain("[data-hunk]");
+		expect(CLIENT_JS).not.toContain("hunkAnchors");
+		expect(CLIENT_JS).not.toContain("moveHunk");
+	});
+});
+
 describe("the live script", () => {
 	test("paints the chip through the kit, and offers the reload when the stream goes", () => {
 		// One painter, written once: the tone is a modifier and the state's word is the chip's
