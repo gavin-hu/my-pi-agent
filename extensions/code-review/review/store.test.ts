@@ -17,7 +17,8 @@ function countingStore() {
 		mint: () => `token${++tokens}${"a".repeat(26)}`,
 		now: () => clock++,
 	});
-	return { store, nextToken: () => `token${tokens + 1}${"a".repeat(26)}` };
+	/** Every value the store minted: the page token first, then each review and comment id. */
+	return { store, count: () => tokens };
 }
 
 const REV = "snap-1";
@@ -89,6 +90,64 @@ describe("the review page", () => {
 		expect(refused.ok).toBe(false);
 		if (!refused.ok) expect(refused.message).toBe(BAD_TOKEN);
 		expect(store.write(other.token, REV, REV, comment()).ok).toBe(true);
+	});
+});
+
+describe("a refused first write", () => {
+	/**
+	 * The state after a refused write, not the answer. These cases used to assert only
+	 * `.ok` and the message, which is how a refusal that minted a review stayed green: the
+	 * mint sat above every validation, so the page carried an id, the `review <id>` chip and
+	 * a resumable URL for a review nobody made. A refusal now mints nothing and adopts
+	 * nothing, and the mint count proves the second half.
+	 */
+	const refusals: Array<[string, WriteOp, number]> = [
+		["a comment with no body", { kind: "comment", rel: "a.ts", line: 1, side: "new", body: "   " }, 400],
+		[
+			"a comment over the length cap",
+			{ kind: "comment", rel: "a.ts", line: 1, side: "new", body: "x".repeat(MAX_COMMENT_LENGTH + 1) },
+			400,
+		],
+		["a comment with no file", { kind: "comment", rel: " ", line: 1, side: "new", body: "x" }, 400],
+		["a comment with no line", { kind: "comment", rel: "a.ts", line: 0, side: "new", body: "x" }, 400],
+		["a drop of an id the review does not hold", { kind: "drop", id: "missing" }, 404],
+		["a mark with no file", { kind: "reviewed", rel: "", reviewed: true }, 400],
+	];
+
+	for (const [name, op, status] of refusals) {
+		test(`${name} mints nothing`, () => {
+			const { store, count } = countingStore();
+			const page = store.open("base", "main", "main...HEAD");
+			const before = count();
+			const refused = store.write(page.token, REV, REV, op);
+			expect(refused.ok).toBe(false);
+			if (!refused.ok) expect(refused.status).toBe(status);
+			expect(store.current()?.review).toBeUndefined();
+			expect(count(), "a refusal consumed an id").toBe(before);
+		});
+	}
+
+	test("the first accepted write mints exactly one id, and resume answers for it", () => {
+		const { store, count } = countingStore();
+		const page = store.open("base", "main", "main...HEAD");
+		expect(count(), "the page opened with one token").toBe(1);
+		const refused = store.write(page.token, REV, REV, {
+			kind: "comment",
+			rel: "a.ts",
+			line: 0,
+			side: "new",
+			body: "x",
+		});
+		expect(refused.ok).toBe(false);
+		expect(count(), "the refusal consumed nothing").toBe(1);
+
+		// A mark, not a comment: the comment would mint its own id too, and this case is about
+		// the review's id being minted once.
+		const accepted = store.write(page.token, REV, REV, { kind: "reviewed", rel: "a.ts", reviewed: true });
+		if (!accepted.ok) throw new Error(accepted.message);
+		expect(count(), "exactly one id was minted").toBe(2);
+		expect(store.current()?.review?.id).toBe(accepted.id);
+		expect(store.resume(accepted.id, page.token)?.review?.id).toBe(accepted.id);
 	});
 });
 
