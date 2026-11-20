@@ -39,6 +39,11 @@ interface ServedPage {
 	page: string;
 	/** The directory its markup and scripts live in. */
 	dir: string;
+	/**
+	 * Directories outside the extension that write this page's markup too, so a page whose
+	 * renderer moved into `lib/` is still measured as the one writer it is.
+	 */
+	extraSources?: readonly string[];
 	/** The files in that directory that are not sources: the sheet itself, and any other. */
 	skip: readonly string[];
 	/** The stylesheet it serves, kit blocks included. */
@@ -83,6 +88,8 @@ const PAGES: readonly ServedPage[] = [
 	{
 		page: "file-browse",
 		dir: join(root, "extensions/file-browse/view"),
+		// The diff body is a shared module now: a page and the review page both draw it.
+		extraSources: [join(root, "lib/diff")],
 		skip: ["styles.ts"],
 		css: BROWSE_CSS,
 		exceptions: [
@@ -101,7 +108,11 @@ function shippedCss(page: ServedPage): string {
 
 /** The names one page writes, with its own sheet taken out of the text when the two share a file. */
 function namesOf(page: ServedPage): string[] {
-	const source = sourcesUnder(page.dir, page.skip).split(page.css).join("");
+	const source = [page.dir, ...(page.extraSources ?? [])]
+		.map((dir) => sourcesUnder(dir, page.skip))
+		.join("\n")
+		.split(page.css)
+		.join("");
 	return kitNamesIn(source);
 }
 

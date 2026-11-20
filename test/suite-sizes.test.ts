@@ -50,9 +50,9 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/bytefly/notify/notify.test.ts": 461,
 	"extensions/bytefly/panel/model.test.ts": 429,
 	"extensions/bytefly/update/update.test.ts": 1176,
-	"extensions/file-browse/files/files.test.ts": 911,
+	"extensions/file-browse/files/files.test.ts": 737,
 	"extensions/file-browse/transport/router.test.ts": 863,
-	"extensions/file-browse/view/pages.test.ts": 1433,
+	"extensions/file-browse/view/pages.test.ts": 1376,
 	"extensions/plan/web-page.test.ts": 408,
 	"extensions/file-read/tool.test.ts": 696,
 	"extensions/goal/extension.test.ts": 724,
@@ -114,7 +114,7 @@ const LONG_SUITES: Record<string, number> = {
  * lines of headroom when the root half joined. The gap is history rather than permission — a
  * split lowers the ceiling, and nothing raises it again.
  */
-const LONG_SUITE_TOTAL = 47759;
+const LONG_SUITE_TOTAL = 47528;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 

@@ -17,15 +17,9 @@ import {
 	revParse,
 	type RunGit,
 } from "../../../lib/git/index.ts";
-import {
-	diffArgs,
-	inMode,
-	parseStatusZ,
-	parseUnifiedDiff,
-	type ChangedFile,
-	type DiffLine,
-	type DiffMode,
-} from "../text/diff.ts";
+import { diffArgs, type DiffMode } from "../../../lib/diff/modes.ts";
+import { type DiffLine, parseUnifiedDiff } from "../../../lib/diff/parse.ts";
+import { type ChangedFile, inMode, parseStatusZ } from "../../../lib/diff/status.ts";
 import { readFileView } from "../files/files.ts";
 
 export interface GitStatus {

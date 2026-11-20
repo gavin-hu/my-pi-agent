@@ -24,7 +24,7 @@ import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
 import { CLIENT_JS } from "../view/client.ts";
 import type { LivePage } from "../view/chrome.ts";
 import type { ServeConfig } from "../config/config.ts";
-import { isDiffMode, type DiffMode } from "../text/diff.ts";
+import { isDiffMode, type DiffMode } from "../../../lib/diff/modes.ts";
 import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "../git/git.ts";
 import { changeIndexOf, type LiveStatusSource } from "../live/live.ts";
 import {
