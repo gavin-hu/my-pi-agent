@@ -1,12 +1,13 @@
 /**
  * The grouped test-suite manifest.
  *
- * `EXTENSION_SUITES`, `LIB_SUITES`, and `SCRIPT_SUITES` are the complete layout:
- * a suite stem is relative to its owner directory and omits `.test.ts`. Every
- * test file under `extensions/`, `lib/`, and `scripts/` must be declared here;
- * `test/layout.test.ts` enforces that and requires each declared suite.
- * `declaredSuiteFiles` is the same layout as repo-relative paths, so the size bar
- * and the layout guard read one list rather than composing it twice.
+ * `EXTENSION_SUITES`, `LIB_SUITES`, `SCRIPT_SUITES`, and `ROOT_SUITES` are the complete
+ * layout: a suite stem is relative to its owner directory and omits `.test.ts`. Every
+ * test file under `extensions/`, `lib/`, and `scripts/` must be declared here, and so must
+ * every contract directly under `test/`; `test/layout.test.ts` enforces both and requires
+ * each declared suite. `declaredSuiteFiles` and `declaredRootSuites` are the same layout as
+ * repo-relative paths, so the layout guard and the size bar read one list rather than
+ * composing it twice — which is how a root contract sat outside the 400-line bar until #746.
  *
  * Nothing here decides what a run executes: `bun test` discovers the files, and
  * `bun test <dir>` takes a slice. This is the declaration the layout gate compares
@@ -437,6 +438,51 @@ export const SCRIPT_SUITES: readonly string[] = [
 	"video",
 ];
 
+/**
+ * The package-level contracts that sit directly under `test/`, as stems rather than paths.
+ *
+ * These read the tree rather than import a module, so `extensions/`, `lib/`, and `scripts/`
+ * cannot own them. They are declared here for the same reason those suites are: the layout
+ * guard compares the directory against this list, and the size bar measures what it names, so
+ * a contract grows under the same 400-line rule as a capability suite.
+ */
+export const ROOT_SUITES: readonly string[] = [
+	"boundaries",
+	"browser-handle",
+	"config-docs",
+	"conventions",
+	"dependencies",
+	"doc-counts",
+	"doc-links",
+	"docs-parity",
+	"drift",
+	"extension-docs",
+	"extension-load",
+	"layout",
+	"layering",
+	"lock",
+	"module-sizes",
+	"naming",
+	"prerequisites",
+	"prompt-budget",
+	"refactor-skill",
+	"release",
+	"scripts-surface",
+	"settings-coverage",
+	"shared-helpers",
+	"site-docs",
+	"skill-bank",
+	"skill-docs",
+	"spliced-bodies",
+	"suite-sizes",
+	"theme",
+	"tool-render",
+	"tool-rows",
+	"tui-conventions",
+	"wait-budget",
+	"web-classes",
+];
+
 /** Every declared suite as a repo-relative path, sorted. */
 export function declaredSuiteFiles(): string[] {
 	return [
@@ -446,4 +492,9 @@ export function declaredSuiteFiles(): string[] {
 		...LIB_SUITES.map((suite) => `lib/${suite}.test.ts`),
 		...SCRIPT_SUITES.map((suite) => `scripts/${suite}.test.ts`),
 	].sort();
+}
+
+/** Every root contract as a repo-relative path, sorted. */
+export function declaredRootSuites(): string[] {
+	return ROOT_SUITES.map((suite) => `test/${suite}.test.ts`).sort();
 }

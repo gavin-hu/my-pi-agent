@@ -15,28 +15,19 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { initTheme } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ToolCallText } from "../lib/tui/tool.ts";
-import board from "../extensions/board/index.ts";
-import bytefly from "../extensions/bytefly/index.ts";
-import fileRead from "../extensions/file-read/index.ts";
-import goal from "../extensions/goal/index.ts";
-import jobs from "../extensions/job/index.ts";
-import memory from "../extensions/memory/index.ts";
-import planMode from "../extensions/plan/index.ts";
-import question from "../extensions/question/index.ts";
-import sessionBus from "../extensions/session-bus/index.ts";
-import team from "../extensions/team/index.ts";
-import subagent from "../extensions/subagent/index.ts";
-import todo from "../extensions/todo/index.ts";
-import watch from "../extensions/watch/index.ts";
-import webAccess from "../extensions/web-access/index.ts";
-import wechat from "../extensions/wechat/index.ts";
-import { registerTools as registerWorktreeTools } from "../extensions/worktree/tools.ts";
 import { FIXTURES, type ToolFixture } from "../scripts/tools/fixtures/index.ts";
 import { fixtureState } from "../scripts/tools/fixtures/state.ts";
-import { createFakePi, fakeTheme } from "./helpers/fakes.ts";
+import { fakeTheme } from "./helpers/fakes.ts";
 import { ALL_EXTENSIONS_ENV, useEnv } from "./helpers/env.ts";
+import {
+	COLLAPSED_ROWS,
+	WIDTHS,
+	blockHarness,
+	expectBlockBounded,
+	registeredTools,
+	toolBlockContext,
+} from "./helpers/tool-block.ts";
 
 /** Every tool here is rendered, so the fake session loads the whole pack. */
 const env = useEnv(ALL_EXTENSIONS_ENV);
@@ -49,31 +40,6 @@ const env = useEnv(ALL_EXTENSIONS_ENV);
 initTheme();
 
 afterAll(() => env.restore());
-
-/** Every extension that registers a tool with a renderer, as the gallery does. */
-const EXTENSIONS: Array<(pi: any) => void> = [
-	bytefly,
-	fileRead,
-	goal,
-	jobs,
-	memory,
-	planMode,
-	question,
-	sessionBus,
-	subagent,
-	todo,
-	watch,
-	webAccess,
-	wechat,
-	board,
-	team,
-	// The tool's renderers only: the extension's root-tool wrappers shadow `edit`/`write`/`bash`
-	// for an isolated session, and this suite draws tool blocks rather than a session.
-	(pi: any) => registerWorktreeTools(pi),
-];
-
-/** The widths the transcript is exercised at: wide, split, and narrow. */
-const WIDTHS = [80, 48, 40];
 
 /**
  * The call and result states a row actually renders: arguments still streaming
@@ -90,57 +56,18 @@ const RESULT_STATES = [
 	{ expanded: false, isPartial: true },
 ];
 
-/** Control characters that must never reach the terminal; SGR may. */
-const RAW_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
-
-/** A render context with the fields the package renderers read. */
-function context(overrides: Record<string, unknown> = {}): any {
-	return {
-		args: {},
-		toolCallId: "call-contract",
-		invalidate: () => {},
-		lastComponent: undefined,
-		state: {},
-		cwd: "/home/u/repo/project",
-		executionStarted: true,
-		argsComplete: true,
-		isPartial: false,
-		expanded: false,
-		showImages: false,
-		isError: false,
-		durationMs: undefined,
-		outputPad: 0,
-		...overrides,
-	};
-}
-
-/** Every tool the package's extensions register. */
-function registeredTools(): Map<string, any> {
-	const fake = createFakePi();
-	for (const extension of EXTENSIONS) extension(fake.pi);
-	return fake.tools;
-}
-
-/** Assert every line fits the width and carries no raw control characters. */
-function expectBounded(lines: string[], width: number, label: string): void {
-	for (const line of lines) {
-		expect(visibleWidth(line), `${label} exceeds ${width}`).toBeLessThanOrEqual(width);
-		expect(stripTerminalSequences(line), `${label} carries a control character`).not.toMatch(RAW_CONTROL);
-	}
-}
-
 describe("tool render contract", () => {
 	test("every renderCall draws bounded, control-free lines", () => {
 		for (const [name, tool] of registeredTools()) {
 			if (typeof tool.renderCall !== "function") continue;
 			for (const width of WIDTHS) {
-				const component = tool.renderCall({}, fakeTheme, context());
+				const component = tool.renderCall({}, fakeTheme, toolBlockContext());
 				expect(component, `${name} renderCall returned nothing`).toBeDefined();
 				const lines = component.render(width);
 				if (component instanceof ToolCallText) {
 					expect(lines, `${name} call wrapped at ${width}`).toHaveLength(component.text.split("\n").length);
 				}
-				expectBounded(lines, width, `${name} call at ${width}`);
+				expectBlockBounded(lines, width, `${name} call at ${width}`);
 			}
 		}
 	});
@@ -156,7 +83,7 @@ describe("tool render contract", () => {
 			fixture.result,
 			{ expanded, isPartial },
 			fakeTheme,
-			context({
+			toolBlockContext({
 				args: fixture.args ?? {},
 				expanded,
 				isPartial,
@@ -185,9 +112,9 @@ describe("tool render contract", () => {
 				if (COLLAPSED_ROWS[fixture.name] !== 1) {
 					expect(collapsed, `${fixture.name} result drew nothing at ${width}`).not.toHaveLength(0);
 				}
-				expectBounded(collapsed, width, `${fixture.name} result at ${width}`);
+				expectBlockBounded(collapsed, width, `${fixture.name} result at ${width}`);
 				const expanded = drawResult(tool, fixture, true, width);
-				expectBounded(expanded, width, `${fixture.name} expanded result at ${width}`);
+				expectBlockBounded(expanded, width, `${fixture.name} expanded result at ${width}`);
 				// Expanding lifts a collapse, it never sheds a row: a tool that hides
 				// lines collapsed draws them here, and one with nothing hidden draws the same.
 				expect(expanded.length, `${fixture.name} expanded to fewer lines at ${width}`).toBeGreaterThanOrEqual(
@@ -231,21 +158,18 @@ describe("tool render contract", () => {
 	});
 
 	test("bytefly's frame reuses its lines on an unchanged frame", () => {
-		const fake = createFakePi();
-		for (const extension of EXTENSIONS) extension(fake.pi);
-		const frame: any = fake.toolRenderers[0];
-		expect(frame, "bytefly registered no tool frame").toBeDefined();
+		const { frame, tools } = blockHarness();
 		const rejected: any = {
 			content: [{ type: "text", text: "Error: Permission denied" }],
 			details: {},
 			isError: true,
 		};
 
-		for (const [name, tool] of fake.tools) {
+		for (const [name, tool] of tools) {
 			const wrapped = frame(name, () => tool);
 			for (const width of WIDTHS) {
 				for (const state of CALL_STATES) {
-					const call = wrapped.renderCall({}, fakeTheme, context({ state: {}, ...state }));
+					const call = wrapped.renderCall({}, fakeTheme, toolBlockContext({ state: {}, ...state }));
 					const first = call.render(width);
 					expect(call.render(width), `${name} call rebuilt at ${width}`).toBe(first);
 				}
@@ -254,7 +178,7 @@ describe("tool render contract", () => {
 						rejected,
 						{ expanded: state.expanded, isPartial: state.isPartial },
 						fakeTheme,
-						context({ state: {}, isError: true, ...state }),
+						toolBlockContext({ state: {}, isError: true, ...state }),
 					);
 					const first = result.render(width);
 					expect(result.render(width), `${name} result rebuilt at ${width}`).toBe(first);
@@ -273,231 +197,14 @@ describe("tool render contract", () => {
 			};
 			for (const width of WIDTHS) {
 				const options = { expanded: false, isPartial: false };
-				const component = tool.renderResult(rejected, options, fakeTheme, context({ isError: true }));
+				const component = tool.renderResult(rejected, options, fakeTheme, toolBlockContext({ isError: true }));
 				const lines = component.render(width);
-				expectBounded(lines, width, `${name} rejection at ${width}`);
+				expectBlockBounded(lines, width, `${name} rejection at ${width}`);
 				const text = lines.join(" ").replace(/\s+/g, " ");
 				expect(text, `${name} lost the rejection message`).toContain(`Permission denied: ${name}`);
 				expect(text, `${name} dropped the error prefix`).toContain("Error:");
 				expect(text.includes("Error: Error:"), `${name} doubled the error prefix`).toBe(false);
 			}
 		}
-	});
-});
-
-/**
- * The height each package fixture's collapsed block is allowed, in rows, at 80 columns.
- *
- * A number here is a ceiling, and the table is a ratchet: each one is what the block
- * drew when the budget landed, a trim lowers it, and an entry may only fall. Raising
- * one is a deliberate edit that states its reason beside the number — never an
- * adjustment to get green, which is how a transcript grows a row per release in
- * silence. `LONG_SUITES` in `suite-sizes.test.ts` holds the same shape for a suite's
- * lines, and `LONG_MODULES` for a module's.
- *
- * Package fixtures only. The builtin fixtures are Pi's own renderers, so a ceiling over
- * them would pin the host's release cadence, and the eight expanded fixtures are the
- * gallery's `ctrl+o` variants rather than the block a session shows.
- *
- * Six entries reach the transcript through bytefly's generic fallback — the four
- * `worktree` blocks, `open_path`, and `subagent-background` — which is why the frame
- * resolves each fixture's tool instead of reading `fake.tools` alone: those six are the
- * blocks no registered renderer shapes.
- */
-const COLLAPSED_ROWS: Record<string, number> = {
-	board: 2,
-	"board-archived": 2,
-	"board-contract": 2,
-	// 4 -> 2: a refusal draws its verdict and folds the route behind the expand hint; the
-	// instruction is still in the result, which is where the model reads it.
-	"board-gated": 2,
-	"board-refused": 2,
-	// 2 -> 1 for an active goal: the call line names the objective and the widget above the
-	// editor carries the status. A finished or re-planned goal still draws its word, because the
-	// widget may be set to hide an achieved one and scrollback is then the only record.
-	goal: 1,
-	job: 3,
-	// 3 -> 2: the confirmation line stays, the `Now 2 project, 1 global.` stat goes -- the next
-	// `list` is where a count is read.
-	memory: 2,
-	"memory-long-subject": 2,
-	open_path: 2,
-	// 2 -> 1: entering plan mode is the session status line's fact, and the call line already
-	// names the verb. The refusals that state something new ("No UI to confirm") still draw.
-	plan: 1,
-	"plan-cancel": 2,
-	// 13 -> 3: the review screen has just drawn the plan, so the block states the count and the
-	// path, and the body is one expand away -- the heading carries that affordance.
-	"plan-exit": 3,
-	"plan-steps": 2,
-	"plan-steps-batch": 2,
-	"plan-write": 2,
-	question: 5,
-	"question-cancelled": 3,
-	read_doc: 2,
-	"read_doc-running": 2,
-	run_doctor: 2,
-	send_wechat: 2,
-	"send_wechat-file": 2,
-	"send_wechat-running": 2,
-	session: 2,
-	"session-name": 2,
-	// 13 -> 10, not the 11 a plan can promise beforehand: the block drew three blank rows --
-	// after the header, between two tasks, and above the totals -- and the section rule and the
-	// rail already separate those groups. The metrics row carries the expand hint beside it.
-	subagent: 10,
-	"subagent-background": 3,
-	team: 2,
-	"team-assigning": 2,
-	// 5 -> 2: the widget above the editor carries the list, so the block states only where the
-	// work stands. The rail is what expanding draws.
-	todo: 2,
-	watch: 3,
-	web_fetch: 2,
-	"web_fetch-rejected": 2,
-	web_search: 7,
-	// Nine rows across the four actions became seven when the tool grew a renderer (#742): the
-	// block draws the facts it read instead of the sentence written for the model. `prune` is the
-	// one entry that went up, 2 -> 3: the fallback's single sentence named no path, and a prune
-	// that cannot say which worktrees went is the block a person has to expand to read.
-	worktree: 2,
-	"worktree-exit": 2,
-	"worktree-list": 4,
-	"worktree-prune": 3,
-};
-
-/**
- * What each trimmed block must still say at every width (#742).
- *
- * The height is half the rule; the other half is that a block which trims at 80 and wraps
- * its marks away at 40 has not trimmed, it has lost the fact. Each entry names a token the
- * block exists to carry, and the cases below draw it at all three widths.
- */
-const SHAPES: Record<string, string> = {
-	"board-gated": "not approved",
-	goal: "goal → set",
-	memory: "Added to project memory",
-	plan: "plan enter",
-	"plan-exit": "steps",
-	subagent: "Total:",
-	todo: "Adding the retry wrapper",
-	// The worktree's name survives every clip; the branch is what a narrow terminal shortens.
-	worktree: "tool-gallery",
-	"worktree-list": "current, clean",
-};
-
-/** The viewport the budget is measured at: Pi's transcript width on a settled terminal. */
-const BUDGET_WIDTH = 80;
-
-/** The frame and the tools, registered once for the height cases. */
-function blockHarness(): { frame: any; tools: Map<string, any> } {
-	const fake = createFakePi();
-	for (const extension of EXTENSIONS) extension(fake.pi);
-	const frame: any = fake.toolRenderers[0];
-	expect(frame, "bytefly registered no tool frame").toBeDefined();
-	return { frame, tools: fake.tools };
-}
-
-/** The package fixtures the budget covers: collapsed, with a result to draw. */
-function collapsedFixtures(): ToolFixture[] {
-	return FIXTURES.filter(
-		(fixture) => fixture.group === "package" && fixture.result !== undefined && fixture.options?.expanded !== true,
-	);
-}
-
-/**
- * One fixture's block: the call line and the result the transcript draws at that
- * expand state, through the frame that draws it there.
- */
-function collapsedBlock(
-	frame: any,
-	tools: Map<string, any>,
-	fixture: ToolFixture,
-	width: number,
-	expanded = false,
-): string[] {
-	const name = fixture.tool ?? fixture.name;
-	const wrapped = frame(name, () => tools.get(name));
-	const isPartial = fixture.options?.isPartial ?? false;
-	const args = fixture.args ?? {};
-	const call = wrapped.renderCall?.(args, fakeTheme, context({ args, isPartial }));
-	const result = wrapped.renderResult?.(
-		fixture.result,
-		{ expanded, isPartial },
-		fakeTheme,
-		context({
-			args,
-			expanded,
-			isPartial,
-			isError: fixture.result?.isError === true,
-			durationMs: fixture.options?.durationMs,
-			state: fixtureState(fixture),
-		}),
-	);
-	return [...(call?.render(width) ?? []), ...(result?.render(width) ?? [])];
-}
-
-describe("collapsed block height", () => {
-	test("every package fixture is named in the row budget", () => {
-		const drawn = collapsedFixtures().map((fixture) => fixture.name);
-		const named = new Set(Object.keys(COLLAPSED_ROWS));
-		expect(
-			drawn.filter((name) => !named.has(name)),
-			"record the block's height in COLLAPSED_ROWS so a later row has a number to beat",
-		).toEqual([]);
-		expect(
-			[...named].filter((name) => !drawn.includes(name)),
-			"a stale entry names no collapsed fixture; drop it",
-		).toEqual([]);
-	});
-
-	test("a folded refusal keeps the instruction the model was handed", () => {
-		// The rule is a drawing rule: the block states the verdict, and the result keeps the
-		// sentence written for the model. A fold that trimmed both would be a behaviour change.
-		const fixture = collapsedFixtures().find((item) => item.name === "board-gated");
-		expect(fixture, "the gallery carries a gated-move refusal").toBeDefined();
-		const model = (fixture?.result?.content ?? []).map((block: { text?: string }) => block.text ?? "").join(" ");
-		expect(model, "the fixture names the route").toContain("session send");
-
-		const { frame, tools } = blockHarness();
-		// The frame draws a rail in the indent column; it is punctuation, not the sentence.
-		const flatten = (lines: string[]) => lines.join(" ").replace(/╎/g, " ").replace(/\s+/g, " ");
-		const drawn = flatten(collapsedBlock(frame, tools, fixture as ToolFixture, BUDGET_WIDTH));
-		expect(drawn, "the collapsed block is the verdict").toContain("not approved");
-		expect(drawn, "a collapsed block does not print the route").not.toContain("session send");
-
-		const expanded = flatten(collapsedBlock(frame, tools, fixture as ToolFixture, BUDGET_WIDTH, true));
-		expect(expanded, "expanding draws the instruction").toContain("session send");
-	});
-
-	/** One case per trimmed block, at the three widths the transcript is drawn at. */
-	for (const [name, token] of Object.entries(SHAPES)) {
-		test(`${name} still says what it is for, at every width`, () => {
-			const fixture = collapsedFixtures().find((item) => item.name === name);
-			expect(fixture, `${name} is a collapsed package fixture`).toBeDefined();
-			const { frame, tools } = blockHarness();
-			for (const width of [80, 48, 40]) {
-				const lines = collapsedBlock(frame, tools, fixture as ToolFixture, width);
-				const shown = lines.join(" ").replace(/╎/g, " ").replace(/\s+/g, " ");
-				expect(shown, `${name} at ${width} columns`).toContain(token);
-				// The ceiling is measured at the budget's width: a narrow terminal wraps the same
-				// facts onto more rows, which is the host's wrap and not a block that grew.
-				if (width === BUDGET_WIDTH) {
-					expect(lines.length, `${name} at ${width} columns`).toBeLessThanOrEqual(COLLAPSED_ROWS[name] ?? 0);
-				}
-				for (const line of lines) expect(visibleWidth(line), `${name} at ${width}`).toBeLessThanOrEqual(width);
-			}
-		});
-	}
-
-	test("a collapsed block stays inside its row budget", () => {
-		const { frame, tools } = blockHarness();
-		const over: string[] = [];
-		for (const fixture of collapsedFixtures()) {
-			const ceiling = COLLAPSED_ROWS[fixture.name] ?? 0;
-			const rows = collapsedBlock(frame, tools, fixture, BUDGET_WIDTH).length;
-			if (rows > ceiling) over.push(`${fixture.name} drew ${rows} rows at ${BUDGET_WIDTH}, ceiling ${ceiling}`);
-		}
-		expect(over, "trim the block, or raise its entry in COLLAPSED_ROWS and write the reason beside it").toEqual([]);
 	});
 });

@@ -174,7 +174,7 @@ gate is stated in the test.
 3. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
    `test/layout.test.ts`, `test/conventions.test.ts`, `test/theme.test.ts`,
    `test/prompt-budget.test.ts`,
-   `test/tool-render.test.ts`,
+   `test/tool-render.test.ts`, `test/tool-rows.test.ts`,
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
    `test/drift.test.ts`, `test/shared-helpers.test.ts`,
    `test/doc-counts.test.ts`,
@@ -200,7 +200,12 @@ gate is stated in the test.
    settled call, and a collapsed, expanded, or partial result. Its result
    payloads are the gallery's fixtures, drawn collapsed and expanded, so a
    result a tool really produces is bounded rather than a stand-in built in the
-   test.
+   test. `tool-rows.test.ts` is the other half of a block's shape: the rows a
+   collapsed block may draw, the token each trimmed block must still say at
+   every width, and the ledger that fails a block with no ceiling, a stale one,
+   or one that grew. The `COLLAPSED_ROWS` table itself lives in
+   `test/helpers/tool-block.ts`, because the render contract reads a single entry
+   to justify a collapsed draw that is its call line alone.
    `dependencies.test.ts` walks each extension entrypoint's static import graph
    through the TypeScript AST and fails when one of `package.json`'s
    `dependencies` loads at registration; a dynamic `import()` ends the walk,
@@ -417,7 +422,7 @@ lib/tui/<area>.test.ts
 scripts/<area>.test.ts
 test/
   README.md
-  suite-manifest.ts        # the declared suite layout for extensions, lib, and scripts
+  suite-manifest.ts        # the declared suite layout: extensions, lib, scripts, and the root contracts
   helpers/                 # ALL shared doubles and fixtures
     fakes.ts  context.ts  process.ts  env.ts  entries.ts  config.ts
     git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
@@ -429,6 +434,8 @@ test/
     board-fixture.ts       # the working board two page suites drive, seeded through the gates
     board-flow.ts          # drive a card through the board's gates, for suites about something else
     plan-view.ts           # the plan review component at a fixed width and row count, for its two suites
+    tool-block.ts          # a tool drawn through bytefly's frame: the extension set, the render
+                           #   context, the widths, and the COLLAPSED_ROWS ceiling table
     serve.ts               # a real server a suite mounts a shipped page on, LAN share
                            #   included, and the loopback port probes that name one
     fixtures/<cap>.ts      # one per capability, never one per extension
@@ -458,6 +465,7 @@ test/
   scripts-surface.test.ts  # the package scripts, and the docs that name them
   settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
   tool-render.test.ts      # every tool's call and result through the shared frame
+  tool-rows.test.ts        # the rows a collapsed block may draw, and the token each must keep
   wait-budget.test.ts      # no test waits on `waitFor` for a literal budget under a second, and a timeout names its test
 ```
 
@@ -470,16 +478,20 @@ Rules:
 - A suite groups a capability, not a module: it may cover several modules, and a
   large module may be covered by more than one suite. Keep a suite under roughly
   400 lines; split it by capability when it grows past that. `test/suite-sizes.test.ts`
-  holds the bar: the suites already past it are named there at their height, and a
-  named height may only fall. A suite's case count is not gated — a table-driven
-  suite hides its count — so the line count stands in for the 40 cases this rule
-  used to name.
+  holds the bar for the whole tree: a capability suite and a root contract under
+  `test/` are measured by one list (`declaredRootSuites()` joins it in
+  `test/suite-manifest.ts`), the suites already past it are named there at their
+  height, and a named height may only fall. A suite's case count is not gated — a
+  table-driven suite hides its count — so the line count stands in for the 40 cases
+  this rule used to name.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`, `layout.test.ts`,
   `conventions.test.ts`, `docs-parity.test.ts`,
   `extension-load.test.ts`, `extension-docs.test.ts`, `shared-helpers.test.ts`,
   `prompt-budget.test.ts`, `theme.test.ts`, and the other package-level contracts
-  listed above.
+  listed above. The exact set is `ROOT_SUITES` in `test/suite-manifest.ts`, which
+  `layout.test.ts` compares the directory against — an undeclared root file and a
+  declared one that is gone are the same failure.
 - A test that asserts platform behaviour pins it through the injectable seam
   (`isWindows: () => false`) rather than the ambient `process.platform`: the
   suite runs on all three OSes and the seam is how the other two are simulated.
