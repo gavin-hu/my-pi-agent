@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import { Container, getKeybindings, KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
+import {
+	type Component,
+	Container,
+	getKeybindings,
+	KeybindingsManager,
+	setKeybindings,
+	TUI_KEYBINDINGS,
+} from "@earendil-works/pi-tui";
 import { emptyUsage } from "./stream.ts";
 import { renderSubagentCall, renderSubagentResult, type StreamedSubagentArgs } from "./render.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
@@ -29,7 +36,8 @@ function toolResult(details: SubagentDetails, content = "fallback"): AgentToolRe
 	return { content: [{ type: "text", text: content }], details };
 }
 
-function render(component: { render(width: number): string[] }, width = 80): string {
+/** The rendered lines of any component, as one string. Pi's `Component` owns that contract. */
+function render(component: Component, width = 80): string {
 	return component.render(width).join("\n");
 }
 
@@ -44,7 +52,7 @@ interface ViewOptions {
 }
 
 /** The rendered result block for one details object, collapsed unless asked. */
-function view(details: SubagentDetails, options: ViewOptions = {}): string[] {
+function view(details: SubagentDetails, options: ViewOptions = {}): readonly string[] {
 	return renderSubagentResult(
 		toolResult(details, options.content),
 		{ expanded: options.expanded ?? false, isPartial: options.isPartial, now: options.now },
