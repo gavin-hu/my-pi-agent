@@ -514,6 +514,8 @@ describe("git diff provider", () => {
 		const diff = createGitDiff(createFakePi({ exec: stub.exec }).pi, "/repo");
 		expect((await diff.list("staged"))?.files.map((file) => file.rel)).toEqual(["b.txt"]);
 		expect((await diff.list("worktree"))?.files.map((file) => file.rel)).toEqual(["a.txt", "c.txt"]);
+		// With a commit, the comparison reported is the one asked for.
+		expect((await diff.list("head"))?.mode).toBe("head");
 	});
 
 	test("falls back to the index when there is no commit", async () => {
@@ -531,6 +533,9 @@ describe("git diff provider", () => {
 		};
 		const list = await createGitDiff(createFakePi({ exec }).pi, "/repo").list("head");
 		expect(list?.files.map((file) => file.rel)).toEqual(["s.txt"]);
+		// The list says which comparison it is: the page that links to it opens this one, not the
+		// `head` it asked for and git could not answer.
+		expect(list?.mode).toBe("staged");
 		expect(seen[0]).toContain("--cached");
 		expect(seen[0]).not.toContain("HEAD");
 	});
