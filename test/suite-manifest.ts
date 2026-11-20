@@ -137,6 +137,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"transport/router",
 		"view/page",
 		"view/client",
+		"view/interaction",
 		"report",
 		"tools",
 		"command",

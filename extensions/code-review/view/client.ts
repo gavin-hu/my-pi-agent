@@ -85,7 +85,9 @@ ${CLIENT_RUNTIME_JS}
       var raw = sessionStorage.getItem(DRAFT_KEY);
       if (!raw) return null;
       var kept = JSON.parse(raw);
-      return kept && kept.rev === rev ? kept : null;
+      // The record's rev is where it was typed, not a reason to drop it: a moved diff is the
+      // case this draft exists for, and the composer says where it came from.
+      return kept && typeof kept.text === "string" && kept.text !== "" ? kept : null;
     } catch (error) { return null; }
   }
   function keepTyping() {
@@ -100,8 +102,21 @@ ${CLIENT_RUNTIME_JS}
   function restoreDraft() {
     var kept = readDraft();
     if (!kept || !kept.text) return;
-    composer(kept.path, kept.line, kept.side, kept.text);
-    toast("An unsent comment was restored");
+    var moved = kept.rev !== rev;
+    var path = kept.path;
+    var line = kept.line;
+    var side = kept.side;
+    if (!rowFor(path, line, side)) {
+      // The line (or the file) is not in this rendering. Keep the text in a composer that can
+      // still save: the file's first numbered line, or the first file's.
+      var section = sectionFor(path) || sections()[0];
+      if (!section) { saveDraft(kept); toast("An unsent comment is kept, but this diff has no line to put it on"); return; }
+      path = section.getAttribute("data-path");
+      line = firstLineOf(section);
+      side = "new";
+    }
+    composer(path, line, side, kept.text, moved);
+    toast(moved ? "An unsent comment was kept from the earlier diff — check the line" : "An unsent comment was restored");
   }
 
   // ── rows and threads ──────────────────────────────────────────────────────
@@ -225,6 +240,12 @@ ${CLIENT_RUNTIME_JS}
       } else {
         var message = answer.body && (answer.body.message || answer.body.error) ? answer.body.message || answer.body.error : "the write was refused";
         toast(message);
+        if (answer.status === 409) {
+          // The tree moved under this page: the kit's reload chip is the way out, and the
+          // draft survives the reload.
+          var hint = byId("reload-hint");
+          if (hint) hint.hidden = false;
+        }
       }
       return answer;
     }, function () {
@@ -260,15 +281,16 @@ ${CLIENT_RUNTIME_JS}
   }
 
   // ── composer ──────────────────────────────────────────────────────────────
-  function composer(path, line, side, seed) {
+  function composer(path, line, side, seed, moved) {
     closeComposer();
     var row = rowFor(path, line, side);
-    if (!row) { toast("That line is not in the diff any more — reload the page"); return; }
+    if (!row) { toast("Select a line that is in the diff, then comment"); return; }
     var wrap = el("span", "rv-compose");
     wrap.setAttribute("data-path", path);
     wrap.setAttribute("data-line", String(line));
     wrap.setAttribute("data-side", side);
     var head = el("span", "rv-compose__head", "comment on " + splitPath(path).name + ":" + line);
+    if (moved) head.appendChild(el("span", "rv-compose__note", "typed on the earlier diff — check the line"));
     var area = el("textarea", "rv-compose__area");
     area.placeholder = "What is wrong, and what would you do instead?";
     area.setAttribute("aria-label", "Comment on " + path + ":" + line);
@@ -418,6 +440,9 @@ ${CLIENT_RUNTIME_JS}
     button.setAttribute("aria-pressed", String(on));
     nodeList(".rv-diff").forEach(function (diff) { diff.setAttribute("data-wrap", String(on)); });
   }
+
+  var reloadHint = byId("reload-hint");
+  if (reloadHint) reloadHint.addEventListener("click", function () { window.location.reload(); });
 
   byId("rv-filter").addEventListener("input", filtered);
   byId("rv-only-commented").addEventListener("change", filtered);
