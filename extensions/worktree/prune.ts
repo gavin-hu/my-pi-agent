@@ -35,10 +35,26 @@ function ageInDays(path: string, lastUsedAt = 0): number {
 	return newest === 0 ? 0 : (Date.now() - newest) / 86_400_000;
 }
 
-/** Remove clean, unused managed worktrees past the prune age. Returns a report. */
-export async function pruneWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<string> {
+/**
+ * One prune, as both surfaces need it: the sentence the model reads, and the rows a block
+ * draws.
+ *
+ * The two are the same read: a renderer may not shell out, so the paths have to leave here
+ * with the report rather than be parsed back out of it.
+ */
+export interface PruneResult {
+	/** The report: one `Removed …` / `Kept …` line each, or `Nothing to prune.`. */
+	output: string;
+	/** The worktrees this run removed. */
+	removed: string[];
+	/** The ones it left, each with the reason git gave. */
+	kept: string[];
+}
+
+/** Remove clean, unused managed worktrees past the prune age. Returns the report and its rows. */
+export async function pruneWorktreesResult(pi: ExtensionAPI, ctx: ExtensionContext): Promise<PruneResult> {
 	const root = await repoRoot(pi, ctx.cwd);
-	if (!root) return "Not a git repository.";
+	if (!root) return { output: "Not a git repository.", removed: [], kept: [] };
 	const config = loadConfig(root);
 	const managed = await listManagedWorktrees(pi, root, config);
 	const { registry } = reconcileRegistry(root, config, managed);
@@ -94,8 +110,13 @@ export async function pruneWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): P
 		}
 	}
 
-	return (
+	const output =
 		[...removed.map((path) => `Removed ${path}`), ...kept.map((path) => `Kept ${path}`)].join("\n") ||
-		"Nothing to prune."
-	);
+		"Nothing to prune.";
+	return { output, removed, kept };
+}
+
+/** The same prune as the sentence the command and the list screen print. */
+export async function pruneWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<string> {
+	return (await pruneWorktreesResult(pi, ctx)).output;
 }

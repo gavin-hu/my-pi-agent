@@ -6,7 +6,6 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { ARROW, GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { listRow } from "../../lib/tui/rows.ts";
-import { overflowHint } from "../../lib/tui/tool.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";
@@ -133,7 +132,6 @@ export interface TodoRailInput {
 	/** Rows to draw, already ordered and capped by the caller. */
 	rows: Todo[];
 	/** Omitted row count, or 0 when nothing was capped. */
-	more?: number;
 }
 
 /**
@@ -159,9 +157,6 @@ export function todoRailLines(input: TodoRailInput, theme: Theme, width: number)
 		wrapped.forEach((line, index) => {
 			lines.push(index === 0 ? `${glyph}${gap}${line}` : `${continuation}${line}`);
 		});
-	}
-	if (input.more && input.more > 0) {
-		lines.push(`${continuation}${overflowHint(theme, input.more)}`);
 	}
 	return lines.map((line) => truncateToWidth(line, w, "…"));
 }

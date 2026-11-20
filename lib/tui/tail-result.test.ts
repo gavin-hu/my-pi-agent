@@ -56,11 +56,11 @@ describe("TailResult", () => {
 		const lines = view.render(40);
 		expect(lines[0]).toBe("");
 		expect(lines[1]).toBe("a:40");
-		expect(lines[2]).toBe("");
-		expect(lines[3]).toBe("Claims");
-		expect(lines[4]).toBe("b:40");
-		expect(lines[5]).toContain("… 2 more");
-		expect(lines).toHaveLength(6);
+		// The heading opens the group on the next row: no blank between groups.
+		expect(lines[2]).toBe("Claims");
+		expect(lines[3]).toBe("b:40");
+		expect(lines[4]).toContain("… 2 more");
+		expect(lines).toHaveLength(5);
 	});
 
 	test("draws a row that returns several lines, in a list and under a heading", () => {
@@ -76,7 +76,7 @@ describe("TailResult", () => {
 		expect(headed.render(40)).toEqual(["", "Mail", "head", "body"]);
 	});
 
-	test("opens the first heading with no blank line above it, an empty first group included", () => {
+	test("draws a heading on the row after the group before it, an empty group included", () => {
 		const view = new TailResult<string>(
 			{
 				kind: "sections",
@@ -89,8 +89,9 @@ describe("TailResult", () => {
 		);
 		const lines = view.render(40);
 		expect(lines[1]).toBe("Conflicts");
-		expect(lines[2]).toBe("");
-		expect(lines[3]).toBe("Claimed");
+		expect(lines[2]).toBe("Claimed");
+		expect(lines[3]).toBe("a:40");
+		expect(lines).toHaveLength(4);
 	});
 
 	test("keeps an unlabeled section against the rows above it, where it is more of the same list", () => {

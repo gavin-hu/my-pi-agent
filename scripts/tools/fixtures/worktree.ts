@@ -26,7 +26,7 @@ export const WORKTREE_FIXTURES: ToolFixture[] = [
 	{
 		name: "worktree",
 		group: "package",
-		label: "no custom renderer (generic fallback)",
+		label: "entering a worktree: the branch, then where it is",
 		args: { action: "enter", name: "tool-gallery" },
 		result: {
 			content: [
@@ -42,7 +42,7 @@ export const WORKTREE_FIXTURES: ToolFixture[] = [
 		name: "worktree-exit",
 		tool: "worktree",
 		group: "package",
-		label: "no custom renderer (generic fallback)",
+		label: "leaving one, and whether it was removed",
 		args: { action: "exit", remove: true },
 		result: {
 			content: [{ type: "text", text: "Exited worktree tool-gallery and removed it." }],
@@ -53,7 +53,7 @@ export const WORKTREE_FIXTURES: ToolFixture[] = [
 		name: "worktree-list",
 		tool: "worktree",
 		group: "package",
-		label: "no custom renderer (generic fallback)",
+		label: "one row per managed worktree, the marks on the row",
 		args: { action: "list" },
 		result: {
 			content: [
@@ -71,6 +71,26 @@ export const WORKTREE_FIXTURES: ToolFixture[] = [
 				action: "list",
 				active: { path: STATE.path, branch: STATE.branch, borrowed: false },
 				inactiveOverrides: [],
+				managed: [
+					{
+						name: "tool-gallery",
+						path: ".pi/worktrees/tool-gallery",
+						branch: "worktree-tool-gallery",
+						marks: ["current", "clean"],
+					},
+					{
+						name: "feature-auth",
+						path: ".pi/worktrees/feature-auth",
+						branch: "worktree-feature-auth",
+						marks: ["dirty (4)", "ahead 2"],
+					},
+					{
+						name: "fix-typo",
+						path: ".pi/worktrees/fix-typo",
+						branch: "worktree-fix-typo",
+						marks: ["merged", "used 3d ago"],
+					},
+				],
 			},
 		},
 	},
@@ -78,11 +98,17 @@ export const WORKTREE_FIXTURES: ToolFixture[] = [
 		name: "worktree-prune",
 		tool: "worktree",
 		group: "package",
-		label: "no custom renderer (generic fallback)",
+		label: "what a prune removed, and what it kept and why",
 		args: { action: "prune" },
 		result: {
-			content: [{ type: "text", text: "Removed 2 worktrees: feature-auth, fix-typo." }],
-			details: { action: "prune" },
+			content: [
+				{ type: "text", text: `Removed ${CWD}/.pi/worktrees/feature-auth\nRemoved ${CWD}/.pi/worktrees/fix-typo` },
+			],
+			details: {
+				action: "prune",
+				removed: [`${CWD}/.pi/worktrees/feature-auth`, `${CWD}/.pi/worktrees/fix-typo`],
+				kept: [],
+			},
 		},
 	},
 ];

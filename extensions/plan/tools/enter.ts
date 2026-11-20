@@ -9,7 +9,6 @@ import type { AgentToolResult, ExtensionToolContext, Theme } from "@earendil-wor
 import { isRemoteTurn } from "../../../lib/interaction.ts";
 import { planConsent, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
 import { failedResult } from "../../../lib/tool-result.ts";
-import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, type ToolCallText } from "../../../lib/tui/tool.ts";
 import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
@@ -63,6 +62,8 @@ export function callEnter(theme: Theme, last: unknown): ToolCallText {
 export function textEnter(details: EnterPlanModeDetails, theme: Theme): string {
 	if (details.unavailable) return paint(theme, "warn", "No UI to confirm plan mode");
 	if (details.already) return paint(theme, "meta", "Already in plan mode");
-	if (details.entered) return paint(theme, "ok", `${GLYPHS.check} Plan mode enabled`);
+	// Entering states nothing here: the session status line already says plan mode is on, and
+	// a second copy under the call line is the one row a block does not spend (#742).
+	if (details.entered) return "";
 	return paint(theme, "meta", "Stayed in normal mode");
 }

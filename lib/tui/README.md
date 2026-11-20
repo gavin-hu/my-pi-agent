@@ -30,8 +30,9 @@ build a second terminal renderer.
 A collapsed tool block is the call line and one body row, and a third row has to
 earn itself. `test/tool-render.test.ts` owns the numbers: every package fixture's
 height at 80 columns is a ceiling in `COLLAPSED_ROWS`, and an entry is debt rather
-than a blessing, so it may only fall. It reads 3.3 rows on average, with `plan exit`
-and `subagent` at 13 apiece, which is what these rules are here to bring down.
+than a blessing, so it may only fall. It reads 2.6 rows on average across 39 blocks,
+with `web_search` the tallest at 7 — a listing whose rows are the answer. Every row
+above the rule is a row still to earn.
 
 - The call line carries the outcome, so a success that adds no fact draws no body row.
 - Rows the person did not ask for are either the answer itself — a listing whose

@@ -218,15 +218,15 @@ describe("renderSubagentResult", () => {
 		expect(text).toContain("1 turn");
 	});
 
-	test("the collapsed footer is a blank line, the usage row, then the hint", () => {
+	test("the collapsed footer is one faint row carrying the usage and the hint", () => {
 		const long = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");
 		const block = view({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] });
 
-		// The affordance is the block's last line, as in the multi view and every other tool block.
+		// The affordance shares the metrics row: a block does not spend a row on a key it can
+		// print at the end of another, and the row above it is the body's last line, not a gap.
+		expect(block.at(-1)).toContain("1 turn");
 		expect(block.at(-1)).toContain("to expand");
-		expect(block.at(-2)).toContain("1 turn");
-		// A blank line separates the metrics row from the body, matching the expanded view.
-		expect(block.at(-3)?.trim()).toBe("");
+		expect(block.at(-2)?.trim()).not.toBe("");
 	});
 
 	test("omits the metrics row when the child reported no usage", () => {

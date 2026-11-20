@@ -740,14 +740,14 @@ describe("goal tool rendering", () => {
 		expect(text).not.toContain("\u001b");
 	});
 
-	test("renderResult states the status without repeating the objective", async () => {
+	test("an active goal draws no row: the widget above the editor carries it", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
 		const result = await callTool(tool, { objective: "Ship the parser" }, ctx);
 		const lines = tool
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
 			.render(80);
-		expect(lines).toEqual(["", "Goal · active"]);
+		expect(lines).toEqual([]);
 		expect(lines.join("\n")).not.toContain("Ship the parser");
 	});
 

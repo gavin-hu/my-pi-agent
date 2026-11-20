@@ -83,7 +83,7 @@ export function detailsOrLine<Details extends object>(
 	// The one property this reads is the extension's own report field; a details
 	// block without it (a plan summary, a check report) simply has no failure.
 	if ("error" in details && typeof details.error === "string" && details.error !== "") {
-		return { line: errorLine(theme, details.error) };
+		return { line: errorLine(theme, details.error, expanded) };
 	}
 	return { details };
 }
@@ -200,12 +200,34 @@ export function reuseCallText(last: unknown, initial = "", clip: CallClip = "end
  * every line is neutralized before the theme is applied — otherwise the
  * sanitizer would strip the theme's own SGR. A message that already opens with
  * `Error:` is not prefixed twice.
+ *
+ * Collapsed draws the first sentence and the expand affordance; `expanded` draws every
+ * line. What a block shows is not what the model was handed: the result's own text keeps
+ * the instruction, and only the drawing folds.
  */
-export function errorLine(theme: Theme, message: string): string {
+export function errorLine(theme: Theme, message: string, expanded = false): string {
 	const lines = messageLines(message);
 	if (lines.length === 0) return paint(theme, "bad", "Error: the tool call failed");
-	lines[0] = `Error: ${lines[0]?.replace(/^error:\s*/i, "") ?? ""}`;
-	return paint(theme, "bad", lines.join("\n"));
+	const head = `Error: ${lines[0]?.replace(/^error:\s*/i, "") ?? ""}`;
+	const rest = lines.slice(1);
+	if (expanded) return paint(theme, "bad", [head, ...rest].join("\n"));
+	const sentence = firstSentence(head);
+	// A refusal is often written for the model — the route to the fix is the half a person
+	// already knows when they can read the verdict. The rest is one expand away, and the
+	// result's own text is untouched: what a block draws is not what the model was handed.
+	if (sentence === head && rest.length === 0) return paint(theme, "bad", head);
+	return `${paint(theme, "bad", sentence)} ${paint(theme, "faint", "… ")}${expandHint(theme)}`;
+}
+
+/**
+ * The first sentence of a line: where a collapsed block stops.
+ *
+ * A message with no terminator is its own sentence, which is the common case for a
+ * one-line refusal; the alternative — clipping by columns — would end mid-word.
+ */
+function firstSentence(text: string): string {
+	const match = /^(.*?[.!?])(?:\s|$)/.exec(text);
+	return match?.[1] ?? text;
 }
 
 /**
@@ -213,15 +235,10 @@ export function errorLine(theme: Theme, message: string): string {
  * envelope, sanitized and painted `bad`. Collapsed output keeps the first
  * `maxLines` and points at the expand key; expanded shows all of it.
  */
-export function rejectionLine(theme: Theme, result: ToolMessageResult, expanded = false, maxLines = 10): string {
-	const text = messageText(result);
-	const lines = messageLines(text);
+export function rejectionLine(theme: Theme, result: ToolMessageResult, expanded = false): string {
+	const lines = messageLines(messageText(result));
 	if (lines.length === 0) return errorLine(theme, "the tool call was rejected");
-	const shown = expanded ? lines : lines.slice(0, Math.max(1, maxLines));
-	let out = errorLine(theme, shown.join("\n"));
-	const hidden = lines.length - shown.length;
-	if (hidden > 0) out += `\n${moreHint(theme, hidden)}`;
-	return out;
+	return errorLine(theme, lines.join("\n"), expanded);
 }
 
 /** Every text block of a result, joined; non-text blocks are ignored. */
@@ -282,9 +299,9 @@ export type TailResultInput<Row> =
  *
  * One leading blank line per the block grammar, then either the caller's rows
  * (already ordered and capped) with a "more" note, one headed group of rows per
- * section, or the themed tail with an "earlier" note. A section heading after the
- * first opens with a blank line, so the frame drawing the rail carries it through
- * a gap and one group ends before the next begins. The caller owns the row
+ * section, or the themed tail with an "earlier" note. A section heading opens on the
+ * row after the group before it: the blank line that used to separate them spent a row
+ * the rail already covers (#742). The caller owns the row
  * renderer, so the extension's own row grammar — a peer-session tag, a status
  * glyph — stays with its vocabulary.
  *
@@ -331,11 +348,10 @@ export class TailResult<Row> implements Component {
 		}
 		if (input.kind === "sections") {
 			for (const section of input.sections) {
-				// The heading opens a group and the blank line above it closes the one before;
-				// without it a two-group result reads as more rows of the first, the heading
-				// being muted but otherwise the peer of the rows it follows. The first group
-				// keeps its place, so a single-group result is drawn exactly as before.
-				if (section.label && lines.length > 1) lines.push("");
+				// A heading opens a group on the row after the last one. A blank above it used to
+				// close the group before, and it read as a row the block had nothing to say in:
+				// the heading is faint and the rail already separates the groups (#742).
+
 				if (section.label) lines.push(clip(paint(this.theme, "faint", section.label), w));
 				for (const row of section.rows) lines.push(...rowLines(section.rowLine(row, w, this.theme)));
 				if (section.more > 0) lines.push(clip(`  ${overflowHint(this.theme, section.more)}`, w));

@@ -16,6 +16,7 @@
 export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	bytefly: [
 		"block/block",
+		"block/frame",
 		"chrome",
 		"doctor/doctor",
 		"footer/budget",
@@ -312,7 +313,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/panel-keys",
 		"view/status",
 	],
-	worktree: ["git", "enter", "exit", "flow", "tools", "ui"],
+	worktree: ["git", "enter", "exit", "flow", "tools", "transcript", "ui"],
 };
 
 export const LIB_SUITES: readonly string[] = [

@@ -245,7 +245,14 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		label: "a move to execute refused until the contract is approved",
 		args: { action: "move", card: "6", lane: "execute" },
 		result: {
-			content: [{ type: "text", text: "Error: #6 is in plan; its contract is not approved yet." }],
+			// The payload and the details carry the same sentence, as the tool's own refusal does:
+			// the model is told the route, and the block draws the half a person needs.
+			content: [
+				{
+					type: "text",
+					text: "Error: #6 is in plan; its contract is not approved yet. The lead (team-lead) approves with `approve` or `/board approve 6` (ask team-lead with `session send`).",
+				},
+			],
 			details: {
 				action: "move",
 				me: ME,

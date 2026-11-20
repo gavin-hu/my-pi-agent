@@ -1415,20 +1415,20 @@ describe("plan steps", () => {
 });
 
 describe("plan tool rendering", () => {
-	test("plan exit previews the plan and shows it in full when expanded", async () => {
+	test("plan exit states the step count collapsed, and shows the plan once expanded", async () => {
 		const { exit } = setup();
 		const plan = ["# Plan", ...Array.from({ length: 20 }, (_, index) => `${index + 1}. step`)].join("\n");
 		const details = { action: "exit", approved: true, plan, planPath: "/x/plans/p.md", relativePath: ".pi/plans/p.md" };
-
+		// The review screen has just drawn the plan: the block names what the session is working
+		// through and says how to see the rest, rather than printing the plan again.
 		const collapsed = exit.renderResult({ details }, { expanded: false }, fakeTheme).render(80).join("\n");
-		expect(collapsed).toContain("Plan approved");
-		expect(collapsed).toContain("# Plan");
-		expect(collapsed).toContain("more lines");
+		for (const expected of ["Plan approved", "20 steps", "0/20 done"]) expect(collapsed).toContain(expected);
 		expect(collapsed).not.toContain("20. step");
-
+		expect(collapsed).toContain(".pi/plans/p.md");
+		expect(collapsed).toMatch(/expand/);
 		const expanded = exit.renderResult({ details }, { expanded: true }, fakeTheme).render(80).join("\n");
 		expect(expanded).toContain("20. step");
-		expect(expanded).not.toContain("more lines");
+		expect(expanded).not.toMatch(/to expand/);
 	});
 
 	test("renders the relative plan path, not the absolute one", async () => {

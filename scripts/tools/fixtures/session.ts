@@ -229,7 +229,7 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 	{
 		name: "todo",
 		group: "package",
-		label: "a task list with every status",
+		label: "the item the session is on; the list is one expand away",
 		args: {
 			todos: [
 				{ content: "Read the existing auth middleware", status: "completed" },
