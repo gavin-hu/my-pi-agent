@@ -106,7 +106,7 @@ describe("the review page", () => {
 		const html = renderReviewPage(input({ review: review() }));
 		expect(html).toContain('data-path="lib/http/mount.ts" data-state="commented"');
 		expect(html).toContain('data-path="docs/serve.md" data-state="reviewed"');
-		expect(html).toContain('data-reviewed="docs/serve.md" checked');
+		expect(html).toContain('data-reviewed="docs/serve.md" aria-label="Mark docs/serve.md reviewed" checked');
 		expect(html).toContain("1 draft");
 		expect(html).toContain("Send feedback 1");
 	});
@@ -150,6 +150,7 @@ describe("the review page", () => {
 		expect(html).toContain('title="lib/http/mount.ts"');
 		expect(html).toContain('<span class="rv-rail__dir" dir="rtl"><bdi>lib/http</bdi></span>');
 		expect(html).toContain('id="rv-file-count" aria-live="polite"');
+		expect(html).toContain('aria-label="Mark lib/http/mount.ts reviewed"');
 		expect(html).toContain('id="rv-rail-empty" hidden');
 		expect(html).toContain('id="rv-filter-note" hidden');
 	});

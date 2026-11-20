@@ -33,7 +33,9 @@ ${CLIENT_RUNTIME_JS}
   var token = data.token || "";
   var rev = data.rev || "";
   var DRAFT_KEY = "rv-review-draft";
-  var selection = { path: null, from: null, to: null, side: "new" };
+  var cursor = null;
+  var anchor = null;
+  var currentFile = null;
   var toastTimer = 0;
 
   function byId(id) { return document.getElementById(id); }
@@ -108,12 +110,14 @@ ${CLIENT_RUNTIME_JS}
     var side = kept.side;
     if (!rowFor(path, line, side)) {
       // The line (or the file) is not in this rendering. Keep the text in a composer that can
-      // still save: the file's first numbered line, or the first file's.
-      var section = sectionFor(path) || sections()[0];
-      if (!section) { saveDraft(kept); toast("An unsent comment is kept, but this diff has no line to put it on"); return; }
-      path = section.getAttribute("data-path");
-      line = firstLineOf(section);
-      side = "new";
+      // still save: the first numbered row of its file, or of the first visible file.
+      var start = firstRowOf(path);
+      if (!start) { saveDraft(kept); toast("An unsent comment is kept, but this diff has no line to put it on"); return; }
+      var anchorAt = rowAnchor(start.rows[start.row]);
+      if (!anchorAt) { saveDraft(kept); toast("An unsent comment is kept, but this diff has no line to put it on"); return; }
+      path = start.path;
+      line = anchorAt.line;
+      side = anchorAt.side;
     }
     composer(path, line, side, kept.text, moved);
     toast(moved ? "An unsent comment was kept from the earlier diff — check the line" : "An unsent comment was restored");
@@ -262,7 +266,7 @@ ${CLIENT_RUNTIME_JS}
     return post("/api/comment", { comment: { rel: path, line: line, side: side, body: text } }, function () {
       forgetDraft();
       closeComposer();
-      clearSelection();
+      focusCursor();
       paintThreads();
       paintChrome();
       toast("Comment saved — a draft until you send it");
@@ -328,47 +332,163 @@ ${CLIENT_RUNTIME_JS}
     });
   }
 
-  // ── selection ─────────────────────────────────────────────────────────────
-  function firstLineOf(section) {
-    var row = section ? section.querySelector(".bf-diff-line") : null;
-    if (!row) return 1;
+  // ── the cursor ────────────────────────────────────────────────────────────
+  // A cursor is a row, not a guessed number: 'row' indexes the numbered rows of its file, so
+  // it cannot name a line the diff does not show. The rail's visible rows are the universe a
+  // move crosses (#759), and a rail click moves the file without selecting a line.
+
+  /** One row's anchor: the new line when it has one, else the old, so a deletion is reachable. */
+  function rowAnchor(row) {
+    if (!row) return null;
     var numbers = row.querySelectorAll(".browse-diff-no");
-    for (var index = 0; index < numbers.length; index++) {
-      var number = Number(numbers[index].textContent.trim());
-      if (number) return number;
-    }
-    return 1;
+    var newNo = numbers[1] ? Number(numbers[1].textContent.trim()) : NaN;
+    if (newNo) return { side: "new", line: newNo };
+    var oldNo = numbers[0] ? Number(numbers[0].textContent.trim()) : NaN;
+    if (oldNo) return { side: "old", line: oldNo };
+    return null;
   }
-  function paintSelection() {
+
+  /** The rows of a file a cursor can stand on: those that carry a line number on a side. */
+  function numberedRows(section) {
+    var rows = section ? section.querySelectorAll(".bf-diff-line") : [];
+    var out = [];
+    for (var index = 0; index < rows.length; index++) {
+      if (rowAnchor(rows[index])) out.push(rows[index]);
+    }
+    return out;
+  }
+
+  /** The rail's visible files, in the order the rail lists them. */
+  function visibleFiles() {
+    return nodeList(".rv-rail")
+      .filter(function (row) { return !row.hidden; })
+      .map(function (row) { return row.getAttribute("data-path"); });
+  }
+
+  function cursorRow() {
+    if (!cursor) return null;
+    var rows = numberedRows(sectionFor(cursor.path));
+    return rows[cursor.row] || null;
+  }
+  function cursorAnchor() {
+    return rowAnchor(cursorRow());
+  }
+
+  /** The first numbered row of a file, or of the first visible file that has one. */
+  function firstRowOf(path) {
+    var section = sectionFor(path);
+    var rows = numberedRows(section);
+    if (section && rows.length) return { path: section.getAttribute("data-path"), row: 0, rows: rows };
+    var files = visibleFiles();
+    for (var index = 0; index < files.length; index++) {
+      var candidate = sectionFor(files[index]);
+      var found = numberedRows(candidate);
+      if (found.length) return { path: files[index], row: 0, rows: found };
+    }
+    return null;
+  }
+
+  /** Paint the cursor (and its range), the rail's current file, and the bar's ref. */
+  function paintSelection(focus) {
     sections().forEach(function (section) {
       var path = section.getAttribute("data-path");
-      var lines = section.querySelectorAll(".bf-diff-line");
-      for (var index = 0; index < lines.length; index++) {
-        var numbers = lines[index].querySelectorAll(".browse-diff-no");
-        var wanted = selection.side === "old" ? numbers[0] : numbers[1];
-        var number = wanted ? Number(wanted.textContent.trim()) : NaN;
-        var on = path === selection.path && number >= selection.from && number <= selection.to;
-        lines[index].setAttribute("data-picked", on ? "true" : "false");
+      var rows = numberedRows(section);
+      var from = -1;
+      var to = -1;
+      if (cursor && cursor.path === path) {
+        from = cursor.row;
+        to = cursor.row;
+        if (anchor && anchor.path === path) {
+          from = Math.min(anchor.row, cursor.row);
+          to = Math.max(anchor.row, cursor.row);
+        }
+      }
+      for (var index = 0; index < rows.length; index++) {
+        rows[index].setAttribute("data-picked", index >= from && index <= to ? "true" : "false");
       }
       var rail = railFor(path);
-      if (rail) rail.setAttribute("aria-current", path === selection.path ? "true" : "false");
+      if (rail) rail.setAttribute("aria-current", path === currentFile ? "true" : "false");
     });
     var bar = byId("rv-selbar");
     if (!bar) return;
-    if (selection.path === null) { bar.setAttribute("data-open", "false"); return; }
-    var span = selection.from === selection.to ? String(selection.from) : selection.from + "–" + selection.to;
-    var ref = selection.path + ":" + span;
+    var row = cursorRow();
+    var at = rowAnchor(row);
+    if (!cursor || !at) {
+      bar.setAttribute("data-open", "false");
+      return;
+    }
+    var span = String(at.line);
+    if (anchor && anchor.path === cursor.path && anchor.row !== cursor.row) {
+      var rangeRows = numberedRows(sectionFor(cursor.path));
+      var first = rowAnchor(rangeRows[Math.min(anchor.row, cursor.row)]);
+      var last = rowAnchor(rangeRows[Math.max(anchor.row, cursor.row)]);
+      if (first && last) span = first.line + "-" + last.line;
+    }
+    var ref = cursor.path + ":" + span;
     byId("rv-selbar-ref").textContent = ref;
     byId("rv-selbar-ref").setAttribute("data-ref", ref);
     bar.setAttribute("data-open", "true");
+    if (focus) {
+      // The row is the focus target: tabindex="-1" keeps it out of the tab order, and the
+      // focus ring tells a keyboard reader which line the next key acts on.
+      row.setAttribute("tabindex", "-1");
+      try { row.focus({ preventScroll: true }); } catch (error) { row.focus(); }
+    }
   }
-  function setSelection(path, side, from, to) {
-    selection = { path: path, side: side, from: from, to: to };
-    paintSelection();
+
+  /** Put the cursor on one row, clearing or keeping the range anchor. */
+  function placeCursor(path, row, extend) {
+    if (!extend) anchor = null;
+    else if (!anchor && cursor && cursor.path === path) anchor = { path: path, row: cursor.row };
+    cursor = { path: path, row: row };
+    currentFile = path;
+    paintSelection(true);
+    var node = cursorRow();
+    if (node && node.scrollIntoView) node.scrollIntoView({ block: "nearest" });
   }
+
+  /** Move one numbered row, crossing into the next or previous visible file at an end. */
+  function moveCursor(step, extend) {
+    var files = visibleFiles();
+    if (!files.length) return;
+    if (!cursor) {
+      var preferred = currentFile && files.indexOf(currentFile) >= 0 ? currentFile : files[0];
+      var start = firstRowOf(preferred);
+      if (start) placeCursor(start.path, step > 0 ? 0 : start.rows.length - 1, false);
+      return;
+    }
+    var rows = numberedRows(sectionFor(cursor.path));
+    if (extend) {
+      var extended = Math.max(0, Math.min(rows.length - 1, cursor.row + step));
+      anchor = anchor && anchor.path === cursor.path ? anchor : { path: cursor.path, row: cursor.row };
+      placeCursor(cursor.path, extended, true);
+      return;
+    }
+    var next = cursor.row + step;
+    if (next >= 0 && next < rows.length) {
+      placeCursor(cursor.path, next, false);
+      return;
+    }
+    var at = files.indexOf(cursor.path);
+    if (at < 0) at = step > 0 ? -1 : files.length;
+    for (var index = at + (step > 0 ? 1 : -1); index >= 0 && index < files.length; index += step > 0 ? 1 : -1) {
+      var target = numberedRows(sectionFor(files[index]));
+      if (target.length) {
+        placeCursor(files[index], step > 0 ? 0 : target.length - 1, false);
+        return;
+      }
+    }
+  }
+
   function clearSelection() {
-    selection = { path: null, side: "new", from: null, to: null };
-    paintSelection();
+    cursor = null;
+    anchor = null;
+    paintSelection(false);
+  }
+
+  /** A save closes the composer; the cursor is where the reviewer was, so focus goes back to it. */
+  function focusCursor() {
+    if (cursorRow()) paintSelection(true);
   }
 
   // ── send ──────────────────────────────────────────────────────────────────
@@ -472,21 +592,6 @@ ${CLIENT_RUNTIME_JS}
     byId("rv-filter").focus();
   }
 
-  function moveFile(step) {
-    // A key move walks the rail's visible rows, so a filter narrows where j and k go.
-    var visible = nodeList(".rv-rail")
-      .filter(function (row) { return !row.hidden; })
-      .map(function (row) { return row.getAttribute("data-path"); });
-    if (visible.length === 0) return;
-    var current = selection.path === null ? -1 : visible.indexOf(selection.path);
-    var next = Math.min(visible.length - 1, Math.max(0, (current < 0 ? 0 : current) + step));
-    var path = visible[next];
-    var line = firstLineOf(sectionFor(path));
-    setSelection(path, "new", line, line);
-    var section = sectionFor(path);
-    if (section) section.scrollIntoView({ block: "start" });
-  }
-
   function moveHunk(step) {
     var heads = nodeList(".bf-diff-line--hunk");
     if (heads.length === 0) return;
@@ -531,7 +636,8 @@ ${CLIENT_RUNTIME_JS}
   byId("rv-send-confirm").addEventListener("click", sendNow);
   byId("rv-sel-clear").addEventListener("click", clearSelection);
   byId("rv-sel-comment").addEventListener("click", function () {
-    if (selection.path !== null) composer(selection.path, selection.from, selection.side);
+    var at = cursorAnchor();
+    if (cursor && at) composer(cursor.path, at.line, at.side);
   });
   byId("rv-sel-copy").addEventListener("click", function () {
     var ref = byId("rv-selbar-ref").getAttribute("data-ref");
@@ -542,17 +648,21 @@ ${CLIENT_RUNTIME_JS}
   document.addEventListener("click", function (event) {
     var gutter = event.target.closest ? event.target.closest(".browse-diff-no") : null;
     if (gutter) {
+      // A click on a gutter is a selection: the row it belongs to becomes the cursor.
       var section = gutter.closest(".rv-file");
       var path = section.getAttribute("data-path");
-      var numbers = gutter.closest(".bf-diff-line").querySelectorAll(".browse-diff-no");
-      var side = numbers[1] === gutter ? "new" : "old";
-      var line = Number(gutter.textContent.trim());
-      if (event.shiftKey && selection.path === path && selection.from !== null) {
-        setSelection(path, side, Math.min(selection.from, line), Math.max(selection.from, line));
-      } else if (selection.path === path && selection.from === line && selection.to === line) {
-        clearSelection();
+      var row = gutter.closest(".bf-diff-line");
+      var index = numberedRows(section).indexOf(row);
+      if (index < 0) return;
+      if (event.shiftKey && cursor && cursor.path === path) {
+        anchor = anchor && anchor.path === path ? anchor : { path: path, row: cursor.row };
+        cursor = { path: path, row: index };
+        currentFile = path;
+        paintSelection(true);
+        var node = cursorRow();
+        if (node && node.scrollIntoView) node.scrollIntoView({ block: "nearest" });
       } else {
-        setSelection(path, side, line, line);
+        placeCursor(path, index, false);
       }
       return;
     }
@@ -563,11 +673,21 @@ ${CLIENT_RUNTIME_JS}
     }
     var rail = event.target.closest ? event.target.closest(".rv-rail") : null;
     if (rail) {
-      var railPath = rail.getAttribute("data-path");
-      var line = firstLineOf(sectionFor(railPath));
-      setSelection(railPath, "new", line, line);
+      // The rail navigates: it says which file the reader is in and drops the line cursor, so
+      // no bar opens and no line is invented. The anchor's own jump does the scrolling.
+      currentFile = rail.getAttribute("data-path");
+      cursor = null;
+      anchor = null;
+      paintSelection(false);
     }
   });
+
+  /** Enter acts on the cursor only when the page or a diff row has focus, never on a control. */
+  function actsOnCursor(target) {
+    if (!target || target === document.body) return true;
+    if (target.id === "rv-main") return true;
+    return !!(target.classList && target.classList.contains("bf-diff-line"));
+  }
 
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
@@ -586,18 +706,36 @@ ${CLIENT_RUNTIME_JS}
     if (typing(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === "/") { event.preventDefault(); byId("rv-filter").focus(); return; }
     if (event.key === "w") { toggleWrap(); return; }
-    if (event.key === "j") { moveFile(1); return; }
-    if (event.key === "k") { moveFile(-1); return; }
+    if (event.key === "j" || event.key === "ArrowDown") { event.preventDefault(); moveCursor(1, event.shiftKey); return; }
+    if (event.key === "k" || event.key === "ArrowUp") { event.preventDefault(); moveCursor(-1, event.shiftKey); return; }
     if (event.key === "]") { moveHunk(1); return; }
     if (event.key === "[") { moveHunk(-1); return; }
-    if (event.key === "c" && selection.path !== null) { event.preventDefault(); composer(selection.path, selection.from, selection.side); return; }
-    if (event.key === "m" && selection.path !== null) {
-      markReviewed(selection.path, !reviewedSet().has(selection.path));
+    if (event.key === "Enter" && cursor && actsOnCursor(event.target)) {
+      event.preventDefault();
+      var atEnter = cursorAnchor();
+      if (atEnter) composer(cursor.path, atEnter.line, atEnter.side);
+      return;
+    }
+    if (event.key === "c" && cursor) {
+      event.preventDefault();
+      var atKey = cursorAnchor();
+      if (atKey) composer(cursor.path, atKey.line, atKey.side);
+      return;
+    }
+    if (event.key === "m") {
+      var marked = currentFile || (cursor && cursor.path);
+      if (marked) markReviewed(marked, !reviewedSet().has(marked));
     }
   });
 
+  // The file the reader is in starts as the one the server marked current.
+  var startRail =
+    nodeList(".rv-rail").filter(function (row) { return row.getAttribute("aria-current") === "true"; })[0] ||
+    nodeList(".rv-rail")[0];
+  if (startRail) currentFile = startRail.getAttribute("data-path");
   paintThreads();
   paintChrome();
+  paintSelection(false);
   restoreDraft();
 ${THEME_TOGGLE_JS}
 ${dialogScript({ dialogId: "rv-send-dialog", closeId: "rv-send-close", globalName: "rvSend" })}
