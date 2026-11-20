@@ -130,7 +130,7 @@ export function renderOutline(
 		count.hidden = true;
 		link.appendChild(count);
 		// A jump is the reader naming the section they want, so the mark moves to it at once; the
-		// watcher still owns it while the reader scrolls.
+		// scroll pass still owns it from the next scroll on.
 		link.addEventListener("click", () => {
 			const links = list.querySelectorAll("a");
 			for (let i = 0; i < links.length; i++) links[i]?.removeAttribute("aria-current");

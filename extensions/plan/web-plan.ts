@@ -5,7 +5,7 @@
  * most to read: it builds every block, its comment rail, and the cards under it, then puts
  * the reader back where they were. Reads arrive through getters and mutations leave through
  * callbacks, so the client keeps every variable it owns — `activeIndex`, the quote a click
- * is waiting for, the observer — and this function holds only the shape of one frame.
+ * is waiting for, the section watch — and this function holds only the shape of one frame.
  *
  * Three rules it owns, all about a repaint not stealing the reader's place:
  *
@@ -81,11 +81,7 @@ export interface PlanRenderDeps {
 export function renderPlanFrame(
 	deps: PlanRenderDeps,
 	closePlan: () => void,
-	watch: (
-		planEl: ClientNode | null,
-		list: ClientNode | null,
-		previous: SectionWatch | null,
-	) => SectionWatch | null,
+	watch: (planEl: ClientNode | null, list: ClientNode | null, previous: SectionWatch | null) => SectionWatch | null,
 	previousWatch: SectionWatch | null,
 ): SectionWatch | null {
 	const { planEl } = deps;
