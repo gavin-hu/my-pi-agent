@@ -59,16 +59,16 @@ and a lane of 24 cards folds. The pane is the one scroll box: a lane is as tall 
 its edge. The Team tab draws the board's card and raises what needs a lead above it: a band shows five rows,
 folds the rest, pins its head, and says a sentence every row shares once.
 
-**Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`,
-`approve`, `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full;
-`assign` is `team`'s verb under that rule, and one session holds one card in flight by default (`board.wip.perOwner`).
-`reclaim` takes a card back: the person and the lead always, a peer only while its owner is quiet or gone. `move` into
-`execute` or `done` re-reads the plan, and one that is gone refuses it. An `execute` card holds its `paths`: `edit`
-claims added ones and releases removed ones, claiming first so a conflict releases nothing; `release` alone is undone
-by the next crossing. A contract names a `verify` command, and `review` runs it in the tree `root` names. `done`
-refuses a sign with no result or one older than the card's state (a note is not a change) and resolves the landing: an older
-tree (a merge before the work, past it, or rewriting the review's lines), a tip that declares another card, or a branch
-landed by squashing, named by the card id its subject ends with. A reviewed merge is its own landing only while it is the
+**Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`, `approve`,
+`review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full; `assign` is `team`'s verb
+under that rule, and one session holds one card in flight by default (`board.wip.perOwner`). `reclaim` takes a card back: the
+person and the lead always, a peer only while its owner is quiet or gone. `move` into `execute` or `done` re-reads the plan, and
+one that is gone refuses it. An `execute` card holds its `paths`: `edit` claims added ones and releases removed ones, claiming
+first so a conflict releases nothing; `release` alone is undone by the next crossing. A contract names a `verify` command — the
+card's own check, not the repository's whole gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs
+it in the tree `root` names. `done` refuses a sign with no result or one older than the card's state (a note is not a change) and
+resolves the landing: an older tree (a merge before the work, past it, or rewriting the review's lines), a tip declaring another
+card, or a squashed branch named by the card id its subject ends with. A reviewed merge is its own landing only while it is the
 tip, so a checkout sign needs a re-sign; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab); `/board approve <id>` and
