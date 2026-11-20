@@ -14,11 +14,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`→ clear list`) keeps its own spacing at the call site, because it has no left-hand state to
   join. The refactor renders the same bytes, which the suites that pin those subjects prove
   unchanged. U+2192 is East-Asian *A (ambiguous)* — the class the module allows, along with `▸`,
-  `⊚` and `›` — and `lib/tui/components.test.ts` now holds its width, the separator's, and states
-  the class, which is the version that fails on a hand-copied `⇒` rather than only on a missing name.
-  The module's docstring cited `lib/tui/glyphs.test.ts` for that ban; that suite did not exist, and
-  the vocabulary cases moved out of `components.test.ts` into it, so the reference is now true and
-  the component suite is back under its size bar. One site stays hand-typed on purpose: the context
+  `⊚` and `›` — and `lib/tui/glyphs.test.ts` now holds its width, the separator's, and states the
+  class, which is the version that fails on a hand-copied `⇒` rather than only on a missing name.
+  That suite is where the vocabulary cases moved to: `components.test.ts` was 395 lines and they
+  took it to 430, so `GLYPHS` and `SEPARATORS` moved out and it is back at 368. The module's
+  docstring had cited `lib/tui/glyphs.test.ts` for the ban all along — the reference pointed at a
+  file that did not exist, and the split makes it true rather than correcting it. One site stays hand-typed on purpose: the context
   report's compaction line (`cut 40,000 → 2,000 summary`) — importing the vocabulary would add two
   static modules to that entry, whose registration budget may only fall — and the prose uses (a
   goal note, a subagent prompt, comments) stay as prose. `send_wechat`'s result line takes the capital
