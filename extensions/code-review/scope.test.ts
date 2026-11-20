@@ -58,6 +58,7 @@ describe("the review's scopes", () => {
 			label: "uncommitted",
 			untracked: true,
 			needsParent: false,
+			title: "uncommitted — the index and the tree against HEAD",
 		});
 	});
 });

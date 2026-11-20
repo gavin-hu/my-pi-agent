@@ -29,7 +29,7 @@ import {
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { Review, ReviewComment } from "../review/store.ts";
 import { MAX_COMMENT_LENGTH, MAX_COMMENTS, MAX_QUOTE_LENGTH } from "../review/store.ts";
-import { REVIEW_SCOPES, SCOPE_WORDS, scopeArgs, type ReviewScope } from "../scope.ts";
+import { REVIEW_SCOPES, scopeArgs, type ReviewScope } from "../scope.ts";
 import { REVIEW_CSS } from "./styles.ts";
 
 /** What the client is told about the page; the island carries it as one value. */
@@ -166,7 +166,7 @@ function languageOf(rel: string): HighlightLanguage | undefined {
 function scopeSegments(base: string, scope: ReviewScope): string {
 	return `<div class="bf-tabs" role="group" aria-label="What the diff compares">${REVIEW_SCOPES.map(
 		(option) =>
-			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}" title="${escapeHtml(scopeArgs(option, "").title)}">${SCOPE_WORDS[option]}</a>`,
+			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}" title="${escapeHtml(scopeArgs(option, "").title)}">${option}</a>`,
 	).join("")}</div>`;
 }
 
