@@ -50,6 +50,7 @@ serves it.
 | `/files/` | `file-browse` — the tree, file pages, its script, rewritten Markdown links |
 | `/board/` | `board` — the read-only board page, token in the query |
 | `/plan/<id>/` | `plan` — one review, one id, so two never share a namespace |
+| `/review/` | `code-review` — one review page per session; the review's id is minted by its first write |
 
 Anything else is a plain `404`; a prefix without its trailing slash redirects to
 the slashed form, because a page's own links are relative to its directory.

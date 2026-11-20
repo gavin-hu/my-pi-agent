@@ -23,6 +23,7 @@ import { DEFAULT_BYTEFLY_CONFIG } from "../extensions/bytefly/footer/price/confi
 import { DEFAULT_NOTIFY_CONFIG } from "../extensions/bytefly/notify/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_FILE_READ_CONFIG } from "../extensions/file-read/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_FILE_BROWSE_CONFIG } from "../extensions/file-browse/config/config.ts";
+import { DEFAULT_REVIEW_CONFIG } from "../extensions/code-review/config/config.ts";
 import { DEFAULT_GOAL_CONFIG } from "../extensions/goal/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_JOB_CONFIG } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG } from "../extensions/memory/config.ts";
@@ -63,6 +64,7 @@ const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
 	chrome: DEFAULT_CHROME_CONFIG,
 	"file-read": DEFAULT_FILE_READ_CONFIG,
 	"file-browse": DEFAULT_FILE_BROWSE_CONFIG,
+	"code-review": DEFAULT_REVIEW_CONFIG,
 	serve: DEFAULT_SERVE_CONFIG,
 	goal: DEFAULT_GOAL_CONFIG,
 	job: DEFAULT_JOB_CONFIG,
@@ -207,6 +209,6 @@ describe("configuration reference", () => {
 
 	test("leaves no section unchecked", () => {
 		// A board section means a new entry here and its page in configuration-reference.md.
-		expect(Object.keys(SECTIONS)).toHaveLength(19);
+		expect(Object.keys(SECTIONS)).toHaveLength(20);
 	});
 });

@@ -9,6 +9,7 @@ it, and Pi's own built-in tools are not repeated here.
 | Tool | Extension | What it does |
 |---|---|---|
 | `board` | [board](./extensions/board.md) | The shared feature board: cards, lanes, and the two signatures. |
+| `code_review` | [code-review](./extensions/code-review.md) | Serve a diff as a review page, read what the reviewer sent, and close it. |
 | `goal` | [goal](./extensions/goal.md) | The session's one objective, kept in view and restated before each turn. |
 | `job` | [job](./extensions/job.md) | Start a long shell command, then read its log, wait on it, or kill it. |
 | `memory` | [memory](./extensions/memory.md) | Durable notes for later sessions, as markdown you can edit. |
@@ -41,6 +42,7 @@ it, and Pi's own built-in tools are not repeated here.
 | `/memory` | [memory](./extensions/memory.md) | The note picker, plus edit, clear, path, and doctor. |
 | `/open` | [file-open](./extensions/file-open.md) | Open a path in the OS handler, or reveal it in the file manager. |
 | `/plan` | [plan](./extensions/plan.md) | Start a task read-only, toggle the mode, and list older plans. |
+| `/review` | [code-review](./extensions/code-review.md) | Serve a diff as a review page and open it; `status` and `stop` drive it. |
 | `/rewind` | [rewind](./extensions/rewind.md) | Pick an earlier prompt and restore the code, the conversation, or both. |
 | `/sessions` | [session-bus](./extensions/session-bus.md) | Who is working in this repository, and what each session holds. |
 | `/team` | [team](./extensions/team.md) | The round: who is live, and what waits on a signature. |

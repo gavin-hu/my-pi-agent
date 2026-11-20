@@ -1,7 +1,7 @@
 {
   "name": "@gavin-hu/my-pi-agent",
   "version": "0.29.0",
-  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, question, todo, goal, plan, serve, subagent, job, watch, web-access, file-browse, file-open, file-read, memory, context, session-bus, board, team, wechat, and bytefly.",
+  "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, question, todo, goal, plan, serve, subagent, job, watch, web-access, file-browse, code-review, file-open, file-read, memory, context, session-bus, board, team, wechat, and bytefly.",
   "keywords": [
     "pi-package",
     "pi",
@@ -83,6 +83,7 @@
     "assets/screens/board.png",
     "assets/screens/chrome.png",
     "assets/screens/context.png",
+    "assets/screens/code-review.png",
     "assets/screens/file-browse.png",
     "assets/screens/job.png",
     "assets/screens/memory.png",
@@ -115,6 +116,7 @@
       "./extensions/watch/index.ts",
       "./extensions/web-access/index.ts",
       "./extensions/file-browse/index.ts",
+      "./extensions/code-review/index.ts",
       "./extensions/file-read/index.ts",
       "./extensions/file-open/index.ts",
       "./extensions/memory/index.ts",
@@ -146,6 +148,7 @@
     "capture:screens": "bun run scripts/screenshots.ts",
     "capture:board": "bun run scripts/shots/board.ts",
     "capture:cards": "bun run scripts/shots/cards.ts",
+    "capture:code-review": "bun run scripts/shots/code-review.ts",
     "capture:file-browse": "bun run scripts/shots/file-browse.ts",
     "capture:plan": "bun run scripts/shots/plan-review.ts",
     "capture:video": "bun run scripts/shots/video.ts",

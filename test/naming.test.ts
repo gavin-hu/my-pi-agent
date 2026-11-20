@@ -5,11 +5,13 @@
  * ExitPlanMode, EnterWorktree, ExitWorktree, AskUserQuestion):
  *
  *   - lowercase snake_case;
- *   - a singleton tool is named for its domain (`todo`, `goal`, `job`,
- *     `subagent`);
- *   - a multi-word tool is verb-first (`send_wechat`, `run_doctor`),
- *     except the documented noun-first carve-outs that mirror Claude Code
- *     (`web_search`, `web_fetch`).
+ *   - a tool that dispatches on `action` is named for its domain, in one word
+ *     (`todo`, `goal`, `job`, `subagent`, `board`, `plan`, `session`, `team`,
+ *     `watch`) — and a domain whose name is two words keeps them
+ *     (`code_review`), because the lifecycle is the artifact, not one verb's turn;
+ *   - a tool that does one thing is verb-first (`send_wechat`, `run_doctor`,
+ *     `open_path`, `read_doc`), with `web_search` and `web_fetch` keeping the
+ *     spelling Claude Code gave them.
  *
  * Built-in overrides (`read`/`write`/`edit`/`bash`/`grep`/`find`/`ls`) are
  * deliberately excluded: they reuse the built-in names.
@@ -26,8 +28,12 @@ import { REGISTERED } from "./helpers/registry.ts";
 
 const NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 
-/** Multi-word names must start with a verb, except these Claude Code noun-first names. */
-const NOUN_FIRST_CARVE_OUTS = new Set(["web_search", "web_fetch"]);
+/**
+ * Multi-word names that are a domain rather than one action: the two Claude Code
+ * spellings, and `code_review`, whose four actions make one lifecycle — the
+ * artifact a person produces — so a verb-first spelling would name a one-shot.
+ */
+const NOUN_FIRST_CARVE_OUTS = new Set(["web_search", "web_fetch", "code_review"]);
 
 const LEADING_VERBS = new Set([
 	"ask",
@@ -110,6 +116,7 @@ describe("extension tool naming", () => {
 	test("the full registered set matches the reviewed snapshot", () => {
 		expect([...names].sort()).toEqual([
 			"board",
+			"code_review",
 			"goal",
 			"job",
 			"memory",

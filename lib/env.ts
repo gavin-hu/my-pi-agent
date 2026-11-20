@@ -5,7 +5,7 @@
  * another, so the variable name and the "is it still on disk?" check live here.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 
 /** Env var holding the active worktree path, set by the worktree extension. */
 export const ENV_ROOT = "PI_WORKTREE_ROOT";
@@ -79,4 +79,22 @@ export function worktreeRoot(): string | undefined {
 /** `cwd`, or the active worktree root when this session is isolated. */
 export function resolveEffectiveCwd(cwd: string): string {
 	return worktreeRoot() ?? cwd;
+}
+
+/**
+ * The session's effective root as a page serves it: the worktree root when one is set,
+ * else the working directory, with symlinks resolved.
+ *
+ * A checkout reached through a link — `/tmp` on macOS is `/private/tmp` — must be
+ * canonicalized before a subpath is compared with it: the containment checks compare real
+ * paths, so a raw root and a realpath'd candidate read as an escape. A path that does not
+ * resolve is returned as given, which is the caller's own input rather than a guess.
+ */
+export function effectiveRealCwd(cwd: string): string {
+	const root = resolveEffectiveCwd(cwd);
+	try {
+		return realpathSync.native(root);
+	} catch {
+		return root;
+	}
 }

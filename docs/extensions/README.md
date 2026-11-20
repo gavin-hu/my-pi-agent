@@ -22,6 +22,7 @@ half — the commands, the keys, the limits, and the settings worth changing.
 - [`memory`](./memory.md)
 - [`web-access`](./web-access.md)
 - [`file-browse`](./file-browse.md)
+- [`code-review`](./code-review.md)
 - [`file-read`](./file-read.md)
 - [`file-open`](./file-open.md)
 - [`wechat`](./wechat.md)

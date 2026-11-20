@@ -16,7 +16,7 @@ import { realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
+import { effectiveRealCwd, isExtensionEnabled } from "../../lib/env.ts";
 import type { Launch } from "../../lib/browser.ts";
 import type { ServeConfig } from "./config/config.ts";
 import type { FileServer, RootReaders } from "./transport/server.ts";
@@ -42,24 +42,9 @@ interface RunningServer {
 	off: () => void;
 }
 
-/** The real path of `path`, or the path itself when it cannot be resolved. */
-function realOrSelf(path: string): string {
-	try {
-		return realpathSync.native(path);
-	} catch {
-		return path;
-	}
-}
-
-/**
- * The session's root as the page serves it, canonicalized.
- *
- * A checkout reached through a symlink — `/tmp` on macOS is `/private/tmp` — must be resolved
- * before a subpath is matched against it: the containment check compares real paths, so a raw
- * root and a realpath'd candidate read as an escape and the page is refused.
- */
+/** The session's root as the page serves it, canonicalized. */
 function baseOf(ctx: ExtensionContext): string {
-	return realOrSelf(resolveEffectiveCwd(ctx.cwd));
+	return effectiveRealCwd(ctx.cwd);
 }
 
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {

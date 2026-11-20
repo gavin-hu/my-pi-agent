@@ -14,6 +14,7 @@ import { DOCTOR_FIXTURES } from "./doctor.ts";
 import { INTERACTION_FIXTURES } from "./interaction.ts";
 import { JOB_FIXTURES } from "./jobs.ts";
 import { PLAN_FIXTURES } from "./plan.ts";
+import { REVIEW_FIXTURES } from "./review.ts";
 import { SESSION_FIXTURES } from "./session.ts";
 import type { ToolFixture } from "./types.ts";
 import { TRANSCRIPT_FIXTURES } from "./transcript.ts";
@@ -33,6 +34,7 @@ export const FIXTURES: ToolFixture[] = [
 	...JOB_FIXTURES,
 	...DELEGATION_FIXTURES,
 	...WEB_FIXTURES,
+	...REVIEW_FIXTURES,
 	...DOCTOR_FIXTURES,
 	...INTERACTION_FIXTURES,
 	...PLAN_FIXTURES,

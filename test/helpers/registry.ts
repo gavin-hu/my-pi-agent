@@ -16,6 +16,7 @@ import { TEAM_TOOL as team } from "../../extensions/team/types.ts";
 import { TOOL_NAME as question } from "../../extensions/question/tools.ts";
 import { TOOL_NAME as runDoctor } from "../../extensions/bytefly/doctor/tools.ts";
 import { TOOL_NAME as readDoc } from "../../extensions/file-read/schema.ts";
+import { TOOL_NAME as codeReview } from "../../extensions/code-review/schema.ts";
 import { TOOL_NAME as openPath } from "../../extensions/file-open/schema.ts";
 import { TOOL_NAME as goal } from "../../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../../extensions/job/tools.ts";
@@ -37,6 +38,7 @@ export const REGISTERED: ReadonlyArray<{ extension: string; name: string }> = [
 	{ extension: "file-read", name: readDoc },
 	{ extension: "bytefly", name: runDoctor },
 	{ extension: "file-open", name: openPath },
+	{ extension: "code-review", name: codeReview },
 	{ extension: "goal", name: goal },
 	{ extension: "job", name: job },
 	{ extension: "memory", name: memory },
