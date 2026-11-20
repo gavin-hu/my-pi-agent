@@ -1,16 +1,20 @@
 /**
- * The browse pages' unified-diff body: one line per row, with the gutter, the
- * sign, and the hunk sections.
+ * A parsed diff as page markup: one line per row, with the gutter, the sign, and
+ * the hunk sections.
  *
- * Split from `html.ts` when that module reached its named ceiling: the diff body
- * is the one part of the page renderers with its own rule — old and new sides are
+ * The one part of a diff page with its own rule — the old and new sides are
  * highlighted as two documents per hunk, so the tokenizer carries state within a
  * hunk and never across the unchanged lines a hunk does not show.
+ *
+ * The classes it emits (`bf-diff-hunk`, `bf-diff-line`, and the `browse-diff-no` /
+ * `browse-diff-sign` pair) are the page's stylesheet's, and a page that serves a
+ * diff supplies those rules. Loading this module loads `lib/highlight.ts`, which is
+ * why a registration graph imports `modes.ts` or `status.ts` instead of the barrel.
  */
 
-import { escapeHtml } from "../../../lib/escape.ts";
-import { highlightLines, type HighlightLanguage } from "../../../lib/highlight.ts";
-import type { DiffLine } from "../text/diff.ts";
+import { escapeHtml } from "../escape.ts";
+import { highlightLines, type HighlightLanguage } from "../highlight.ts";
+import type { DiffLine } from "./parse.ts";
 
 /**
  * The inner HTML per diff line. Hunk bodies are highlighted by rebuilding the

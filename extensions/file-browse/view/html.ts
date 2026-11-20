@@ -22,8 +22,7 @@ import { renderChanges, renderGit, renderLiveChrome, type LivePage } from "./chr
 import { type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
 import { formatSize } from "../../../lib/format.ts";
 import { lastSegment } from "../../../lib/path.ts";
-import { DIFF_MODES, statusLetter, type ChangedFile, type DiffMode } from "../text/diff.ts";
-import { renderDiffLines } from "./diff-html.ts";
+import { DIFF_MODES, renderDiffLines, statusLetter, type ChangedFile, type DiffMode } from "../../../lib/diff/index.ts";
 import type { DiffFileView, GitStatus } from "../git/git.ts";
 import type { ChangeIndex } from "../live/live.ts";
 import { detectLanguage, highlightLines, type HighlightLanguage } from "../../../lib/highlight.ts";
