@@ -55,6 +55,7 @@ import {
 	type ToolMessageResult,
 } from "../../lib/tui/tool.ts";
 import { strayField } from "../../lib/stray-fields.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { askId, askText, DEFAULT_QUESTION, type ReplyRoute } from "./dispatch.ts";
 import {
 	formatAsk,
@@ -107,7 +108,7 @@ async function writeOutcome(write: Promise<MutateResult>): Promise<{ result: Mut
  */
 function callSubject(action: TeamAction, args: Record<string, unknown>): string {
 	const card = cardRefOf(args.card);
-	const to = typeof args.to === "string" && args.to.trim() !== "" ? ` → ${args.to.trim()}` : "";
+	const to = typeof args.to === "string" && args.to.trim() !== "" ? `${SEPARATORS.arrow}${args.to.trim()}` : "";
 	const peer = action === "assign" || action === "ask" ? to : "";
 	return card === "" ? `${action}${peer}` : `${action} ${card}${peer}`;
 }
@@ -502,6 +503,6 @@ function summaryOf(details: TeamDetails): string {
 		return `${cardRef(card.id)} offered to ${plural(count, "session")}`;
 	}
 	const who = details.assigned?.label ?? card.owner?.label;
-	const target = who === undefined ? "" : ` → ${who}`;
+	const target = who === undefined ? "" : `${SEPARATORS.arrow}${who}`;
 	return `${cardRef(card.id)} ${card.lane}${target}`;
 }

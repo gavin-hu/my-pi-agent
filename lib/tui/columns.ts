@@ -52,6 +52,20 @@ export function clipMiddle(text: string, width: number, ellipsis = "…"): strin
 	return clip(`${head}${ellipsis}${tail}`, w, ellipsis);
 }
 
+/** How a line gives up columns when the terminal is narrow. */
+export type LineClip = "end" | "middle";
+
+/**
+ * One line clipped to `width` columns in the mode its caller chose.
+ *
+ * The one body behind both the call line (`ToolCallText`) and the identity lines a result
+ * builds at its width (`LinesAtWidth`): `middle` keeps a path's or URL's head and tail, `end`
+ * keeps the opening words of prose. A line that fits passes through untouched.
+ */
+export function clipLine(text: string, width: number, mode: LineClip = "end"): string {
+	return mode === "middle" ? clipMiddle(text, width) : clip(text, width);
+}
+
 /**
  * A single-line label clipped to {@link LABEL_WIDTH}.
  *

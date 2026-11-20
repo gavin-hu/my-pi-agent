@@ -31,9 +31,9 @@ describe("review outline", () => {
 
 	test("carries the source, safe to splice into the client bundle", () => {
 		expect(WEB_OUTLINE_JS.split(String(sectionFor)).length).toBe(2);
-		expect(REVIEW_CLIENT_JS).toContain("renderOutline(outlineList, outlineEntries())");
-		// The fragment runs with nothing but the builder beside it: no reference to a helper
-		// it does not carry, which on the page is a throw at the first render.
+		// The page hands the list its arrival hook, because a link scrolls the pane and leaves the
+		// keyboard behind; the fragment must also build with no hook beside it, which it allows.
+		expect(REVIEW_CLIENT_JS).toContain("focusSection(planEl, id)");
 		expect(() => new Function("el", WEB_OUTLINE_JS)(fakeClientDom().build)).not.toThrow();
 	});
 
@@ -87,7 +87,7 @@ describe("review outline", () => {
 
 			const watcher = observeSections(planEl, list, null) as unknown as FakeObserver;
 			expect(watcher.observed).toEqual(["s-1", "s-8"]);
-			expect(watcher.rootMargin).toBe("-88px 0px -68% 0px");
+			expect(watcher.rootMargin).toBe("0px 0px -60% 0px");
 
 			watcher.fire("s-8");
 			expect(links[1]?.getAttribute("aria-current")).toBe("true");

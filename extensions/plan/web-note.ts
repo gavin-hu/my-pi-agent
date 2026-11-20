@@ -46,5 +46,17 @@ export function reviewNote(view: ReviewView, counts: ViewCounts): string {
 	return "Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — " + counts.hidden + " hidden";
 }
 
+/**
+ * Why the switch cannot offer the Changed view: the plan has no baseline to compare against.
+ *
+ * A function, not a constant, because it crosses into the client bundle the way the sentences
+ * above do. It is not one of them: those answer what a view shows, and this answers a control
+ * that is off — the note line prints it, and the switch's group describes itself with it, so a
+ * reader who cannot reach a disabled button still hears why it is disabled.
+ */
+export function changedUnavailable(): string {
+	return "No earlier review of this plan to compare against";
+}
+
 /** The sentences and the rule that picks one, for the client bundle. */
-export const WEB_NOTE_JS = [viewNotes, reviewNote].map(pageSource).join("\n\n");
+export const WEB_NOTE_JS = [viewNotes, reviewNote, changedUnavailable].map(pageSource).join("\n\n");

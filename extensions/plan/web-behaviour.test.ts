@@ -414,22 +414,4 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		expect(panel.overflow).toBeLessThanOrEqual(1);
 		await page.close();
 	});
-
-	test("jumps to the section the outline names", async () => {
-		const page = await openReview(browser, reviewUrl);
-		const links = page.locator("#outline-list a");
-		expect(await links.count()).toBe(2);
-		await links.nth(1).click();
-		// The jump is a scroll to the section's anchor, so the section it names is the one
-		// the page shows: the outline marks the current item.
-		await page.waitForFunction(
-			() =>
-				(globalThis as unknown as { document: Doc }).document
-					.querySelector('#outline-list a[aria-current="true"]')
-					?.textContent?.includes("Rollout") ?? false,
-			undefined,
-			{ timeout: REVIEW_PAINT_MS },
-		);
-		await page.close();
-	});
 });

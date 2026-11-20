@@ -38,15 +38,15 @@ promises, and the notes that explain it — and two signatures are needed before
 Put the billing webhook's order acceptance on the board, under src/billing.
 ```
 
-The model calls `board({ action: "add", … })` and then, when you say so,
-`board({ action: "claim", card: "1" })`. Those are tool actions, not commands:
-you type only `/board archive|approve|review|status|stop|team` — the three that write are the lead's.
+The model calls `board({ action: "add", … })` and then, when you say so, `board({ action: "claim", card: "1" })`.
+Those are tool actions, not commands: `Reference` below lists every `/board` word, and who may run one.
 
 The claim's result names the next step, and `/board approve 1` refuses until the contract
 names a plan file in this repository's store. A claim also joins the team ([`team`](team.md)).
 
 A card is as tall as it draws: the line above its last one says what it owes or waits on, and is
-blank when it owes nothing. The row and `board list` print that gate in one word.
+blank when it owes nothing. The row and `board list` print that gate in one word; a transcript row
+too narrow to hold it beside the number and title draws it on the next line instead of losing them.
 
 ## Reference
 

@@ -6,6 +6,8 @@
 import { describe, expect, test } from "bun:test";
 import { clientFunction, linkFor } from "../../test/helpers/fixtures/plan-web.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
+import { WEB_NOTE_JS } from "./web-note.ts";
+import { WEB_VIEWS_JS } from "./web-views.ts";
 import {
 	approveReview,
 	cancelReview,
@@ -73,10 +75,12 @@ describe("review client", () => {
 		// the whole plan, so the header claimed 62 of 79 blocks above all 79 of them. The note is
 		// rewritten from the view on every render, which is why it cannot outlive its view.
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("review-note")');
-		expect(REVIEW_CLIENT_JS).toContain("viewNoteEl.textContent = viewNote(view, counts)");
+		// The sentence is decided here and written by web-views.ts into the note's own span: the line
+		// also carries the switch's reason, and a live region wrapping both would announce that
+		// reason as if the view had changed.
+		expect(REVIEW_CLIENT_JS).toContain("syncSwitch(viewSwitch, view, offered, viewNote(view, counts), reason)");
 		expect(clientFunction("syncView")).not.toContain("setStatus");
-		expect(REVIEW_CLIENT_JS).not.toContain("the rest hidden");
-		// The view that matched nothing keeps the document whole, so the words are the only signal —
+		expect(REVIEW_CLIENT_JS).not.toContain("the rest hidden"); // The view that matched nothing keeps the document whole, so the words are the only signal —
 		// and there is one per way it can have nothing: no prose matched, or only headings did.
 		for (const sentence of [
 			"Nothing changed since the last review",
@@ -85,6 +89,42 @@ describe("review client", () => {
 			"The only comments are on headings",
 		])
 			expect(REVIEW_CLIENT_JS).toContain(sentence);
+	});
+
+	test("gives the disabled view's reason one home, and describes the switch with it", () => {
+		// The shape this replaces put the sentence in a title on the disabled button: a control that
+		// leaves the tab order, so a keyboard reader never reaches it and a touch reader never hovers
+		// it. It is the note line's second sentence now, and the group describes itself with it.
+		// The decision is the client's (which views this page offers) and the writing is web-views.ts's,
+		// so both halves are pinned: the reason is chosen here and put in the line there.
+		expect(clientFunction("syncView")).toContain('offered.indexOf("changed") < 0 ? changedUnavailable() : ""');
+		expect(WEB_VIEWS_JS).toContain('setAttribute("aria-describedby", "review-view-why")');
+		expect(WEB_VIEWS_JS).toContain('removeAttribute("aria-describedby")');
+		// No title: the theme toggle in the shared runtime keeps its own, and this sentence's home is
+		// the note line rather than a second copy on a control nobody can reach.
+		expect(WEB_VIEWS_JS).not.toContain(".title");
+		expect(WEB_VIEWS_JS).toContain("nodes.reason.hidden = reason");
+		// The sentence lives with the switch's other sentences and crosses into the bundle, so the
+		// page and this suite read one copy of it.
+		expect(WEB_NOTE_JS).toContain('"No earlier review of this plan to compare against"');
+		expect(REVIEW_CLIENT_JS).toContain("changedUnavailable");
+	});
+
+	test("paints the narrow band's row from the same state the rail reads", () => {
+		// The band is one 44px row, so the folded rail cannot show its own facts: the row carries
+		// the pressed view and both counts instead, and they are a second format of the same
+		// numbers, not a second source — data.steps and annotations, the two the facts rows read.
+		const counts = clientFunction("paintBandCounts");
+		expect(counts).toContain('getElementById("band-steps")');
+		expect(counts).toContain('getElementById("band-comments")');
+		expect(counts).toContain("steps.total === 0");
+		// Short because the row is 44px: the rail's own sentence is for the reader who opened it.
+		expect(counts).not.toContain("ticked");
+		expect(counts).not.toContain("open · ");
+		// The view chip takes its words from the button the reader pressed, not a second list.
+		const view = clientFunction("syncView");
+		expect(view).toContain("paintBandView(");
+		expect(clientFunction("paintBandView")).toContain('getElementById("band-view")');
 	});
 
 	test("puts the tab stop back after it rebuilds the block it was in", () => {

@@ -36,6 +36,9 @@ import { WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { WEB_NOTE_JS } from "./web-note.ts";
 import { WEB_COMPOSER_JS } from "./web-composer.ts";
 import { WEB_DRAFT_JS } from "./web-draft.ts";
+import { WEB_BAND_JS } from "./web-band.ts";
+import { WEB_JUMP_JS } from "./web-jump.ts";
+import { WEB_VIEWS_JS } from "./web-views.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
 import { WEB_KEYS_JS } from "./web-keys.ts";
 import { WEB_PLAN_JS } from "./web-plan.ts";
@@ -112,12 +115,18 @@ ${CLIENT_BASE_JS}
   var postButton = document.getElementById("post");
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
-  var viewNoteEl = document.getElementById("review-note");
+  var viewSwitch = {
+    segments: document.querySelectorAll("[data-view]"),
+    line: document.getElementById("review-note"),
+    sentence: document.getElementById("review-note-view"),
+    reason: document.getElementById("review-view-why"),
+    group: document.getElementById("review-view"),
+  };
   var reloadEl = document.getElementById("reload-hint");
 
 ${CLIENT_RUNTIME_JS}
 
-${WEB_OUTLINE_JS}
+${WEB_OUTLINE_JS}${"\n\n"}${WEB_JUMP_JS}${"\n\n"}${WEB_VIEWS_JS}${"\n\n"}${WEB_BAND_JS}
 
 ${WEB_BLOCKS_JS}
 
@@ -145,9 +154,9 @@ ${WEB_MARKDOWN_JS}
 
   // Review facts: the plan's step progress, and the comments per section.
   function facts() {
-    // The server counts the same step list approval seeds, so this never disagrees with
-    // the todo list over a checkbox outside the Steps section.
+    // The server counts the same steps approval seeds, so this never disagrees with the todo list.
     renderFacts(data.steps || { done: 0, total: 0 }, annotations, outlineItems, outlineEntries());
+    paintBandCounts(data.steps || { done: 0, total: 0 }, annotations);
     updateState();
   }
 
@@ -224,21 +233,11 @@ ${WEB_MARKDOWN_JS}
   function syncView() {
     var counts = applyView(planEl, view);
     var offered = views();
-    var buttons = document.querySelectorAll("[data-view]");
-    for (var i = 0; i < buttons.length; i++) {
-      var button = buttons[i];
-      var name = button.getAttribute("data-view");
-      button.setAttribute("aria-pressed", name === view ? "true" : "false");
-      // A view this page cannot offer is off, and says why: nothing to compare against is
-      // not an empty view.
-      button.disabled = offered.indexOf(name) < 0;
-      if (name === "changed")
-        button.title =
-          offered.indexOf("changed") >= 0
-            ? "Only what this review changed"
-            : "No earlier review of this plan to compare against";
-    }
-    if (viewNoteEl) viewNoteEl.textContent = viewNote(view, counts);
+    var reason = offered.indexOf("changed") < 0 ? changedUnavailable() : "";
+    // The pressed segment, the one that is off, and the line under them: web-views.ts owns what
+    // that means, and this passes it the state the rail reads.
+    syncSwitch(viewSwitch, view, offered, viewNote(view, counts), reason);
+    paintBandView((document.querySelector('[data-view][aria-pressed="true"]') || {}).textContent || null);
   }
 
   /**
@@ -314,7 +313,9 @@ ${WEB_MARKDOWN_JS}
   }
 
   function renderAll() {
-    outlineItems = renderOutline(outlineList, outlineEntries());
+    outlineItems = renderOutline(outlineList, outlineEntries(), function (id) {
+      focusSection(planEl, id);
+    });
     sectionObserver = renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver);
     syncView();
   }

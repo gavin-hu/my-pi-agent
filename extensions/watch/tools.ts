@@ -83,7 +83,7 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 						);
 						const pattern = formatPattern(watch);
 						return textResult(
-							`Watching ${watch.id}: ${sourceLabel(watch)} → ${pattern}\nRead with \`watch matches ${watch.id}\` or \`watch logs ${watch.id}\`.`,
+							`Watching ${watch.id}: ${sourceLabel(watch)}${SEPARATORS.arrow}${pattern}\nRead with \`watch matches ${watch.id}\` or \`watch logs ${watch.id}\`.`,
 							{ action: "add", watch } satisfies WatchDetails,
 						);
 					}

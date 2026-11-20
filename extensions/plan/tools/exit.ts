@@ -17,7 +17,7 @@ import { failedResult } from "../../../lib/tool-result.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { checkbox } from "../../../lib/tui/rows.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { callLine, moreHint, type ToolCallText } from "../../../lib/tui/tool.ts";
+import { callLine, moreHint, type ToolCallText, type WidthLine } from "../../../lib/tui/tool.ts";
 import { feedbackSummary } from "../feedback.ts";
 import { mergeSummary, overCap, preview, TICK_CALL, verificationNote } from "../format.ts";
 import { sanitizePlanText, taskMarker } from "../plan-text.ts";
@@ -308,7 +308,20 @@ export function callExit(args: ExitPlanModeArgs, theme: Theme, last: unknown): T
 	return callLine(theme, last, PLAN_TOOL, path === "" ? "exit" : `exit ${basename(path)}`);
 }
 
-export function textExit(details: ExitPlanModeDetails, expanded: boolean, theme: Theme): string {
+/** The exit block's parts: the lines whose identity is a path, and the plan body under them. */
+export interface ExitText {
+	lines: WidthLine[];
+	body?: string;
+}
+
+/**
+ * The exit result, split into the lines that take the width and the body that wraps under them.
+ *
+ * The plan's path is one token, and the result used to hand it to Pi's `Text` as a string, which
+ * can only wrap — so at 40 columns the path broke mid-segment. The path is its own line and takes
+ * the middle clip; the plan text below it keeps wrapping, which is what a body should do.
+ */
+export function exitText(details: ExitPlanModeDetails, expanded: boolean, theme: Theme): ExitText {
 	const heading = details.unavailable
 		? paint(theme, "warn", "No UI to approve the plan")
 		: details.interrupted
@@ -320,21 +333,23 @@ export function textExit(details: ExitPlanModeDetails, expanded: boolean, theme:
 					: details.refined
 						? paint(theme, "accent", "Refining the plan")
 						: paint(theme, "warn", "Plan not approved");
-	const extra =
-		details.refined && details.refinement
-			? `\n${paint(theme, "meta", `↳ ${sanitizePlanText(details.refinement)}`)}`
-			: "";
-	const shown = details.relativePath ?? details.planPath;
-	const path = shown ? `\n${paint(theme, "meta", shown)}` : "";
-	const planText = sanitizePlanText(details.plan);
-	let out = `${heading}${extra}${path}`;
-	if (planText) {
-		const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
-		// A blank line separates the header block from the plan body.
-		out += `\n\n${planBody(theme, body)}`;
-		if (more > 0) out += `\n${moreHint(theme, more)}`;
+	const lines: WidthLine[] = [{ text: heading }];
+	if (details.refined && details.refinement) {
+		lines.push({ text: paint(theme, "meta", `↳ ${sanitizePlanText(details.refinement)}`) });
 	}
-	return out;
+	const shown = details.relativePath ?? details.planPath;
+	if (shown) lines.push({ text: paint(theme, "meta", shown), clip: "middle" });
+	const planText = sanitizePlanText(details.plan);
+	if (!planText) return { lines };
+	const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
+	const drawn = planBody(theme, body) + (more > 0 ? `\n${moreHint(theme, more)}` : "");
+	return { lines, body: drawn };
+}
+
+/** The exit result as one string, for the callers that read text rather than a block. */
+export function textExit(details: ExitPlanModeDetails, expanded: boolean, theme: Theme): string {
+	const { lines, body } = exitText(details, expanded, theme);
+	return [...lines.map((line) => line.text), ...(body === undefined ? [] : ["", body])].join("\n");
 }
 
 /**

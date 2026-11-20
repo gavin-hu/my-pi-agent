@@ -78,8 +78,11 @@ anything: plan mode stays on.
 
 **Browser review.** `w` opens the plan as a page: comment in the margin, send feedback, or share a
 link. A reviewer reads and comments and draws no **Approve & run**; only the machine that opened
-the review approves, cancels, saves, or shares. The rules that hold while you comment — the draft,
-`Esc`, the sections switch — are in [the walkthrough](../tutorials/first-plan.md).
+the review approves, cancels, saves, or shares. The page announces its two moves: a section jump
+puts the keyboard on the section it scrolled to, so a screen reader reads the heading that
+arrived, and a view the page cannot offer says why in the note under the switch rather than in a
+title a keyboard reader never reaches. The rules that hold while you comment — the draft, `Esc`,
+the sections switch — are in [the walkthrough](../tutorials/first-plan.md).
 
 **Read-only means:** the model keeps what reads and loses what writes. It can
 still look at the repository's git status and history; a write, an edit, and a shell

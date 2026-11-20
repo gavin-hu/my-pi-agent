@@ -93,48 +93,64 @@ export const REVIEW_CSS = pageSheet(
 .review-identity{display:flex;align-items:center;gap:var(--space-2)}
 .review-identity .bf-btn--ghost{font-size:var(--fs-xs);color:var(--muted)}
 .review-identity .bf-btn--ghost:disabled{opacity:1;color:var(--text)}
-/* Review panel: the reader's finish block, the facts that role is owed, the view switch, the
-   section outline, then the keys. */
+/* Review panel: the facts that role is owed, the view switch with its caption and count, the
+   reader's finish block, the section outline, then the keys. */
 .bf-app__body--single{grid-template-columns:minmax(0,1fr)}
 .review-panel{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4) var(--space-4) var(--space-2)}
-/* The rail is two parts: what a reader can still reach with the outline shut — the finish block,
-   the facts, the switch and its count — and then the sections list they fold away. The shell
+/* The rail is two parts: what a reader can still reach with the outline shut — the facts, the
+   switch and its count, the finish block — and then the sections list they fold away. The shell
    collapses the sidebar into a band at 1180, so while the list owned the switch a folded list
-   took the filter with it: the count then read as a shorter plan rather than a filtered one. */
+   took the filter with it: the count then read as a shorter plan rather than a filtered one.
+   The seam between the two is a real line: --border on the rail measures 1.05:1, which is the
+   gap of nothing that let the heading read as a fourth segment of the switch. */
 .review-outline{display:flex;flex-direction:column;min-width:0}
-.review-panel--head{padding-bottom:0}
+.review-panel--head{padding-bottom:var(--space-3);border-bottom:1px solid var(--border-strong)}
 .review-outline .review-sections{display:flex;flex-direction:column;min-height:0}
-.review-outline .review-sections>.review-panel{padding-top:0}
+.review-outline .review-sections>.review-panel+.review-panel{padding-top:var(--space-3)}
 /* The kit's open glyph reads the sidebar's own open attribute; here the disclosure is the nested
    list, and above the collapse the summary is hidden either way. */
 .review-outline .review-sections[open]>.bf-panel__summary::before{content:"\\25BE"}
-.review-facts{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-3);border-bottom:1px solid var(--border)}
-.review-fact{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
+/* The facts are the rail's state, so they lead it: the progress a reader is here to read is the
+   first thing in the column, not a muted line under three lines of help. Both rows share one
+   geometry — a whole label, a value flush right, and never a second line: the step group used
+   to wrap alone at 260px, which drew a 51px row beside the comment's 20px one. */
+.review-facts{display:flex;flex-direction:column;gap:var(--space-2)}
+.review-fact{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:var(--space-2);min-width:0;font-size:var(--fs-sm);color:var(--muted)}
 /* The label is one word or two, never a column: squeezed by the value beside it, it broke
-   "Plan steps" over two lines. It holds its line, and the value wraps below instead. */
-.review-fact>span:first-child{white-space:nowrap}
-.review-steps{display:inline-flex;align-items:center;gap:var(--space-2);color:var(--text)}
-.review-steps__track{display:inline-block;width:96px;height:6px;border-radius:var(--radius-badge);background:var(--accent-soft);overflow:hidden}
-.review-steps__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
+   "Plan steps" over two lines. It holds its line, and the value stays beside it. */
+.review-fact>span:first-child{flex:0 0 auto;white-space:nowrap}
+.review-steps{display:inline-flex;flex:0 0 auto;align-items:center;gap:var(--space-2);color:var(--text)}
+/* Eight 6px pips, 2px apart (8 × 6 + 7 × 2 = 62px), instead of one 96px trough: the empty half is
+   the part a reader could not see, so an unearned pip is drawn in --dim (4.69:1 on the rail) where
+   the accent wash it replaced measured 1.08:1. The fill crosses a pip at the count's own width. */
+.review-steps__track{display:inline-block;flex:0 0 auto;width:62px;height:6px;border-radius:var(--radius-badge);background-image:repeating-linear-gradient(90deg,var(--dim) 0 6px,transparent 6px 8px);overflow:hidden}
+.review-steps__fill{display:block;height:100%;width:0;background-image:repeating-linear-gradient(90deg,var(--accent) 0 6px,transparent 6px 8px);transition:width var(--motion-fast) linear}
 .review-fact__value{color:var(--text);font-family:var(--font-ui);font-variant-numeric:tabular-nums}
+/* The switch is a filter over the plan, not a fourth segment of the outline: its caption names the
+   document it redraws, the way the outline's own title names the sections. */
+.review-view__label{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
 .review-view{display:flex}
 .review-view .bf-tabs__item{flex:1 1 auto;justify-content:center}
 /* The page's switch fills its segment when pressed. The kit's tabs say it in colour and
    weight alone, which is the right quiet for three links; this control redraws the whole
-   document, so the segment the reader pressed has to be findable at a glance. */
-.review-view .bf-tabs__item[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+   document, so the segment the reader pressed has to be findable at a glance. The label takes the
+   token's own pair for an accent fill, --on-accent on --accent (5.19:1 light, 7.49:1 dark); the
+   accent on the accent wash it replaced measured 4.27:1 under a 13px semibold word. */
+.review-view .bf-tabs__item[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 /* The count of what the view hid, beside the switch that hid it: a filtered plan that reads
    as a short one is the defect, and this is the fact that undoes it. */
 .review-note{margin:0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-relaxed)}
-.review-note:empty{display:none}
+.review-note[hidden]{display:none}
 .review-nav{min-width:0}
 .review-nav__title{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
 .review-nav ul{list-style:none;margin:0;padding:0}
 .review-nav a{display:flex;align-items:baseline;gap:var(--space-2);padding:4px 8px;border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm);line-height:var(--lh-snug)}
-.review-nav a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none}
+/* A hover is a wash beside the current row, not the current row's own paper: the accent wash marks
+   what is selected, and the accent on it was the same 4.27:1 the pressed segment wore. */
+.review-nav a:hover{background:var(--surface);color:var(--text);text-decoration:none}
 .review-nav a[aria-current="true"]{background:var(--accent-soft);color:var(--text);font-weight:var(--fw-semibold)}
 .review-nav__link{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.review-nav__count{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fs-xs)/18px var(--font-ui);text-align:center}
+.review-nav__count{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--text);font:var(--fs-xs)/18px var(--font-ui);text-align:center}
 /* A section that shrank since the last review: how many blocks it no longer holds. Same badge
    as the comment count, quieter, because it is a fact about the document rather than something
    to read. */
@@ -185,7 +201,9 @@ export const REVIEW_CSS = pageSheet(
 .bf-block__add{appearance:none;width:24px;height:24px;min-width:24px;padding:0;border:1px solid var(--border);border-radius:var(--radius-badge);background:var(--surface);color:var(--muted);font:var(--fs-md)/1 var(--font-ui);cursor:pointer;opacity:0;transition:opacity var(--motion-fast) var(--motion-ease)}
 .bf-block__add:hover{border-color:var(--accent);color:var(--accent)}
 .bf-block:hover .bf-block__add,.bf-block:focus-within .bf-block__add,.bf-block--active .bf-block__add,.bf-block--commented .bf-block__add{opacity:1}
-.bf-block__count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs)/1 var(--font-ui)}
+/* The badge is a label on the accent wash, so it takes the wash's own pairing — --text rather than
+   the accent, which read 4.48 on the plane a block hovers to and 4 in the low fours on a raised one. */
+.bf-block__count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--text);font:var(--fw-semibold) var(--fs-xs)/1 var(--font-ui)}
 /* A block the last review did not hold: the one mark that says "read this line again". The
    rule sits at the text edge, inside the gutter the rail already reserves, so it cannot
    reflow the measure or collide with a comment badge. */
@@ -218,14 +236,38 @@ export const REVIEW_CSS = pageSheet(
 .bf-block--composing .bf-block__add{opacity:0}
 ${collapsedShell(
 	PLAN_COLLAPSE_MAX,
-	`.review-panel{padding:var(--space-2) var(--space-4) var(--space-3)}
-.review-facts{flex-direction:row;flex-wrap:wrap;gap:var(--space-3) var(--space-5);border-bottom:0;padding-bottom:0}
-/* The disclosure names the outline now, so the panel's own title would be the same word twice. */
+	`/* The band is one row shut: the fold owns the whole rail now, so its summary carries the state
+   the rail showed above it — the pressed view and both counts — and one tap brings the head panel
+   and the outline back. Sticky, because a long outline would otherwise scroll the only way to shut
+   it off the top of the band. 44px is the touch target; the desk keeps its own rhythm because
+   this rule lives in the collapse. */
+.bf-app__sidebar .bf-panel__summary{min-height:44px;padding:0 var(--space-4);gap:var(--space-2);position:sticky;top:0;z-index:1;background:var(--raised);border-bottom:0}
+.review-sections__name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-weight:var(--fw-medium)}
+.review-band{display:flex;flex:0 0 auto;align-items:center;gap:var(--space-1)}
+.review-band__chip{padding:0 6px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:var(--fs-xs)/20px var(--font-ui);font-variant-numeric:tabular-nums}
+.review-band__chip:empty{display:none}
+/* The view is the one chip that is a state rather than a count, so it wears the selected row's
+   own paper: --text on --accent-soft, the pairing #731 moved the rail's labels onto. */
+.review-band__chip--view{background:var(--accent-soft);font-weight:var(--fw-semibold)}
+.review-panel{padding:var(--space-2) var(--space-4) var(--space-3)}
+.review-facts{flex-direction:row;flex-wrap:wrap;gap:var(--space-3) var(--space-5)}
+/* The disclosure names the outline, so the panel's own title would be the same word twice. */
 .review-nav__title{display:none}
-.review-nav ul{display:flex;flex-wrap:wrap;gap:2px}
-.review-nav .lvl-2 a,.review-nav .lvl-3 a,.review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:8px}
+/* One section per row, indented by level: the flat wrap it replaces was a cloud of eight equal
+   words with no hierarchy, and the desk's indents are the hierarchy the band was throwing away.
+   The fold's own order is #731's — state, then the outline — under one sticky row, so opening it
+   shows the state block and as much list as the capped band leaves, and scrolling the band moves
+   the list up under the row that shuts it. */
+.review-nav ul{display:block;margin:0}
+.review-nav a{min-height:44px;padding-top:0;padding-bottom:0;align-items:center}
 .review-hints{display:none}`,
 )}
+/* A tablet in landscape keeps the column at 1024 but not the mouse: the rows are the target a
+   thumb needs whether the shell has collapsed or not. One rule, written where the desk's 26px
+   rhythm is not — the base link row sets no min-height, so this only raises. */
+@media (pointer:coarse){
+.review-nav a{min-height:44px;padding-top:0;padding-bottom:0;align-items:center}
+}
 @media (max-width:${SIDEBAR_COLLAPSE_MAX}px){
 .bf-review{padding:var(--space-4) 18px 80px}
 }
@@ -368,20 +410,27 @@ export function renderReviewPage(data: ReviewPageData): string {
 			? `
 <div class="review-identity"><button type="button" class="bf-btn bf-btn--ghost" id="reviewer-name" hidden></button></div>`
 			: "";
+	// The rail is one fold, not a head above a fold: a 1180-wide window used to spend 170px of its
+	// band on chrome no reader could put away, so the head joined the outline inside the details.
+	// The summary carries what the rail showed above it — the pressed view and both counts — which
+	// is the row a shut band costs, and the chips are painted from `web-client.ts` beside the
+	// rail's own facts. At the desk the summary is the kit's hidden element and the details is
+	// open, so the rail is unchanged there.
 	const outlinePanel = hasOutline
 		? `<div class="bf-app__sidebar review-outline">
+<details class="review-sections" id="review-sections" open>
+<summary class="bf-panel__summary"><span class="review-sections__name">Sections</span><span class="review-band"><span class="review-band__chip review-band__chip--view" id="band-view">All</span><span class="review-band__chip" id="band-steps"></span><span class="review-band__chip" id="band-comments">0</span></span></summary>
 <div class="bf-panel review-panel review-panel--head">
-${finishBlock(data.role, data.canApprove)}${identity}
 ${reviewFacts(data.role)}
-<div class="bf-tabs review-view" role="group" aria-label="What to show" id="review-view">
+<p class="review-view__label" id="review-view-label">Show in the plan</p>
+<div class="bf-tabs review-view" role="group" aria-labelledby="review-view-label" id="review-view">
 <button type="button" class="bf-tabs__item" data-view="all" aria-pressed="true">All</button>
 <button type="button" class="bf-tabs__item" data-view="changed" aria-pressed="false">Changed</button>
 <button type="button" class="bf-tabs__item" data-view="comments" aria-pressed="false">Comments</button>
 </div>
-<p class="review-note" id="review-note" aria-live="polite"></p>
+<p class="review-note" id="review-note"><span id="review-note-view" aria-live="polite"></span> <span id="review-view-why" hidden></span></p>
+${finishBlock(data.role, data.canApprove)}${identity}
 </div>
-<details class="review-sections" id="review-sections" open>
-<summary class="bf-panel__summary">Sections</summary>
 <div class="bf-panel review-panel">
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
 ${reviewHints(data.role, data.canApprove)}

@@ -234,10 +234,14 @@ export interface FakeClientNode {
 	attributes: Map<string, string>;
 	setAttribute(name: string, value: string): void;
 	getAttribute(name: string): string | null;
+	removeAttribute(name: string): void;
 	appendChild(child: FakeClientNode): void;
 	replaceChildren(): void;
 	querySelector(selector: string): FakeClientNode | null;
-	addEventListener(): void;
+	querySelectorAll(selector: string): FakeClientNode[];
+	addEventListener(type: string, listener: () => void): void;
+	/** Fire the click listeners the fragment attached, the way a page's own click would. */
+	click(): void;
 }
 
 /**
@@ -255,6 +259,8 @@ export function fakeClientDom(): {
 	markedId(list: FakeClientNode): string;
 } {
 	const made: Array<{ tag: string; className: string }> = [];
+	/** The click listeners each node attached, keyed by node: the fake's only event surface. */
+	const clickers = new Map<FakeClientNode, Array<() => void>>();
 	const marked = (node: FakeClientNode): FakeClientNode | null => {
 		for (const child of node.children) {
 			if (child.getAttribute("aria-current") !== null) return child;
@@ -280,6 +286,9 @@ export function fakeClientDom(): {
 			getAttribute(name) {
 				return node.attributes.get(name) ?? null;
 			},
+			removeAttribute(name) {
+				node.attributes.delete(name);
+			},
 			appendChild(child) {
 				node.children.push(child);
 			},
@@ -289,7 +298,25 @@ export function fakeClientDom(): {
 			querySelector(selector) {
 				return selector === "[aria-current]" ? marked(node) : null;
 			},
-			addEventListener() {},
+			querySelectorAll(selector) {
+				const found: FakeClientNode[] = [];
+				const walk = (at: FakeClientNode): void => {
+					for (const child of at.children) {
+						if (child.tag === selector) found.push(child);
+						walk(child);
+					}
+				};
+				walk(node);
+				return found;
+			},
+			addEventListener(_type, listener) {
+				const attached = clickers.get(node) ?? [];
+				attached.push(listener);
+				clickers.set(node, attached);
+			},
+			click() {
+				for (const listener of clickers.get(node) ?? []) listener();
+			},
 		};
 		made.push({ tag, className: node.className });
 		return node;

@@ -7,8 +7,9 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { WEB_COMPONENTS_CSS } from "./components.ts";
 import { WEB_THEME_CSS, WEB_THEME_TOKENS, mix } from "./tokens.ts";
-import { contrast } from "../../test/helpers/contrast.ts";
+import { contrast, over } from "../../test/helpers/contrast.ts";
 import darkTheme from "../../themes/bytefly-dark.json";
 import lightTheme from "../../themes/bytefly-light.json";
 
@@ -203,6 +204,55 @@ describe("web tokens", () => {
 				`${appearance} on-accent/accent`,
 			).toBeGreaterThanOrEqual(4.5);
 		}
+	});
+
+	test("keeps a label on the accent wash at AA, over every plane it can sit on", () => {
+		// The wash is the accent at the token's own alpha over whatever plane is beneath it, so the
+		// ratio moves with the plane: --accent on it measured 4.77 on the canvas, 4.48 on a surface
+		// and 4.27 on a raised panel in light — under the 4.5 a 13px label owes on two of the three,
+		// which is why five rules paint --text on it instead. The alpha is read from the token rather
+		// than typed here, so retuning the wash cannot slip past the floor it is held to.
+		for (const appearance of ["dark", "light"] as const) {
+			const tokens = WEB_THEME_TOKENS[appearance];
+			for (const plane of ["--canvas", "--surface", "--raised"]) {
+				const wash = over(tokens["--accent-soft"], tokens[plane]);
+				expect(
+					contrast(tokens["--text"], wash),
+					`${appearance} --text on the wash over ${plane}`,
+				).toBeGreaterThanOrEqual(4.5);
+			}
+		}
+	});
+
+	test("paints the wash's label in the text colour across the kit's three rules", () => {
+		// The floor above holds the token pair; these hold the rules that use it. A later reader who
+		// reinstates the accent on the wash — for a button, a pressed button or the picker's selected
+		// row — fails here rather than in a palette test that still passes.
+		for (const rule of [
+			".bf-btn:hover{",
+			'.bf-btn[aria-pressed="true"]{',
+			'.bf-dialog__option[aria-selected="true"]{',
+		]) {
+			const at = WEB_COMPONENTS_CSS.indexOf(rule);
+			expect(at, rule).toBeGreaterThan(-1);
+			const body = WEB_COMPONENTS_CSS.slice(at, WEB_COMPONENTS_CSS.indexOf("}", at));
+			expect(body, rule).toContain("background:var(--accent-soft)");
+			expect(body, `${rule} labels the wash in the text colour`).toContain("color:var(--text)");
+			expect(body, `${rule} keeps the accent off the label`).not.toMatch(/(^|[;{])color:var\(--accent\)/);
+		}
+	});
+
+	test("keeps the accent where it is a border or a fill rather than a label", () => {
+		// The pressed button still says pressed in colour — the accent draws its border — and the
+		// primary button fills with it, which is the pairing the case above this file already holds.
+		const pressed = WEB_COMPONENTS_CSS.slice(
+			WEB_COMPONENTS_CSS.indexOf('.bf-btn[aria-pressed="true"]{'),
+			WEB_COMPONENTS_CSS.indexOf("}", WEB_COMPONENTS_CSS.indexOf('.bf-btn[aria-pressed="true"]{')),
+		);
+		expect(pressed).toContain("border-color:var(--accent)");
+		expect(WEB_COMPONENTS_CSS).toContain(
+			".bf-btn--primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}",
+		);
 	});
 
 	test("keeps the dim role readable where it carries text", () => {

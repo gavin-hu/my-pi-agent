@@ -64,9 +64,14 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 /* A button is the only boxed element on a page: its 2px bottom edge is the click, so a label can
    never be mistaken for a tag. The face is the UI's, and the label is a word — not a terminal key. */
 .bf-btn{appearance:none;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-md);background:var(--surface);color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);padding:4px 10px;cursor:pointer;transition:transform var(--motion-fast) var(--motion-ease),border-color var(--motion-fast) var(--motion-ease),background var(--motion-fast) var(--motion-ease)}
-.bf-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);text-decoration:none}
+/* The wash is the accent at 6% (light) and 8% (dark), so a label on it is measured against the plane
+   beneath: the accent itself read 4.77 on the canvas, 4.48 on a surface and 4.27 on a raised panel,
+   and AA owes a 13px word 4.5 wherever it sits. The label is the text colour and the accent draws
+   the border, which is the pairing a current tree row has used all along —
+   .bf-tree__row[aria-current]. */
+.bf-btn:hover{border-color:var(--accent);color:var(--text);background:var(--accent-soft);text-decoration:none}
 .bf-btn:active{transform:translateY(1px);border-bottom-width:1px}
-.bf-btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.bf-btn[aria-pressed="true"]{border-color:var(--accent);color:var(--text);background:var(--accent-soft)}
 .bf-btn--primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .bf-btn--primary:hover{background:var(--accent);filter:brightness(1.06);color:var(--on-accent)}
 .bf-btn--danger{border-color:var(--danger);color:var(--danger)}
@@ -142,7 +147,7 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-dialog__input{appearance:none;border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--text);font:var(--fs-md) var(--font-ui);padding:var(--space-3) var(--space-4);outline:none}
 .bf-dialog__list{list-style:none;margin:0;padding:var(--space-1) 0;overflow:auto;min-height:0}
 .bf-dialog__option{padding:var(--space-1) var(--space-4);font:var(--fs-sm) var(--font-mono);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bf-dialog__option[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
+.bf-dialog__option[aria-selected="true"]{background:var(--accent-soft);color:var(--text)}
 .bf-dialog mark{background:transparent;color:var(--warn);font-weight:var(--fw-semibold)}
 .bf-dialog__head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--border)}
 .bf-dialog__head h2{margin:0;font:var(--fw-semibold) var(--fs-md) var(--font-ui)}

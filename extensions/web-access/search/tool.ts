@@ -15,8 +15,10 @@ import { oneLine } from "../transcript.ts";
 import { reuseText } from "../../../lib/tui/chrome.ts";
 import {
 	elapsedSuffix,
+	reuseLines,
 	rejectionLine,
 	reuseCallText,
+	type WidthLine,
 	startToolProgress,
 	syncElapsedTimer,
 	toolCallTitle,
@@ -115,27 +117,32 @@ export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): voi
 			}
 
 			const count = details.results.length;
-			// A blank line separates the call header from the result body.
-			const lines: string[] = [
-				"",
-				paint(theme, "faint", `via ${details.provider}${SEPARATORS.item}${count} result${count === 1 ? "" : "s"}`) +
-					elapsedSuffix(theme, context.durationMs),
+			// A blank line separates the call header from the result body. The rows are built at the
+			// render width rather than clipped to a column count: a URL is one token whose tail is
+			// the identity, so it takes the middle clip and keeps its indent, where a fixed 100
+			// columns both pre-empted a narrow pane and lost nothing at 40.
+			const lines: WidthLine[] = [
+				{ text: "" },
+				{
+					text:
+						paint(theme, "faint", `via ${details.provider}${SEPARATORS.item}${count} result${count === 1 ? "" : "s"}`) +
+						elapsedSuffix(theme, context.durationMs),
+				},
 			];
 			if (details.answer)
-				lines.push(`${paint(theme, "faint", "Answer:")} ${paint(theme, "meta", oneLine(details.answer, 160))}`);
+				lines.push({ text: `${paint(theme, "faint", "Answer:")} ${paint(theme, "meta", oneLine(details.answer))}` });
 
 			const shown = options.expanded ? details.results : details.results.slice(0, 5);
 			const indent = paint(theme, "faint", "   ");
 			for (const [index, item] of shown.entries()) {
-				lines.push(`${paint(theme, "accent", `${index + 1}.`)} ${paint(theme, "meta", oneLine(item.title, 100))}`);
-				lines.push(`${indent}${paint(theme, "faint", oneLine(item.url, 100))}`);
+				lines.push({ text: `${paint(theme, "accent", `${index + 1}.`)} ${paint(theme, "meta", oneLine(item.title))}` });
+				lines.push({ text: `${indent}${paint(theme, "faint", oneLine(item.url))}`, clip: "middle" });
 				if (options.expanded && item.snippet)
-					lines.push(`${indent}${paint(theme, "meta", oneLine(item.snippet, 160))}`);
+					lines.push({ text: `${indent}${paint(theme, "meta", oneLine(item.snippet))}` });
 			}
 			const extra = count - shown.length;
-			if (extra > 0) lines.push(`${paint(theme, "faint", `+${extra} more`)} ${expandHint(theme)}`);
-			text.setText(lines.join("\n"));
-			return text;
+			if (extra > 0) lines.push({ text: `${paint(theme, "faint", `+${extra} more`)} ${expandHint(theme)}` });
+			return reuseLines(context?.lastComponent, lines);
 		},
 	});
 }

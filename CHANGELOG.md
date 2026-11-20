@@ -18,6 +18,124 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   id is the one that landed. The trailing marker only: a subject that mentions another card in
   passing still refuses, and so does one whose last id is another card.
 
+- plan: the browser review announces its own two moves. A section jump scrolled the pane and moved
+  the outline's mark, and left focus where it was — the target is a plain `div`, so `document.activeElement`
+  stayed on the link and a screen reader heard nothing arrive at the heading the reader asked for. The
+  jumped block is a focus target now (`tabindex="-1"`, which is no tab stop, so the sequential point
+  is what it was) and takes focus with `preventScroll`, because the scroll that placed it was the
+  link's and a second one from focus would fight the section observer rooted in the pane. Separately,
+  the reason the **Changed** view is off lived in a `title` on its disabled button: a disabled control
+  leaves the tab order, so a keyboard reader never reached it and a touch reader never saw it. The
+  sentence is the note line's second span, `#review-view` describes itself with that element only while
+  the view is off, the live region moved inward so the reason is not announced as a view change, and
+  both `title` writes are gone. `plan-review.png` is recaptured for the note line and its alt names it;
+  the browser suites now prove the jump's three facts separately — focus on the block, the call carrying
+  `preventScroll` with a focus-suppressed pass landing the pane where the real one does, and the mark still
+  naming the section — and that a page which *does* offer Changed describes itself with nothing.
+
+- tui: the state-change arrow has one home. `→` was hand-typed in nine source files that build call
+  subjects — memory, todo, goal, job, team, watch, subagent, the fetch result's final URL and the
+  context report's token comparison — while `↑`, `↳` and `⊚` all came from the vocabulary and
+  `SEPARATORS` held only `item`. `ARROW` is exported from `lib/tui/glyphs.ts` and
+  `SEPARATORS.arrow` is `${ARROW}` spaced for a join, so the literal has one owner: the leading shape
+  (`→ clear list`) keeps its own spacing at the call site, because it has no left-hand state to
+  join. The refactor renders the same bytes, which the suites that pin those subjects prove
+  unchanged. U+2192 is East-Asian *A (ambiguous)* — the class the module allows, along with `▸`,
+  `⊚` and `›` — and `lib/tui/glyphs.test.ts` now holds its width, the separator's, and states the
+  class, which is the version that fails on a hand-copied `⇒` rather than only on a missing name.
+  That suite is where the vocabulary cases moved to: `components.test.ts` was 395 lines and they
+  took it to 430, so `GLYPHS` and `SEPARATORS` moved out and it is back at 368. The module's
+  docstring had cited `lib/tui/glyphs.test.ts` for the ban all along — the reference pointed at a
+  file that did not exist, and the split makes it true rather than correcting it. One site stays hand-typed on purpose: the context
+  report's compaction line (`cut 40,000 → 2,000 summary`) — importing the vocabulary would add two
+  static modules to that entry, whose registration budget may only fall — and the prose uses (a
+  goal note, a subagent prompt, comments) stay as prose. `send_wechat`'s result line takes the capital
+  its neighbours use — `Sent to WeChat owner` — and its two pictures that draw it are recaptured
+  (`send_wechat.png`, `send_wechat-file.png`; the running one is unchanged, and both moved frames
+  were byte-identical to the shipped file when captured from main's tree).
+
+- tui: a path or URL in a tool result stays one token. `plan write`'s saved path, `plan exit`'s plan
+  row and `web_search`'s URL rows were strings handed to Pi's `Text`, which can only wrap — and a
+  path is one token, so at 40 columns the saved path broke after `2026-10` and read as four lines
+  while a search result's URL split mid-word and lost its indent. They return a component now
+  (`LinesAtWidth`, `lib/tui/tool.ts`), which builds its lines at the render width through the same
+  clip the call line uses (`clipLine`, `lib/tui/columns.ts`): the middle clip for an identity,
+  keeping the head that names the file and the tail that identifies it, memoized through
+  `RenderCache` so a frame is one comparison. The fixed column counts in `web_search`
+  (`oneLine(…, 100)`, `160`) go with them, since a width read at render time is the one the reader
+  has; `oneLine` keeps its sanitiser. `read_doc` needed nothing: its call line already takes the
+  middle clip and its result carries no path. `subagent/render.ts`'s four `clip(task, 40/60/50)`
+  are end-clipped prose previews — the `end` clip's own shape — and stay as they are. `bench:render`
+  is unchanged (block 500 at 80 columns 0.1ms; 2,000 records 4,493 lines at 0.2ms, memo
+  1,937/2,000, stable). `assets/tools/plan-exit.png` is recaptured; the sheet and four other tool
+  pictures were already stale before this change, by up to 116px of height, and none of those is
+  this card's.
+
+- `board`: a card row keeps its number and title on a narrow terminal. The row clipped its facts to the whole
+  width and then handed both cells to `splitRow`, whose anchor is the right one: at 44 columns the title was gone
+  (`#2 Re…`), at 40 the number (`#…`), and at a 38-column body — a 40-column terminal — the row was the facts alone,
+  `billing-core · execute · needs review`. That landed exactly where a row is worth most: a `round` lists each card
+  under a gate heading that already says what the card owes, so the section that said *needs review* could not say
+  which card needed it. The number and title now keep a 24-column floor and the facts move to their own line —
+  indented when the indent costs no column, the rule `fitCells` uses for its separator — so at 40 columns every row
+  of `board-round` still names its card (24 lines become 32) and at 80 the row is the byte it was. Session mail's
+  fold is untouched: it promotes its meta to a heading and wraps prose, a different operation, so the two folds are
+  named for what they own (`foldCardRow`, `messageRowLines`). `test/tool-render.test.ts` now holds a fixture's
+  `identity` at 80, 48 and 40 columns, because a line that fits its width is not the same as a block that still says
+  what it lists.
+
+- web: a label on the accent wash is the text colour, on every surface that paints one. `--accent-soft`
+  is the accent at 6% in light and 8% in dark, so the accent's own ratio on it moved with the plane
+  beneath — 4.77 on the canvas, 4.48 on a surface and 4.27 on a raised panel, the last two under the
+  4.5 AA owes a 13px label. Five rules painted the accent on it: `.bf-btn:hover`,
+  `.bf-btn[aria-pressed="true"]`, `.bf-dialog__option[aria-selected="true"]`, the plan review's
+  `.bf-block__count` and the board's `.board-agent__monogram`. They take `--text` now, the pairing a
+  current tree row has used all along, and the accent keeps drawing the pressed button's border and the
+  lead's monogram fill, which are different marks. The wash keeps both of its jobs — a hover and a
+  selected row. `lib/web/palette.test.ts` composites the wash over all three planes in both themes and
+  holds `--text` to 4.5 (13.00 light, 8.66 dark on the worst). The two quiet `--muted` labels on the
+  wash (`.review-nav__removed`, `.bf-quote-chip`) are left as they are with their number recorded: 4.35
+  in dark on a raised panel, which is `--muted`'s own value to answer. `team.png` and `plan-review.png`
+  are recaptured for the monogram and badge labels; `board.png` and `card-dialog.png` were compared and
+  left, the first differing only in footer antialiasing and the second varying between two runs of the
+  same tree.
+
+- `plan`: the review's narrow band is one row when shut. Below 1180 the rail's head — the step progress,
+  the comment count, the view switch and the finish sentence — was band chrome above the fold, which the
+  reader could not put away: it cost 207px of a 390×844 phone (the document began 43% down the screen)
+  and 190px of a 900-wide window. Opened, the outline was a flat wrap of equal 26px rows with no
+  indentation. The fold now owns the whole rail, so a shut band is one 44px row carrying Sections, the
+  pressed view and both counts, and opening it gives one section per row, indented by level and 44px
+  tall under a coarse pointer or a narrow window, scrolling inside the shell's existing 50vh band with
+  the row pinned above it. The document starts at 200 of that phone instead of 362. This reverses #729,
+  which kept the switch outside the fold because a folded list took the filter with it and a filtered
+  plan then read as a short one: the row's chips carry the view and both counts, so the state stays
+  visible while the switch costs a tap, and the counts are painted from the same `data.steps` and
+  annotations the rail's own rows read — a second format, never a second source. The desk rail is
+  unchanged, and the shell is not touched, so the board page and the file browser cannot move.
+
+- `plan`: the review's rail leads with the plan's state. Measured at 1440×900, the three-line finish
+  sentence held the rail's top while the step progress was a muted row under it — at 1280×400 the
+  facts scrolled out of reach — the tab row's bottom and the `Sections` heading shared one y, so the
+  heading read as a fourth segment of the switch, the step row wrapped alone to 51px against the
+  comment row's 20px, the progress's empty half drew `--accent-soft` on `--raised` = 1.08:1, and the
+  pressed segment's label was `--accent` on that wash = 4.27:1. The rail now reads state, filter,
+  outline, then help: the facts lead, the switch sits under a `Show in the plan` caption naming the
+  document it redraws and takes its name from that caption by `aria-labelledby`, the finish sentence
+  follows, and a `--border-strong` seam closes the head before the sections list. Both fact rows share
+  one geometry — a whole label and a value flush right, never a second line — the progress is eight
+  6px pips in `--dim` (4.69:1 on the rail) filled with the accent, and the rail's three labels take
+  pairings that clear 4.5: `--on-accent` on `--accent` when pressed (5.19:1), `--text` on `--surface`
+  hovered, `--text` in a section's count badge. `plan-review.png` is recaptured; the kit's
+  `.bf-btn:hover` and a block's own comment badge still wear the 4.27:1 pairing.
+
+- `plan`: the review's current-section mark works at every width. The watcher was rooted in the window
+  with a band of `-88px 0px -68% 0px`, both numbers guesses at chrome the page no longer has; at and
+  below 860 the sidebar becomes a band above the document, so the pane started lower than the band's
+  bottom and no heading could ever intersect, and the mark never appeared on a phone or a narrow
+  window at all. The observer now roots in the pane that scrolls, with the band as its top 40%, so no
+  chrome height is modelled; the mark is asserted at 390, 900 and 1280×400 as the reader scrolls.
+
 - `plan`: the review's header actions are evenly spaced. Share and Back to Pi sat flush against each
   other while every other pair was 8px apart: the two buttons live inside the More details, which the
   wide row drew as `display:contents`, so Chrome made the pair one anonymous flex item and the row's

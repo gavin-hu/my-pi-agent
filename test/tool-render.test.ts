@@ -184,6 +184,14 @@ describe("tool render contract", () => {
 				expect(expanded.length, `${fixture.name} expanded to fewer lines at ${width}`).toBeGreaterThanOrEqual(
 					collapsed.length,
 				);
+				// The reading, not the shape: a row may fold its suffix onto a second line when the
+				// terminal is narrow, but a block that loses the token naming what it lists is what
+				// no width, control-character or line-count assertion above can see. Joined first,
+				// because a folded row keeps its identity on a line of its own.
+				if (fixture.identity) {
+					const shown = expanded.join(" ").replace(/\s+/g, " ");
+					expect(shown, `${fixture.name} lost ${fixture.identity} at ${width}`).toContain(fixture.identity);
+				}
 			}
 		}
 	});

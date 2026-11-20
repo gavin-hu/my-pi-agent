@@ -44,8 +44,14 @@ describe("the switch's sentences", () => {
 
 let browser: TestBrowser;
 
-/** The sentence under the switch, and the header line it must not be in. */
-const note = (page: Page): Promise<string | null> => page.textContent("#review-note");
+/**
+ * The sentence under the switch, and the header line it must not be in.
+ *
+ * The line carries two sentences when the switch cannot offer a view — the view's own and the
+ * reason the control is off — so these cases read the view's span: what the reader pressed is
+ * what they are about, and `#review-view-why` has its own cases below.
+ */
+const note = (page: Page): Promise<string | null> => page.textContent("#review-note-view");
 const status = (page: Page): Promise<string | null> => page.textContent("#status");
 
 /** The view the switch says it is showing. */
@@ -193,21 +199,46 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's view switch", () => {
 		);
 	});
 
-	test("the switch draws nothing the plan cannot show", async () => {
-		// No baseline: Changed is off, and its title says why rather than leaving a dead control.
+	test("the switch draws nothing the plan cannot show, and says why in the note line", async () => {
+		// No baseline: Changed is off. A disabled control leaves the tab order, so the reason is the
+		// note line's second sentence, and the switch's group describes itself with that element; a
+		// title on the button reached neither a keyboard reader nor a touch one.
 		await withReview({}, async (page) => {
 			const changed = await page.$eval('[data-view="changed"]', (node) => ({
 				disabled: (node as unknown as { disabled: boolean }).disabled,
 				title: node.getAttribute("title"),
 			}));
-			expect(changed).toEqual({ disabled: true, title: "No earlier review of this plan to compare against" });
+			expect(changed).toEqual({ disabled: true, title: null });
+			expect(await page.textContent("#review-note")).toContain("No earlier review of this plan to compare against");
+			// The description names the element that holds the sentence, rather than a copy of it.
+			expect(await page.$eval("#review-view", (node) => node.getAttribute("aria-describedby"))).toBe("review-view-why");
+			expect(await page.textContent("#review-view-why")).toBe("No earlier review of this plan to compare against");
 			// The key cycles the two views that are offered, never the disabled one.
 			await page.keyboard.press("v");
 			expect(await pressed(page)).toBe("comments");
 			await page.keyboard.press("v");
 			expect(await pressed(page)).toBe("all");
-			expect(await note(page)).toBe("");
-			expect(await page.textContent("#review-note")).toBe("");
+			// The sentence answers the switch, not the pressed view: it stays while Changed is off.
+			expect(await page.textContent("#review-note")).toContain("No earlier review");
+		});
+	});
+
+	test("offers the Changed view with no description when the plan has a baseline", async () => {
+		// The reverse of the case above, and the one a standing describedby would have broken: it
+		// would point at a hidden span, describing the group with an element outside the tree.
+		await withReview({ changed: [1], blockMarks: true }, async (page) => {
+			const changed = await page.$eval('[data-view="changed"]', (node) => ({
+				disabled: (node as unknown as { disabled: boolean }).disabled,
+				title: node.getAttribute("title"),
+			}));
+			expect(changed).toEqual({ disabled: false, title: null });
+			expect(await page.$eval("#review-view", (node) => node.getAttribute("aria-describedby"))).toBe(null);
+			const why = await page.$eval("#review-view-why", (node) => ({
+				hidden: (node as unknown as { hidden: boolean }).hidden,
+				text: node.textContent,
+			}));
+			expect(why).toEqual({ hidden: true, text: "" });
+			expect(await page.textContent("#review-note")).not.toContain("No earlier review");
 		});
 	});
 });
