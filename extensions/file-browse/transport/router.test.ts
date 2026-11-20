@@ -347,20 +347,72 @@ describe("live folder revision", () => {
 });
 
 describe("diff routes", () => {
-	test("lists changes, links each file, and shows the header chip", async () => {
+	/** The address a redirect names, split as the browser will read it. */
+	function locationOf(response: ServeResponse): { path: string; query: URLSearchParams } {
+		const [path, query = ""] = (response.headers.Location ?? "").split("?");
+		return { path: path ?? "", query: new URLSearchParams(query) };
+	}
+
+	test("moves both diff addresses onto the review page", async () => {
+		const overview = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff", {});
+		expect(overview.status).toBe(308);
+		expect(overview.headers.Location).toBe("/review/new?scope=head");
+		expect(text(overview)).toBe("");
+
+		const slashed = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/", {});
+		expect(slashed.status).toBe(308);
+		expect(slashed.headers.Location).toBe("/review/new?scope=head");
+	});
+
+	test("carries the mode as the review's comparison", async () => {
+		for (const mode of ["staged", "worktree"] as const) {
+			const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", `/diff?mode=${mode}`, {});
+			expect(locationOf(response).query.get("scope")).toBe(mode);
+		}
+	});
+
+	test("names the file the path asked for", async () => {
 		const response = await handleRequest(
-			{ ...context(), git: async () => ({ branch: "main" }), diff: diffProvider() },
+			{ ...context(), diff: diffProvider() },
 			"GET",
-			"/diff",
+			"/diff/sub/a.txt?mode=worktree",
 			{},
 		);
-		expect(response.status).toBe(200);
-		const html = text(response);
-		expect(html).toContain("Changes");
-		expect(html).toContain('href="/diff/a.txt"');
-		expect(html).toContain('class="bf-tag browse-changes"');
-		expect(html).toContain("+1");
-		expect(html).toContain("1 file changed");
+		expect(response.status).toBe(308);
+		const { path, query } = locationOf(response);
+		expect(path).toBe("/review/new");
+		expect(query.get("scope")).toBe("worktree");
+		expect(query.get("file")).toBe("sub/a.txt");
+	});
+
+	test("encodes a filename so the review page reads it back unchanged", async () => {
+		// A `+` in a query value decodes to a space, which is why the address is built with
+		// `URLSearchParams` rather than by pasting the path into the query.
+		const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/a%2Bb%20c.txt", {});
+		expect(locationOf(response).query.get("file")).toBe("a+b c.txt");
+	});
+
+	test("rejects an unknown mode before any path is matched", async () => {
+		const overview = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff?mode=bogus", {});
+		expect(overview.status).toBe(400);
+		expect(overview.headers.Location).toBeUndefined();
+
+		const file = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/a.txt?mode=bogus", {});
+		expect(file.status).toBe(400);
+		expect(file.headers.Location).toBeUndefined();
+	});
+
+	test("rejects a malformed percent escape in the file", async () => {
+		const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/a%zz.txt", {});
+		expect(response.status).toBe(400);
+		expect(text(response)).toContain("Malformed percent-encoding in the path.");
+	});
+
+	test("hides the move when the diff view is disabled or unconfigured", async () => {
+		expect(
+			(await handleRequest({ ...context({ gitDiff: false }), diff: diffProvider() }, "GET", "/diff", {})).status,
+		).toBe(404);
+		expect((await handleRequest(context(), "GET", "/diff", {})).status).toBe(404);
 	});
 
 	test("marks a changed file in the listing and the tree", async () => {
@@ -368,54 +420,14 @@ describe("diff routes", () => {
 		expect(text(response)).toContain('class="browse-change"');
 	});
 
-	test("switches mode and rejects an unknown one", async () => {
-		const staged = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff?mode=staged", {});
-		expect(staged.status).toBe(200);
-		expect(text(staged)).toContain('aria-current="page">staged</a>');
-
-		expect((await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff?mode=bogus", {})).status).toBe(
-			400,
-		);
-	});
-
-	test("renders a per-file diff and keeps the mode in its links", async () => {
+	test("shows the changes chip with the change totals", async () => {
 		const response = await handleRequest(
-			{ ...context(), diff: diffProvider() },
+			{ ...context(), git: async () => ({ branch: "main" }), diff: diffProvider() },
 			"GET",
-			"/diff/a.txt?mode=worktree",
+			"/",
 			{},
 		);
-		expect(response.status).toBe(200);
-		const html = text(response);
-		expect(html).toContain("bf-diff-line--add");
-		expect(html).toContain('href="/diff/a.txt?mode=worktree" aria-current="page">worktree</a>');
-	});
-
-	test("rejects a directory as a diff target", async () => {
-		expect((await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/sub", {})).status).toBe(400);
-	});
-
-	test("shows an empty state outside a repository", async () => {
-		const response = await handleRequest(
-			{ ...context(), diff: diffProvider({ list: async () => undefined }) },
-			"GET",
-			"/diff",
-			{},
-		);
-		expect(response.status).toBe(200);
-		expect(text(response)).toContain("No changes");
-	});
-
-	test("hides the diff view when disabled or unconfigured", async () => {
-		expect(
-			(await handleRequest({ ...context({ gitDiff: false }), diff: diffProvider() }, "GET", "/diff", {})).status,
-		).toBe(404);
-		expect((await handleRequest(context(), "GET", "/diff", {})).status).toBe(404);
-	});
-
-	test("marks a changed file page with a changes action", async () => {
-		const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/view/a.txt", {});
-		expect(text(response)).toContain('href="/diff/a.txt"');
+		expect(text(response)).toContain('class="bf-tag browse-changes"');
 	});
 
 	test("degrades to a page without markers when the change list fails", async () => {
@@ -428,21 +440,6 @@ describe("diff routes", () => {
 		const rootPage = await handleRequest({ ...context(), diff: failing }, "GET", "/", {});
 		expect(rootPage.status).toBe(200);
 		expect(text(rootPage)).not.toContain('class="browse-change"');
-
-		const overview = await handleRequest({ ...context(), diff: failing }, "GET", "/diff", {});
-		expect(overview.status).toBe(200);
-		expect(text(overview)).toContain("No changes");
-	});
-
-	test("reports a file whose diff cannot be read as missing, not as a failure", async () => {
-		const failing = diffProvider({
-			file: async () => {
-				throw new Error("git is unhappy");
-			},
-		});
-		const response = await handleRequest({ ...context(), diff: failing }, "GET", "/diff/a.txt", {});
-		expect(response.status).toBe(404);
-		expect(text(response)).toContain("No diff is available for that file.");
 	});
 });
 
