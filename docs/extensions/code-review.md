@@ -100,8 +100,10 @@ reload sentence rather than a comment landing on a line nobody read.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
   diff lines per file; the page says what a cap left out.
 - In a repository with no commits yet, the `staged` and `worktree` comparisons
-  still render a page; `base` and `last` say the commit they compare is missing,
-  and the footer names the comparison with no sha beside it.
+  still render a page; `base`, `last` and `head` say the commit they compare is
+  missing — `head` too, because `git diff HEAD` needs one even though
+  `git diff --cached` does not — and the footer names the comparison with no sha
+  beside it.
 - The page needs `git`, `serve`, and a local browser; without `serve` the tool
   says the session has no port, and a launcher that cannot start is reported with
   the address to paste.
