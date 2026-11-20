@@ -7,6 +7,9 @@
  * six-section plan the way a reader does and read the mark the page paints, so a window root cannot pass
  * them; each step waits on the mark rather than on the clock.
  *
+ * The second half is the mark after a jump: End and a scrollbar dragged to the bottom both deliver one
+ * scroll to the pane's end, which is the movement an observer never reports.
+ *
  * Where the machine has no browser the suite skips, naming `PI_CHROME`, so `bun run check` stays green
  * there.
  */
@@ -64,11 +67,9 @@ const CASE_MS = 30_000;
 /**
  * How far one step scrolls, in px.
  *
- * Measured rather than chosen for feel: the rail marks the heading that intersects the top 40% of
- * the pane, which is 96 px at the narrowest viewport this suite draws (a 240 px pane at 390x844) and
- * 115 px at the widest (288 px at 900x844). A step no larger than that band cannot carry a heading
- * through it between two paints, so 80 px keeps a reader-sized scroll and still cannot skip a
- * section; the sections themselves are 518 to 758 px apart, so no step straddles two either.
+ * The walk records the mark after each step, so a step must not carry the reader from one side of a
+ * heading to the other between two reads: the sections are 518 to 758 px apart, and 80 px keeps a
+ * reader-sized scroll well inside one, so every section is seen rather than stepped over.
  */
 const STEP_PX = 80;
 
@@ -100,15 +101,15 @@ async function marks(page: Page, id: string): Promise<void> {
 }
 
 /**
- * Scroll the pane one step down, then wait for the rail to answer. Returns the mark the pane shows
+ * Scroll the pane one step down, then let the rail answer. Returns the mark the pane shows
  * afterwards, and whether it reached its end.
  *
- * Two paints, because the rendering order says so: an animation-frame callback runs before the
- * frame's intersection observations are delivered, so a scroll's own frame cannot show the mark it
- * caused — the next one does. That is the floor for a walk that observes every step, and it is a
- * frame count rather than a clock, so a loaded machine changes how long a frame takes and never
- * what the walk sees. The old twelve were a guess at quietness on steps that can only answer "no":
- * a section is several steps long, so most steps cannot move the mark at all.
+ * Two paints, because the mark is one frame's work away from the scroll that moved it: the reading
+ * of the pane's position is scheduled by the scroll event, so it lands in that frame or the next
+ * one, and the walk must hold whichever it is. It is a frame count rather than a clock, so a loaded
+ * machine changes how long a frame takes and never what the walk sees. The old twelve were a guess
+ * at quietness on steps that can only answer "no": a section is several steps long, so most steps
+ * cannot move the mark at all.
  */
 async function stepDown(page: Page): Promise<{ mark: string; atEnd: boolean }> {
 	return page.evaluate(
@@ -139,6 +140,27 @@ async function stepDown(page: Page): Promise<{ mark: string; atEnd: boolean }> {
 	);
 }
 
+/**
+ * Jump the pane to its end in one step, then read the mark. Returns what the rail marks.
+ *
+ * End and a scrollbar dragged to the bottom are the same movement: one `scrollTop` write that lands
+ * the reader somewhere the pane never passed through, which is why the mark has to be read off the
+ * position rather than off what crossed a band. The wait is the assertion's condition; the read
+ * after it names what a page that never answered left behind.
+ */
+async function jumpToEnd(page: Page): Promise<string> {
+	await page.$eval("#plan", (node) => {
+		const pane = node as unknown as Paneish;
+		pane.scrollTop = pane.scrollHeight;
+	});
+	try {
+		await marks(page, SECTIONS[SECTIONS.length - 1] ?? "");
+	} catch {
+		// Read it anyway: the failure should name the section the rail kept, not only the timeout.
+	}
+	return marked(page);
+}
+
 /** Mark each new section as the reader scrolls to the end of the document. */
 async function walkDown(page: Page): Promise<string[]> {
 	const seen: string[] = [];
@@ -167,6 +189,20 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 		await browser?.close();
 	}, 30_000);
 
+	/** Jump to the end of the plan at one size, and read the one section the rail marks there. */
+	async function jumped(width: number, height: number): Promise<string> {
+		const local = await mountReview(longPlan());
+		const page = await openReview(browser, local.url);
+		try {
+			await page.setViewportSize({ width, height });
+			await page.waitForSelector("#plan .bf-block[id]", { timeout: REVIEW_PAINT_MS });
+			return await jumpToEnd(page);
+		} finally {
+			await page.close();
+			await local.close();
+		}
+	}
+
 	/** Walk the plan at one size, then read the mark after the reader returns to the top. */
 	async function walked(width: number, height: number): Promise<string[]> {
 		const local = await mountReview(longPlan());
@@ -194,6 +230,20 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 			`marks every section as the reader scrolls at ${width}x${height}`,
 			async () => {
 				expect(await walked(width, height)).toEqual(SECTIONS);
+			},
+			CASE_MS,
+		);
+	}
+
+	for (const [width, height] of [
+		[390, 844],
+		[900, 844],
+		[1280, 400],
+	] as const) {
+		test(
+			`marks the last section when a jump reaches the end at ${width}x${height}`,
+			async () => {
+				expect(await jumped(width, height)).toBe(SECTIONS[SECTIONS.length - 1] ?? "");
 			},
 			CASE_MS,
 		);
