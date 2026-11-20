@@ -100,9 +100,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # The gate: the same checks CI runs, on the exact tree being published.
+      # The gate: the same checks CI runs, on the exact tree being published. `check:all`
+      # because a release owes the full sweep — the narrow `check` is a landing's, and a
+      # publish is not a landing.
       - name: Run checks
-        run: bun run check
+        run: bun run check:all
 
       # The registry is named by the publish step and nothing else is needed here:
       # no `registry-url`, which makes setup-node write an `.npmrc` with a

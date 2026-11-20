@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `ci`: `bun run check` is the landing gate and `bun run check:all` is the full sweep. A landing used to pay
+  the whole 465-file suite — 116.7 s, plus format and typecheck — for a docs or leaf change, and paid it
+  twice on one machine: once as the owner's gate and again when the lead's `board review` ran the card's
+  `verify` line. `check` now runs format, types, `--changed=main` and the 33 files of `test/` (8.4 s idle,
+  0.3 s for the selection), and it widens to the full sweep by itself on `--all`, on a change to the runner
+  (`package.json`, `tsconfig.json`, `bun.lock`, `bunfig.toml`, `test/helpers/preload.ts`), on a tree with
+  no branch to narrow against, and on a `git` read that failed — the last three are why it is a wrapper and
+  not a chain: the decision is `planFor` in `scripts/check.ts`, and `scripts/check.test.ts` fails if a plan
+  ever drops format, types, the changed selection, or the sweeps. CI's matrix, the `compat` job and
+  `publish.yml` run `check:all`, so the full sweep is still proved on every OS. Both `AGENTS.md`'s 981 and
+  `CONTRIBUTING.md`'s 2357 words stand, and `AGENTS.md` is untouched because its three command lines stay
+  true. Rejected: passing a path argument to one entry, since a gate that depends on remembering a flag is
+  a gate nobody runs right, and a `--changed`-only gate, since the tree contracts are invisible to it.
+
 - `board`: a contract's `verify` line is the card's own check, not the repository's whole gate. `review`
   runs that line on the tree its owner already gated, so a line naming `bun run check` paid a second full
   run — 116.7 s over 465 files, measured — for a second reading of one sha. The card page said only what

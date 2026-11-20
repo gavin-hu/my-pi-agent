@@ -425,6 +425,7 @@ export const LIB_SUITES: readonly string[] = [
 export const SCRIPT_SUITES: readonly string[] = [
 	"board-fixture",
 	"cards",
+	"check",
 	"docs-assets",
 	"gate-lock",
 	"load-bench",

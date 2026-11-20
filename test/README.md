@@ -7,7 +7,8 @@ banned-pattern rules below.
 ## Running
 
 ```bash
-bun run check               # the landing gate: check:format && check:types && bun test
+bun run check               # the landing gate: format, types, this branch's suites, test/
+bun run check:all           # the full sweep: CI, publish.yml, and a release
 bun test                    # the tests alone, one file at a time
 bun test extensions/board/  # one extension's suites; any directory is a slice
 bun test test/              # the package-level contracts
@@ -118,13 +119,16 @@ The `check` command's `--timeout` is the case budget and reaches a hook too, whi
 why a browser suite's own statement is the thing that makes it independent of how it
 was invoked.
 
-`bun run check` is a chain, so it costs what its three commands cost: format 0.3 s,
-typecheck 12.7 s cold, and the tests the rest — 8014 cases in 411 files took 75.4 s
-with four workers and 80.4-84.1 s one file at a time, so the gate is now ~82 s on an
-8-core laptop and burns one core rather than four. The typecheck is incremental from
-`tsconfig.json` into `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s the first time and 3.2 s
-after that, so the gate is ~73 s warm. CI checks out fresh, so every job still proves
-the cold result; `rm -f .pi/cache/tsconfig.tsbuildinfo` reproduces it here.
+`bun run check` costs what its commands cost: format 0.3 s, typecheck 12.7 s cold and 3.2 s warm,
+then the tests this branch reaches — its own selection plus the 33 files of `test/`, which read the
+tree and so cannot be selected by a graph. A leaf change is ~9 s; a hub change is as long as the
+branch says. `bun run check:all` adds the full sweep: 8,423 cases in 465 files, 116.7 s one file at
+a time on an 8-core laptop, which is why CI pays it and a landing does not. The narrow gate widens
+to that sweep by itself when the change is the runner's, when there is no branch to narrow against,
+or when `git` cannot say — `scripts/check.ts` decides and `scripts/check.test.ts` holds each answer.
+The typecheck is incremental from `tsconfig.json` into `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s the
+first time and 3.2 s after that. CI checks out fresh, so every job still proves the cold result;
+`rm -f .pi/cache/tsconfig.tsbuildinfo` reproduces it here.
 
 The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests create
 real repositories and real git commands, so `test/helpers/slow-suite.ts` gates
@@ -133,7 +137,7 @@ is exported. A local `bun run check` therefore stays fast while CI keeps the
 coverage. Run them locally with `PI_SLOW_TESTS=1 bun test` (or with a path, for one
 suite); a new slow suite opts in with
 `describe.skipIf(!runSlowSuites)("...", () => { ... })`.
-CI, `publish.yml` and a local run are one shape now: `bun run check`. A
+CI and `publish.yml` run `check:all`; a landing runs `check`. One wrapper, one budget, two widths. A
 `--parallel` worker can drop the subprocess exit notification for its first spawn
 (`oven-sh/bun#41024`, `#39709`) and hang the first git-using test of a file until
 the case's budget runs out, which showed up as a rotating red macOS job and as a
