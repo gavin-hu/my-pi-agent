@@ -64,10 +64,16 @@ export const REVIEW_CSS = `
 .bf-tag--mono{font-family:var(--font-mono);font-size:var(--fs-xs)}
 .rv-diff{margin:0;padding:0;background:var(--canvas)}
 .rv-diff .bf-diff-hunk{display:block}
-.rv-diff .bf-diff-line{display:block;white-space:pre;padding:0 var(--space-4) 0 0;min-height:1.55em}
-.rv-diff .browse-diff-no{display:inline-block;width:46px;padding-right:var(--space-2);text-align:right;color:var(--dim);user-select:none;cursor:pointer}
+/* A line owns the two gutters as positioned columns, so its text starts past them and a
+   wrapped line hangs under the code it continues rather than at the left edge. A hunk head,
+   a meta line, and a note have no gutters and take the whole row. */
+.rv-diff .bf-diff-line{position:relative;display:block;white-space:pre;padding:0 var(--space-4) 0 108px;min-height:1.55em}
+.rv-diff .bf-diff-line--hunk,.rv-diff .bf-diff-line--meta,.rv-diff .bf-diff-line--note{padding-left:var(--space-4)}
+.rv-diff .browse-diff-no{position:absolute;top:0;display:inline-block;width:46px;padding-right:var(--space-2);text-align:right;color:var(--dim);user-select:none;cursor:pointer}
+.rv-diff .browse-diff-no:nth-of-type(1){left:0}
+.rv-diff .browse-diff-no:nth-of-type(2){left:46px}
 .rv-diff .browse-diff-no:hover{color:var(--text);background:var(--accent-soft)}
-.rv-diff .browse-diff-sign{display:inline-block;width:16px;text-align:center;color:var(--muted);user-select:none}
+.rv-diff .browse-diff-sign{position:absolute;top:0;left:92px;display:inline-block;width:16px;text-align:center;color:var(--muted);user-select:none}
 .rv-diff .bf-diff-line--add{background:var(--success-soft)}
 .rv-diff .bf-diff-line--add .browse-diff-sign{color:var(--success)}
 .rv-diff .bf-diff-line--del{background:var(--danger-soft)}
@@ -100,4 +106,11 @@ export const REVIEW_CSS = `
 .rv-dialog-item:first-child{border-top:0;padding-top:0}
 .rv-dialog-path{margin:0 0 2px;font:var(--fs-xs)/1.5 var(--font-mono);color:var(--dim)}
 .rv-dialog-line{margin:0;font-size:var(--fs-sm);white-space:pre-wrap;overflow-wrap:anywhere}
+/* The page rules the diff's line as one row, which is more specific than the kit's narrow
+   wrap; below the fold a line wraps here too, because a path or a call is a fact the reader
+   came for and an overlay scrollbar is no way to reach it. This sits after the diff rules so
+   it wins at equal specificity. */
+@media (max-width:${REVIEW_NARROW_PX}px){
+  .rv-diff .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}
+}
 `;

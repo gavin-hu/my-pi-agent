@@ -234,7 +234,7 @@ ${appHead({
 <div class="bf-app__body rv-body">
   <aside class="rv-side" aria-label="Files in this review">
     <div class="rv-side-top">
-      <label class="bf-field bf-field--filter"><span class="sr-only">Filter files</span><input class="bf-input" id="rv-filter" type="search" placeholder="filter files" autocomplete="off"></label>
+      <label class="bf-field bf-field--filter"><span class="bf-field__prompt" aria-hidden="true"></span><span class="sr-only">Filter files</span><input class="bf-input" id="rv-filter" type="search" placeholder="filter files" autocomplete="off"></label>
       <div class="rv-side-row">
         <label class="rv-file__check"><input type="checkbox" id="rv-only-commented"> only commented</label>
         <span class="bf-tag bf-tag--mono" id="rv-file-count">${files.length} of ${files.length} files</span>
