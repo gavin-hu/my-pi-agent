@@ -19,8 +19,11 @@ is written to your tree.
 |---|---|
 | Serve a review of the branch | `/review`, or `code_review` with `action: "open"` |
 | Review the last commit, everything uncommitted, the index, or the tree | `/review last`, `/review head`, `/review staged`, `/review worktree` |
+| Read one file of it | open the page with `?file=<path>`; the changes tag on a `file-browse` page lands there |
+| Go back to the whole diff | **all files** in the rail |
 | Comment on a line | click a gutter number, then **comment** — or `c` with a line selected |
 | Comment on a range | click one gutter, Shift-click another |
+| Copy a line reference | select lines, then **copy ref** — it copies `path:12-30` |
 | Mark a file read | its **reviewed** box, or `m` |
 | Send the notes to the session | **Send feedback** |
 | Read what was sent | `code_review` with `action: "comments"` |
@@ -57,18 +60,29 @@ Run `code_review` action "comments" for all of them.
 | `close` | End the page; refused while comments are still drafts |
 
 **The five comparisons.** `base` reads `<base>...HEAD`, the branch against the
-line it left; `last` reads `HEAD~1...HEAD`; `head` (shown as **uncommitted**) reads the tree
-against `HEAD`, so the index and the working tree arrive together with untracked
-files, which is the comparison `file-browse`'s changes tag means; `staged` reads the index; and
-`worktree` reads the working tree alone, untracked files included. The base ref is
-`code-review.base`, else `origin/HEAD`, else `main` or `master`; a repository
-where none resolves is refused, naming the key to set.
+line it left; `last` reads `HEAD~1...HEAD`; `head` (shown as **uncommitted**)
+reads the tree against `HEAD`, so the index and the working tree arrive together
+with untracked files, which is the comparison `file-browse`'s changes tag means;
+`staged` reads the index; and `worktree` reads the working tree alone, untracked
+files included. The base ref is `code-review.base`, else `origin/HEAD`, else
+`main` or `master`; a repository where none resolves is refused, naming the key
+to set.
 
 **The page.** A review is one page per session, at `/review/`. Its id is minted
 by the first write, so opening a page to look costs nothing; the query carries
 the write token, and the first write puts the review's own id in the address. A
 comment is a draft until **Send feedback** marks it sent — after that it is the
 session's, and the page shows it as sent.
+
+**One file at a time.** `?file=<path>` turns the page into that one file's diff,
+which is what a changes tag on a `file-browse` page opens: the rail shows the one
+file and an **all files** link back, and the comparison is still the whole scope,
+so nothing about the snapshot or its token changes. The file's head carries
+**view file** and **download**, which are `file-browse`'s own pages
+(`/files/view/<path>` and `/files/raw/<path>`) — they need that page serving, and
+answer `404` without it. `n` and `p` step between the focused file's hunks; the
+whole review keeps `[` and `]`. A reference copied from a selection is
+`path:12-30`, the same form `file-browse` copies.
 
 **What a comment anchors to.** A path, a side of the diff, and a line number on
 that side. The page posts the snapshot it rendered with every write, and the
@@ -81,6 +95,8 @@ reload sentence rather than a comment landing on a line nobody read.
   sending is what keeps them, in the transcript notice and in `code_review`.
 - One page per session. Changing scope is refused while a comment is on the page —
   send or delete it first, because a comment's line numbers belong to one scope.
+- A focused page (`?file=`) hides the other files without forgetting them: a
+  comment already written on one of them is still counted and still sent.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
   diff lines per file; the page says what a cap left out.
 - The page needs `git`, `serve`, and a local browser; without `serve` the tool
