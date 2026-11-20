@@ -60,6 +60,12 @@ export interface ReviewPageInput {
 	root: string;
 	token: string;
 	snapshot: ReviewSnapshot;
+	/**
+	 * One file to draw, by root-relative path: the whole scope is still read and its
+	 * fingerprint still covers every file, so a focused page and the full page accept each
+	 * other's writes. An unknown path draws the whole scope rather than an error.
+	 */
+	file?: string;
 	review?: Review;
 }
 
@@ -114,6 +120,16 @@ function railRow(
   <span><span class="rv-rail__name">${escapeHtml(name)}</span><span class="rv-rail__dir" dir="rtl"><bdi>${escapeHtml(dir)}</bdi></span><span class="rv-rail__notes">${escapeHtml(note)}</span></span>
   <span class="rv-rail__meta"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
 </a>`;
+}
+
+/**
+ * The way back from a focused page: the scope alone, never `?file=`, so the reader lands on
+ * the review they were already in — the held page, its comments and its token — instead of a
+ * page that still names the file. It is not a `.rv-rail` row: the client's rail helpers are
+ * keyed on those, and a link among them that names no file would be counted as one.
+ */
+function backToAll(base: string, scope: ReviewScope, total: number): string {
+	return `<p class="rv-side__back"><a class="bf-btn" id="rv-all-files" href="${escapeHtml(base)}/new?scope=${scope}">all ${total} file${total === 1 ? "" : "s"}</a></p>`;
 }
 
 /** One file's head, its diff, and the two notes a cap leaves. */
@@ -209,7 +225,9 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const done = reviewed.size;
 	const data = reviewData(input);
 	const island = JSON.stringify(data).replaceAll("<", "\\u003c");
-	const files = snapshot.files;
+	const all = snapshot.files;
+	const focused = input.file === undefined ? undefined : all.find((file) => file.rel === input.file);
+	const files = focused === undefined ? all : [focused];
 	const stale = input.review !== undefined && input.review.rev !== snapshot.fingerprint;
 	const facts = [
 		chip({
@@ -243,7 +261,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
 			: files.map((file, index) => fileSection(file, index, comments, reviewed)).join("\n");
 	const omitted =
 		snapshot.omitted > 0
-			? `<p class="rv-banner" role="status"><b>${snapshot.omitted} more file${snapshot.omitted === 1 ? "" : "s"}</b> changed in this scope — the page lists the first ${files.length}. Review the rest in a narrower scope.</p>`
+			? `<p class="rv-banner" role="status"><b>${snapshot.omitted} more file${snapshot.omitted === 1 ? "" : "s"}</b> changed in this scope — the page lists the first ${all.length}. Review the rest in a narrower scope.</p>`
 			: "";
 	const banner = stale
 		? `<p class="rv-banner" role="status"><b>The diff moved</b> since this review started — comments stay on the line they named.</p>`
@@ -269,11 +287,12 @@ ${appHead({
       <label class="bf-field bf-field--filter"><span class="bf-field__prompt" aria-hidden="true"></span><span class="sr-only">Filter files</span><input class="bf-input" id="rv-filter" type="search" placeholder="filter files" autocomplete="off"></label>
       <div class="rv-side-row">
         <label class="rv-file__check"><input type="checkbox" id="rv-only-commented"> only commented</label>
-        <span class="bf-tag bf-tag--mono" id="rv-file-count" aria-live="polite">${files.length} of ${files.length} files</span>
+        <span class="bf-tag bf-tag--mono" id="rv-file-count" aria-live="polite">${files.length} of ${all.length} files</span>
       </div>
     </div>
     <div class="rv-side-scroll">
       <div class="rv-side-head"><span>changed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
+      ${focused === undefined ? "" : backToAll(base, snapshot.scope, all.length)}
       <nav class="rv-files" id="rv-rail" aria-label="Changed files">${files.map((file, index) => railRow(file, index, comments, reviewed)).join("\n")}</nav>
       <p class="rv-side__empty" id="rv-rail-empty" hidden><span id="rv-rail-empty-text"></span> <button type="button" class="bf-btn" id="rv-rail-clear">Clear filter</button></p>
     </div>
@@ -287,7 +306,7 @@ ${appHead({
     </div>
   </main>
 </div>
-${pageFooter({ facts: `${comparisonLine(snapshot)} · ${files.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${drafts.length} draft · ${done} of ${files.length} reviewed`, factsId: "rv-facts" })}
+${pageFooter({ facts: `${comparisonLine(snapshot)} · ${all.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${drafts.length} draft · ${done} of ${all.length} reviewed`, factsId: "rv-facts" })}
 
 <div class="rv-selbar" id="rv-selbar" data-open="false" role="toolbar" aria-label="Selected lines">
   <span class="rv-selbar__ref" id="rv-selbar-ref"></span>

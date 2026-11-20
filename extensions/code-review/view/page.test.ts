@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { Review } from "../review/store.ts";
 import { REVIEW_SCOPES } from "../scope.ts";
-import { comparisonLine, renderReviewPage, renderReviewProblem } from "./page.ts";
+import { comparisonLine, renderReviewPage, renderReviewProblem, reviewData } from "./page.ts";
 
 /** A two-file snapshot with a hunk, a context row, and a deleted line. */
 function snapshot(overrides: Partial<ReviewSnapshot> = {}): ReviewSnapshot {
@@ -177,6 +177,36 @@ describe("the review page", () => {
 		expect(html).toContain('aria-label="Mark lib/http/mount.ts reviewed"');
 		expect(html).toContain('id="rv-rail-empty" hidden');
 		expect(html).toContain('id="rv-filter-note" hidden');
+	});
+
+	test("draws one file when the address names it, with one rail row and the way back", () => {
+		const html = renderReviewPage({ ...input(), file: "lib/http/mount.ts" });
+		expect(html.match(/class="rv-file"/g)).toHaveLength(1);
+		expect(html.match(/class="rv-rail"/g)).toHaveLength(1);
+		expect(html).toContain('data-path="lib/http/mount.ts"');
+		expect(html).not.toContain("docs/serve.md");
+		// The way back is the comparison alone: the file is what is being left behind.
+		expect(html).toContain('id="rv-all-files"');
+		expect(html).toContain('href="/review/new?scope=base"');
+		expect(html).not.toContain("file=lib/http/mount.ts");
+		// The count still names the scope, not the one file drawn from it.
+		expect(html).toContain("1 of 2 files");
+	});
+
+	test("draws the whole scope when the named file is not in it", () => {
+		const html = renderReviewPage({ ...input(), file: "gone.ts" });
+		expect(html.match(/class="rv-file"/g)).toHaveLength(2);
+		expect(html).not.toContain('id="rv-all-files"');
+	});
+
+	test("a focused page keeps the scope's rev, so the full page's writes are accepted", () => {
+		// The one assertion that makes the focus a view: the snapshot is the whole scope
+		// whether one file is drawn or all of them, so `store.write`'s `rev` comparison
+		// cannot see a difference between the two pages.
+		const full = reviewData(input());
+		const focused = reviewData({ ...input(), file: "docs/serve.md" });
+		expect(focused.rev).toBe(full.rev);
+		expect(focused.rev).toBe("abc123");
 	});
 
 	test("a problem page names the reason and offers the way back", () => {

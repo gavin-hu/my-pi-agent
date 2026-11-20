@@ -110,6 +110,32 @@ describe("the page's GETs", () => {
 		expect(harnessed.store.current()?.scope).toBe("staged");
 	});
 
+	test("draws one file when the address names it, on both page routes", async () => {
+		const harnessed = harness();
+		// The back link only renders on a focused page, so it is the tell that `file` reached
+		// the renderer — the router decides nothing about the snapshot either way.
+		const focused = await reply(harnessed.handler, request("GET", "/new?scope=staged&file=a.ts"));
+		expect(focused.status).toBe(200);
+		expect(focused.body).toContain('id="rv-all-files"');
+		const unknown = await reply(harnessed.handler, request("GET", "/new?scope=staged&file=gone.ts"));
+		expect(unknown.body).not.toContain('id="rv-all-files"');
+
+		const token = tokenOf(harnessed.store);
+		await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", body: "hi" },
+			}),
+		);
+		const id = harnessed.store.current()?.review?.id;
+		if (id === undefined) throw new Error("no review");
+		const resumed = await reply(harnessed.handler, request("GET", `/${id}?token=${token}&file=a.ts`));
+		expect(resumed.status).toBe(200);
+		expect(resumed.body).toContain('id="rv-all-files"');
+	});
+
 	test("serves the page at / too, and at the review's own id", async () => {
 		const harnessed = harness();
 		const root = await reply(harnessed.handler, request("GET", "/"));

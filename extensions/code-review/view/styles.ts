@@ -24,6 +24,7 @@ export const REVIEW_CSS = `
 .rv-side-top{padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border)}
 .rv-side-row{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-2);flex-wrap:wrap}
 .rv-side-scroll{overflow:auto;min-height:0;padding:var(--space-2)}
+.rv-side__back{margin:0 0 var(--space-2)}
 .rv-side-head{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-2) var(--space-2);color:var(--dim);font:var(--fw-medium) var(--fs-xs) var(--font-ui);text-transform:uppercase;letter-spacing:.06em}
 .rv-side-head span:last-child{margin-left:auto;font-family:var(--font-mono);text-transform:none;letter-spacing:0}
 .rv-files{display:flex;flex-direction:column;gap:var(--space-1)}
