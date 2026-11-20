@@ -15,7 +15,8 @@ import { DEFAULT_CONFIG, LIVE_MAX_CLIENTS, type ServeConfig } from "../config/co
 import type { DiffList, GitDiffProvider } from "../git/git.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
-import { BROWSE_BASE, type FileServer } from "./server.ts";
+import { type FileServer } from "./server.ts";
+import { FILES_BASE } from "../../../lib/http/prefixes.ts";
 import type { ServeResponse } from "../../../lib/http/index.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { useEnv } from "../../../test/helpers/env.ts";
@@ -703,7 +704,7 @@ describe("loopback server", () => {
 		// The page owns a prefix, not the origin: `base` reaches the links, the scripts, and
 		// the Markdown destinations, so the mount and the document agree. This case is that
 		// claim, and it is meant to fail when the prefix moves.
-		expect(BROWSE_BASE).toBe("/files");
+		expect(FILES_BASE).toBe("/files");
 		server = await servePage(fixture.root, DEFAULT_CONFIG);
 		expect(new URL(server.url).pathname).toBe("/files/");
 		expect(await (await fetch(server.url)).text()).toContain('<script src="/files/app.js"');
@@ -845,7 +846,7 @@ describe("loopback server", () => {
 		// A raw socket, so closing it is the page leaving and nothing else.
 		const { hostname, port } = new URL(started.url);
 		const socket = createConnection({ host: hostname, port: Number(port) }, () => {
-			socket.write(`GET ${BROWSE_BASE}/events HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n`);
+			socket.write(`GET ${FILES_BASE}/events HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n`);
 		});
 		socket.once("data", () => socket.destroy());
 
