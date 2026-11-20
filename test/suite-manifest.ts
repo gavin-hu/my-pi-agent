@@ -183,6 +183,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-anchor",
 		"web-band",
 		"web-behaviour",
+		"web-jump",
 		"web-drafts",
 		"web-blocks",
 		"web-live",

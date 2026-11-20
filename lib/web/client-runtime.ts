@@ -37,7 +37,7 @@ export interface ClientNode {
 	type: string;
 	scrollTop: number;
 	contains(other: ClientNode | null): boolean;
-	focus(): void;
+	focus(options?: { preventScroll?: boolean }): void;
 	classList: { add(name: string): void; remove(name: string): void; toggle(name: string, on?: boolean): void };
 	setAttribute(name: string, value: string): void;
 	getAttribute(name: string): string | null;

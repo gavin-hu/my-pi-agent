@@ -61,8 +61,17 @@ export function sectionFor(entries: readonly OutlineEntry[], line: number): Outl
  * list being replaced and put back on the link for the same heading, because the page
  * rebuilds the rail whenever the plan does. A heading that moved has a new id, so the mark
  * goes with the section it was on rather than landing on whatever now sits at its line.
+ *
+ * `jump` is the caller's arrival hook, called with the entry's id once the mark has moved.
+ * A link scrolls the pane, and a section that scrolled into view has announced nothing, so
+ * the page puts the keyboard on it; the hook is optional because the outline is also drawn
+ * where there is no plan frame to focus.
  */
-export function renderOutline(list: ClientNode | null, entries: readonly OutlineEntry[]): Record<number, ClientNode> {
+export function renderOutline(
+	list: ClientNode | null,
+	entries: readonly OutlineEntry[],
+	jump?: (id: string) => void,
+): Record<number, ClientNode> {
 	const counters: Record<number, ClientNode> = {};
 	if (!list) return counters;
 	const current = list.querySelector("[aria-current]")?.getAttribute("data-id") ?? "";
@@ -108,6 +117,7 @@ export function renderOutline(list: ClientNode | null, entries: readonly Outline
 			const links = list.querySelectorAll("a");
 			for (let i = 0; i < links.length; i++) links[i]?.removeAttribute("aria-current");
 			link.setAttribute("aria-current", "true");
+			if (jump) jump(item.id);
 		});
 		li.appendChild(link);
 		list.appendChild(li);

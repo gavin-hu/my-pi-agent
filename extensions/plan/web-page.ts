@@ -140,7 +140,7 @@ export const REVIEW_CSS = pageSheet(
 /* The count of what the view hid, beside the switch that hid it: a filtered plan that reads
    as a short one is the defect, and this is the fact that undoes it. */
 .review-note{margin:0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-relaxed)}
-.review-note:empty{display:none}
+.review-note[hidden]{display:none}
 .review-nav{min-width:0}
 .review-nav__title{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
 .review-nav ul{list-style:none;margin:0;padding:0}
@@ -428,7 +428,7 @@ ${reviewFacts(data.role)}
 <button type="button" class="bf-tabs__item" data-view="changed" aria-pressed="false">Changed</button>
 <button type="button" class="bf-tabs__item" data-view="comments" aria-pressed="false">Comments</button>
 </div>
-<p class="review-note" id="review-note" aria-live="polite"></p>
+<p class="review-note" id="review-note"><span id="review-note-view" aria-live="polite"></span> <span id="review-view-why" hidden></span></p>
 ${finishBlock(data.role, data.canApprove)}${identity}
 </div>
 <div class="bf-panel review-panel">

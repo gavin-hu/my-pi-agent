@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- plan: the browser review announces its own two moves. A section jump scrolled the pane and moved
+  the outline's mark, and left focus where it was — the target is a plain `div`, so `document.activeElement`
+  stayed on the link and a screen reader heard nothing arrive at the heading the reader asked for. The
+  jumped block is a focus target now (`tabindex="-1"`, which is no tab stop, so the sequential point
+  is what it was) and takes focus with `preventScroll`, because the scroll that placed it was the
+  link's and a second one from focus would fight the section observer rooted in the pane. Separately,
+  the reason the **Changed** view is off lived in a `title` on its disabled button: a disabled control
+  leaves the tab order, so a keyboard reader never reached it and a touch reader never saw it. The
+  sentence is the note line's second span, `#review-view` describes itself with that element only while
+  the view is off, the live region moved inward so the reason is not announced as a view change, and
+  both `title` writes are gone. `plan-review.png` is recaptured for the note line and its alt names it;
+  the browser suites now prove the jump's three facts separately — focus on the block, the call carrying
+  `preventScroll` with a focus-suppressed pass landing the pane where the real one does, and the mark still
+  naming the section — and that a page which *does* offer Changed describes itself with nothing.
+
 - tui: the state-change arrow has one home. `→` was hand-typed in nine source files that build call
   subjects — memory, todo, goal, job, team, watch, subagent, the fetch result's final URL and the
   context report's token comparison — while `↑`, `↳` and `⊚` all came from the vocabulary and
