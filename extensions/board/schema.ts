@@ -73,13 +73,8 @@ export const BoardParams = Type.Object({
 	note: Type.Optional(
 		Type.String({
 			maxLength: MAX_NOTE,
-			description: "`add`: a first note, e.g. why the card exists; one line.",
-		}),
-	),
-	text: Type.Optional(
-		Type.String({
-			maxLength: MAX_NOTE,
-			description: "`note`: the note to append; `approve` and `review`: what the signer saw; one line.",
+			description:
+				"`add`: a first note; `note`: the note to append; `approve` and `review`: what the signer saw; one line.",
 		}),
 	),
 	override: Type.Optional(

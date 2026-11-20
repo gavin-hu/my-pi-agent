@@ -102,7 +102,7 @@ describe("a review that will be refused", () => {
 		const run = runner();
 		const who = board(run);
 		await reviewable(who);
-		const refused = await who.lead.call({ action: "review", card: "1", text: "x".repeat(MAX_NOTE + 2) });
+		const refused = await who.lead.call({ action: "review", card: "1", note: "x".repeat(MAX_NOTE + 2) });
 		expect(refused.isError).toBe(true);
 		// The sentence is the trim, not the cap: the retry is one edit rather than a guess.
 		expect(resultText(refused)).toContain(`text is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`);
@@ -113,7 +113,7 @@ describe("a review that will be refused", () => {
 		const run = runner();
 		const who = board(run);
 		await promised(who);
-		const refused = await who.lead.call({ action: "review", card: "1", text: "x".repeat(MAX_NOTE + 2) });
+		const refused = await who.lead.call({ action: "review", card: "1", note: "x".repeat(MAX_NOTE + 2) });
 		// A card that cannot be signed at all is the answer worth reading first; the note is the last
 		// cheap word before the process, not the first.
 		expect(resultText(refused)).toContain("finished work is spot-checked in execute");

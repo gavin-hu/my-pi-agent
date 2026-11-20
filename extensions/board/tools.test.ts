@@ -202,11 +202,11 @@ describe("a field the action does not act on", () => {
 
 	test("names every stray field and the verb that takes each", async () => {
 		const { call } = harness();
-		const result = await call({ action: "add", title: "x", dependsOn: ["1"], text: "why" });
+		const result = await call({ action: "list", goal: "why", note: "it" });
 		expect(result.details.error).toBe(
-			"add does not act on dependsOn, text: `edit` takes dependsOn; `note`, `approve`, and `review` take text.",
+			"list does not act on goal, note: `contract` takes goal; `add`, `note`, `approve`, and `review` take note.",
 		);
-		// Three actions take this one, so the message names the serial list and says "take".
+		// Four actions take this one, so the message names the serial list and says "take".
 		const lane = await call({ action: "add", title: "x", lane: "execute" });
 		expect(lane.details.error).toBe("add does not act on lane: `list` and `move` take it.");
 	});
@@ -407,7 +407,7 @@ describe("list", () => {
 			path: await writePlan(board, "retry-branches.md"),
 			...LINES,
 		});
-		await call({ action: "note", card: "1", text: "waiting on the gateway owner" });
+		await call({ action: "note", card: "1", note: "waiting on the gateway owner" });
 		const ids = async (query: string) => (await call({ action: "list", query })).details.cards?.map((card) => card.id);
 		expect(await ids("webhook")).toEqual(["1"]);
 		expect(await ids("src/git")).toEqual(["2"]);
@@ -630,7 +630,7 @@ describe("claim, release, and move", () => {
 		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
-		await peer.call({ action: "note", card: "1", text: "half done" });
+		await peer.call({ action: "note", card: "1", note: "half done" });
 		const result = await lead.call({ action: "reclaim", card: "1" });
 		expect(result.details.card).toMatchObject({ lane: "backlog", by: LEAD });
 		expect(result.details.card?.owner).toBeUndefined();
@@ -737,8 +737,8 @@ describe("note and plan", () => {
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
 		for (let index = 0; index < MAX_NOTES + 1; index++)
-			await call({ action: "note", card: "1", text: `note ${index}` });
-		const result = await call({ action: "note", card: "1", text: "last" });
+			await call({ action: "note", card: "1", note: `note ${index}` });
+		const result = await call({ action: "note", card: "1", note: "last" });
 		expect(result.details.card?.notes).toHaveLength(MAX_NOTES);
 		expect(result.details.card?.notesDropped).toBe(2);
 	});
@@ -1204,7 +1204,7 @@ describe("the team", () => {
 		await call({ action: "list" });
 		await call({ action: "list", round: true });
 		await call({ action: "add", title: "One" });
-		await call({ action: "note", card: "1", text: "looked at it" });
+		await call({ action: "note", card: "1", note: "looked at it" });
 		await call({ action: "edit", card: "1", title: "One, renamed" });
 		expect(calls).toEqual([]);
 	});

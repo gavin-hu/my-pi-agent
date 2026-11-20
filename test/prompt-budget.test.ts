@@ -231,10 +231,14 @@ describe("the board tool surface", () => {
 		// #748 then moved every cap out of the prose and into the schema, which is where Pi validates
 		// it: the five union fields became string enums (-670, the form a provider that supports
 		// neither `anyOf` nor `const` needs) and the caps became `maxLength`/`maxItems` read from their
-		// constants (+49 against the deleted `≤N characters` clauses). 6,378 ≤ 6,378 today, and this
-		// is the largest single fall the surface has taken. The bounds themselves are held by
+		// constants (+49 against the deleted `≤N characters` clauses). 6,378 ≤ 6,378 then, and that
+		// was the largest single fall the surface had taken. The bounds themselves are held by
 		// `tool-caps.test.ts`, which reads them from the registered schemas; this file is budgets.
-		expect(boardSurface()).toBeLessThanOrEqual(6_378);
+		// #752 then merged the two note fields — `add`'s `note` and the `text` three other verbs
+		// published for the same thing — so one field's JSON left while a description absorbed it:
+		// 6,378 → 6,284, and the ceiling fell with the surface rather than keeping 94 characters
+		// nobody measured: 6,284 ≤ 6,284.
+		expect(boardSurface()).toBeLessThanOrEqual(6_284);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
 	});

@@ -120,7 +120,6 @@ interface Carried {
 const CARRIED: readonly Carried[] = [
 	{ tool: "board", at: "title", bound: "maxLength", value: MAX_TITLE },
 	{ tool: "board", at: "note", bound: "maxLength", value: MAX_NOTE },
-	{ tool: "board", at: "text", bound: "maxLength", value: MAX_NOTE },
 	{ tool: "board", at: "blockedBy", bound: "maxLength", value: MAX_BLOCKED },
 	{ tool: "board", at: "path", bound: "maxLength", value: MAX_PLAN },
 	{ tool: "board", at: "override", bound: "maxLength", value: MAX_CONTRACT },

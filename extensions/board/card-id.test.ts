@@ -55,7 +55,7 @@ describe("a zero-padded card id", () => {
 	test("writes the card its digits name", async () => {
 		const { call } = boardTool({ now: NOW, track: temps.track });
 		await call({ action: "add", title: "One" });
-		const noted = await call({ action: "note", card: "#0001", text: "padded" });
+		const noted = await call({ action: "note", card: "#0001", note: "padded" });
 		expect(noted.details.card?.id).toBe("1");
 		expect(noted.details.card?.notes.at(-1)?.text).toBe("padded");
 	});
