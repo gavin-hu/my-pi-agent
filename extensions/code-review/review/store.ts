@@ -163,22 +163,27 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 				return { ok: false, status: held.message === BAD_TOKEN ? 403 : 409, message: held.message };
 			if (rev !== current) return { ok: false, status: 409, message: SNAPSHOT_MOVED };
 
-			// The first write is where the review starts: no id before it, so a page
-			// nobody commented on leaves nothing behind.
-			if (!held.review) {
-				held.review = {
-					id: freshId(new Set()),
-					scope: held.scope,
-					base: held.base,
-					label: held.label,
-					comments: [],
-					reviewed: [],
-					createdAt: now(),
-					updatedAt: now(),
-					rev: current,
-				};
-			}
-			const review = held.review;
+			// The review this op applies to: the page's, or a candidate the first *accepted*
+			// write adopts. The id is minted by `accept`, so a refusal consumes no id and
+			// leaves the page with none — a page nobody commented on leaves nothing behind.
+			const review: Review = held.review ?? {
+				id: "",
+				scope: held.scope,
+				base: held.base,
+				label: held.label,
+				comments: [],
+				reviewed: [],
+				createdAt: now(),
+				updatedAt: now(),
+				rev: current,
+			};
+
+			/** Adopt the candidate, on the one path where the op was accepted. */
+			const accept = (sent: ReviewComment[] = []): WriteOutcome => {
+				if (held.review === undefined) review.id = freshId(new Set());
+				held.review = review;
+				return { ok: true, id: review.id, sent, review };
+			};
 
 			if (op.kind === "comment") {
 				if (review.comments.length >= MAX_COMMENTS) {
@@ -207,7 +212,7 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 				};
 				review.comments.push(comment);
 				review.updatedAt = comment.at;
-				return { ok: true, id: review.id, sent: [], review };
+				return accept();
 			}
 
 			if (op.kind === "drop") {
@@ -215,7 +220,7 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 				if (index < 0) return { ok: false, status: 404, message: "that comment is not on this review" };
 				review.comments.splice(index, 1);
 				review.updatedAt = now();
-				return { ok: true, id: review.id, sent: [], review };
+				return accept();
 			}
 
 			if (op.kind === "reviewed") {
@@ -226,7 +231,7 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 				else marked.delete(rel);
 				review.reviewed = [...marked];
 				review.updatedAt = now();
-				return { ok: true, id: review.id, sent: [], review };
+				return accept();
 			}
 
 			const sent = review.comments.filter((entry) => entry.state === "draft");
@@ -235,7 +240,7 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 				review.sentAt = now();
 				review.updatedAt = review.sentAt;
 			}
-			return { ok: true, id: review.id, sent, review };
+			return accept(sent);
 		},
 		close() {
 			page = undefined;
