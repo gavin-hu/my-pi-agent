@@ -182,8 +182,12 @@ export function indentBlockLines(body: readonly string[], width: number, options
  * prefix. An absent `inner` renders nothing, so a tool with no output adds no
  * blank block. The lines are not indented yet; a caller that has to inspect the
  * block before placing it passes them to `indentBlockLines`.
+ *
+ * Readonly because they are the inner component's own render result: Pi's
+ * `Component` hands back an array it may cache and reuse across frames, so a
+ * caller must not edit one in place.
  */
-export function bodyLines(inner: Component | undefined, width: number, indent = 0): string[] {
+export function bodyLines(inner: Component | undefined, width: number, indent = 0): readonly string[] {
 	if (!inner) return [];
 	const w = Math.max(1, width);
 	// The prefix is spaces here (no rail), so its width is the clamped indent.
