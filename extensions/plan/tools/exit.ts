@@ -16,14 +16,15 @@ import { GOAL_TOOL } from "../../../lib/tool-names.ts";
 import { failedResult } from "../../../lib/tool-result.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { checkbox } from "../../../lib/tui/rows.ts";
+import { expandHint, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { callLine, moreHint, type ToolCallText, type WidthLine } from "../../../lib/tui/tool.ts";
+import { callLine, type ToolCallText, type WidthLine } from "../../../lib/tui/tool.ts";
 import { feedbackSummary } from "../feedback.ts";
-import { mergeSummary, overCap, preview, TICK_CALL, verificationNote } from "../format.ts";
+import { mergeSummary, overCap, TICK_CALL, verificationNote } from "../format.ts";
 import { sanitizePlanText, taskMarker } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
 import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
-import { goalSection, MAX_STEPS, planStepSummary } from "../steps.ts";
+import { extractPlanSteps, goalSection, MAX_STEPS, planStepSummary } from "../steps.ts";
 import type { ExitPlanModeDetails, PlanDetails } from "../types.ts";
 import type { PlanWebReview } from "../web.ts";
 import { firstTextLine } from "./nested.ts";
@@ -333,17 +334,34 @@ export function exitText(details: ExitPlanModeDetails, expanded: boolean, theme:
 					: details.refined
 						? paint(theme, "accent", "Refining the plan")
 						: paint(theme, "warn", "Plan not approved");
-	const lines: WidthLine[] = [{ text: heading }];
+	const planText = sanitizePlanText(details.plan);
+	// An approved plan's work is its steps, and the review screen has just drawn the text: the
+	// block states the count the session is now working through, and the plan itself stays one
+	// expand away — so the heading carries the affordance rather than a thirteenth row.
+	const counts = details.approved ? stepCounts(planText) : undefined;
+	const summary =
+		counts === undefined
+			? ""
+			: paint(
+					theme,
+					"meta",
+					`${SEPARATORS.item}${counts.total} steps${SEPARATORS.item}${counts.done}/${counts.total} done`,
+				);
+	const hint = planText !== "" && !expanded ? `${paint(theme, "faint", SEPARATORS.item)}${expandHint(theme)}` : "";
+	const lines: WidthLine[] = [{ text: `${heading}${summary}${hint}` }];
 	if (details.refined && details.refinement) {
 		lines.push({ text: paint(theme, "meta", `↳ ${sanitizePlanText(details.refinement)}`) });
 	}
 	const shown = details.relativePath ?? details.planPath;
 	if (shown) lines.push({ text: paint(theme, "meta", shown), clip: "middle" });
-	const planText = sanitizePlanText(details.plan);
-	if (!planText) return { lines };
-	const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
-	const drawn = planBody(theme, body) + (more > 0 ? `\n${moreHint(theme, more)}` : "");
-	return { lines, body: drawn };
+	if (!planText || !expanded) return { lines };
+	return { lines, body: planBody(theme, planText) };
+}
+
+/** The steps an approved plan names, and how many the review already marked done. */
+function stepCounts(plan: string): { total: number; done: number } {
+	const steps = extractPlanSteps(plan);
+	return { total: steps.length, done: steps.filter((step) => step.status === "completed").length };
 }
 
 /** The exit result as one string, for the callers that read text rather than a block. */

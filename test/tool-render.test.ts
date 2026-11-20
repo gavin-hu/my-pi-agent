@@ -312,7 +312,9 @@ const COLLAPSED_ROWS: Record<string, number> = {
 	open_path: 2,
 	plan: 2,
 	"plan-cancel": 2,
-	"plan-exit": 13,
+	// 13 -> 3: the review screen has just drawn the plan, so the block states the count and the
+	// path, and the body is one expand away -- the heading carries that affordance.
+	"plan-exit": 3,
 	"plan-steps": 2,
 	"plan-steps-batch": 2,
 	"plan-write": 2,
