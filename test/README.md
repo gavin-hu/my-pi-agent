@@ -49,6 +49,11 @@ Measured on an 8-core laptop, one file at a time, after a one-line edit — `bun
 | A document or an asset | 0 | 0.1 s |
 | A hub, `lib/format.ts` | 309 | 77.3 s |
 
+These rows were measured on a 407-suite tree, before #745 split the landing gate from the full
+sweep. They describe `bun test --changed=main`, which is still what a changed selection runs, so
+they are not wrong — but their file counts and the hub's 77 s move with the tree, and a refresh is
+its own edit-and-run experiment rather than a subtraction from the sweep's time.
+
 The cost is **fan-out × the cost of one suite**, and the second row against the last is the whole
 story: the same edit is 0.8 s or 77 s depending on how many suites import the file. `lib/format.ts`
 is reached by 298 of the 407 suites, 265 of them through `sanitizeLine` alone — and that is the
@@ -63,7 +68,7 @@ at four cores. That is worth it there and nowhere else — a serial run is the d
 leaves the machine to the other sessions on it.
 
 One row is a habit rather than a number. A document or an asset reaches no suite, because nothing
-imports one, so a narrow run says nothing about it: add `bun test test/` (5.6 s, 30 files) for the
+imports one, so a narrow run says nothing about it: add `bun test test/` (8.1 s, 34 files) for the
 sweeps that read the tree.
 
 ### A red that will not reproduce
@@ -120,10 +125,13 @@ why a browser suite's own statement is the thing that makes it independent of ho
 was invoked.
 
 `bun run check` costs what its commands cost: format 0.3 s, typecheck 12.7 s cold and 3.2 s warm,
-then the tests this branch reaches — its own selection plus the 33 files of `test/`, which read the
+then the tests this branch reaches — its own selection plus the 34 files of `test/`, which read the
 tree and so cannot be selected by a graph. A leaf change is ~9 s; a hub change is as long as the
-branch says. `bun run check:all` adds the full sweep: 8,423 cases in 465 files, 116.7 s one file at
-a time on an 8-core laptop, which is why CI pays it and a landing does not. The narrow gate widens
+branch says. `bun run check:all` adds the full sweep: 8,466 cases in 469 files, 97.1 s one file at
+a time on an 8-core laptop at load 6, which is why CI pays it and a landing does not. The one suite
+that used to own a fifth of that sweep is `extensions/plan/web-outline-live.test.ts`: 22.3 s and
+5.6 s alone, before and after it stopped waiting on frames that could not answer. The narrow gate
+widens
 to that sweep by itself when the change is the runner's, when there is no branch to narrow against,
 or when `git` cannot say — `scripts/check.ts` decides and `scripts/check.test.ts` holds each answer.
 The typecheck is incremental from `tsconfig.json` into `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s the
