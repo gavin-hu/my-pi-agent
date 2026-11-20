@@ -80,7 +80,15 @@ async function viewInBrowser(
 ): Promise<void> {
 	const file = await planToRead(runtime, planPath, ctx);
 	if (!file) return;
-	const session = await web.start(ctx.cwd, file, { mode: "view" }).catch(() => undefined);
+	const session = await web
+		.start(ctx.cwd, file, {
+			mode: "view",
+			// A view is still a page in a browser: the reason a tab did not come is the one fact
+			// the opened notice cannot carry, so it is said where the person is waiting.
+			onOpenFailure: (reason, url) =>
+				ctx.ui.notify(`Plan view: could not open the browser (${reason}) — open ${url}`, "warning"),
+		})
+		.catch(() => undefined);
 	if (!session) {
 		ctx.ui.notify("Plan view: could not start the browser server.", "error");
 		return;

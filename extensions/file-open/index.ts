@@ -11,28 +11,32 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
-import { openTarget, resolveTarget, type OpenMode } from "./open.ts";
+import type { OpenMode } from "./open.ts";
 import { OpenPathOutput, OpenPathParams, TOOL_NAME, type OpenPathArgs, type OpenPathResult } from "./schema.ts";
 
 export interface FileOpenDeps {
 	/** Override the OS launcher (tests). */
-	open?: typeof openTarget;
+	open?: typeof import("./open.ts").openTarget;
 }
 
 export default function fileOpen(pi: ExtensionAPI, deps: FileOpenDeps = {}): void {
 	if (!isExtensionEnabled("file-open")) return;
-	const open = deps.open ?? openTarget;
 
 	/**
 	 * Resolve `raw` against the effective root and hand it to the native
 	 * handler. A start failure, or a non-zero exit where the platform reports
 	 * one, goes through `ctx.ui.notify` because the handler runs detached; the
 	 * target is returned for the caller's message.
+	 *
+	 * The module that spawns loads on the first call: opening a path is a call-time surface,
+	 * and the OS launcher it shares with the browser pages is weight a session that never
+	 * opens a file should not pay at registration.
 	 */
-	const launch = (mode: OpenMode, raw: string, ctx: ExtensionContext): string => {
+	const launch = async (mode: OpenMode, raw: string, ctx: ExtensionContext): Promise<string> => {
+		const { openTarget, resolveTarget } = await import("./open.ts");
 		const root = resolveEffectiveCwd(ctx.cwd);
 		const target = resolveTarget(root, raw);
-		open(mode, target, {
+		(deps.open ?? openTarget)(mode, target, {
 			onError: (error) => ctx.ui.notify(`Could not open ${target}: ${error.message}`, "error"),
 		});
 		return target;
@@ -62,7 +66,7 @@ export default function fileOpen(pi: ExtensionAPI, deps: FileOpenDeps = {}): voi
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const args = params as OpenPathArgs;
 			const mode: OpenMode = args.reveal ? "reveal" : "open";
-			const target = launch(mode, args.path, ctx);
+			const target = await launch(mode, args.path, ctx);
 			const result: OpenPathResult = { target, reveal: mode === "reveal" };
 			return {
 				content: [{ type: "text", text: `${mode === "reveal" ? "Revealed" : "Opened"} ${target}` }],
@@ -86,7 +90,7 @@ export default function fileOpen(pi: ExtensionAPI, deps: FileOpenDeps = {}): voi
 			const reveal = /^-r\b/.test(trimmed);
 			const rest = trimmed.replace(/^-r\b\s*/, "").trim();
 			try {
-				const target = launch(reveal ? "reveal" : "open", rest, ctx);
+				const target = await launch(reveal ? "reveal" : "open", rest, ctx);
 				ctx.ui.notify(`${reveal ? "Revealing" : "Opening"} ${target}`, "info");
 			} catch (error) {
 				ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");

@@ -70,6 +70,13 @@ export interface BoardHarnessOptions {
 	clock?: () => number;
 	/** The suite's temp tracker, so a directory this creates is cleaned up. */
 	track?: <T extends string | undefined>(dir: T) => T;
+	/**
+	 * The `serve` section the project document states, beside the team.
+	 *
+	 * The page's tab is `serve.autoOpen`, so a case about a page that opens none states it here
+	 * rather than writing a second document over the fixture's team.
+	 */
+	serve?: Record<string, unknown>;
 	/** Override `exec`, for a case whose directory is a real repository. */
 	exec?: FakePiOptions["exec"];
 	/** Test seam: the bus a lane crossing writes to, so a suite records it without a bus. */
@@ -98,7 +105,11 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 		mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
 		writeFileSync(
 			join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE),
-			JSON.stringify({ team: { lead, teammates: options.teammates ?? [lead] }, board: { wip: { perOwner: MAX_WIP } } }),
+			JSON.stringify({
+				team: { lead, teammates: options.teammates ?? [lead] },
+				board: { wip: { perOwner: MAX_WIP } },
+				...(options.serve === undefined ? {} : { serve: options.serve }),
+			}),
 		);
 	}
 	// No git answers by default, so the directory keys on itself: the fallback every

@@ -5,18 +5,25 @@
  */
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { realpathSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS, ENV_ROOT } from "../../lib/env.ts";
-import { useEnv, withEnv } from "../../test/helpers/env.ts";
+import { tempDir, useEnv, withEnv } from "../../test/helpers/env.ts";
 import { createFakePi, emit, type FakePi } from "../../test/helpers/fakes.ts";
 import { fileBrowseCtx, makeFixture, runCommand, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
+import { recordingLaunch } from "../../test/helpers/launcher.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import fileBrowser from "./index.ts";
 import type { FileServer, FileServerOptions, FileServerResult } from "./transport/server.ts";
 
-const env = useEnv({ [ENV_ROOT]: undefined });
-afterAll(() => env.restore());
+// The opener's switch lives in `serve`, which is read from the agent directory as well as
+// the project: an isolated one keeps a developer's global `serve.autoOpen` out of the suite.
+const agentDir = tempDir("pi-agent-");
+const env = useEnv({ [ENV_ROOT]: undefined, PI_CODING_AGENT_DIR: agentDir });
+afterAll(() => {
+	env.restore();
+	rmSync(agentDir, { recursive: true, force: true });
+});
 
 let fixture: Fixture | undefined;
 let other: Fixture | undefined;
@@ -169,6 +176,43 @@ describe("browse command", () => {
 		await runCommand(pi, "browse", "stop", ctx);
 		expect(closes).toBe(1);
 		expect(notifications.at(-1)?.message).toContain("stopped");
+	});
+
+	test("names the launcher's reason when no tab opened, and keeps the page", async () => {
+		fixture = makeFixture();
+		const { pi } = createFakePi();
+		const { launch, child } = recordingLaunch();
+		fileBrowser(pi, { createServer: async () => fakeServer(fixture!.root), launch });
+		const { ctx, notifications } = fileBrowseCtx(fixture.root);
+
+		await runCommand(pi, "browse", "", ctx);
+		child.fail('Executable not found in $PATH: "xdg-open"');
+
+		// The page is served and its URL was already printed; what was missing is why no tab came.
+		expect(notifications.at(-1)).toEqual({
+			message:
+				'browse: could not open the browser (Executable not found in $PATH: "xdg-open") — open http://127.0.0.1:4321/files/',
+			level: "warning",
+		});
+		await runCommand(pi, "browse", "stop", ctx);
+	});
+
+	test("honours serve.autoOpen: the URL is the page, and no launcher is asked", async () => {
+		fixture = makeFixture();
+		mkdirSync(join(fixture.root, ".pi"), { recursive: true });
+		writeFileSync(join(fixture.root, ".pi", "bytefly.json"), JSON.stringify({ serve: { autoOpen: false } }));
+		const { pi } = createFakePi();
+		const { launch, calls } = recordingLaunch();
+		fileBrowser(pi, { createServer: async () => fakeServer(fixture!.root), launch });
+		const { ctx, notifications } = fileBrowseCtx(fixture.root);
+
+		await runCommand(pi, "browse", "", ctx);
+
+		expect(calls).toEqual([]);
+		expect(notifications.map((note) => note.message)).toContain(
+			`browse: ${realpathSync(fixture.root)} at http://127.0.0.1:4321/files/`,
+		);
+		await runCommand(pi, "browse", "stop", ctx);
 	});
 
 	test("closes the server on session shutdown", async () => {

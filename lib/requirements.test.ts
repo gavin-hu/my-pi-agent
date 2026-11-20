@@ -1,7 +1,7 @@
 /**
  * The runtime-prerequisite table and the optional-integration seams: the pure
- * probe over injected seams, the default-browser opener, the lazy `unpdf`
- * extractor, and the nested-`pi` invocation rule.
+ * probe over injected seams, the lazy `unpdf` extractor, and the nested-`pi`
+ * invocation rule.
  *
  * No process, package, or network is touched: every probe runs through a seam,
  * and the one path that exists is a file in this directory.
@@ -9,7 +9,6 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { browserCommand, openInBrowser } from "./browser.ts";
 import type { WebSearchProviderEvent } from "./events.ts";
 import { PdfUnavailableError, extractPdfText, pdfExtractorFromModule, pdfGuidance, pdfTextFromResult } from "./pdf.ts";
 import { getPiInvocation, type PiRuntime } from "./pi-invocation.ts";
@@ -615,38 +614,6 @@ describe("age checks", () => {
 			expect(finding?.severity).toBe("info");
 			expect(finding?.detail).toContain("no verification date");
 		}
-	});
-});
-
-// --- The default browser ----------------------------------------------------
-
-describe("browserCommand", () => {
-	test("uses start on Windows, open on macOS, and xdg-open elsewhere", () => {
-		expect(browserCommand("http://x/", "win32")).toEqual({ command: "cmd", args: ["/c", "start", "", "http://x/"] });
-		expect(browserCommand("http://x/", "darwin")).toEqual({ command: "open", args: ["http://x/"] });
-		expect(browserCommand("http://x/", "linux")).toEqual({ command: "xdg-open", args: ["http://x/"] });
-	});
-});
-
-describe("openInBrowser", () => {
-	test("spawns the platform command with the URL", () => {
-		const calls: Array<[string, string[]]> = [];
-		openInBrowser("http://x/", {
-			platform: "linux",
-			spawn: (command, args) => calls.push([command, args]),
-		});
-		expect(calls).toEqual([["xdg-open", ["http://x/"]]]);
-	});
-
-	test("ignores spawn failures, because the URL is printed too", () => {
-		expect(() =>
-			openInBrowser("http://x/", {
-				platform: "win32",
-				spawn: () => {
-					throw new Error("no browser");
-				},
-			}),
-		).not.toThrow();
 	});
 });
 

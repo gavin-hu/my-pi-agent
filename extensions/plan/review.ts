@@ -155,8 +155,12 @@ export interface BrowserReviewOptions {
 	baseline?: SectionDigest[];
 	/** Aborting the turn closes the session as cancelled. */
 	signal?: AbortSignal;
+	/** Whether this turn is answered from outside the terminal: no tab is opened for one. */
+	remote?: boolean;
 	/** Called once the server is listening and the browser was opened. */
 	onOpened?: (session: PlanReviewSession) => void;
+	/** Called once when the page is up but no tab opened, with the launcher's reason and the URL. */
+	onOpenFailure?: (reason: string, url: string) => void;
 	/**
 	 * Called when a shared reviewer's post lands, so the owner learns about it where
 	 * they are waiting: the page updates itself, the terminal has to be told.
@@ -180,7 +184,9 @@ export async function runBrowserReview(
 			canApprove: options.canApprove,
 			baseline: options.baseline,
 			signal: options.signal,
+			...(options.remote === undefined ? {} : { remote: options.remote }),
 			...(options.onReviewerComment === undefined ? {} : { onReviewerComment: options.onReviewerComment }),
+			...(options.onOpenFailure === undefined ? {} : { onOpenFailure: options.onOpenFailure }),
 		})
 		.catch(() => undefined);
 	if (!session) return undefined;
@@ -230,7 +236,12 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 			canApprove: true,
 			baseline,
 			signal,
+			remote: isRemoteTurn(ctx),
 			onOpened: (session) => ctx.ui.notify(`Plan review: opened ${session.url}`, "info"),
+			// The tab is the step: if it did not come, the review waits on nobody, so the reason
+			// and the address go to the terminal the person is actually at.
+			onOpenFailure: (reason, url) =>
+				ctx.ui.notify(`Plan review: could not open the browser (${reason}) — open ${url}`, "warning"),
 			onReviewerComment: (author, count) =>
 				ctx.ui.notify(`Plan review: @${author} posted ${count === 1 ? "a comment" : `${count} comments`}.`, "info"),
 		});

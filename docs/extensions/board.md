@@ -71,9 +71,9 @@ resolves the landing: an older tree (a merge before the work, past it, or rewrit
 card, or a squashed branch named by the card id its subject ends with. A reviewed merge is its own landing only while it is the
 tip, so a checkout sign needs a re-sign; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
 
-**Commands.** `/board` serves or opens the page (add `team` for the Team tab); `/board approve <id>` and
-`/board review <id> [--root <tree>]` sign as the lead's own session, and `/board archive` runs the sweep
-for it; `status` prints the seat, repository, port, and tabs; `stop` ends the page.
+**Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints
+the URL, and a remote turn says the browser needs this machine); `/board approve <id>` and `review <id>
+[--root <tree>]` sign, `archive` sweeps, `status` prints the seat, repository, port, and tabs; `stop` ends it.
 
 **Who signs.** The lead is `team.lead` in `bytefly.json` (default `gavin`), and the page serves as that name; an
 empty lead lets only the person sign and serves no page. A session signs only while it is the lead, never while

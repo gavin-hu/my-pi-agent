@@ -10,6 +10,29 @@
 import { INTERACTION_TURN_KEY, type InteractionChannel } from "../../lib/interaction.ts";
 import { fakeCtx, type FakeCtxOptions, type FakeCtxResult } from "./context.ts";
 
+/**
+ * Mark an existing context double as answered by a remote channel, the way a chat turn
+ * does, so a suite can take the remote path without building a second context.
+ */
+export function markRemote(ctx: FakeCtxResult["ctx"], channel: InteractionChannel): void {
+	(ctx.ui as Record<string, unknown>)[INTERACTION_TURN_KEY] = channel;
+}
+
+/**
+ * The channel a remote turn installs, answering every dialog as cancelled.
+ *
+ * A case that only needs a turn to *be* remote takes this; one that asserts on what was
+ * asked builds the channel it wants.
+ */
+export function quietChannel(): InteractionChannel {
+	return {
+		isActive: () => true,
+		request: async () => ({ kind: "cancelled" }),
+		post: async () => {},
+		postFile: async () => true,
+	};
+}
+
 export interface RemoteCtxResult extends FakeCtxResult {
 	/** Text posted to the remote channel. */
 	posted: string[];
@@ -48,7 +71,7 @@ export function remoteCtx(options: FakeCtxOptions = {}): RemoteCtxResult {
 			return () => {};
 		},
 	};
-	(result.ctx.ui as Record<string, unknown>)[INTERACTION_TURN_KEY] = channel;
+	markRemote(result.ctx, channel);
 	const editor = result.ctx.ui.editor;
 	result.ctx.ui.editor = async (title: string, prefill?: string) => {
 		events.push("editor");

@@ -10,7 +10,7 @@
  * the socket, and it takes injected seams so tests can run one on `127.0.0.1:0`.
  */
 
-import { openInBrowser } from "../../lib/browser.ts";
+import { type Launch, openPageInBrowser, urlLauncher } from "../../lib/browser.ts";
 import {
 	type HttpMount,
 	jsonHeaders,
@@ -68,6 +68,22 @@ export interface PlanReviewOptions {
 	/** The section digests the previous review showed, so this page can mark changed sections. */
 	baseline?: SectionDigest[];
 	/**
+	 * Whether this turn is answered from outside the terminal.
+	 *
+	 * A remote turn is skipped by the opener before any launcher runs: the tab would open on
+	 * a machine nobody is sitting at. Entering plan mode already refuses a remote turn, so
+	 * this is the rule enforced where the page is, not a second policy.
+	 */
+	remote?: boolean;
+	/**
+	 * Called once when the browser could not be opened, with the launcher's own words and
+	 * the URL the page answers on.
+	 *
+	 * The tab is the step, so a review that opens none waits on nobody: the caller says why —
+	 * and where to paste — instead of letting the decision time out in silence.
+	 */
+	onOpenFailure?: (reason: string, url: string) => void;
+	/**
 	 * Called when a shared reviewer's post lands, so the owner's terminal can say so:
 	 * an open page updates itself, and whoever is waiting in the TUI is told nothing
 	 * until this fires.
@@ -91,8 +107,10 @@ export interface PlanWebReview {
 }
 
 export interface PlanWebReviewDeps {
-	/** Override the browser opener (tests). */
+	/** Record the tab the review asked for, instead of launching one (tests). */
 	open?: (url: string) => void;
+	/** Drive the launcher to a failure, so a case sees the report (tests). */
+	launch?: Launch;
 	/** Override the session token (tests). */
 	token?: () => string;
 	/** Where the review's prefix comes from: the session's server, or a suite's own. */
@@ -463,7 +481,18 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 			else signal.addEventListener("abort", abortHandler, { once: true });
 		}
 
-		(deps.open ?? openInBrowser)(url);
+		// The tab is the step, so the switch does not gate it — only the turn's locality does. The
+		// failure is reported when it happens, not read back off the session: a launcher fails on
+		// a later tick, and a caller that looked immediately would see a page it thinks opened.
+		const launch = deps.open === undefined ? deps.launch : urlLauncher(deps.open);
+		openPageInBrowser(url, {
+			autoOpen: true,
+			remote: options?.remote ?? false,
+			...(launch === undefined ? {} : { launch }),
+			...(options?.onOpenFailure === undefined
+				? {}
+				: { onFailure: (reason: string) => options.onOpenFailure?.(reason, url) }),
+		});
 		return session;
 	};
 

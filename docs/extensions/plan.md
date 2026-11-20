@@ -78,7 +78,9 @@ anything: plan mode stays on.
 
 **Browser review.** `w` opens the plan as a page: comment in the margin, send feedback, or share a
 link. A reviewer reads and comments and draws no **Approve & run**; only the machine that opened
-the review approves, cancels, saves, or shares. The page announces its two moves: a section jump
+the review approves, cancels, saves, or shares. The tab is the step, so `serve.autoOpen` does not
+gate it — but a launcher that cannot start is named with the URL to paste, since a review nobody
+can see waits on nobody. The page announces its two moves: a section jump
 puts the keyboard on the section it scrolled to, so a screen reader reads the heading that
 arrived, and a view the page cannot offer says why in the note under the switch rather than in a
 title a keyboard reader never reaches. The rail's mark reads the pane's own scroll position, so

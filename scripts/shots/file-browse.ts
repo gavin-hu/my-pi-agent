@@ -223,7 +223,7 @@ async function capture(options: ShotOptions): Promise<void> {
 	// the shot does not need a session behind it.
 	const outcome = await createFileServer({
 		root,
-		config: { ...DEFAULT_CONFIG, autoOpen: false },
+		config: DEFAULT_CONFIG,
 		mount: testMountSource(),
 		session: "screenshot",
 		git: createGitStatus(api, root),

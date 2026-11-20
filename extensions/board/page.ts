@@ -15,7 +15,8 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type BoardStore, CARDS_DIR_NAME } from "../../lib/workflow/store.ts";
-import { openInBrowser } from "../../lib/browser.ts";
+import { type Launch, openPageInBrowser, urlLauncher } from "../../lib/browser.ts";
+import { isRemoteTurn } from "../../lib/interaction.ts";
 import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import {
@@ -95,7 +96,10 @@ export type PageStart =
 
 /** Test seams and the one place a caller may redirect the browser. */
 export interface BoardPageDeps {
+	/** Record the tab the page asked for, instead of launching one (tests). */
 	open?: (url: string) => void;
+	/** Drive the launcher to a failure, so a case sees the notice (tests). */
+	launch?: Launch;
 	/** Where the prefix comes from: the session's server, or a suite's own. */
 	mount: MountSource;
 	/** The Pi session this page serves as, so the prefix lands on its socket. */
@@ -167,10 +171,35 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 	const stop = (): Promise<boolean> => closeRunning();
 
 	const start = async (ctx: ExtensionContext, view: PageView = "board"): Promise<PageStart> => {
+		// The tab's switch is `serve`'s and is read once per start, from the directory `serve`
+		// reads its port from — so a project document states both, and a worktree session keeps
+		// reading the checkout's. Loaded here rather than at registration: a session that never
+		// summons the page pays nothing for it.
+		const { loadServeConfig } = await import("../../lib/serve-config.ts");
+		const { autoOpen } = loadServeConfig(ctx.cwd);
+		/**
+		 * Put the page in front of the person, or say why the page is only a URL.
+		 *
+		 * The address is on the command's own line either way; this adds the one fact that line
+		 * cannot carry — that the tab did not come, and why.
+		 */
+		const openPage = (url: string): void => {
+			const target = view === "board" ? url : `${url}&view=team`;
+			const launch = deps.open === undefined ? deps.launch : urlLauncher(deps.open);
+			const outcome = openPageInBrowser(target, {
+				autoOpen,
+				remote: isRemoteTurn(ctx),
+				...(launch === undefined ? {} : { launch }),
+				onFailure: (reason) =>
+					ctx.ui.notify(`board: could not open the browser (${reason}) — open ${target}`, "warning"),
+			});
+			if (outcome === "skipped-remote")
+				ctx.ui.notify(`board: the browser needs the local machine — open ${target}`, "info");
+		};
 		// `/board` is how the page is summoned, and a page whose tab was closed is one
 		// command away from being shown again — the same answer a viewer's `/board` gives.
 		if (running !== undefined) {
-			(deps.open ?? openInBrowser)(view === "board" ? running.server.url : `${running.server.url}&view=team`);
+			openPage(running.server.url);
 			return describe(running);
 		}
 		/** One refusal for every way a start can fail, named by what failed. */
@@ -197,11 +226,10 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 		const lead = store.config().lead;
 		if (lead === "") return failed(new Error("no lead is named — set `team.lead` in bytefly.json, then `/board`"));
 		const seat = pageActor(lead);
-		const open = (url: string) => (deps.open ?? openInBrowser)(view === "board" ? url : `${url}&view=team`);
 		/** Watch the page another session serves: its note is the URL, its seat the name. */
 		const attach = (pointer: PagePointer): PageStart => {
 			attachedTo = pointer;
-			open(urlOf(pointer));
+			openPage(urlOf(pointer));
 			return {
 				kind: "attached",
 				seat: pointer.seat.label,
@@ -310,7 +338,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				ctx.ui.notify(`board: the page did not start (${reason})`, "error");
 				return { kind: "failed", reason };
 			}
-			open(server.url);
+			openPage(server.url);
 			return describe(page);
 		} catch (error) {
 			// Nothing to close when the store or the mount failed; the page itself when the note did,

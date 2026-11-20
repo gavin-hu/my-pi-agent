@@ -11,8 +11,6 @@ import { asBoolean, clampInteger } from "../../../lib/json.ts";
 import { loadConfigSection } from "../../../lib/config.ts";
 
 export interface ServeConfig {
-	/** Open the default browser when the server starts. */
-	autoOpen: boolean;
 	/** Files larger than this are not rendered inline. */
 	maxFileBytes: number;
 	/** Images larger than this get an icon instead of a thumbnail. */
@@ -42,7 +40,6 @@ export interface ServeConfig {
 }
 
 export const DEFAULT_CONFIG: ServeConfig = {
-	autoOpen: true,
 	maxFileBytes: 1024 * 1024,
 	maxThumbBytes: 5 * 1024 * 1024,
 	maxTextLines: 5000,
@@ -89,7 +86,6 @@ export function normalizeConfig(
 ): ServeConfig {
 	if (!raw) return base;
 	return {
-		autoOpen: asBoolean(raw.autoOpen, base.autoOpen),
 		maxFileBytes: clampInteger(raw.maxFileBytes, base.maxFileBytes, 0, 1024 * 1024 * 1024),
 		maxThumbBytes: clampInteger(raw.maxThumbBytes, base.maxThumbBytes, 0, 1024 * 1024 * 1024),
 		maxTextLines: clampInteger(raw.maxTextLines, base.maxTextLines, 1, 1_000_000),

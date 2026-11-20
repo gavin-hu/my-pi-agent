@@ -98,6 +98,10 @@ and `liveIntervalMs` — are in
 [configuration](../configuration-reference.md#file-browse--the-local-file-server). To
 switch the extension off, toggle `file-browse` in `/bytefly`.
 
+Whether `/browse` opens a tab is `serve.autoOpen`, not a `file-browse` key: the same
+switch governs `/board`, and it is documented with the page server
+([configuration](../configuration-reference.md#serve--the-sessions-page-server)).
+
 ## Learn more
 
 - [Browse your working directory](../tutorials/first-browse.md) — the walkthrough.

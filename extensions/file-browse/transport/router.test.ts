@@ -704,14 +704,14 @@ describe("loopback server", () => {
 		// the Markdown destinations, so the mount and the document agree. This case is that
 		// claim, and it is meant to fail when the prefix moves.
 		expect(BROWSE_BASE).toBe("/files");
-		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		server = await servePage(fixture.root, DEFAULT_CONFIG);
 		expect(new URL(server.url).pathname).toBe("/files/");
 		expect(await (await fetch(server.url)).text()).toContain('<script src="/files/app.js"');
 	});
 
 	test("leaves the origin's root to the other pages, and redirects a bare prefix", async () => {
 		fixture = makeFixture();
-		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		server = await servePage(fixture.root, DEFAULT_CONFIG);
 		const origin = new URL(server.url).origin;
 		// The origin's root is unclaimed by decision: `board` and a plan review leave it free.
 		const root = await fetch(`${origin}/`);
@@ -725,7 +725,7 @@ describe("loopback server", () => {
 
 	test("serves listings, files, and the tree API over HTTP", async () => {
 		fixture = makeFixture();
-		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		server = await servePage(fixture.root, DEFAULT_CONFIG);
 		expect(server.port).toBeGreaterThan(0);
 		expect(server.url.startsWith("http://127.0.0.1:")).toBe(true);
 
@@ -756,13 +756,9 @@ describe("loopback server", () => {
 
 	test("streams a status frame as a page connects, and ends it on close", async () => {
 		fixture = makeFixture();
-		const started = await servePage(
-			fixture.root,
-			{ ...DEFAULT_CONFIG, autoOpen: false },
-			{
-				git: async () => ({ branch: "main" }),
-			},
-		);
+		const started = await servePage(fixture.root, DEFAULT_CONFIG, {
+			git: async () => ({ branch: "main" }),
+		});
 		server = started;
 		const reply = await fetch(`${started.url}events`);
 		expect(reply.status).toBe(200);
@@ -802,7 +798,7 @@ describe("loopback server", () => {
 			headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
 			stream: true,
 		};
-		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false }, { handler: async () => stream });
+		server = await servePage(fixture.root, DEFAULT_CONFIG, { handler: async () => stream });
 		// Held, not started: a reader nothing references is collected, tearing its connection down and
 		// freeing the slot it counted — the `--parallel` race the forced collection below replays.
 		const held: unknown[] = [];
@@ -838,16 +834,12 @@ describe("loopback server", () => {
 			closed = resolve;
 		});
 		let started: FileServer | undefined;
-		started = await servePage(
-			fixture.root,
-			{ ...DEFAULT_CONFIG, autoOpen: false },
-			{
-				idleStopMs: 20,
-				onIdle: () => {
-					void started?.close().then(() => closed?.());
-				},
+		started = await servePage(fixture.root, DEFAULT_CONFIG, {
+			idleStopMs: 20,
+			onIdle: () => {
+				void started?.close().then(() => closed?.());
 			},
-		);
+		});
 		server = started;
 
 		// A raw socket, so closing it is the page leaving and nothing else.

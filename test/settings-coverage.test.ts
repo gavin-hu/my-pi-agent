@@ -51,7 +51,7 @@ import {
 	normalizeConfig as normalizeJobConfig,
 } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG, normalizeMemoryConfig } from "../extensions/memory/config.ts";
-import { DEFAULT_SERVE_CONFIG, normalizeServeConfig } from "../extensions/serve/config.ts";
+import { DEFAULT_SERVE_CONFIG, normalizeServeConfig } from "../lib/serve-config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG,
 	normalizeConfig as normalizeRewindConfig,
@@ -140,7 +140,7 @@ const SECTIONS: readonly SectionCase[] = [
 		section: "serve",
 		defaults: DEFAULT_SERVE_CONFIG,
 		normalize: (raw) => normalizeServeConfig(raw, DEFAULT_SERVE_CONFIG),
-		jsonOnly: { port: "a fixed port is an operator decision" },
+		jsonOnly: { port: "a fixed port is an operator decision", autoOpen: "browser behaviour, not agent behaviour" },
 	},
 	{
 		section: "file-read",
@@ -158,7 +158,6 @@ const SECTIONS: readonly SectionCase[] = [
 		defaults: DEFAULT_FILE_BROWSE_CONFIG,
 		normalize: (raw) => normalizeFileBrowseConfig(raw, DEFAULT_FILE_BROWSE_CONFIG),
 		jsonOnly: {
-			autoOpen: "browser behaviour, not agent behaviour",
 			maxFileBytes: "a rendering limit, not a preference",
 			maxThumbBytes: "a rendering limit, not a preference",
 			maxTextLines: "a rendering limit, not a preference",

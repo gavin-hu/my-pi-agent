@@ -17,9 +17,8 @@ describe("normalizeConfig defaults", () => {
 		expect(normalizeConfig(undefined)).toEqual(DEFAULT_CONFIG);
 	});
 
-	test("defaults the server, the caps, the diff view, and live status", () => {
+	test("defaults the caps, the diff view, and live status", () => {
 		expect(DEFAULT_CONFIG).toMatchObject({
-			autoOpen: true,
 			maxFileBytes: 1024 * 1024,
 			maxThumbBytes: 5 * 1024 * 1024,
 			maxTextLines: 5000,
@@ -39,7 +38,6 @@ describe("normalizeConfig defaults", () => {
 
 describe("normalizeConfig booleans", () => {
 	const cases: Array<[keyof ServeConfig, string]> = [
-		["autoOpen", "open the browser"],
 		["thumbnails", "inline thumbnails"],
 		["markdown", "rendered Markdown"],
 		["markdownHtml", "sanitized raw HTML"],

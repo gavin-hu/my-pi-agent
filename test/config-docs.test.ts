@@ -30,7 +30,7 @@ import { DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG } from "../extensions/rewind/co
 import { DEFAULT_SUBAGENT_CONFIG } from "../extensions/subagent/config.ts";
 import { DEFAULT_TODO_CONFIG } from "../extensions/todo/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WATCH_CONFIG } from "../extensions/watch/config.ts";
-import { DEFAULT_SERVE_CONFIG } from "../extensions/serve/config.ts";
+import { DEFAULT_SERVE_CONFIG } from "../lib/serve-config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WECHAT_CONFIG } from "../extensions/wechat/config.ts";
 import { DEFAULT_FETCH_CONFIG } from "../extensions/web-access/fetch/config.ts";
 import { DEFAULT_SEARCH_CONFIG } from "../extensions/web-access/search/config.ts";

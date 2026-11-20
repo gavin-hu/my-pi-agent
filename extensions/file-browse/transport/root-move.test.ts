@@ -65,7 +65,7 @@ describe("the served root moving", () => {
 
 	test("serves the new root from the same URL, and tells every open page", async () => {
 		fixture = makeFixture();
-		const started = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		const started = await servePage(fixture.root, DEFAULT_CONFIG);
 		server = started;
 		expect(await (await fetch(started.url)).text()).toContain("a.txt");
 
@@ -90,7 +90,7 @@ describe("the served root moving", () => {
 
 	test("leaves the page on its root when the new one cannot be served", async () => {
 		fixture = makeFixture();
-		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		server = await servePage(fixture.root, DEFAULT_CONFIG);
 
 		// A root that is gone — a worktree removed under the page — is refused before
 		// anything is swapped, so the page keeps answering rather than failing.
