@@ -7,6 +7,7 @@
  */
 
 import { noteLabel, type MemoryDetails, type MemoryNote, type MemoryScope } from "./types.ts";
+import { ARROW, SEPARATORS } from "../../lib/tui/glyphs.ts";
 
 /** Marker heading the hidden injected context message. */
 export const MEMORY_CONTEXT_MARKER = "[MEMORY]";
@@ -54,26 +55,26 @@ export function formatCallText(
 	argsComplete = true,
 ): string {
 	const action = typeof args.action === "string" ? args.action.toLowerCase() : "";
-	if (action === "list") return "→ list";
+	if (action === "list") return `${ARROW} list`;
 	if (action !== "add" && action !== "forget" && action !== "update" && action !== "merge") {
-		return argsComplete ? "" : "→ …";
+		return argsComplete ? "" : `${ARROW} …`;
 	}
 	const scope = scopeLabel(args.scope === "global" ? "global" : "project");
 	if (action === "merge") {
 		const first = typeof args.first === "string" ? args.first.trim() : "";
 		const second = typeof args.second === "string" ? args.second.trim() : "";
 		const merged = typeof args.merged === "string" ? args.merged.trim() : "";
-		if (!first) return `→ merge (${scope})`;
-		if (!second || !merged) return `→ merge (${scope}): ${first}`;
-		return `→ merge (${scope}): ${first} + ${second} → ${merged}`;
+		if (!first) return `${ARROW} merge (${scope})`;
+		if (!second || !merged) return `${ARROW} merge (${scope}): ${first}`;
+		return `${ARROW} merge (${scope}): ${first} + ${second}${SEPARATORS.arrow}${merged}`;
 	}
 	const text = typeof args.text === "string" ? args.text.trim() : "";
 	if (action === "update") {
 		const to = typeof args.to === "string" ? args.to.trim() : "";
-		if (!text) return `→ update (${scope})`;
-		return to ? `→ update (${scope}): ${text} → ${to}` : `→ update (${scope}): ${text}`;
+		if (!text) return `${ARROW} update (${scope})`;
+		return to ? `${ARROW} update (${scope}): ${text}${SEPARATORS.arrow}${to}` : `${ARROW} update (${scope}): ${text}`;
 	}
-	return text ? `→ ${action} (${scope}): ${text}` : `→ ${action} (${scope})`;
+	return text ? `${ARROW} ${action} (${scope}): ${text}` : `${ARROW} ${action} (${scope})`;
 }
 
 /** The labels a reader sees for one scope's notes: `[jack] text`, or the bare text. */

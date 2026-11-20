@@ -23,7 +23,7 @@ import {
 	toolCallTitle,
 } from "../../../lib/tui/tool.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { ARROW, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { charLength } from "../text.ts";
 import { oneLine } from "../transcript.ts";
 import { createPageCache, type PageCache } from "./cache.ts";
@@ -264,7 +264,8 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 			const label = oneLine(page.title || page.finalUrl);
 			let line = paint(theme, "meta", label);
 			line += paint(theme, "faint", `${SEPARATORS.item}${page.status}`);
-			if (page.finalUrl !== page.url) line += paint(theme, "faint", `${SEPARATORS.item}→ ${oneLine(page.finalUrl)}`);
+			if (page.finalUrl !== page.url)
+				line += paint(theme, "faint", `${SEPARATORS.item}${ARROW} ${oneLine(page.finalUrl)}`);
 			if (page.matches.length > 0) line += paint(theme, "faint", `${SEPARATORS.item}${page.matches.length} match(es)`);
 			else line += paint(theme, "faint", `${SEPARATORS.item}${formatTokens(page.totalChars)} chars`);
 			if (page.cached) line += paint(theme, "faint", " (cached)");

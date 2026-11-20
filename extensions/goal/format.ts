@@ -9,7 +9,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { ARROW, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Goal, GoalStatus } from "./types.ts";
 
@@ -130,9 +130,9 @@ export function previewObjective(objective: string, max = CALL_PREVIEW_WIDTH): s
  * disambiguates the tail end of the stream.
  */
 export function formatCallText(objective: string | undefined, argsComplete = true, status?: GoalStatus): string {
-	if (objective === undefined) return argsComplete ? "→ clear" : "→ …";
+	if (objective === undefined) return argsComplete ? `${ARROW} clear` : `${ARROW} …`;
 	const text = objective.trim();
-	if (!text) return status === "achieved" ? "→ achieve" : "→ clear";
+	if (!text) return status === "achieved" ? `${ARROW} achieve` : `${ARROW} clear`;
 	const verb = status === "achieved" ? "achieve" : "set";
-	return `→ ${verb}: ${previewObjective(text)}`;
+	return `${ARROW} ${verb}: ${previewObjective(text)}`;
 }

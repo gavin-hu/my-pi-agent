@@ -6,6 +6,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- tui: the state-change arrow has one home. `→` was hand-typed in nine source files that build call
+  subjects — memory, todo, goal, job, team, watch, subagent, the fetch result's final URL and the
+  context report's token comparison — while `↑`, `↳` and `⊚` all came from the vocabulary and
+  `SEPARATORS` held only `item`. `ARROW` is exported from `lib/tui/glyphs.ts` and
+  `SEPARATORS.arrow` is `${ARROW}` spaced for a join, so the literal has one owner: the leading shape
+  (`→ clear list`) keeps its own spacing at the call site, because it has no left-hand state to
+  join. The refactor renders the same bytes, which the suites that pin those subjects prove
+  unchanged. U+2192 is East-Asian *A (ambiguous)* — the class the module allows, along with `▸`,
+  `⊚` and `›` — and `lib/tui/glyphs.test.ts` now holds its width, the separator's, and states the
+  class, which is the version that fails on a hand-copied `⇒` rather than only on a missing name.
+  That suite is where the vocabulary cases moved to: `components.test.ts` was 395 lines and they
+  took it to 430, so `GLYPHS` and `SEPARATORS` moved out and it is back at 368. The module's
+  docstring had cited `lib/tui/glyphs.test.ts` for the ban all along — the reference pointed at a
+  file that did not exist, and the split makes it true rather than correcting it. One site stays hand-typed on purpose: the context
+  report's compaction line (`cut 40,000 → 2,000 summary`) — importing the vocabulary would add two
+  static modules to that entry, whose registration budget may only fall — and the prose uses (a
+  goal note, a subagent prompt, comments) stay as prose. `send_wechat`'s result line takes the capital
+  its neighbours use — `Sent to WeChat owner` — and its two pictures that draw it are recaptured
+  (`send_wechat.png`, `send_wechat-file.png`; the running one is unchanged, and both moved frames
+  were byte-identical to the shipped file when captured from main's tree).
+
 - tui: a path or URL in a tool result stays one token. `plan write`'s saved path, `plan exit`'s plan
   row and `web_search`'s URL rows were strings handed to Pi's `Text`, which can only wrap — and a
   path is one token, so at 40 columns the saved path broke after `2026-10` and read as four lines

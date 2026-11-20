@@ -59,9 +59,23 @@ export const GLYPHS = {
 /** Columns between a rail body glyph and its text. */
 export const GLYPH_GAP = 1;
 
+/**
+ * The state-change arrow: `memory → add (project)`, `→ clear list`.
+ *
+ * Two jobs, one literal. Between two states it is a {@link SEPARATORS} join; leading a call's
+ * argument (`→ clear`, `→ 3/5`) it has no left-hand state to join, so the call site keeps its
+ * own spacing. U+2192 is East-Asian *A (ambiguous)* — the class this module allows, along with
+ * `▸`, `⊚` and `›` — so it is one column by default and two under a CJK-width profile, the
+ * same trade every glyph here makes. `lib/tui/components.test.ts` holds its width and states
+ * the class, so a hand-copied wide arrow fails there.
+ */
+export const ARROW = "→";
+
 /** Padding used to join UI segments. */
 export const SEPARATORS = {
 	item: " · ",
+	/** Between two states, spaced on both sides: `billing-core → #12`. */
+	arrow: ` ${ARROW} `,
 } as const;
 
 /** `ctx.ui.setStatus` keys; one per extension that publishes a chip. */
