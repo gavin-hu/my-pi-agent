@@ -23,6 +23,7 @@ describe("the review's scopes", () => {
 			label: "origin/main...HEAD",
 			untracked: false,
 			needsParent: false,
+			title: "the branch against its base",
 		});
 	});
 
@@ -32,7 +33,16 @@ describe("the review's scopes", () => {
 			label: "HEAD~1...HEAD",
 			untracked: false,
 			needsParent: true,
+			title: "HEAD~1...HEAD — the last commit",
 		});
+	});
+
+	test("give every scope a title, so a new one adds its row where its args are", () => {
+		for (const scope of REVIEW_SCOPES) {
+			expect(scopeArgs(scope, "main").title).not.toBe("");
+		}
+		expect(scopeArgs("staged", "main").title).toContain("index");
+		expect(scopeArgs("worktree", "main").title).toContain("working tree");
 	});
 
 	test("read the index and the working tree, and only the tree has untracked files", () => {

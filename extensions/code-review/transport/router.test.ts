@@ -132,7 +132,7 @@ describe("the page's GETs", () => {
 		expect(refused.status).toBe(403);
 	});
 
-	test("refuses a scope change while comments are on the page", async () => {
+	test("refuses a scope change while a draft is on the page", async () => {
 		const harnessed = harness();
 		const token = await opened(harnessed);
 		await reply(
@@ -145,8 +145,63 @@ describe("the page's GETs", () => {
 		);
 		const result = await reply(harnessed.handler, request("GET", "/new?scope=staged"));
 		expect(result.status).toBe(409);
-		expect(result.body).toContain("has 1 comment");
+		expect(result.body).toContain("1 draft comment");
 		expect(harnessed.store.current()?.scope).toBe("base");
+	});
+
+	test("refuses a scope change for marks alone, and keeps them", async () => {
+		const harnessed = harness();
+		const token = await opened(harnessed);
+		const marked = await reply(
+			harnessed.handler,
+			request("POST", "/api/reviewed", { token, rev: "rev-1", rel: "a.ts", reviewed: true }),
+		);
+		expect(marked.status).toBe(200);
+		const result = await reply(harnessed.handler, request("GET", "/new?scope=staged"));
+		expect(result.status).toBe(409);
+		expect(result.body).toContain("1 file marked reviewed");
+		expect(harnessed.store.current()?.scope).toBe("base");
+		expect(harnessed.store.current()?.review?.reviewed).toEqual(["a.ts"]);
+	});
+
+	test("names both counts when a draft and a mark are on the page", async () => {
+		const harnessed = harness();
+		const token = await opened(harnessed);
+		await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", body: "hi" },
+			}),
+		);
+		await reply(
+			harnessed.handler,
+			request("POST", "/api/reviewed", { token, rev: "rev-1", rel: "a.ts", reviewed: true }),
+		);
+		const result = await reply(harnessed.handler, request("GET", "/new?scope=staged"));
+		expect(result.status).toBe(409);
+		expect(result.body).toContain("1 draft comment");
+		expect(result.body).toContain("1 file marked reviewed");
+	});
+
+	test("lets a scope change through once nothing is left to lose", async () => {
+		const harnessed = harness();
+		const token = await opened(harnessed);
+		await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", body: "hi" },
+			}),
+		);
+		await reply(harnessed.handler, request("POST", "/api/send", { token, rev: "rev-1" }));
+		const result = await reply(harnessed.handler, request("GET", "/new?scope=staged"));
+		expect(result.status).toBe(200);
+		expect(harnessed.store.current()?.scope).toBe("staged");
+		expect(harnessed.store.current()?.review).toBeUndefined();
+		expect(harnessed.sent).toHaveLength(1);
 	});
 
 	test("serves the client and the shared theme without a token", async () => {

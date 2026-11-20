@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { Review } from "../review/store.ts";
 import { REVIEW_SCOPES } from "../scope.ts";
-import { renderReviewPage, renderReviewProblem } from "./page.ts";
+import { comparisonLine, renderReviewPage, renderReviewProblem } from "./page.ts";
 
 /** A two-file snapshot with a hunk, a context row, and a deleted line. */
 function snapshot(overrides: Partial<ReviewSnapshot> = {}): ReviewSnapshot {
@@ -87,7 +87,8 @@ describe("the review page", () => {
 		expect(html).toContain("bf-diff-line--del");
 		expect(html).toContain("mount(prefix, grace);");
 		expect(html).toContain("origin/main...HEAD");
-		expect(html).toContain("snapshot abc123");
+		// The footer names the comparison it holds, not the fingerprint that keys a write.
+		expect(html).not.toContain(`snapshot ${snapshot().fingerprint}`);
 	});
 
 	test("carries the review as data, with the token and no markup from a comment", () => {
@@ -107,7 +108,7 @@ describe("the review page", () => {
 		const html = renderReviewPage(input({ review: review() }));
 		expect(html).toContain('data-path="lib/http/mount.ts" data-state="commented"');
 		expect(html).toContain('data-path="docs/serve.md" data-state="reviewed"');
-		expect(html).toContain('data-reviewed="docs/serve.md" checked');
+		expect(html).toContain('data-reviewed="docs/serve.md" aria-label="Mark docs/serve.md reviewed" checked');
 		expect(html).toContain("1 draft");
 		expect(html).toContain("Send feedback 1");
 	});
@@ -132,12 +133,50 @@ describe("the review page", () => {
 		expect(html).not.toContain('class="rv-file"');
 	});
 
-	test("offers every scope as a link, with the current one selected", () => {
+	test("offers every scope as a link, with the current one selected and its title saying what it compares", () => {
 		const html = renderReviewPage(input());
 		for (const scope of REVIEW_SCOPES) {
 			expect(html).toContain(`/review/new?scope=${scope}`);
 		}
-		expect(html).toContain('aria-selected="true">base</a>');
+		// The segment says the word the URL, the command and the tool say.
+		expect(html).toContain('aria-selected="true" title="the branch against its base">base</a>');
+		expect(html).toContain('title="HEAD~1...HEAD — the last commit">last</a>');
+	});
+
+	test("names what the footer holds, and never a sha it does not have", () => {
+		expect(comparisonLine(snapshot())).toBe("origin/main...HEAD");
+		expect(comparisonLine({ ...snapshot(), head: "a5efbb9" })).toBe("origin/main...HEAD · HEAD a5efbb9");
+		expect(comparisonLine({ ...snapshot(), head: "a5efbb9", baseSha: "3f9c21a" })).toBe(
+			"origin/main 3f9c21a → HEAD a5efbb9",
+		);
+		const html = renderReviewPage(input({ snapshot: snapshot({ head: undefined, baseSha: undefined }) }));
+		expect(html).not.toContain("undefined");
+	});
+
+	test("hides the draft chip and the review id until each has something to say", () => {
+		const empty = renderReviewPage(input());
+		expect(empty).toContain('id="rv-state" hidden=""');
+		expect(empty).toContain('id="rv-id" hidden=""');
+		const withWork = renderReviewPage(input({ review: review() }));
+		expect(withWork).toContain('id="rv-state"');
+		expect(withWork).not.toContain('id="rv-state" hidden');
+		expect(withWork).toContain("review&#39;s id: r7c1");
+	});
+
+	/**
+	 * The markup a reader relies on before any script runs, and which no filter case can see:
+	 * a row that names its path on the hover, a directory that keeps its leaf in view (an rtl
+	 * line box around a bdi path — the trap the card's risk section names), the count a screen
+	 * reader is told when it changes, and both empty-state hooks the client reveals.
+	 */
+	test("names each row's path, truncates its directory, and announces the count", () => {
+		const html = renderReviewPage(input());
+		expect(html).toContain('title="lib/http/mount.ts"');
+		expect(html).toContain('<span class="rv-rail__dir" dir="rtl"><bdi>lib/http</bdi></span>');
+		expect(html).toContain('id="rv-file-count" aria-live="polite"');
+		expect(html).toContain('aria-label="Mark lib/http/mount.ts reviewed"');
+		expect(html).toContain('id="rv-rail-empty" hidden');
+		expect(html).toContain('id="rv-filter-note" hidden');
 	});
 
 	test("a problem page names the reason and offers the way back", () => {

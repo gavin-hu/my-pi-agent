@@ -35,7 +35,9 @@ export const REVIEW_CSS = `
 .rv-rail[data-state="reviewed"]{--paper:var(--success-soft);--role:var(--success)}
 .rv-rail__mark{font:var(--fw-semibold) var(--fs-xs)/1.7 var(--font-mono);color:var(--role)}
 .rv-rail__name{font:var(--fw-semibold) var(--fs-sm)/1.4 var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv-rail__dir{display:block;font:var(--fs-xs)/1.5 var(--font-mono);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The directory keeps its leaf in view: an rtl line box puts the ellipsis at the start, and
+   the bdi isolates the path as the LTR text it is, so its own slashes stay where they were. */
+.rv-rail__dir{display:block;direction:rtl;text-align:left;font:var(--fs-xs)/1.5 var(--font-mono);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rv-rail__notes{display:block;margin-top:2px;font:var(--fs-xs)/1.5 var(--font-ui);color:var(--role)}
 .rv-rail__meta{display:flex;gap:5px;font:var(--fs-xs)/1.5 var(--font-mono);font-variant-numeric:tabular-nums}
 .rv-add{color:var(--success)}
@@ -45,7 +47,9 @@ export const REVIEW_CSS = `
 .rv-banner{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--warn);background:var(--search-soft);border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm)}
 .rv-banner b{color:var(--text)}
 .rv-file{margin-top:var(--space-4)}
-.rv-file__head{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-2) var(--space-5);background:var(--paper,var(--raised));border-left:2px solid var(--role,var(--muted));border-bottom:1px solid var(--border)}
+/* The head is outside the diff's own scroll box, so the page is its scrollport: it pins while
+   the reader scrolls the file, and a hunk jump lands below it (scroll-margin-top, measured). */
+.rv-file__head{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-2) var(--space-5);background:var(--paper,var(--raised));border-left:2px solid var(--role,var(--muted));border-bottom:1px solid var(--border)}
 .rv-file[data-state="commented"] .rv-file__head{--paper:var(--search-soft);--role:var(--warn)}
 .rv-file[data-state="reviewed"] .rv-file__head{--paper:var(--success-soft);--role:var(--success)}
 .rv-file__mark{font:var(--fw-semibold) var(--fs-xs)/1.6 var(--font-mono);color:var(--role,var(--accent));border:1px solid currentColor;border-radius:var(--radius-sm);padding:0 4px}
@@ -73,7 +77,7 @@ export const REVIEW_CSS = `
 .rv-diff .bf-diff-line--add .browse-diff-sign{color:var(--success)}
 .rv-diff .bf-diff-line--del{background:var(--danger-soft)}
 .rv-diff .bf-diff-line--del .browse-diff-sign{color:var(--danger)}
-.rv-diff .bf-diff-line--hunk{color:var(--accent);background:var(--surface)}
+.rv-diff .bf-diff-line--hunk{color:var(--accent);background:var(--surface);scroll-margin-top:var(--rv-head-h,0px)}
 .rv-diff .bf-diff-line--meta{color:var(--muted)}
 .rv-diff .bf-diff-line--note{color:var(--muted);font-style:italic}
 .rv-diff[data-wrap="true"] .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}
@@ -88,12 +92,19 @@ export const REVIEW_CSS = `
 .rv-compose__area{display:block;width:100%;min-height:74px;resize:vertical;border:0;outline:0;background:transparent;color:var(--text);padding:var(--space-3);font:var(--fs-sm)/1.6 var(--font-ui);box-sizing:border-box}
 .rv-compose__head{display:flex;align-items:baseline;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border);color:var(--muted);font-size:var(--fs-xs)}
 .rv-compose__acts{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-top:1px solid var(--border)}
+/* A draft carried across a moved diff says so on the composer it lands in. */
+.rv-compose__note{margin-left:auto;color:var(--warn);font:var(--fs-xs)/1.4 var(--font-ui)}
 .rv-selbar{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);display:none;align-items:center;gap:var(--space-2);padding:var(--space-2);background:var(--raised);border:1px solid var(--border-strong);border-radius:var(--radius-lg);box-shadow:var(--shadow-2);z-index:60}
 .rv-selbar[data-open="true"]{display:flex}
 .rv-selbar__ref{font:var(--fs-sm)/1.5 var(--font-mono);color:var(--text);padding:0 var(--space-2);max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rv-toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);max-width:min(560px,calc(100vw - 32px));padding:var(--space-2) var(--space-4);background:var(--raised);border:1px solid var(--border-strong);border-left:2px solid var(--success);border-radius:var(--radius-md);box-shadow:var(--shadow-2);z-index:70;font-size:var(--fs-sm);opacity:0;pointer-events:none;transition:opacity var(--motion-base) var(--motion-ease)}
 .rv-toast[data-open="true"]{opacity:1}
 .rv-empty{margin:var(--space-6) var(--space-5);padding:var(--space-5);border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted)}
+/* The rail's own empty state and the pane's filter line: both say what a narrowed view hides. */
+.rv-side__empty{margin:var(--space-2);padding:var(--space-3);border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted);font:var(--fs-sm)/1.5 var(--font-ui)}
+.rv-side__empty .bf-btn{margin-left:var(--space-2)}
+.rv-filter-note{margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--accent);background:var(--accent-soft);border-radius:var(--radius-sm);color:var(--muted);font:var(--fs-sm)/1.5 var(--font-ui)}
+.rv-filter-note .bf-btn{margin-left:var(--space-2)}
 .rv-empty__title{margin:0;color:var(--text);font-weight:var(--fw-semibold)}
 .rv-empty__sub{margin:var(--space-1) 0 0;font-size:var(--fs-sm)}
 .rv-dialog-list{display:flex;flex-direction:column;gap:var(--space-2);max-height:52vh;overflow:auto}

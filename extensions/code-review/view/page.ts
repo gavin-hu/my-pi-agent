@@ -23,12 +23,13 @@ import {
 	keysSheet,
 	pageFooter,
 	pageSheet,
+	reloadChip,
 	tabTitle,
 } from "../../../lib/web/index.ts";
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { Review, ReviewComment } from "../review/store.ts";
 import { MAX_COMMENT_LENGTH, MAX_COMMENTS, MAX_QUOTE_LENGTH } from "../review/store.ts";
-import { REVIEW_SCOPES, SCOPE_WORDS, type ReviewScope } from "../scope.ts";
+import { REVIEW_SCOPES, SCOPE_WORDS, scopeArgs, type ReviewScope } from "../scope.ts";
 import { REVIEW_CSS } from "./styles.ts";
 
 /** What the client is told about the page; the island carries it as one value. */
@@ -45,6 +46,8 @@ export interface ReviewData {
 	comments: ReviewComment[];
 	reviewed: string[];
 	limits: { comments: number; body: number; quote: number };
+	/** The footer's first clause, built from whatever commits the snapshot holds. */
+	comparison: string;
 }
 
 /** One page render's inputs. */
@@ -63,12 +66,14 @@ export interface ReviewPageInput {
 /** The kit's shortcut rows for this page. */
 const REVIEW_KEYS = [
 	{ keys: "?", label: "This sheet" },
-	{ keys: "j k", label: "Next and previous file" },
+	{ keys: "/", label: "Focus the file filter" },
+	{ keys: ["j k", "↓ ↑"], label: "Next and previous line" },
+	{ keys: "Shift", label: "Extend the range with a move or a click" },
+	{ keys: "Enter", label: "Comment on the cursor line" },
+	{ keys: "c", label: "Comment on the cursor line" },
+	{ keys: "m", label: "Mark the current file reviewed" },
 	{ keys: "]", label: "Next hunk" },
 	{ keys: "[", label: "Previous hunk" },
-	{ keys: "Shift", label: "With a gutter click, extend the line selection" },
-	{ keys: "c", label: "Comment on the selected line" },
-	{ keys: "m", label: "Mark the current file reviewed" },
 	{ keys: "w", label: "Toggle line wrapping" },
 	{ keys: "Esc", label: "Close a composer, a dialog, or the sheet" },
 ];
@@ -82,8 +87,9 @@ function fileState(rel: string, comments: readonly ReviewComment[], reviewed: Re
 /** The word a file's own line says about its state. */
 function stateWord(state: string): string {
 	if (state === "reviewed") return "marked reviewed";
-	if (state === "commented") return "comments owed";
-	return "not read yet";
+	// A file without a comment is not "unread": the page cannot know that. The `commented`
+	// case never reaches here — a file with comments prints its count instead.
+	return "no comment";
 }
 
 /** A path split for the rail: its directory and its name. */
@@ -103,9 +109,9 @@ function railRow(
 	const count = comments.filter((comment) => comment.rel === file.rel).length;
 	const { dir, name } = splitPath(file.rel);
 	const note = count === 0 ? stateWord(state) : `${count} comment${count === 1 ? "" : "s"}`;
-	return `<a class="rv-rail" href="#rv-file-${index}" data-path="${escapeHtml(file.rel)}" data-state="${state}"${index === 0 ? ' aria-current="true"' : ""}>
+	return `<a class="rv-rail" href="#rv-file-${index}" data-path="${escapeHtml(file.rel)}" data-state="${state}"${index === 0 ? ' aria-current="true"' : ""} title="${escapeHtml(file.rel)}">
   <span class="rv-rail__mark" aria-hidden="true">${escapeHtml(file.status)}</span>
-  <span><span class="rv-rail__name">${escapeHtml(name)}</span><span class="rv-rail__dir">${escapeHtml(dir)}</span><span class="rv-rail__notes">${escapeHtml(note)}</span></span>
+  <span><span class="rv-rail__name">${escapeHtml(name)}</span><span class="rv-rail__dir" dir="rtl"><bdi>${escapeHtml(dir)}</bdi></span><span class="rv-rail__notes">${escapeHtml(note)}</span></span>
   <span class="rv-rail__meta"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
 </a>`;
 }
@@ -126,7 +132,7 @@ function fileSection(
   <span class="rv-file__stats"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
   <span class="rv-file__acts">
     <span class="bf-tag" data-count>${count === 0 ? escapeHtml(stateWord(state)) : `${count} comment${count === 1 ? "" : "s"}`}</span>
-    <label class="rv-file__check"><input type="checkbox" data-reviewed="${escapeHtml(file.rel)}"${reviewed.has(file.rel) ? " checked" : ""}> reviewed</label>
+    <label class="rv-file__check"><input type="checkbox" data-reviewed="${escapeHtml(file.rel)}" aria-label="Mark ${escapeHtml(file.rel)} reviewed"${reviewed.has(file.rel) ? " checked" : ""}> reviewed</label>
   </span>
 </div>`;
 	const notes: string[] = [];
@@ -160,8 +166,22 @@ function languageOf(rel: string): HighlightLanguage | undefined {
 function scopeSegments(base: string, scope: ReviewScope): string {
 	return `<div class="bf-tabs" role="group" aria-label="What the diff compares">${REVIEW_SCOPES.map(
 		(option) =>
-			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}">${SCOPE_WORDS[option]}</a>`,
+			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}" title="${escapeHtml(scopeArgs(option, "").title)}">${SCOPE_WORDS[option]}</a>`,
 	).join("")}</div>`;
+}
+
+/**
+ * The footer's comparison clause, from whatever commits the snapshot holds: both shas name the
+ * two ends, a head alone names the side it has, and neither leaves the comparison's own label.
+ * Never `undefined` — the absent form is a scope with no commit to name (a fresh repository's
+ * staged or working tree), not a hole in the sentence.
+ */
+export function comparisonLine(snapshot: Pick<ReviewSnapshot, "label" | "head" | "baseSha">): string {
+	const head = snapshot.head === undefined ? "" : `HEAD ${snapshot.head}`;
+	const base = snapshot.baseSha === undefined ? "" : `${snapshot.label.split("...")[0] ?? ""} ${snapshot.baseSha}`;
+	if (base && head) return `${base} → ${head}`;
+	if (head) return `${snapshot.label} · ${head}`;
+	return snapshot.label;
 }
 
 /** The island: the review as data, with `<` escaped so a body cannot end the script. */
@@ -176,6 +196,7 @@ export function reviewData(input: ReviewPageInput): ReviewData {
 		comments: input.review?.comments ?? [],
 		reviewed: input.review?.reviewed ?? [],
 		limits: { comments: MAX_COMMENTS, body: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
+		comparison: comparisonLine(input.snapshot),
 	};
 }
 
@@ -192,12 +213,23 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const stale = input.review !== undefined && input.review.rev !== snapshot.fingerprint;
 	const facts = [
 		chip({
-			label: `${drafts.length === 0 ? "no" : drafts.length} draft`,
+			// Hidden at zero: a chip announcing an absence is noise, where the footer's count inside
+			// a sentence is information. The client reveals it with the first draft.
+			label: `${drafts.length} draft`,
 			tone: drafts.length === 0 ? "dim" : "warn",
-			attrs: { id: "rv-state" },
+			attrs: { id: "rv-state", ...(drafts.length === 0 ? { hidden: "" } : {}) },
 		}),
-		chip({ label: input.review === undefined ? "no review yet" : `review ${input.review.id}`, attrs: { id: "rv-id" } }),
+		chip({
+			// The id is a handle for `/review/<id>`, not a thing to read: the label says a review
+			// exists, the tooltip says which.
+			label: "review",
+			attrs: {
+				id: "rv-id",
+				...(input.review === undefined ? { hidden: "" } : { title: `This review's id: ${input.review.id}` }),
+			},
+		}),
 		chip({ label: snapshot.label, className: "bf-tag--mono", attrs: { id: "rv-scope" } }),
+		reloadChip({ title: "The diff moved — reload the page" }),
 	].join("\n    ");
 	const controls = `${scopeSegments(base, snapshot.scope)}
   <div class="bf-app__group">
@@ -237,23 +269,25 @@ ${appHead({
       <label class="bf-field bf-field--filter"><span class="bf-field__prompt" aria-hidden="true"></span><span class="sr-only">Filter files</span><input class="bf-input" id="rv-filter" type="search" placeholder="filter files" autocomplete="off"></label>
       <div class="rv-side-row">
         <label class="rv-file__check"><input type="checkbox" id="rv-only-commented"> only commented</label>
-        <span class="bf-tag bf-tag--mono" id="rv-file-count">${files.length} of ${files.length} files</span>
+        <span class="bf-tag bf-tag--mono" id="rv-file-count" aria-live="polite">${files.length} of ${files.length} files</span>
       </div>
     </div>
     <div class="rv-side-scroll">
       <div class="rv-side-head"><span>changed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
       <nav class="rv-files" id="rv-rail" aria-label="Changed files">${files.map((file, index) => railRow(file, index, comments, reviewed)).join("\n")}</nav>
+      <p class="rv-side__empty" id="rv-rail-empty" hidden><span id="rv-rail-empty-text"></span> <button type="button" class="bf-btn" id="rv-rail-clear">Clear filter</button></p>
     </div>
   </aside>
   <main class="bf-app__main rv-main" id="rv-main" tabindex="-1">
     <div class="rv-files-scroll" id="rv-diff">
+      <p class="rv-filter-note" id="rv-filter-note" hidden><span id="rv-filter-note-text"></span> <button type="button" class="bf-btn" id="rv-filter-clear">Clear</button></p>
       ${banner}
       ${omitted}
       ${main}
     </div>
   </main>
 </div>
-${pageFooter({ facts: `snapshot ${snapshot.fingerprint} · ${files.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${drafts.length} draft · ${done} of ${files.length} reviewed`, factsId: "rv-facts" })}
+${pageFooter({ facts: `${comparisonLine(snapshot)} · ${files.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${drafts.length} draft · ${done} of ${files.length} reviewed`, factsId: "rv-facts" })}
 
 <div class="rv-selbar" id="rv-selbar" data-open="false" role="toolbar" aria-label="Selected lines">
   <span class="rv-selbar__ref" id="rv-selbar-ref"></span>

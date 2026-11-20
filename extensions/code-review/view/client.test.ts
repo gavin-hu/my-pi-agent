@@ -41,9 +41,18 @@ describe("the review bundle", () => {
 		expect(REVIEW_CLIENT_JS).not.toContain("document.write");
 	});
 
-	test("keeps an unsent composer against the snapshot it was typed on", () => {
+	test("keeps an unsent composer across the snapshot it was typed on", () => {
 		expect(REVIEW_CLIENT_JS).toContain('var DRAFT_KEY = "rv-review-draft";');
-		expect(REVIEW_CLIENT_JS).toContain("kept.rev === rev");
+		// The record keeps its rev and is restored anyway: a moved diff is the case the
+		// draft exists for, and the composer says where it came from.
+		expect(REVIEW_CLIENT_JS).toContain("var moved = kept.rev !== rev;");
+		expect(REVIEW_CLIENT_JS).toContain("typed on the earlier diff");
+	});
+
+	test("a stale write reveals the reload chip", () => {
+		expect(REVIEW_CLIENT_JS).toContain("answer.status === 409");
+		expect(REVIEW_CLIENT_JS).toContain("hint.hidden = false");
+		expect(REVIEW_CLIENT_JS).toContain("window.location.reload()");
 	});
 
 	test("turns the first write's id into the page's address", () => {

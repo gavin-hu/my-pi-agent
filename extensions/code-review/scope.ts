@@ -53,6 +53,8 @@ export interface ScopeArgs {
 	untracked: boolean;
 	/** True when the scope cannot answer before HEAD's first commit. */
 	needsParent: boolean;
+	/** What the scope's segmented-control title says it compares. */
+	title: string;
 }
 
 /**
@@ -67,13 +69,48 @@ export interface ScopeArgs {
  */
 export function scopeArgs(scope: ReviewScope, base: string): ScopeArgs {
 	if (scope === "last") {
-		return { args: ["HEAD~1...HEAD"], label: "HEAD~1...HEAD", untracked: false, needsParent: true };
+		return {
+			args: ["HEAD~1...HEAD"],
+			label: "HEAD~1...HEAD",
+			untracked: false,
+			needsParent: true,
+			title: "HEAD~1...HEAD — the last commit",
+		};
 	}
-	// Only HEAD has to exist, which the reader checks for every scope, so nothing
-	// here needs a parent commit.
-	if (scope === "head") return { args: ["HEAD"], label: SCOPE_WORDS.head, untracked: true, needsParent: false };
-	if (scope === "staged")
-		return { args: ["--cached"], label: SCOPE_WORDS.staged, untracked: false, needsParent: false };
-	if (scope === "worktree") return { args: [], label: SCOPE_WORDS.worktree, untracked: true, needsParent: false };
-	return { args: [`${base}...HEAD`], label: `${base}...HEAD`, untracked: false, needsParent: false };
+	// Only HEAD has to exist, which the reader checks for this scope, so it needs no
+	// parent commit: `git diff HEAD` compares against the commit itself.
+	if (scope === "head") {
+		return {
+			args: ["HEAD"],
+			label: SCOPE_WORDS.head,
+			untracked: true,
+			needsParent: false,
+			title: "uncommitted — the index and the tree against HEAD",
+		};
+	}
+	if (scope === "staged") {
+		return {
+			args: ["--cached"],
+			label: SCOPE_WORDS.staged,
+			untracked: false,
+			needsParent: false,
+			title: "staged — the index against HEAD",
+		};
+	}
+	if (scope === "worktree") {
+		return {
+			args: [],
+			label: SCOPE_WORDS.worktree,
+			untracked: true,
+			needsParent: false,
+			title: "worktree — the working tree against the index",
+		};
+	}
+	return {
+		args: [`${base}...HEAD`],
+		label: `${base}...HEAD`,
+		untracked: false,
+		needsParent: false,
+		title: "the branch against its base",
+	};
 }
