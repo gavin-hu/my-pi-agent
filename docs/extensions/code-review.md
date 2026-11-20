@@ -20,7 +20,6 @@ is written to your tree.
 | Serve a review of the branch | `/review`, or `code_review` with `action: "open"` |
 | Review the last commit, everything uncommitted, the index, or the tree | `/review last`, `/review head`, `/review staged`, `/review worktree` |
 | Read one file of it | open the page with `?file=<path>`; the changes tag on a `file-browse` page lands there |
-| Go back to the whole diff | **all files** in the rail |
 | Comment on a line | click a gutter number, then **comment** — or `c` with a line selected |
 | Comment on a range | click one gutter, Shift-click another |
 | Copy a line reference | select lines, then **copy ref** — it copies `path:12-30` |
@@ -99,11 +98,9 @@ reload sentence rather than a comment landing on a line nobody read.
   comment already written on one of them is still counted and still sent.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
   diff lines per file; the page says what a cap left out.
-- In a repository with no commits yet, the `staged` and `worktree` comparisons
-  still render a page; `base`, `last` and `head` say the commit they compare is
-  missing — `head` too, because `git diff HEAD` needs one even though
-  `git diff --cached` does not — and the footer names the comparison with no sha
-  beside it.
+- In a repository with no commits yet, `staged` and `worktree` still render a page;
+  `base`, `last` and `head` say the commit they compare is missing — `head` too,
+  since `git diff HEAD` needs one where `git diff --cached` does not.
 - The page needs `git`, `serve`, and a local browser; without `serve` the tool
   says the session has no port, and a launcher that cannot start is reported with
   the address to paste.
