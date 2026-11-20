@@ -32,7 +32,7 @@ describe("the header", () => {
 		expect(live).toContain('class="bf-live bf-tone--accent" id="live-state"');
 		expect(live).toContain('<span class="bf-live__text">connecting</span>');
 		expect(live).toContain('id="reload-hint"');
-		expect(live).toContain('id="browse-changes" href="/diff"');
+		expect(live).toContain('id="browse-changes" href="/review/new?scope=head"');
 
 		const off = directoryPage();
 		expect(off).not.toContain("live-state");

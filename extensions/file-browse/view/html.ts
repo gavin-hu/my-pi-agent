@@ -18,6 +18,7 @@ import {
 	tabTitle,
 } from "../../../lib/web/index.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
+import { reviewHref } from "../../../lib/http/prefixes.ts";
 import { renderChanges, renderGit, renderLiveChrome, type LivePage } from "./chrome.ts";
 import { type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
 import { formatSize } from "../../../lib/format.ts";
@@ -113,7 +114,7 @@ ${appHead({
 	product: "browse",
 	subject: { label: layout.rootLabel, title: layout.rootLabel },
 	facts: `${renderGit(layout.git)}
-    ${renderChanges(layout.summary, layout.live, layout.base)}
+    ${renderChanges(layout.summary, layout.live)}
     ${renderLiveChrome(layout.live)}`,
 })}
 <div class="bf-app__body">
@@ -302,7 +303,7 @@ function numberedLines(page: FilePage): boolean {
 }
 
 /** The card-head controls: Markdown mode, line wrapping, and the copy actions,
- * plus the download the diff head keeps in the same group. */
+ * plus the download it keeps in the same group. */
 function renderFileActions(page: FilePage, download: string): string {
 	const isMarkdown = page.file.kind === "markdown";
 	const rawHref = `${page.base}/raw/${encodePath(page.rel)}`;
@@ -310,7 +311,7 @@ function renderFileActions(page: FilePage, download: string): string {
 	const groups: string[] = [];
 	if (page.changed) {
 		groups.push(
-			`<a class="bf-btn" href="${page.base}/diff/${encodePath(page.rel)}" title="View this file's uncommitted changes">changes</a>`,
+			`<a class="bf-btn" href="${escapeHtml(reviewHref("head", page.rel))}" title="View this file's uncommitted changes">changes</a>`,
 		);
 	}
 	if (isMarkdown) {

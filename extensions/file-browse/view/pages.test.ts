@@ -366,7 +366,7 @@ describe("directory page", () => {
 
 	test("shows the changes chip with its totals, or a hidden shell when live", () => {
 		const two = directoryPage({ summary: summary([changed({ rel: "a.ts" }), changed({ rel: "b.ts" })], 12, 4) });
-		expect(two).toContain('class="bf-tag browse-changes" id="browse-changes" href="/diff"');
+		expect(two).toContain('class="bf-tag browse-changes" id="browse-changes" href="/review/new?scope=head"');
 		expect(two).toContain("2 changes");
 		expect(two).toContain("+12");
 		expect(two).toContain("−4");
@@ -493,8 +493,8 @@ describe("file page", () => {
 
 	test("renders a changes action only for a changed file", () => {
 		const html = filePage("a.txt", textView(["x"]), { changed: true });
-		expect(html).toContain('href="/diff/a.txt"');
-		expect(filePage("a.txt", textView(["x"]))).not.toContain('href="/diff/a.txt"');
+		expect(html).toContain('href="/review/new?scope=head&amp;file=a.txt"');
+		expect(filePage("a.txt", textView(["x"]))).not.toContain('href="/review/new?scope=head');
 	});
 
 	test("drops the octet-stream metadata and escapes the footer path", () => {
@@ -1335,13 +1335,12 @@ describe("a page served under a prefix", () => {
 		expect(image).toContain('src="/files/raw/sub/i.png"');
 	});
 
-	test("writes the changes chip and both diff pages under it", () => {
+	test("writes the changes chip and the diff pages onto the review page", () => {
 		const changes = renderChanges(
 			{ count: 2, files: new Set(["a.ts"]), dirs: new Set(), insertions: 3, deletions: 1 },
 			undefined,
-			"/files",
 		);
-		expect(changes).toContain('href="/files/diff"');
+		expect(changes).toContain('href="/review/new?scope=head"');
 		const overview = diffPage({ base: "/files", mode: "staged", files: [changed({ rel: "a.ts" })] });
 		expect(overview).toContain('href="/files/diff?mode=staged"');
 		expect(overview).toContain('href="/files/diff/a.ts?mode=staged"');
