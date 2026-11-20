@@ -66,10 +66,10 @@ folds the rest, pins its head, and says a sentence every row shares once.
 `execute` or `done` re-reads the plan, and one that is gone refuses it. An `execute` card holds its `paths`: `edit`
 claims added ones and releases removed ones, claiming first so a conflict releases nothing; `release` alone is undone
 by the next crossing. A contract names a `verify` command, and `review` runs it in the tree `root` names. `done`
-refuses a sign with no result or one older than the card's state (a note is not a change) and resolves the merge that
-carried it: one committed before the work, one the branch moved past, or one rewriting the review's lines is older,
-and a reviewed merge is its own landing only while it is the tip, so a checkout sign needs a re-sign once something
-lands on top. `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
+refuses a sign with no result or one older than the card's state (a note is not a change) and resolves the landing: an older
+tree (a merge before the work, past it, or rewriting the review's lines), a tip that declares another card, or a branch
+landed by squashing, named by the card id its subject ends with. A reviewed merge is its own landing only while it is the
+tip, so a checkout sign needs a re-sign; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab); `/board approve <id>` and
 `/board review <id> [--root <tree>]` sign as the lead's own session, and `/board archive` runs the sweep

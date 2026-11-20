@@ -183,8 +183,18 @@ export function landingFor(card: Card, chain?: readonly LandingCommit[]): Landin
 	return {
 		branch: "main",
 		chain: chain ?? [
-			{ sha: CHAIN_BASE, at: since - 1_000, parents: ["0000000000000000000000000000000000000001"] },
-			{ sha: carried, at: since + 1_000, parents: [CHAIN_BASE, reviewed] },
+			{
+				sha: CHAIN_BASE,
+				at: since - 1_000,
+				parents: ["0000000000000000000000000000000000000001"],
+				subject: "chore(repo): the base every fixture chain starts from",
+			},
+			{
+				sha: carried,
+				at: since + 1_000,
+				parents: [CHAIN_BASE, reviewed],
+				subject: "merge(work): the branch the review was signed on",
+			},
 		],
 		since,
 		carries: (commit) => commit.parents.slice(1).includes(reviewed),

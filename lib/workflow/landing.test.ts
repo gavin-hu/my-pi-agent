@@ -69,10 +69,25 @@ const proof = (
 	...overrides,
 });
 
+/** One commit of a case chain: its sha, moment, parents, and the subject the rule reads. */
+const commit = (sha: string, at: number, parents: readonly string[], subject: string): LandingCommit => ({
+	sha,
+	at,
+	parents,
+	subject,
+});
+
+const ROOT = "0000000000000000000000000000000000000001";
+
 const LANE = proof([
-	{ sha: BASE, at: BASE_AT, parents: ["0000000000000000000000000000000000000001"] },
-	{ sha: CARRIED, at: CARRIED_AT, parents: [BASE, REVIEWED] },
-	{ sha: LATER, at: LATER_AT, parents: [CARRIED, "7ee0d10000000000000000000000000000000000"] },
+	commit(BASE, BASE_AT, [ROOT], "chore(repo): the base the branch was cut from"),
+	commit(CARRIED, CARRIED_AT, [BASE, REVIEWED], "merge(work): the review's own work"),
+	commit(
+		LATER,
+		LATER_AT,
+		[CARRIED, "7ee0d10000000000000000000000000000000000"],
+		"merge(work): a later card's merge on top",
+	),
 ]);
 
 describe("resolveLanding", () => {
@@ -110,6 +125,75 @@ describe("resolveLanding", () => {
 		});
 	});
 
+	test("answers a squash landing by its trailing id once the branch has moved past it", () => {
+		// #440's shape: a repository that lands by squashing has no merge carrying the review, so the
+		// chain alone says nothing about which card a commit landed. #439 landed, #430 landed on top of
+		// it, and the sign taken on that merged tree was refused as an older one.
+		const SQUASH = "db80a71000000000000000000000000000000000";
+		const ON_TOP = "96b8d22100000000000000000000000000000000";
+		const squashed = proof(
+			[
+				commit(BASE, BASE_AT, ["0000000000000000000000000000000000000001"], "chore(repo): the base"),
+				commit(SQUASH, REVIEWED_AT, [BASE], "refactor(contract): 业务实体去掉抽象与父实体（#12）"),
+				commit(ON_TOP, LATER_AT, [SQUASH], "feat(web): 左栏搜索的出口（#13）"),
+			],
+			ON_TOP,
+		);
+		expect(resolveLanding(squashed, ON_TOP, ID)).toEqual({ sha: SQUASH });
+	});
+
+	test("reads only the trailing id, so a commit that names another card is not this card's landing", () => {
+		// #438's subject ends with its own id and mentions #436 in passing. A loose match would name that
+		// commit as #436's landing although #436 landed earlier — the misnaming this rule exists to stop.
+		const MENTIONS = "a4e8561c00000000000000000000000000000000";
+		const chain = proof(
+			[
+				commit(BASE, BASE_AT, ["0000000000000000000000000000000000000001"], "chore(repo): the base"),
+				commit(MENTIONS, REVIEWED_AT, [BASE], "docs(repo): 更正 #12 那份 plan 的 Context（#13）"),
+				commit(LATER, LATER_AT, [MENTIONS], "feat(web): 别人的落地（#14）"),
+			],
+			LATER,
+		);
+		expect(resolveLanding(chain, LATER, ID)).toEqual({
+			error: landedWithoutMerge("main", LATER, ID),
+			shape: "ancestor",
+		});
+	});
+
+	test("reads the last id of a several-card marker, which is the one that landed", () => {
+		// A landing that also corrected another card's plan carries both ids — `（#11、#12）` (#441) — and
+		// the last one is the card that landed. Reading only a single-id marker left this shape unnamed.
+		const SQUASH = "7c1f0a0000000000000000000000000000000000";
+		const ON_TOP = "8d2e1b0000000000000000000000000000000000";
+		const squashed = proof(
+			[
+				commit(BASE, BASE_AT, ["0000000000000000000000000000000000000001"], "chore(repo): the base"),
+				commit(SQUASH, REVIEWED_AT, [BASE], "fix(gates): 补号要看全部 plan（#11、#12）"),
+				commit(ON_TOP, LATER_AT, [SQUASH], "feat(web): 别人的落地（#13）"),
+			],
+			ON_TOP,
+		);
+		expect(resolveLanding(squashed, ON_TOP, ID)).toEqual({ sha: SQUASH });
+	});
+
+	test("refuses a marker whose last id is another card, so the several-card form cannot be borrowed", () => {
+		// The order is the statement: `（#12、#11）` says #11 landed and merely touched #12. Taking any id in
+		// the marker would name this commit as #12's landing — the #279 misnaming, one accepted form away.
+		const OURS_NOT_LAST = "9e3f2c0000000000000000000000000000000000";
+		const chain = proof(
+			[
+				commit(BASE, BASE_AT, ["0000000000000000000000000000000000000001"], "chore(repo): the base"),
+				commit(OURS_NOT_LAST, REVIEWED_AT, [BASE], "fix(gates): 补号要看全部 plan（#12、#11）"),
+				commit(LATER, LATER_AT, [OURS_NOT_LAST], "feat(web): 别人的落地（#13）"),
+			],
+			LATER,
+		);
+		expect(resolveLanding(chain, LATER, ID)).toEqual({
+			error: landedWithoutMerge("main", LATER, ID),
+			shape: "ancestor",
+		});
+	});
+
 	test("follows the ancestry through a re-merge, so a branch merged twice needs no second sign", () => {
 		// #618: the branch merged `main` into itself after the review, so the merge on `main` carries a
 		// commit whose *own* second parent is the reviewed one. Reading one parent deep refused this.
@@ -117,8 +201,8 @@ describe("resolveLanding", () => {
 		const again = "2e1d3b0000000000000000000000000000000000";
 		const remade = proof(
 			[
-				{ sha: BASE, at: BASE_AT, parents: ["0000000000000000000000000000000000000001"] },
-				{ sha: again, at: LATER_AT, parents: [BASE, inner] },
+				commit(BASE, BASE_AT, [ROOT], "chore(repo): the base the branch was cut from"),
+				commit(again, LATER_AT, [BASE, inner], "merge(work): the branch merged main in"),
 			],
 			REVIEWED,
 			{ carries: (commit) => commit.sha === again },
@@ -139,8 +223,8 @@ describe("resolveLanding", () => {
 		// A review taken after the work is the tip: there is no merge above it to look for, and it
 		// names itself rather than being refused as an older tree.
 		const tip = proof([
-			{ sha: BASE, at: BASE_AT, parents: ["0000000000000000000000000000000000000001"] },
-			{ sha: PLAIN, at: REVIEWED_AT, parents: [BASE] },
+			commit(BASE, BASE_AT, [ROOT], "chore(repo): the base the branch was cut from"),
+			commit(PLAIN, REVIEWED_AT, [BASE], "feat(repo): the plain commit a sign named"),
 		]);
 		expect(resolveLanding(tip, PLAIN, ID)).toEqual({ sha: PLAIN });
 	});
@@ -149,9 +233,9 @@ describe("resolveLanding", () => {
 		// Two merges both carry the reviewed commit, which a criss-cross can produce: the walk is
 		// oldest-first and stops at the one that carried the work.
 		const crossed = proof([
-			{ sha: BASE, at: BASE_AT, parents: ["0000000000000000000000000000000000000001"] },
-			{ sha: CARRIED, at: CARRIED_AT, parents: [BASE, REVIEWED] },
-			{ sha: LATER, at: LATER_AT, parents: [CARRIED, REVIEWED] },
+			commit(BASE, BASE_AT, [ROOT], "chore(repo): the base the branch was cut from"),
+			commit(CARRIED, CARRIED_AT, [BASE, REVIEWED], "merge(work): the first carrier"),
+			commit(LATER, LATER_AT, [CARRIED, REVIEWED], "merge(work): the second carrier"),
 		]);
 		expect(resolveLanding(crossed, REVIEWED, ID)).toEqual({ sha: CARRIED });
 	});
@@ -281,10 +365,11 @@ describe("closing a card by instruction", () => {
 		// set. This one moves the same merge behind `workStartedAt` and the answer flips.
 		const card = closingCard();
 		const started = workStartedAt(card);
+		const root = "0".repeat(39) + "1";
 		const chain = [
-			{ sha: "0".repeat(39) + "1", at: started - 3_000, parents: ["0".repeat(39) + "1"] },
-			{ sha: "5d0dd0".padEnd(40, "0"), at: started - 2_000, parents: ["0".repeat(39) + "1"] },
-			{ sha: "b".repeat(40), at: started - 1_000, parents: ["5d0dd0".padEnd(40, "0")] },
+			commit(root, started - 3_000, [root], "chore(repo): the base"),
+			commit("5d0dd0".padEnd(40, "0"), started - 2_000, [root], "merge(work): a merge made before the card began"),
+			commit("b".repeat(40), started - 1_000, ["5d0dd0".padEnd(40, "0")], "merge(work): and one more"),
 		];
 		const inside = proofOf(card, chain);
 		expect(landingGate(card.id, card.review?.verified?.sha, inside)).toContain("on `main`");

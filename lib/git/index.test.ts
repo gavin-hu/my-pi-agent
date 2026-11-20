@@ -17,6 +17,7 @@ import {
 	createExecRunner,
 	currentBranch,
 	defaultBranch,
+	firstParentChain,
 	gitCommonDir,
 	gitDir,
 	GitError,
@@ -360,5 +361,35 @@ describe("defaultBranch", () => {
 			]),
 		);
 		expect(await defaultBranch(none.run, "/repo")).toBeUndefined();
+	});
+});
+
+/**
+ * The chain's own line format: `sha seconds parents` then a NUL, then the subject (#440).
+ *
+ * The parser had no case of its own before the subject arrived: it was only ever exercised through a
+ * real repository, which cannot show that a subject containing spaces is not read as more parents.
+ */
+describe("firstParentChain", () => {
+	test("reads the subject apart from the parents, spaces and all", async () => {
+		const { run, calls } = recordingRunner(() => ({
+			stdout:
+				[
+					`${"a".repeat(40)} 1700000000 ${"b".repeat(40)}\u0000chore(repo): the base`,
+					`${"c".repeat(40)} 1700003600 ${"d".repeat(40)} ${"e".repeat(40)}\u0000merge(work): 左栏搜索的出口（#12）`,
+				].join("\n") + "\n",
+		}));
+		const chain = await firstParentChain(run, "/repo", "main");
+
+		expect(chain).toHaveLength(2);
+		expect(chain[1]).toEqual({
+			sha: "c".repeat(40),
+			at: 1_700_003_600_000,
+			parents: ["d".repeat(40), "e".repeat(40)],
+			subject: "merge(work): 左栏搜索的出口（#12）",
+		});
+		// Oldest first, and one call: the walk, the moment and the subject come from the same log.
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.args.join(" ")).toContain("--format=%H %ct %P%x00%s");
 	});
 });
