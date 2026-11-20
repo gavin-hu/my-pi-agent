@@ -6,6 +6,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- plan: the browser review's current-section mark answers any movement of the pane, not only a stepped
+  scroll. `observeSections` owned the mark through an `IntersectionObserver` rooted in the pane, and an
+  observer only ever marks what just intersected: a jump to the end delivers no entry that intersects,
+  so End and a scrollbar dragged to the bottom left the mark on the section it started from. Three
+  browser cases now write `#plan.scrollTop = scrollHeight` at 390×844, 900×844 and 1280×400 and read
+  the rail: red with `web-outline.ts` untouched (expected `s-55`, read `s-0` at every width), green
+  after. The owner is one scroll pass — it reads the pane's box, takes the reading line at 40% of
+  `clientHeight`, and marks the last heading whose top is at or above it, which answers a step, a jump
+  and a bare `scrollTop` write alike because it asks where the pane is rather than what crossed a band.
+  The rule is the pure `sectionAtLine`, and the pass is scheduled through `requestAnimationFrame`, so a
+  drag costs a pass a frame rather than a pass an event; it also runs once when installed, because a
+  repaint restores the scroll position it reads. Rejected: the observer plus a scroll-end pass (two
+  writers on one attribute, disagreeing at every boundary a debounce moves), and correcting the
+  observer only when nothing intersects (the callback is never called for a jump — that is the defect
+  stated as a design). Renamed with the mechanism: `observeSections` → `watchSections`,
+  `SectionWatcher` → `SectionWatch`, `previousObserver` → `previousWatch`, the client's
+  `sectionObserver` → `sectionWatch`, and the `IntersectionObserver` shim is gone. The reading line is
+  the band the observer used, a jumped heading sits at `scroll-margin-top: 88px` inside it at every
+  width the suite draws, so the click's own mark and the next pass agree. `web-outline.test.ts` stays
+  at the 400-line bar: the fake-observer case became the pass's, driven by a fake frame queue.
+
 - `test`: the plan page's scroll walk stops waiting on frames that cannot answer. `stepDown` in
   `extensions/plan/web-outline-live.test.ts` scrolled 80 px and then awaited up to twelve animation
   frames for the rail's current-section mark to move — but a section is several steps long, so most

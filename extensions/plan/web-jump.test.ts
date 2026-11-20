@@ -3,7 +3,7 @@
  * scroll the link gave it, and the outline's mark still names the section.
  *
  * Three facts, not one. A case that only asserted `document.activeElement` would pass while the
- * mark went stale by the other road: the section observer is rooted in the pane, so a focus that
+ * mark went stale by the other road: the scroll pass reads where the pane sits, so a focus that
  * scrolled would hand it the wrong section — which is why the real pass is compared against one
  * whose focus is stubbed out, on a page tall enough for the difference to exist.
  *
@@ -139,7 +139,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review's jump", () => {
 				{ timeout: REVIEW_PAINT_MS },
 			);
 			// And the mark still names it after the focus arrives: a focus that scrolled the pane
-			// would move the observer's band and leave the previous section marked.
+			// would move the reading line and leave the previous section marked.
 			await page.waitForFunction(
 				() =>
 					(

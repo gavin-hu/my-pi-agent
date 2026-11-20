@@ -245,9 +245,7 @@ describe("review plan renderer", () => {
 
 	test("carries the source, safe to splice into the client bundle", () => {
 		expect(WEB_PLAN_JS).toBe(String(renderPlanFrame));
-		expect(REVIEW_CLIENT_JS).toContain(
-			"renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver)",
-		);
+		expect(REVIEW_CLIENT_JS).toContain("renderPlanFrame(planFrame(), closeOpenComposer, watchSections, sectionWatch)");
 	});
 
 	test("draws one block per non-blank line, and nothing for a blank", () => {
@@ -257,14 +255,14 @@ describe("review plan renderer", () => {
 			blockElements,
 			setActive,
 		) as typeof renderPlanFrame;
-		const observer = { observe() {}, disconnect() {} };
+		const watch = { disconnect() {} };
 		const installed = runtime(
 			deps,
 			() => (calls.closed += 1),
-			() => observer,
+			() => watch,
 			null,
 		);
-		expect(installed).toBe(observer);
+		expect(installed).toBe(watch);
 		// Two blocks drawn, in order, each told which island line and kind it stands for.
 		expect(calls.blocks).toEqual(["heading", "para"]);
 		expect(calls.closed).toBe(1);

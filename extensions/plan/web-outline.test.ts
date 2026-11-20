@@ -1,5 +1,5 @@
 /**
- * The reader's place on the page: the outline and the section watcher, block
+ * The reader's place on the page: the outline and the scroll pass that marks it, block
  * navigation, the view filter, and the draft guard that keeps a half-written
  * comment from being lost.
  */
@@ -10,7 +10,7 @@ import type { ClientNode } from "../../lib/web/client-runtime.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { applyView, blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { draftTextarea, guardDraft, WEB_DRAFT_JS } from "./web-draft.ts";
-import { observeSections, renderFacts, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
+import { renderFacts, sectionFor, watchSections, WEB_OUTLINE_JS } from "./web-outline.ts";
 
 describe("review outline", () => {
 	const entries = [
@@ -37,77 +37,77 @@ describe("review outline", () => {
 		expect(() => new Function("el", WEB_OUTLINE_JS)(fakeClientDom().build)).not.toThrow();
 	});
 
-	test("watches the blocks and marks the section the reader is in", () => {
-		// The watcher is the page's own rule for "which section am I in": the last block
-		// that crossed the top margin wins, and a page with no headings needs none.
-		const made: Array<{ rootMargin: string; observed: string[] }> = [];
-		class FakeObserver {
-			readonly rootMargin: string;
-			readonly observed: string[] = [];
-			disconnected = false;
-			constructor(callback: unknown, options: { rootMargin?: string }) {
-				this.rootMargin = options.rootMargin ?? "";
-				this.callback = callback as (entries: Array<{ isIntersecting: boolean; target: { id: string } }>) => void;
-				made.push(this);
-			}
-			private readonly callback: (entries: Array<{ isIntersecting: boolean; target: { id: string } }>) => void;
-			observe(node: { id: string }): void {
-				this.observed.push(node.id);
-			}
-			disconnect(): void {
-				this.disconnected = true;
-			}
-			fire(...ids: string[]): void {
-				this.callback(ids.map((id) => ({ isIntersecting: true, target: { id } })));
-			}
-		}
-		const before = (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
-		(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeObserver;
+	test("marks the section the reading line is in on install, and on every scroll after it", () => {
+		// The pass is the page's own rule for "which section am I in": the last heading whose top is
+		// at or above the top two-fifths of the pane, read again each time it scrolls. A frame is
+		// scheduled rather than run, so this queue is the throttle.
+		const queue: Array<() => void> = [];
+		const frames = globalThis as { requestAnimationFrame?: unknown; cancelAnimationFrame?: unknown };
+		const before = [frames.requestAnimationFrame, frames.cancelAnimationFrame];
+		frames.requestAnimationFrame = (callback: () => void) => queue.push(callback);
+		frames.cancelAnimationFrame = (handle: number) => queue.splice(handle - 1, 1);
+		const flush = () => queue.splice(0).forEach((callback) => callback());
 		try {
 			const link = (id: string) => {
-				const node = {
+				const attributes: Record<string, string | undefined> = { "data-id": id };
+				return {
 					id,
-					attributes: new Map<string, string>([["data-id", id]]),
-					setAttribute(name: string, value: string) {
-						node.attributes.set(name, value);
-					},
-					getAttribute(name: string) {
-						return node.attributes.get(name) ?? null;
-					},
-					removeAttribute(name: string) {
-						node.attributes.delete(name);
-					},
+					getAttribute: (name: string) => attributes[name] ?? null,
+					setAttribute: (name: string, value: string) => (attributes[name] = value),
+					removeAttribute: (name: string) => delete attributes[name],
 				};
-				return node;
 			};
-			const links = [link("s-1"), link("s-8")];
-			const headings = [{ id: "s-1" }, { id: "s-8" }];
-			const list = { querySelectorAll: () => links } as unknown as Parameters<typeof observeSections>[1];
-			const planEl = { querySelectorAll: () => headings } as unknown as Parameters<typeof observeSections>[0];
+			const links = [link("s-1"), link("s-8"), link("s-20")];
+			const marks = () => links.filter((node) => node.getAttribute("aria-current") === "true").map((node) => node.id);
+			// The headings' tops move under the pane, which is what a scroll is from this side.
+			const tops = [0, 40, 80];
+			const headings = links.map((_link, index) => ({
+				id: links[index]?.id ?? "",
+				getBoundingClientRect: () => ({ top: tops[index] ?? 0 }),
+			}));
+			const listeners: Array<() => void> = [];
+			const pane = {
+				clientHeight: 100,
+				getBoundingClientRect: () => ({ top: 0 }),
+				addEventListener: (_type: string, listener: () => void) => listeners.push(listener),
+				removeEventListener: (_type: string, listener: () => void) => listeners.splice(listeners.indexOf(listener), 1),
+			};
+			const list = { querySelectorAll: () => links } as unknown as Parameters<typeof watchSections>[1];
+			const planEl = { ...pane, querySelectorAll: () => headings } as unknown as Parameters<typeof watchSections>[0];
 
-			const watcher = observeSections(planEl, list, null) as unknown as FakeObserver;
-			expect(watcher.observed).toEqual(["s-1", "s-8"]);
-			expect(watcher.rootMargin).toBe("0px 0px -60% 0px");
+			// The line is 40 of the pane's 100, and a heading exactly on it counts: `s-8`.
+			const watch = watchSections(planEl, list, null);
+			expect(marks()).toEqual(["s-8"]);
 
-			watcher.fire("s-8");
-			expect(links[1]?.getAttribute("aria-current")).toBe("true");
-			expect(links[0]?.getAttribute("aria-current")).toBeNull();
-			watcher.fire("s-1");
-			expect(links[0]?.getAttribute("aria-current")).toBe("true");
-			// One section at a time: the previous marker is cleared, not left behind.
-			expect(links[1]?.getAttribute("aria-current")).toBeNull();
+			// End or a dragged scrollbar: one write, one frame, marked at the position it ended at.
+			tops.splice(0, 3, -400, -300, -20);
+			listeners[0]?.();
+			listeners[0]?.();
+			expect(queue).toHaveLength(1);
+			flush();
+			expect(marks()).toEqual(["s-20"]);
 
-			const replacement = observeSections(planEl, list, watcher) as unknown as FakeObserver;
-			expect(watcher.disconnected).toBe(true);
-			expect(replacement.disconnected).toBe(false);
+			// Every heading below the line marks nothing, rather than leaving one marked.
+			tops.splice(0, 3, 60, 90, 200);
+			listeners[0]?.();
+			flush();
+			expect(marks()).toEqual([]);
 
-			// No headings, or no list, is no watcher: the page has nothing to follow.
-			expect(
-				observeSections({ querySelectorAll: () => [] } as unknown as Parameters<typeof observeSections>[0], list, null),
-			).toBeNull();
-			expect(observeSections(planEl, null, null)).toBeNull();
+			// A repaint replaces the watch: the old listener goes and its queued frame is dropped.
+			tops.splice(0, 3, 0, 40, 80);
+			listeners[0]?.();
+			expect(watchSections(planEl, list, watch)).not.toBeNull();
+			expect(queue).toHaveLength(0);
+			expect(marks()).toEqual(["s-8"]);
+			expect(listeners).toHaveLength(1);
+
+			// No headings, or no list, is no watch: the page has nothing to follow.
+			const empty = { ...pane, querySelectorAll: () => [] } as unknown as Parameters<typeof watchSections>[0];
+			expect(watchSections(empty, list, null)).toBeNull();
+			expect(watchSections(planEl, null, null)).toBeNull();
 		} finally {
-			(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = before;
+			frames.requestAnimationFrame = before[0];
+			frames.cancelAnimationFrame = before[1];
 		}
 	});
 
@@ -181,7 +181,7 @@ describe("review outline", () => {
 		const client = list as unknown as ClientNode;
 		renderOutline(client, entries);
 		expect(markedId(list)).toBe("");
-		// The mark a rail click or the section watcher made, on the link for `## Steps`.
+		// The mark a rail click or the scroll pass made, on the link for `## Steps`.
 		list.children[1]?.children[0]?.setAttribute("aria-current", "true");
 		renderOutline(client, entries);
 		expect(markedId(list)).toBe("s-8");

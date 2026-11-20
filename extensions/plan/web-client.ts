@@ -83,7 +83,7 @@ ${CLIENT_BASE_JS}
   /** The card a write asked the next frame to focus; the renderer consumes it once. */
   var pendingFocus = null;
 
-  var sectionObserver = null;
+  var sectionWatch = null;
   var pendingQuote = null;
   var activeIndex = -1;
   /** What the reader asked the plan to show: every block, the changed ones, or the annotated. */
@@ -301,7 +301,7 @@ ${WEB_MARKDOWN_JS}
   /**
    * Repaint the page: the rail first, then the frame that reads it.
    *
-   * The outline is rebuilt before the frame because both the facts and the section watcher
+   * The outline is rebuilt before the frame because both the facts and the section watch
    * read the links and the counters it makes: a live plan change that repainted only the
    * body left the sidebar listing the headings it replaced, and the comment counts went to
    * the nodes those headings were in. This is the one repaint entry — every fragment, the
@@ -316,7 +316,7 @@ ${WEB_MARKDOWN_JS}
     outlineItems = renderOutline(outlineList, outlineEntries(), function (id) {
       focusSection(planEl, id);
     });
-    sectionObserver = renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver);
+    sectionWatch = renderPlanFrame(planFrame(), closeOpenComposer, watchSections, sectionWatch);
     syncView();
   }
 

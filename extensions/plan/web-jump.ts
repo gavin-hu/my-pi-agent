@@ -9,7 +9,7 @@
  * `tabindex="-1"` is the whole trick: a block is not focusable, and the attribute makes it a
  * focus target without making it a tab stop, so the sequential point the reader had on the link is
  * unchanged. `preventScroll` keeps the focus from moving the pane the link just scrolled — the
- * section observer is rooted in that pane, and a second scroll would hand it the wrong section.
+ * scroll pass reads that pane's position, and a second scroll would hand it the wrong section.
  */
 
 import { pageSource } from "../../lib/format.ts";

@@ -1,12 +1,13 @@
 /**
- * The review page's outline: the section list in the sidebar, and the one rule that says
- * which section a source line belongs to.
+ * The review page's outline: the section list in the sidebar, the one rule that says which section
+ * the reader is in, and the one that says which section a source line belongs to.
  *
  * Written as ordinary TypeScript and exported as source — `WEB_OUTLINE_JS` — because the
- * review client is a template literal no compiler sees. The two functions are given what
+ * review client is a template literal no compiler sees. The functions are given what
  * they read rather than closing over the bundle's variables, which is what makes them
  * testable here: `renderOutline` returns the per-line counters it built instead of
- * assigning the client's `outlineItems`, and `sectionFor` takes the outline it searches.
+ * assigning the client's `outlineItems`, `sectionFor` takes the outline it searches, and
+ * `watchSections` takes the pane it listens to.
  *
  * `el` is the client runtime's builder, declared here because this source is spliced into
  * the same bundle it lives in: the declaration emits nothing, so the body calls the one
@@ -28,10 +29,27 @@ export interface OutlineEntry {
 	removed?: number;
 }
 
-/** What the browser's `IntersectionObserver` answers for a section watcher. */
-export interface SectionWatcher {
-	observe(target: ClientNode): void;
+/** Where a heading sits in the viewport, as the scroll pass reads it. */
+export interface SectionPosition {
+	id: string;
+	top: number;
+}
+
+/** What the pane's scroll pass leaves the client to hold: one handle, and dropping it. */
+export interface SectionWatch {
 	disconnect(): void;
+}
+
+/** The one member the pass reads off a heading. */
+interface Boxed {
+	getBoundingClientRect(): { top: number };
+}
+
+/** The pane, which is both a box to measure and the element that scrolls. */
+interface ScrollBox extends Boxed {
+	clientHeight: number;
+	addEventListener(type: string, listener: () => void): void;
+	removeEventListener(type: string, listener: () => void): void;
 }
 
 /** What `el` has to answer for an outline. Spliced beside it; declared for the checker. */
@@ -112,7 +130,7 @@ export function renderOutline(
 		count.hidden = true;
 		link.appendChild(count);
 		// A jump is the reader naming the section they want, so the mark moves to it at once; the
-		// watcher still owns it while the reader scrolls.
+		// scroll pass still owns it from the next scroll on.
 		link.addEventListener("click", () => {
 			const links = list.querySelectorAll("a");
 			for (let i = 0; i < links.length; i++) links[i]?.removeAttribute("aria-current");
@@ -127,58 +145,85 @@ export function renderOutline(
 }
 
 /**
- * Watch the blocks and mark the section the reader is in, replacing any previous watcher.
+ * The section the reader is in: the last heading whose top is at or above the reading line.
  *
- * The observer is returned rather than stored, so the client owns the one handle it has to
- * disconnect and this function owns the rule: the last block still in the document the
- * observer was built over wins, and a page with no headings needs no watcher at all.
+ * An empty id when every heading is below the line, which is how a preamble longer than the top
+ * two-fifths of the pane renders without a section of its own.
  */
-export function observeSections(
+export function sectionAtLine(positions: readonly SectionPosition[], line: number): string {
+	let found = "";
+	for (const position of positions) if (position.top <= line) found = position.id;
+	return found;
+}
+
+/**
+ * Mark the section the pane's reading line is in, on every scroll it makes.
+ *
+ * The pane is the box that scrolls, so its own scroll event is the whole input: a step, End, a
+ * scrollbar dragged to the bottom, and a bare `scrollTop` write all move it, and a position read
+ * afterwards answers which heading is above the line. An observer rooted in the same pane was the
+ * previous owner and could not answer that: a jump delivers no entry that intersects, so the mark
+ * stayed on whatever section was marked before it.
+ *
+ * One pass per frame: a burst of scroll events asks for one animation frame between them, so a drag
+ * costs a pass a frame rather than a pass an event. The pass runs once when it is installed, because
+ * a repaint rebuilds the rail and restores the scroll position the pass reads.
+ *
+ * The watch is returned rather than stored, so the client owns the one handle it has to drop and
+ * this function owns the rule: the last heading above the line wins, and a page with no headings
+ * needs no watch at all.
+ */
+export function watchSections(
 	planEl: ClientNode | null,
 	list: ClientNode | null,
-	previous: SectionWatcher | null,
-): SectionWatcher | null {
+	previous: SectionWatch | null,
+): SectionWatch | null {
 	if (previous) previous.disconnect();
 	if (!planEl || !list) return null;
-	const Observer = (
-		globalThis as unknown as {
-			IntersectionObserver?: new (
-				callback: (entries: ArrayLike<{ isIntersecting: boolean; target: { id: string } }>) => void,
-				options: Record<string, unknown>,
-			) => SectionWatcher;
-		}
-	).IntersectionObserver;
-	if (!Observer) return null;
-	const links: Record<string, ClientNode> = {};
-	const anchors = list.querySelectorAll("a");
-	for (let i = 0; i < anchors.length; i++) {
-		const link = anchors[i];
-		if (link) links[link.getAttribute("data-id") ?? ""] = link;
-	}
 	const headings = planEl.querySelectorAll(".bf-block[id]");
 	if (headings.length === 0) return null;
-	const watcher = new Observer(
-		(entries) => {
-			for (let i = 0; i < entries.length; i++) {
-				const entry = entries[i];
-				if (!entry || !entry.isIntersecting) continue;
-				const all = list.querySelectorAll("a");
-				for (let j = 0; j < all.length; j++) all[j]?.removeAttribute("aria-current");
-				const link = links[entry.target.id];
-				if (link) link.setAttribute("aria-current", "true");
-			}
+	const pane = planEl as unknown as ScrollBox;
+	const frames = globalThis as unknown as {
+		requestAnimationFrame(callback: () => void): number;
+		cancelAnimationFrame(handle: number): void;
+	};
+	let pending = 0;
+	/** Mark one section, or none: the one attribute the rail reads, written in one place. */
+	const mark = (id: string): void => {
+		const links = list.querySelectorAll("a");
+		for (let i = 0; i < links.length; i++) {
+			const link = links[i];
+			if (!link) continue;
+			if (id !== "" && link.getAttribute("data-id") === id) link.setAttribute("aria-current", "true");
+			else link.removeAttribute("aria-current");
+		}
+	};
+	const pass = (): void => {
+		pending = 0;
+		// The top two-fifths of the pane is the line a reader's eye sits on. A jump lands its heading at
+		// `scroll-margin-top: 88px`, above the line at every width the suite draws, so a click's own mark
+		// and the next pass agree rather than taking turns.
+		const line = pane.getBoundingClientRect().top + pane.clientHeight * 0.4;
+		const positions: SectionPosition[] = [];
+		for (let i = 0; i < headings.length; i++) {
+			const heading = headings[i];
+			if (!heading) continue;
+			positions.push({ id: heading.id, top: (heading as unknown as Boxed).getBoundingClientRect().top });
+		}
+		mark(sectionAtLine(positions, line));
+	};
+	const schedule = (): void => {
+		if (pending === 0) pending = frames.requestAnimationFrame(pass);
+	};
+	pane.addEventListener("scroll", schedule);
+	pass();
+	return {
+		disconnect(): void {
+			pane.removeEventListener("scroll", schedule);
+			if (pending !== 0) frames.cancelAnimationFrame(pending);
+			pending = 0;
 		},
-		// Rooted in the pane, which is the box that scrolls: a band measured against the window follows
-		// whatever chrome the page grows, and the sidebar becomes a band above the document at 860, so
-		// a window-relative band can sit entirely above the pane and mark nothing. The pane's top edge
-		// is where content becomes visible at every width, so its top 40% is the band.
-		{ root: planEl, rootMargin: "0px 0px -60% 0px", threshold: 0 },
-	);
-	for (let i = 0; i < headings.length; i++) {
-		const heading = headings[i];
-		if (heading) watcher.observe(heading);
-	}
-	return watcher;
+	};
 }
 
 /** One review comment, as the facts need it: the line it is anchored to. */
@@ -245,5 +290,7 @@ export function renderFacts(
 	}
 }
 
-/** The section list, the facts beside it, and the watcher that marks where the reader is. */
-export const WEB_OUTLINE_JS = [sectionFor, renderOutline, observeSections, renderFacts].map(pageSource).join("\n\n");
+/** The section list, the facts beside it, and the pass that marks where the reader is. */
+export const WEB_OUTLINE_JS = [sectionFor, sectionAtLine, renderOutline, watchSections, renderFacts]
+	.map(pageSource)
+	.join("\n\n");
