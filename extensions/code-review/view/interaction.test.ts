@@ -6,6 +6,12 @@
  * revealed, a textarea that still holds what was typed — which is exactly what a string
  * assertion cannot see. The card that added the first case is #758; the helper it lands is
  * `test/helpers/review-browser.ts`, and the later UI cards grow the suite from here.
+ *
+ * No case sleeps. A fixed wait asserts that this machine was fast enough, which is what reddened
+ * a gate under load (#711), so each case waits on the state its assertion reads — a scroll's
+ * geometry, the spy's `aria-current`, a write's thread — with `REVIEW_PAINT_MS` as its budget.
+ * Those predicates are functions and not strings: the page answers with `script-src 'self'`, and
+ * a string predicate is evaluated, which that policy refuses (#764).
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -16,6 +22,7 @@ import {
 	openReviewPage,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
+	type ReviewDom,
 	type ReviewPageFixture,
 	type SnapshotOptions,
 } from "../../../test/helpers/review-browser.ts";
@@ -273,13 +280,37 @@ gated("the review page's interactions", () => {
 						})()`) as Promise<{ mainTop: number; headTop: number; headBottom: number; hunkTop: number }>;
 					const assertJump = async () => {
 						await page.keyboard.press("]");
-						await page.waitForTimeout(80);
+						// The jump is a scroll this page made, so wait for the geometry the assertion reads
+						// rather than for the machine to have got there.
+						await page.waitForFunction(
+							() => {
+								const doc = (globalThis as unknown as ReviewDom).document;
+								const head = doc.querySelector(".rv-file__head")?.getBoundingClientRect();
+								const hunk = doc.querySelector(".bf-diff-line--hunk")?.getBoundingClientRect();
+								return head !== undefined && hunk !== undefined && hunk.top >= head.bottom - 1;
+							},
+							undefined,
+							{ timeout: REVIEW_PAINT_MS },
+						);
 						const rects = await read();
 						expect(rects.hunkTop).toBeGreaterThanOrEqual(rects.headBottom - 1);
 					};
 
 					await page.evaluate('document.getElementById("rv-main").scrollTop = 700');
-					await page.waitForTimeout(80);
+					// Pinning is the scroll's own effect at the scrollport's top, which is what the
+					// assertion below reads: the box moved, and the head stayed on it. The scroll is
+					// the page's own height, so it lands short of the 700 asked for and clamped.
+					await page.waitForFunction(
+						() => {
+							const doc = (globalThis as unknown as ReviewDom).document;
+							const main = doc.getElementById("rv-main");
+							const head = doc.querySelector(".rv-file__head")?.getBoundingClientRect();
+							if (main === null || head === undefined) return false;
+							return main.scrollTop > 0 && Math.abs(head.top - main.getBoundingClientRect().top) <= 1;
+						},
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
 					const pinned = await read();
 					expect(Math.abs(pinned.headTop - pinned.mainTop), "the head pins at the scrollport top").toBeLessThanOrEqual(
 						1,
@@ -287,7 +318,19 @@ gated("the review page's interactions", () => {
 					await assertJump();
 
 					await page.setViewportSize({ width: 390, height: 844 });
-					await page.waitForTimeout(150);
+					// A narrower head is taller and the jump is measured against it: wait for the page's
+					// own re-measure at the new width, which is the fact the next jump depends on.
+					await page.waitForFunction(
+						() => {
+							const doc = (globalThis as unknown as ReviewDom).document;
+							const section = doc.querySelector(".rv-file");
+							const head = section?.querySelector(".rv-file__head");
+							if (section === null || head === null || head === undefined) return false;
+							return section.style.getPropertyValue("--rv-head-h") === `${head.offsetHeight}px`;
+						},
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
 					await assertJump();
 				},
 				{ start: 17, lines: 60 },
@@ -302,7 +345,15 @@ gated("the review page's interactions", () => {
 			await withPage(
 				async (page) => {
 					await page.evaluate('document.querySelectorAll(".rv-file")[1].scrollIntoView({ block: "start" })');
-					await page.waitForTimeout(120);
+					// The spy repaints on a frame, and the mark it moves is the state this case reads.
+					await page.waitForFunction(
+						() => {
+							const rail = (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-rail");
+							return rail[1]?.getAttribute("aria-current") === "true";
+						},
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
 					expect(await page.locator(".rv-rail").nth(1).getAttribute("aria-current")).toBe("true");
 					expect(await page.locator(".rv-rail").nth(0).getAttribute("aria-current")).toBe("false");
 				},
@@ -324,7 +375,15 @@ gated("the review page's interactions", () => {
 					await page.keyboard.press("j");
 					await page.keyboard.press("j");
 					await page.keyboard.press("j");
-					await page.waitForTimeout(120);
+					// The third move is the one that crosses into f23.ts; the rail follows the place.
+					await page.waitForFunction(
+						() =>
+							(globalThis as unknown as ReviewDom).document
+								.querySelector('.rv-rail[aria-current="true"]')
+								?.getAttribute("data-path") === "f23.ts",
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
 					const row = (await page.evaluate(`(function () {
 						var rail = Array.prototype.filter.call(document.querySelectorAll(".rv-rail"), function (r) {
 							return r.getAttribute("aria-current") === "true";
@@ -369,10 +428,13 @@ gated("the review page's interactions", () => {
 				async (page, fixture) => {
 					await page.goto(`${fixture.url}#rv-file-9`, { waitUntil: "networkidle" });
 					await page.reload({ waitUntil: "networkidle" });
-					for (let attempt = 0; attempt < 60; attempt++) {
-						if ((await page.evaluate("location.hash")) === "#rv-file-0") break;
-						await page.waitForTimeout(50);
-					}
+					// The restore falls back to the first section and writes the hash as it does, so the
+					// hash is the state the assertion reads.
+					await page.waitForFunction(
+						() => (globalThis as unknown as ReviewDom).location.hash === "#rv-file-0",
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
 					expect((await page.evaluate("location.hash")) as string).toBe("#rv-file-0");
 					expect(await page.locator(".rv-rail").first().getAttribute("aria-current")).toBe("true");
 				},
@@ -403,10 +465,12 @@ gated("the review page's interactions", () => {
 
 					await startComment(page, "two");
 					await page.locator(".rv-compose__acts .bf-btn--primary").click();
-					for (let attempt = 0; attempt < 60; attempt++) {
-						if ((await page.locator(".rv-thread").count()) === 2) break;
-						await page.waitForTimeout(50);
-					}
+					// The second write's thread is the state the counts below read.
+					await page.waitForFunction(
+						() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 2,
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
 					expect(await page.locator(".rv-thread").count()).toBe(2);
 					expect(await page.locator("#rv-state").textContent()).toContain("2 draft");
 				},
