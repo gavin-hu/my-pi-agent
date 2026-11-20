@@ -164,7 +164,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 			const command = typeof args.command === "string" ? sanitizeUntrustedLine(args.command.trim()) : "";
 			if (!command) return argsComplete ? "start" : "start …";
 			const preview = clip(command, LABEL_WIDTH);
-			return `start → ${preview}`;
+			return `start${SEPARATORS.arrow}${preview}`;
 		}
 		case "kill":
 			return `kill ${target ?? ""}`.trim();
@@ -173,7 +173,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 			const input = typeof args.input === "string" ? sanitizeUntrustedLine(args.input) : "";
 			const preview = input ? clip(input, LABEL_WIDTH) : "";
 			const parts = [preview, args.eof === true ? "EOF" : ""].filter(Boolean).join(" + ");
-			return parts ? `send ${target} → ${parts}` : `send ${target}`;
+			return parts ? `send ${target}${SEPARATORS.arrow}${parts}` : `send ${target}`;
 		}
 		case "logs":
 		case "status":

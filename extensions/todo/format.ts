@@ -4,7 +4,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { ARROW, GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
 import { listRow } from "../../lib/tui/rows.ts";
 import { overflowHint } from "../../lib/tui/tool.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -123,9 +123,9 @@ export function formatTodoText(todos: Todo[]): string {
  * stream.
  */
 export function formatCallText(todos: Todo[] | undefined, argsComplete = true): string {
-	if (todos === undefined) return argsComplete ? "→ clear list" : "→ …";
-	if (todos.length === 0) return "→ clear list";
-	return `→ ${progressCount(todos)}`;
+	if (todos === undefined) return argsComplete ? `${ARROW} clear list` : `${ARROW} …`;
+	if (todos.length === 0) return `${ARROW} clear list`;
+	return `${ARROW} ${progressCount(todos)}`;
 }
 
 /** Rows and footer for the transcript result rail. */

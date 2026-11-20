@@ -21,7 +21,7 @@ import { Container, Markdown, Spacer, Text, visibleWidth, type Component } from 
 import { formatDuration, sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { messageText, rejectionLine, reuseCallText, syncElapsedTimer, toolCallTitle } from "../../lib/tui/tool.ts";
-import { expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { ARROW, expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { centeredRule } from "../../lib/tui/rules.ts";
 import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -204,7 +204,7 @@ function renderDisplayItems(items: DisplayItem[], theme: Theme, limit?: number, 
 			const text = (preview ? kept.map((line) => clip(line, COLLAPSED_LINE_MAX)) : kept).join("\n");
 			lines.push(paint(theme, "toolOutput", text));
 		} else {
-			lines.push(paint(theme, "meta", "→ ") + formatToolCall(item.name, item.args, theme, preview));
+			lines.push(paint(theme, "meta", `${ARROW} `) + formatToolCall(item.name, item.args, theme, preview));
 		}
 	}
 	return lines.join("\n");
@@ -341,7 +341,7 @@ function addExpandedResult(
 	for (const item of displayItems) {
 		if (item.type === "toolCall") {
 			container.addChild(
-				new Text(paint(theme, "meta", "→ ") + formatToolCall(item.name, item.args, theme, false), 0, 0),
+				new Text(paint(theme, "meta", `${ARROW} `) + formatToolCall(item.name, item.args, theme, false), 0, 0),
 			);
 			renderedOutput = true;
 		} else if (item.text.trim() && item.text !== trailingOutput) {

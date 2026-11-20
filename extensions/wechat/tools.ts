@@ -140,7 +140,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 				return text;
 			}
 			if (details?.sent) {
-				text.setText(paint(theme, "ok", "sent to WeChat owner") + elapsedSuffix(theme, context.durationMs));
+				text.setText(paint(theme, "ok", "Sent to WeChat owner") + elapsedSuffix(theme, context.durationMs));
 				return text;
 			}
 			if (details?.error) {
