@@ -29,7 +29,7 @@ import {
 } from "node:http";
 import type { ArmTimer, RepeatTimer } from "../timer.ts";
 import { jsonHeaders } from "./headers.ts";
-import { type ServeResponse, textResponse } from "./response.ts";
+import { type ServeResponse, redirectResponse, textResponse } from "./response.ts";
 import { parseRequestUrl } from "./router.ts";
 import { bindHost, createCloser, respond } from "./server.ts";
 import { createSinks, type EventSink, type IdleGrace, type SinkRegistry } from "./sink.ts";
@@ -342,11 +342,7 @@ export async function serveHttp(options: ServeOptions): Promise<ServedServer> {
 	const server = createServer((request, response) => {
 		// A page that walks away mid-frame must not take the session down.
 		response.on("error", () => {});
-		void answer(request, response, routes, (to) => ({
-			status: 301,
-			headers: { ...jsonHeaders(), Location: to },
-			body: "",
-		})).catch(() => {
+		void answer(request, response, routes, (to) => redirectResponse(301, to)).catch(() => {
 			// A route that failed after its head was written can only be cut off; ending
 			// the socket beats a client waiting on a reply that will not come.
 			if (!response.writableEnded) response.end();
