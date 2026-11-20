@@ -160,7 +160,7 @@ function languageOf(rel: string): HighlightLanguage | undefined {
 function scopeSegments(base: string, scope: ReviewScope): string {
 	return `<div class="bf-tabs" role="group" aria-label="What the diff compares">${REVIEW_SCOPES.map(
 		(option) =>
-			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}">${option === "base" ? "base" : option === "last" ? "HEAD~1" : option}</a>`,
+			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}">${option === "base" ? "base" : option === "last" ? "HEAD~1" : option === "head" ? "HEAD" : option}</a>`,
 	).join("")}</div>`;
 }
 

@@ -15,12 +15,15 @@ import { REVIEW_SCOPES, isReviewScope } from "./scope.ts";
 /** The words `/review` completes, in the order it lists them. */
 export const REVIEW_WORDS: readonly string[] = [...REVIEW_SCOPES, "status", "stop"];
 
+/** The same words in one line, so a scope added to `REVIEW_SCOPES` cannot leave the usage behind. */
+const WORD_LIST = REVIEW_WORDS.join("|");
+
 /** What a bare `/review` does, and what each word after it does. */
-export const REVIEW_USAGE = "usage: /review [base|last|staged|worktree|status|stop]";
+export const REVIEW_USAGE = `usage: /review [${WORD_LIST}]`;
 
 export function registerReviewCommand(pi: Pick<ExtensionAPI, "registerCommand">, ensure: EnsureSession): void {
 	pi.registerCommand("review", {
-		description: "Serve the working tree as a review page and open it: /review [base|last|staged|worktree|status|stop]",
+		description: `Serve the working tree as a review page and open it: /review [${WORD_LIST}]`,
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;

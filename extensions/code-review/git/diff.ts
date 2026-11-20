@@ -171,7 +171,7 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 		args: readonly string[],
 		untracked: boolean,
 	): Promise<{ kind: "list"; files: Listed[] } | { kind: "failed"; message: string }> {
-		if (scope === "staged" || scope === "worktree") {
+		if (scope === "staged" || scope === "worktree" || scope === "head") {
 			const status = await run(["status", "--porcelain=v1", "-z", "--untracked-files=all"], { cwd: repo });
 			if (status.code !== 0) return { kind: "failed", message: "git status could not read this tree" };
 			const files = parseStatusZ(status.stdout)

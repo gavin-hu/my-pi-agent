@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { Review } from "../review/store.ts";
+import { REVIEW_SCOPES } from "../scope.ts";
 import { renderReviewPage, renderReviewProblem } from "./page.ts";
 
 /** A two-file snapshot with a hunk, a context row, and a deleted line. */
@@ -133,7 +134,7 @@ describe("the review page", () => {
 
 	test("offers every scope as a link, with the current one selected", () => {
 		const html = renderReviewPage(input());
-		for (const scope of ["base", "last", "staged", "worktree"]) {
+		for (const scope of REVIEW_SCOPES) {
 			expect(html).toContain(`/review/new?scope=${scope}`);
 		}
 		expect(html).toContain('aria-selected="true">base</a>');

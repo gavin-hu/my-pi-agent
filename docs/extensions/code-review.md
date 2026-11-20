@@ -18,7 +18,7 @@ is written to your tree.
 | What you want | What to do |
 |---|---|
 | Serve a review of the branch | `/review`, or `code_review` with `action: "open"` |
-| Review the last commit, the index, or the tree | `/review last`, `/review staged`, `/review worktree` |
+| Review the last commit, everything uncommitted, the index, or the tree | `/review last`, `/review head`, `/review staged`, `/review worktree` |
 | Comment on a line | click a gutter number, then **comment** — or `c` with a line selected |
 | Comment on a range | click one gutter, Shift-click another |
 | Mark a file read | its **reviewed** box, or `m` |
@@ -56,9 +56,11 @@ Run `code_review` action "comments" for all of them.
 | `comments` | Every comment the reviewer sent, with file, line, and side |
 | `close` | End the page; refused while comments are still drafts |
 
-**The four comparisons.** `base` reads `<base>...HEAD`, the branch against the
-line it left; `last` reads `HEAD~1...HEAD`; `staged` reads the index; and
-`worktree` reads the working tree, untracked files included. The base ref is
+**The five comparisons.** `base` reads `<base>...HEAD`, the branch against the
+line it left; `last` reads `HEAD~1...HEAD`; `head` reads the tree against `HEAD`,
+so the index and the working tree arrive together with untracked files, which is
+the comparison `file-browse`'s changes tag means; `staged` reads the index; and
+`worktree` reads the working tree alone, untracked files included. The base ref is
 `code-review.base`, else `origin/HEAD`, else `main` or `master`; a repository
 where none resolves is refused, naming the key to set.
 

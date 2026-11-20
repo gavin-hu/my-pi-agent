@@ -24,7 +24,8 @@ export const ReviewParams = Type.Object({
 	}),
 	scope: Type.Optional(
 		StringEnum(REVIEW_SCOPES, {
-			description: "What the diff compares: base (the branch), last (its last commit), staged, or worktree.",
+			description:
+				"What the diff compares: base (the branch), last (its last commit), head (all uncommitted), staged, or worktree.",
 		}),
 	),
 	base: Type.Optional(

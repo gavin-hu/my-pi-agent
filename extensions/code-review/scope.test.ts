@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { isReviewScope, parseScope, REVIEW_SCOPES, scopeArgs } from "./scope.ts";
 
 describe("the review's scopes", () => {
-	test("are the four the page's segmented control offers, in that order", () => {
-		expect(REVIEW_SCOPES).toEqual(["base", "last", "staged", "worktree"]);
+	test("are the five the page's segmented control offers, in that order", () => {
+		expect(REVIEW_SCOPES).toEqual(["base", "last", "head", "staged", "worktree"]);
 	});
 
 	test("accept only their own words", () => {
@@ -11,7 +11,7 @@ describe("the review's scopes", () => {
 			expect(isReviewScope(scope)).toBe(true);
 			expect(parseScope(scope)).toBe(scope);
 		}
-		for (const other of ["head", "", "Base", null, undefined, 3]) {
+		for (const other of ["HEAD", "", "Base", null, undefined, 3]) {
 			expect(isReviewScope(other)).toBe(false);
 			expect(parseScope(other as string | null | undefined)).toBeUndefined();
 		}
@@ -40,5 +40,14 @@ describe("the review's scopes", () => {
 		expect(scopeArgs("staged", "main").untracked).toBe(false);
 		expect(scopeArgs("worktree", "main").args).toEqual([]);
 		expect(scopeArgs("worktree", "main").untracked).toBe(true);
+	});
+
+	test("read everything uncommitted against HEAD, untracked files joining it", () => {
+		expect(scopeArgs("head", "main")).toEqual({
+			args: ["HEAD"],
+			label: "HEAD",
+			untracked: true,
+			needsParent: false,
+		});
 	});
 });

@@ -85,7 +85,7 @@ describe("a base review", () => {
 	});
 });
 
-describe("the other three scopes", () => {
+describe("the other four scopes", () => {
 	test("the last commit reads HEAD~1...HEAD, and refuses before HEAD has a parent", async () => {
 		const repo = await featureRepo();
 		const outcome = await createReviewReaderFrom(run, repo).snapshot("last");
@@ -124,6 +124,23 @@ describe("the other three scopes", () => {
 		expect(byPath.get("note.txt")?.lines.map((line) => line.text)).toEqual(["one", "two"]);
 	});
 
+	test("head reads the index and the tree together, with an untracked file", async () => {
+		const repo = await featureRepo();
+		writeFileSync(join(repo, "README.md"), "hello\nstaged\n");
+		await execP("git", ["add", "README.md"], { cwd: repo });
+		writeFileSync(join(repo, "a.ts"), "const a = 1;\nconst b = 3;\n");
+		writeFileSync(join(repo, "note.txt"), "one\n");
+		const outcome = await createReviewReaderFrom(run, repo).snapshot("head");
+		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(outcome.snapshot.label).toBe("HEAD");
+		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
+		expect([...byPath.keys()].sort()).toEqual(["README.md", "a.ts", "note.txt"]);
+		expect(byPath.get("README.md")?.add).toBe(1);
+		expect(byPath.get("a.ts")?.add).toBe(1);
+		expect(byPath.get("a.ts")?.del).toBe(1);
+		expect(byPath.get("note.txt")?.status).toBe("?");
+	});
+
 	test("caps the file list and the lines, saying how much it left out", async () => {
 		const repo = await featureRepo();
 		writeFileSync(join(repo, "big.txt"), Array.from({ length: 40 }, (_, index) => `line ${index}`).join("\n"));
@@ -153,9 +170,11 @@ describe("a tree with no answer", () => {
 	test("refuses before the first commit", async () => {
 		const empty = temps.track(mkdtempSync(join(tmpdir(), "pi-review-empty-")));
 		await execP("git", ["init", "-q", "-b", "main"], { cwd: empty });
-		expect(await createReviewReaderFrom(run, empty).snapshot("staged")).toEqual({
-			kind: "failed",
-			message: NO_COMMITS,
-		});
+		for (const scope of ["staged", "head"] as const) {
+			expect(await createReviewReaderFrom(run, empty).snapshot(scope)).toEqual({
+				kind: "failed",
+				message: NO_COMMITS,
+			});
+		}
 	});
 });
