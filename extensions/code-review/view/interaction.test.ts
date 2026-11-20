@@ -17,6 +17,7 @@ import {
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	type ReviewPageFixture,
+	type SnapshotOptions,
 } from "../../../test/helpers/review-browser.ts";
 
 /** A browser case pays a launch, a load, and an interaction. */
@@ -36,8 +37,11 @@ gated("the review page's interactions", () => {
 	});
 
 	/** One fixture, one page, and the close both own. */
-	async function withPage(run: (page: Page, fixture: ReviewPageFixture) => Promise<void>): Promise<void> {
-		const fixture = await mountReviewPage();
+	async function withPage(
+		run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
+		options: SnapshotOptions = {},
+	): Promise<void> {
+		const fixture = await mountReviewPage(options);
 		const page = await openReviewPage(browser, fixture);
 		try {
 			await run(page, fixture);
@@ -137,6 +141,115 @@ gated("the review page's interactions", () => {
 				// Narrowed to the one file, it is still drawn.
 				expect(await page.locator(".rv-file").isVisible()).toBe(true);
 			});
+		},
+		CASE_MS,
+	);
+
+	test(
+		"a rail click moves the file without selecting a line",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.locator(".rv-rail").nth(1).click();
+					expect(await page.locator("[data-picked='true']").count()).toBe(0);
+					expect(await page.locator("#rv-selbar").getAttribute("data-open")).toBe("false");
+					expect(await page.locator(".rv-rail").nth(1).getAttribute("aria-current")).toBe("true");
+					expect((await page.evaluate("location.hash")) as string).toBe("#rv-file-1");
+				},
+				{ second: true },
+			);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"j puts the cursor on the first line the diff shows, not line 1",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.keyboard.press("j");
+					expect(await page.locator("[data-picked='true']").count()).toBe(1);
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17");
+					expect((await page.evaluate("document.activeElement.className")) as string).toContain("bf-diff-line");
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"the arrows move the cursor, and a move crosses into the next visible file",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.keyboard.press("j");
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17");
+					await page.keyboard.press("ArrowDown");
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:18");
+					await page.keyboard.press("j");
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:19");
+					await page.keyboard.press("j");
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("b.ts:40");
+					expect(await page.locator(".rv-rail").nth(1).getAttribute("aria-current")).toBe("true");
+				},
+				{ start: 17, second: true },
+			);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"Enter and c comment at the cursor",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.keyboard.press("j");
+					await page.keyboard.press("Enter");
+					expect(await page.locator(".rv-compose__head").textContent()).toContain("a.ts:17");
+					await page.keyboard.press("Escape");
+					expect(await page.locator(".rv-compose__area").count()).toBe(0);
+					await page.keyboard.press("c");
+					expect(await page.locator(".rv-compose__head").textContent()).toContain("a.ts:17");
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"a save returns focus to the cursor row",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.keyboard.press("j");
+					await page.keyboard.press("Enter");
+					await page.locator(".rv-compose__area").fill("note at 17");
+					await page.locator(".rv-compose__acts .bf-btn--primary").click();
+					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17");
+					expect((await page.evaluate("document.activeElement.className")) as string).toContain("bf-diff-line");
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"m marks the current file, and its box names it",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.keyboard.press("j");
+					await page.keyboard.press("m");
+					await page.waitForSelector('.rv-rail[data-state="reviewed"]', { timeout: REVIEW_PAINT_MS });
+					expect(await page.locator("[data-reviewed='a.ts']").isChecked()).toBe(true);
+					expect(await page.locator("[data-reviewed='a.ts']").getAttribute("aria-label")).toBe("Mark a.ts reviewed");
+				},
+				{ start: 17 },
+			);
 		},
 		CASE_MS,
 	);

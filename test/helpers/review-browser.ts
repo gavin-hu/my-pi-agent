@@ -28,30 +28,44 @@ export const REVIEW_PAINT_MS = 10_000;
 /** The prefix the page answers under, as `serve` mounts it. */
 export const REVIEW_MOUNT = "/review";
 
-/** One snapshot: a single file with a hunk, two context rows, and one added line. */
-export function reviewSnapshot(fingerprint: string): ReviewSnapshot {
+/** The three rows of one file: a hunk head, two context rows, and one added line. */
+function fileRows(rel: string, start: number): ReviewSnapshot["files"][number] {
+	return {
+		rel,
+		status: "M",
+		add: 1,
+		del: 0,
+		binary: false,
+		truncated: false,
+		lines: [
+			{ kind: "hunk", text: `@@ -${start},2 +${start},3 @@` },
+			{ kind: "ctx", text: "const one = 1;", oldNo: start, newNo: start },
+			{ kind: "ctx", text: "const two = 2;", oldNo: start + 1, newNo: start + 1 },
+			{ kind: "add", text: "const three = 3;", newNo: start + 2 },
+		],
+	};
+}
+
+/** A snapshot's shape a case may move: where a.hs first line starts, and whether b.ts joins it. */
+export interface SnapshotOptions {
+	/** The first line of the first file's hunk; default 1. */
+	start?: number;
+	/** Append a second file, so a move can cross into it. */
+	second?: boolean;
+}
+
+/** One snapshot: one file, or two, each with a hunk, two context rows, and an added line. */
+export function reviewSnapshot(fingerprint: string, options: SnapshotOptions = {}): ReviewSnapshot {
+	const start = options.start ?? 1;
+	const files = [fileRows("a.ts", start)];
+	if (options.second) files.push(fileRows("b.ts", 40));
 	return {
 		scope: "base",
 		base: "main",
 		label: "main...HEAD",
-		files: [
-			{
-				rel: "a.ts",
-				status: "M",
-				add: 1,
-				del: 0,
-				binary: false,
-				truncated: false,
-				lines: [
-					{ kind: "hunk", text: "@@ -1,2 +1,3 @@" },
-					{ kind: "ctx", text: "const one = 1;", oldNo: 1, newNo: 1 },
-					{ kind: "ctx", text: "const two = 2;", oldNo: 2, newNo: 2 },
-					{ kind: "add", text: "const three = 3;", newNo: 3 },
-				],
-			},
-		],
+		files,
 		omitted: 0,
-		insertions: 1,
+		insertions: files.length,
 		deletions: 0,
 		fingerprint,
 	};
@@ -74,13 +88,13 @@ export interface ReviewPageFixture {
  * `testMountSource()` is the server `serve` runs, so the prefix stripping, the body cap and
  * the close path are the real ones; only the diff is a fixture.
  */
-export async function mountReviewPage(): Promise<ReviewPageFixture> {
+export async function mountReviewPage(options: SnapshotOptions = {}): Promise<ReviewPageFixture> {
 	let fingerprint = "rev-1";
 	let minted = 0;
 	const store = createReviewStore({ mint: () => `token${++minted}`.padEnd(32, "a"), now: () => 1 });
 	const reader = {
 		baseRef: async () => "main",
-		snapshot: async () => ({ kind: "snapshot" as const, snapshot: reviewSnapshot(fingerprint) }),
+		snapshot: async () => ({ kind: "snapshot" as const, snapshot: reviewSnapshot(fingerprint, options) }),
 	};
 	const handler = createReviewHandler({
 		store,
