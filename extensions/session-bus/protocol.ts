@@ -26,8 +26,11 @@ export const COMMAND_NAME = "sessions";
 /**
  * The caps and the default this protocol settles for itself. The text cap is not one: it is
  * `lib/session-tool.ts`'s `MAX_MESSAGE_TEXT`, because the callers that clip to it live there.
+ *
+ * `MAX_PATHS` is exported because the tool's schema publishes it: the host refuses a longer list
+ * before `execute`, while the request path a command takes still reads it here.
  */
-const MAX_PATHS = 20;
+export const MAX_PATHS = 20;
 const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 

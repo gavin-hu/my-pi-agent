@@ -30,9 +30,16 @@ const MAX_JOB_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 export const JobParams = Type.Object({
 	action: StringEnum(JOB_ACTIONS),
-	command: Type.Optional(Type.String({ description: "Shell command to run in the background (for `start`)." })),
+	command: Type.Optional(
+		Type.String({
+			maxLength: MAX_COMMAND,
+			description: "Shell command to run in the background (for `start`).",
+		}),
+	),
 	cwd: Type.Optional(Type.String({ description: "Working directory; defaults to the session cwd." })),
-	label: Type.Optional(Type.String({ description: "Short display label; defaults to the command." })),
+	label: Type.Optional(
+		Type.String({ maxLength: MAX_LABEL, description: "Short display label; defaults to the command." }),
+	),
 	wake: Type.Optional(Type.Boolean({ description: "Wake the agent with one triggered turn when the job finishes." })),
 	detached: Type.Optional(Type.Boolean({ description: "Leave the job running when the session ends." })),
 	stdin: Type.Optional(
@@ -45,7 +52,10 @@ export const JobParams = Type.Object({
 		Type.Integer({ minimum: MIN_LOG_LINES, maximum: MAX_LOG_LINES, description: "Log lines to return." }),
 	),
 	input: Type.Optional(
-		Type.String({ description: `Text to write to a running job's stdin (for \`send\`; max ${MAX_STDIN} characters).` }),
+		Type.String({
+			maxLength: MAX_STDIN,
+			description: "Text to write to a running job's stdin (for `send`).",
+		}),
 	),
 	newline: Type.Optional(Type.Boolean({ description: "Append a newline to `input` (for `send`; default true)." })),
 	eof: Type.Optional(Type.Boolean({ description: "End the job's stdin after writing, so it sees EOF (for `send`)." })),

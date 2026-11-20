@@ -21,11 +21,12 @@ export const MemoryParams = Type.Object({
 	text: Type.Optional(
 		Type.String({
 			description:
-				"The note to add, or the exact existing note to update or forget. Required for add, update, and forget.",
+				"The note to add, or the exact existing note to update or forget. Required for add, update, and forget; at most 500 characters when `add` writes it.",
 		}),
 	),
 	to: Type.Optional(
 		Type.String({
+			maxLength: MAX_ENTRY_CHARS,
 			description: "The replacement note for update. Required for update.",
 		}),
 	),
@@ -41,6 +42,7 @@ export const MemoryParams = Type.Object({
 	),
 	merged: Type.Optional(
 		Type.String({
+			maxLength: MAX_ENTRY_CHARS,
 			description: "The single note the two become. Required for merge.",
 		}),
 	),

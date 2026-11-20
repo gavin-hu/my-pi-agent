@@ -8,28 +8,35 @@
  */
 
 import { Type } from "typebox";
+import { MAX_LABEL } from "../../lib/session-label.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import { TEAM_ACTIONS } from "./types.ts";
 
 export const TeamParams = Type.Object({
-	action: Type.Union(
-		TEAM_ACTIONS.map((action) => Type.Literal(action)),
-		{
-			// What a parameter can say that the description cannot: the fields each verb reads. The
-			// sentences were here once, and the copy drifted from the description before anything drew
-			// a line between them — one surface cannot disagree with itself.
-			description:
-				"`assign` and `offer` take a `card`; `ask` takes `to` and no card — what each does is in the description.",
-		},
-	),
+	action: StringEnum(TEAM_ACTIONS, {
+		// What a parameter can say that the description cannot: the fields each verb reads. The
+		// sentences were here once, and the copy drifted from the description before anything drew
+		// a line between them — one surface cannot disagree with itself.
+		description:
+			"`assign` and `offer` take a `card`; `ask` takes `to` and no card — what each does is in the description.",
+	}),
 	card: Type.Optional(Type.String({ description: 'The card to act on, e.g. "4" or "#4"; `ask` takes none.' })),
 	to: Type.Optional(
 		Type.String({
+			maxLength: MAX_LABEL,
 			description: "`assign` or `ask`: the peer — a teammate's label or id, as `/team` lists them.",
 		}),
 	),
-	note: Type.Optional(Type.String({ description: "`assign` or `offer`: a line to include, e.g. what to do first." })),
+	note: Type.Optional(
+		Type.String({
+			maxLength: MAX_MESSAGE_TEXT,
+			description: "`assign` or `offer`: a line to include, e.g. what to do first.",
+		}),
+	),
 	question: Type.Optional(
 		Type.String({
+			maxLength: MAX_MESSAGE_TEXT,
 			description:
 				"`ask`: what to ask, one line; defaults to asking how it is going. The ask carries its own id, and the reply opens with `re: <id>`.",
 		}),

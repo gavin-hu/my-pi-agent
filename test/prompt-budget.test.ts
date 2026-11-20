@@ -10,8 +10,6 @@
 
 import { describe, expect, test } from "bun:test";
 import { BoardParams } from "../extensions/board/schema.ts";
-import { MAX_BLOCKED, MAX_NOTE } from "../lib/workflow/card.ts";
-import { MAX_CONTRACT } from "../lib/workflow/contract.ts";
 import {
 	SESSION_DESCRIPTION,
 	SESSION_GUIDELINES,
@@ -106,8 +104,11 @@ describe("the team tool surface", () => {
 		// verb does. 2,349 today, after `claim` and `reclaim` left: they were two doors onto `board`'s
 		// store ops, each with a second sentence and a second result line, and the round keeps only
 		// the verbs that reach another session. The ceiling is what stops a surface with no gate
-		// before it growing back, and it only ever falls.
-		expect(teamSurface()).toBeLessThanOrEqual(2_350);
+		// before it growing back, and it only ever falls. 2,335 ≤ 2,335 today: `action` became a
+		// string enum (−63, the form a provider that supports neither `anyOf` nor `const` needs),
+		// and `note`/`question`/`to` gained the bounds the bus and the label rules already refused
+		// (+49) — a call that names a 5,000-character handoff now fails before it sends anything.
+		expect(teamSurface()).toBeLessThanOrEqual(2_335);
 		expect(TEAM_GUIDELINES.join("\n").length).toBeLessThanOrEqual(720);
 	});
 
@@ -153,7 +154,11 @@ describe("the session tool surface", () => {
 		// repeated their own verb line. 2,116 today, after `about` stopped being held to an
 		// alphabet: the schema now publishes the one `key` and `replyTo` keep, and the
 		// description's delivery line — which the first guideline already says — paid for it.
-		expect(sessionSurface()).toBeLessThanOrEqual(2_116);
+		// 2,159 ≤ 2,159 after #748: `paths`, `text`, `to`, and `label` gained the bounds the
+		// protocol already refused (+43), paid partly by the two prose clauses they replaced. The
+		// ceiling rises here and nowhere else, because the three bounds buy a refusal before the
+		// send instead of after it.
+		expect(sessionSurface()).toBeLessThanOrEqual(2_159);
 		// The prose and the schema cannot drift apart: every verb a caller can pass is one the
 		// description tells it about.
 		for (const action of ["status", "send", "inbox", "read", "claim", "release", "join"]) {
@@ -221,27 +226,17 @@ describe("the board tool surface", () => {
 		// `MAX_CONTRACT` with its three siblings. It gave back 30, which is why the surface is 6,999:
 		// `review` repeated `approve`'s "the lead, who does not hold the card" and now says "the same
 		// lead" (-23), and `blockedBy` writes `≤` where it wrote "at most" (-7) — which is how its 200
-		// came to be the `MAX_BLOCKED` every other capped description reads. The gate is the number;
-		// this comment is why.
-		expect(boardSurface()).toBeLessThanOrEqual(7_013);
+		// came to be the `MAX_BLOCKED` every other capped description reads.
+		//
+		// #748 then moved every cap out of the prose and into the schema, which is where Pi validates
+		// it: the five union fields became string enums (-670, the form a provider that supports
+		// neither `anyOf` nor `const` needs) and the caps became `maxLength`/`maxItems` read from their
+		// constants (+49 against the deleted `≤N characters` clauses). 6,378 ≤ 6,378 today, and this
+		// is the largest single fall the surface has taken. The bounds themselves are held by
+		// `tool-caps.test.ts`, which reads them from the registered schemas; this file is budgets.
+		expect(boardSurface()).toBeLessThanOrEqual(6_378);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
-	});
-
-	test("spells every write cap from the constant that owns it, so a raise cannot strand a number", () => {
-		// The fields whose description states a cap: each has to read the constant rather than the number
-		// it renders today, which is what the de-literalized refusals in `tools.test.ts` rely on.
-		const capped: readonly (readonly [string, number])[] = [
-			["goal", MAX_CONTRACT],
-			["acceptance", MAX_CONTRACT],
-			["scopeOut", MAX_CONTRACT],
-			["verify", MAX_CONTRACT],
-			["blockedBy", MAX_BLOCKED],
-			["note", MAX_NOTE],
-			["text", MAX_NOTE],
-		];
-		const properties = BoardParams.properties as Record<string, { description?: string }>;
-		for (const [field, cap] of capped) expect(properties[field]?.description, field).toContain(`≤${cap} characters`);
 	});
 
 	test("keeps each guideline to a bullet-sized line", () => {
