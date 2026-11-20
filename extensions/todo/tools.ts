@@ -16,19 +16,17 @@ import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { normalizeTodos } from "../../lib/todo-state.ts";
+import { currentTodo } from "./state.ts";
 import { callLine, detailsOrLine, rejectionLine } from "../../lib/tui/tool.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
+import { formatCallText, formatTodoText, todoGlyph, todoLabel, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
 import { TodoResult as TodoResultView } from "./render.ts";
 import type { Todo, TodoDetails } from "./types.ts";
 
 export const TOOL_NAME = TODO_TOOL;
-
-/** Rows shown in an unexpanded transcript result before collapsing. */
-const COLLAPSED_ROWS = 6;
 
 /**
  * JSON-safe mirror of the list for `structuredContent`.
@@ -119,12 +117,19 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				return text;
 			}
 
-			// Expanded keeps the model's order; collapsed leads with active work so the
-			// in-progress item is visible, matching the widget.
-			const ordered = [...details.todos].sort(compareByActivity);
-			const rows = expanded ? details.todos : ordered.slice(0, COLLAPSED_ROWS);
-			const more = expanded ? 0 : details.todos.length - rows.length;
-			const input: TodoRailInput = { rows, more };
+			// The widget above the editor already carries the list, so the block states the one
+			// fact a scrollback cannot recover from it: where the work stands. Expanding draws
+			// the list itself, in the model's order.
+			if (!expanded) {
+				const current = currentTodo(details.todos);
+				text.setText(
+					current === undefined
+						? paint(theme, "ok", `${GLYPHS.check} `) + paint(theme, "meta", "all done")
+						: `${todoGlyph(current, theme)} ${todoLabel(current, theme)}`,
+				);
+				return text;
+			}
+			const input: TodoRailInput = { rows: details.todos };
 			const view =
 				context.lastComponent instanceof TodoResultView ? context.lastComponent : new TodoResultView(input, theme);
 			view.setInput(input, theme);

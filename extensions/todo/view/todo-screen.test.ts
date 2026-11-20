@@ -83,11 +83,11 @@ describe("todoRailLines", () => {
 		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(20);
 	});
 
-	test("reports capped rows with an expand hint and no progress footer", () => {
+	test("draws every row it is given, with no progress footer", () => {
 		const rows: Todo[] = Array.from({ length: 6 }, (_, i) => ({ content: `item ${i}`, status: "pending" as const }));
-		const lines = todoRailLines({ rows, more: 2 }, theme, 60);
-		expect(lines.at(-1)).toMatch(/^ {2}… 2 more/);
-		expect(lines.at(-1)).toContain("to expand");
+		const lines = todoRailLines({ rows }, theme, 60);
+		expect(lines).toHaveLength(rows.length);
+		expect(lines.at(-1)).toContain("item 5");
 		expect(lines.some((line) => line.includes("completed"))).toBe(false);
 	});
 });

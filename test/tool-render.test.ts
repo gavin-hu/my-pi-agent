@@ -332,7 +332,9 @@ const COLLAPSED_ROWS: Record<string, number> = {
 	"subagent-background": 3,
 	team: 2,
 	"team-assigning": 2,
-	todo: 5,
+	// 5 -> 2: the widget above the editor carries the list, so the block states only where the
+	// work stands. The rail is what expanding draws.
+	todo: 2,
 	watch: 3,
 	web_fetch: 2,
 	"web_fetch-rejected": 2,
