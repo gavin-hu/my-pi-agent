@@ -65,12 +65,13 @@ export interface ReviewPageInput {
 const REVIEW_KEYS = [
 	{ keys: "?", label: "This sheet" },
 	{ keys: "/", label: "Focus the file filter" },
-	{ keys: "j k", label: "Next and previous file" },
+	{ keys: ["j k", "↓ ↑"], label: "Next and previous line" },
+	{ keys: "Shift", label: "Extend the range with a move or a click" },
+	{ keys: "Enter", label: "Comment on the cursor line" },
+	{ keys: "c", label: "Comment on the cursor line" },
+	{ keys: "m", label: "Mark the current file reviewed" },
 	{ keys: "]", label: "Next hunk" },
 	{ keys: "[", label: "Previous hunk" },
-	{ keys: "Shift", label: "With a gutter click, extend the line selection" },
-	{ keys: "c", label: "Comment on the selected line" },
-	{ keys: "m", label: "Mark the current file reviewed" },
 	{ keys: "w", label: "Toggle line wrapping" },
 	{ keys: "Esc", label: "Close a composer, a dialog, or the sheet" },
 ];
@@ -128,7 +129,7 @@ function fileSection(
   <span class="rv-file__stats"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
   <span class="rv-file__acts">
     <span class="bf-tag" data-count>${count === 0 ? escapeHtml(stateWord(state)) : `${count} comment${count === 1 ? "" : "s"}`}</span>
-    <label class="rv-file__check"><input type="checkbox" data-reviewed="${escapeHtml(file.rel)}"${reviewed.has(file.rel) ? " checked" : ""}> reviewed</label>
+    <label class="rv-file__check"><input type="checkbox" data-reviewed="${escapeHtml(file.rel)}" aria-label="Mark ${escapeHtml(file.rel)} reviewed"${reviewed.has(file.rel) ? " checked" : ""}> reviewed</label>
   </span>
 </div>`;
 	const notes: string[] = [];
