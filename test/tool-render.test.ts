@@ -32,6 +32,7 @@ import todo from "../extensions/todo/index.ts";
 import watch from "../extensions/watch/index.ts";
 import webAccess from "../extensions/web-access/index.ts";
 import wechat from "../extensions/wechat/index.ts";
+import { registerTools as registerWorktreeTools } from "../extensions/worktree/tools.ts";
 import { FIXTURES, type ToolFixture } from "../scripts/tools/fixtures/index.ts";
 import { fixtureState } from "../scripts/tools/fixtures/state.ts";
 import { createFakePi, fakeTheme } from "./helpers/fakes.ts";
@@ -66,6 +67,9 @@ const EXTENSIONS: Array<(pi: any) => void> = [
 	wechat,
 	board,
 	team,
+	// The tool's renderers only: the extension's root-tool wrappers shadow `edit`/`write`/`bash`
+	// for an isolated session, and this suite draws tool blocks rather than a session.
+	(pi: any) => registerWorktreeTools(pi),
 ];
 
 /** The widths the transcript is exercised at: wide, split, and narrow. */
@@ -331,10 +335,14 @@ const COLLAPSED_ROWS: Record<string, number> = {
 	web_fetch: 2,
 	"web_fetch-rejected": 2,
 	web_search: 7,
-	worktree: 6,
+	// Nine rows across the four actions became seven when the tool grew a renderer (#742): the
+	// block draws the facts it read instead of the sentence written for the model. `prune` is the
+	// one entry that went up, 2 -> 3: the fallback's single sentence named no path, and a prune
+	// that cannot say which worktrees went is the block a person has to expand to read.
+	worktree: 2,
 	"worktree-exit": 2,
-	"worktree-list": 8,
-	"worktree-prune": 2,
+	"worktree-list": 4,
+	"worktree-prune": 3,
 };
 
 /** The viewport the budget is measured at: Pi's transcript width on a settled terminal. */

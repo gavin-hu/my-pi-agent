@@ -428,7 +428,13 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	"session-bus": 45,
 	subagent: 34,
 	"web-access": 41,
-	worktree: 38,
+	// 38 -> 45 for the transcript block (#742): `worktree` was the last package tool drawing
+	// through bytefly's generic fallback, so registering renderers for it is what puts the block
+	// kit — `tui/tool`, `tui/chrome`, `tui/columns` and the indent and render-cache they reach —
+	// in this graph, the same kit every other drawn tool already pays for. It cannot defer: Pi
+	// takes `renderCall`/`renderResult` from the registration, so the functions exist at load, and
+	// a hand-rolled row builder would be a second block grammar beside `lib/tui`.
+	worktree: 45,
 	goal: 36,
 	watch: 34,
 	todo: 32,

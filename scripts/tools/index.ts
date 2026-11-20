@@ -23,6 +23,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
 	type AgentToolResult,
+	type ExtensionAPI,
 	createBashToolDefinition,
 	createEditToolDefinition,
 	createFindToolDefinition,
@@ -55,6 +56,7 @@ import todo from "../../extensions/todo/index.ts";
 import watch from "../../extensions/watch/index.ts";
 import webAccess from "../../extensions/web-access/index.ts";
 import wechat from "../../extensions/wechat/index.ts";
+import { registerTools as registerWorktreeTools } from "../../extensions/worktree/tools.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { ALL_EXTENSIONS_ENV, useEnv } from "../../test/helpers/env.ts";
 import { escapeHtml } from "../../lib/escape.ts";
@@ -112,6 +114,10 @@ const EXTENSIONS = [
 	wechat,
 	board,
 	team,
+	// The worktree tool's own renderers, not the extension's root-tool wrappers: the gallery
+	// draws tool blocks, and those wrappers shadow `edit`/`write`/`bash` for a session that is
+	// isolated, which no fixture here is.
+	(pi: ExtensionAPI) => registerWorktreeTools(pi),
 ];
 
 /** Pi's built-in definitions, which carry the built-in renderers. */
