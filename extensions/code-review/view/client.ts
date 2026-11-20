@@ -219,6 +219,7 @@ ${CLIENT_RUNTIME_JS}
     }
     paintStates();
     filtered();
+    measureHeads();
   }
 
   // ── writes ────────────────────────────────────────────────────────────────
@@ -389,6 +390,160 @@ ${CLIENT_RUNTIME_JS}
   }
 
   /** Paint the cursor (and its range), the rail's current file, and the bar's ref. */
+  /**
+   * Bring a row into the main's viewport, just below the pinned head. The row lives inside the
+   * diff's own overflow box, so scrollIntoView stops at that box; scrolling the main by the
+   * measured delta is the one path that lands where the reader looks.
+   */
+  function scrollMainTo(row) {
+    var main = byId("rv-main");
+    if (!main || !row) return;
+    var section = row.closest(".rv-file");
+    var head = section ? section.querySelector(".rv-file__head") : null;
+    var offset = head ? head.offsetHeight : 0;
+    var delta = row.getBoundingClientRect().top - (main.getBoundingClientRect().top + offset);
+    main.scrollTop += delta;
+    // A scroll the page made is not a scroll the reader made: the spy must not repaint the
+    // rail from the position a jump just set.
+    expectedScroll = main.scrollTop;
+  }
+
+  /** The scroll this page just set, so the spy can tell it from the reader's own. */
+  var expectedScroll = null;
+
+  /** The rail's own scroll follows the place: a key move brings its row into the rail's box. */
+  function scrollRailTo(path) {
+    var row = railFor(path);
+    var box = document.querySelector(".rv-side-scroll");
+    if (!row || !box) return;
+    var rect = row.getBoundingClientRect();
+    var bounds = box.getBoundingClientRect();
+    if (rect.top < bounds.top) box.scrollTop += rect.top - bounds.top;
+    else if (rect.bottom > bounds.bottom) box.scrollTop += rect.bottom - bounds.bottom;
+  }
+
+  /** The rail's current mark, from the file in view; the cursor never moves from here. */
+  function paintRail() {
+    nodeList(".rv-rail").forEach(function (row) {
+      row.setAttribute("aria-current", row.getAttribute("data-path") === currentFile ? "true" : "false");
+    });
+  }
+
+  /** Each head's measured height, so a hunk jump lands below the pinned head at any width. */
+  function measureHeads() {
+    sections().forEach(function (section) {
+      var head = section.querySelector(".rv-file__head");
+      var height = head && head.offsetHeight;
+      if (height) section.style.setProperty("--rv-head-h", height + "px");
+    });
+  }
+
+  var headObserver = null;
+  function observeHeads() {
+    if (typeof ResizeObserver === "undefined") return;
+    if (headObserver) headObserver.disconnect();
+    headObserver = new ResizeObserver(function () { measureHeads(); });
+    sections().forEach(function (section) {
+      var head = section.querySelector(".rv-file__head");
+      if (head) headObserver.observe(head);
+    });
+  }
+
+  /**
+   * The place as state: the hash names the file and, when there is one, the cursor's line.
+   * Replace rather than push, so a key move does not leave one history entry per line.
+   */
+  function writePlace() {
+    var hash = "";
+    if (cursor) {
+      var at = cursorAnchor();
+      var section = sectionFor(cursor.path);
+      var index = section ? sections().indexOf(section) : -1;
+      if (at && index >= 0) hash = "#rv-file-" + index + ":" + at.line;
+    } else if (currentFile) {
+      var fileSection = sectionFor(currentFile);
+      var fileIndex = fileSection ? sections().indexOf(fileSection) : -1;
+      if (fileIndex >= 0) hash = "#rv-file-" + fileIndex;
+    }
+    if (!hash || location.hash === hash) return;
+    try { history.replaceState(null, "", hash); } catch (error) { location.hash = hash; }
+  }
+
+  // A restore outranks the spy: the first paints must not overwrite the place the URL names.
+  var restoring = true;
+
+  /**
+   * Restore the place a reload or a re-render left in the URL. Only where it still exists: a
+   * line that is gone falls back to its file's first numbered row, and a file the render no
+   * longer holds falls back to the first rendered section.
+   */
+  function restorePlace() {
+    var match = /^#rv-file-(\d+)(?::(\d+))?$/.exec(location.hash || "");
+    var index = match ? Number(match[1]) : -1;
+    var line = match && match[2] ? Number(match[2]) : null;
+    var all = sections();
+    var section = index >= 0 && index < all.length ? all[index] : null;
+    if (!section) {
+      // A render that dropped the hashed file falls back to the first section rather than
+      // leaving a hash that names nothing.
+      if (all.length) currentFile = all[0].getAttribute("data-path");
+      restoring = false;
+      paintSelection(false);
+      writePlace();
+      return;
+    }
+    var path = section.getAttribute("data-path");
+    currentFile = path;
+    cursor = null;
+    anchor = null;
+    if (line) {
+      var row = rowFor(path, line, "new") || rowFor(path, line, "old");
+      if (row) {
+        var at = numberedRows(section).indexOf(row);
+        if (at >= 0) cursor = { path: path, row: at };
+      }
+      if (!cursor) {
+        var rows = numberedRows(section);
+        if (rows.length) cursor = { path: path, row: 0 };
+      }
+    }
+    restoring = false;
+    paintSelection(Boolean(cursor));
+    scrollMainTo(cursorRow());
+    scrollRailTo(currentFile);
+    writePlace();
+  }
+
+  // The reading line is the scrollport's own top: the last section whose head reached it is
+  // the file the reader is in.
+  var spyFrame = 0;
+  function spy() {
+    if (restoring) return;
+    var main = byId("rv-main");
+    if (!main) return;
+    if (expectedScroll !== null && Math.abs(main.scrollTop - expectedScroll) < 2) return;
+    expectedScroll = null;
+    var line = main.getBoundingClientRect().top + 1;
+    var list = sections();
+    var inView = list[0] || null;
+    for (var index = 0; index < list.length; index++) {
+      var head = list[index].querySelector(".rv-file__head");
+      var top = head ? head.getBoundingClientRect().top : list[index].getBoundingClientRect().top;
+      if (top <= line) inView = list[index];
+      else break;
+    }
+    if (!inView) return;
+    var path = inView.getAttribute("data-path");
+    if (path !== currentFile) {
+      currentFile = path;
+      paintRail();
+    }
+  }
+  function onScroll() {
+    if (spyFrame) return;
+    spyFrame = requestAnimationFrame(function () { spyFrame = 0; spy(); });
+  }
+
   function paintSelection(focus) {
     sections().forEach(function (section) {
       var path = section.getAttribute("data-path");
@@ -406,9 +561,8 @@ ${CLIENT_RUNTIME_JS}
       for (var index = 0; index < rows.length; index++) {
         rows[index].setAttribute("data-picked", index >= from && index <= to ? "true" : "false");
       }
-      var rail = railFor(path);
-      if (rail) rail.setAttribute("aria-current", path === currentFile ? "true" : "false");
     });
+    paintRail();
     var bar = byId("rv-selbar");
     if (!bar) return;
     var row = cursorRow();
@@ -443,8 +597,9 @@ ${CLIENT_RUNTIME_JS}
     cursor = { path: path, row: row };
     currentFile = path;
     paintSelection(true);
-    var node = cursorRow();
-    if (node && node.scrollIntoView) node.scrollIntoView({ block: "nearest" });
+    scrollMainTo(cursorRow());
+    scrollRailTo(path);
+    writePlace();
   }
 
   /** Move one numbered row, crossing into the next or previous visible file at an end. */
@@ -484,6 +639,7 @@ ${CLIENT_RUNTIME_JS}
     cursor = null;
     anchor = null;
     paintSelection(false);
+    writePlace();
   }
 
   /** A save closes the composer; the cursor is where the reviewer was, so focus goes back to it. */
@@ -598,7 +754,7 @@ ${CLIENT_RUNTIME_JS}
     var at = heads.findIndex(function (head) { return head.getBoundingClientRect().top > 120; });
     if (at < 0) at = heads.length;
     var target = heads[Math.min(heads.length - 1, Math.max(0, at + (step > 0 ? 0 : -1)))];
-    if (target) target.scrollIntoView({ block: "start" });
+    scrollMainTo(target);
   }
 
   function toggleWrap() {
@@ -679,6 +835,7 @@ ${CLIENT_RUNTIME_JS}
       cursor = null;
       anchor = null;
       paintSelection(false);
+      writePlace();
     }
   });
 
@@ -733,9 +890,14 @@ ${CLIENT_RUNTIME_JS}
     nodeList(".rv-rail").filter(function (row) { return row.getAttribute("aria-current") === "true"; })[0] ||
     nodeList(".rv-rail")[0];
   if (startRail) currentFile = startRail.getAttribute("data-path");
+  measureHeads();
+  observeHeads();
   paintThreads();
   paintChrome();
-  paintSelection(false);
+  restorePlace();
+  var reviewMain = byId("rv-main");
+  if (reviewMain) reviewMain.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", measureHeads);
   restoreDraft();
 ${THEME_TOGGLE_JS}
 ${dialogScript({ dialogId: "rv-send-dialog", closeId: "rv-send-close", globalName: "rvSend" })}

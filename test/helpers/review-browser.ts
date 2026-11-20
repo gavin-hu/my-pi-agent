@@ -13,6 +13,7 @@
 
 import type { Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
+import type { DiffLine } from "../../lib/diff/parse.ts";
 import type { ReviewSnapshot } from "../../extensions/code-review/git/diff.ts";
 import { createReviewStore } from "../../extensions/code-review/review/store.ts";
 import { createReviewHandler } from "../../extensions/code-review/transport/router.ts";
@@ -28,8 +29,24 @@ export const REVIEW_PAINT_MS = 10_000;
 /** The prefix the page answers under, as `serve` mounts it. */
 export const REVIEW_MOUNT = "/review";
 
-/** The three rows of one file: a hunk head, two context rows, and one added line. */
-function fileRows(rel: string, start: number): ReviewSnapshot["files"][number] {
+/**
+ * One file: a hunk head, then `lines` context rows and one added line. With `lines` absent it
+ * is three numbered rows (two context and an add) — the shape the cursor cases count on.
+ */
+function fileRows(rel: string, start: number, lines = 0): ReviewSnapshot["files"][number] {
+	const body: DiffLine[] = [];
+	if (lines > 0) {
+		for (let index = 0; index < lines; index++) {
+			body.push({ kind: "ctx", text: `const v${index} = ${index};`, oldNo: start + index, newNo: start + index });
+		}
+		body.push({ kind: "add", text: "const more = 0;", newNo: start + lines });
+	} else {
+		body.push(
+			{ kind: "ctx", text: "const one = 1;", oldNo: start, newNo: start },
+			{ kind: "ctx", text: "const two = 2;", oldNo: start + 1, newNo: start + 1 },
+			{ kind: "add", text: "const three = 3;", newNo: start + 2 },
+		);
+	}
 	return {
 		rel,
 		status: "M",
@@ -37,28 +54,31 @@ function fileRows(rel: string, start: number): ReviewSnapshot["files"][number] {
 		del: 0,
 		binary: false,
 		truncated: false,
-		lines: [
-			{ kind: "hunk", text: `@@ -${start},2 +${start},3 @@` },
-			{ kind: "ctx", text: "const one = 1;", oldNo: start, newNo: start },
-			{ kind: "ctx", text: "const two = 2;", oldNo: start + 1, newNo: start + 1 },
-			{ kind: "add", text: "const three = 3;", newNo: start + 2 },
-		],
+		lines: [{ kind: "hunk", text: `@@ -${start},2 +${start},3 @@` }, ...body],
 	};
 }
 
-/** A snapshot's shape a case may move: where a.hs first line starts, and whether b.ts joins it. */
+/** A snapshot's shape a case may move: where a file starts, how tall it is, and how many files. */
 export interface SnapshotOptions {
 	/** The first line of the first file's hunk; default 1. */
 	start?: number;
 	/** Append a second file, so a move can cross into it. */
 	second?: boolean;
+	/** Context rows per file (plus the added line); absent keeps the three-row shape. */
+	lines?: number;
+	/** How many files; overrides `second` when given. */
+	files?: number;
 }
 
-/** One snapshot: one file, or two, each with a hunk, two context rows, and an added line. */
+/** One snapshot of `files` files, each with a hunk and its body. */
 export function reviewSnapshot(fingerprint: string, options: SnapshotOptions = {}): ReviewSnapshot {
 	const start = options.start ?? 1;
-	const files = [fileRows("a.ts", start)];
-	if (options.second) files.push(fileRows("b.ts", 40));
+	const count = options.files ?? (options.second ? 2 : 1);
+	const files: ReviewSnapshot["files"] = [];
+	for (let index = 0; index < count; index++) {
+		const rel = options.files === undefined ? (index === 0 ? "a.ts" : "b.ts") : `f${index + 1}.ts`;
+		files.push(fileRows(rel, index === 0 ? start : 40 + (index - 1) * 40, options.lines ?? 0));
+	}
 	return {
 		scope: "base",
 		base: "main",
