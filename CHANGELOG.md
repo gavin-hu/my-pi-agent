@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `test`: the 400-line suite bar covers the package-level contracts under `test/`, not only the suites
+  beside an extension. `test/suite-sizes.test.ts` read `declaredSuiteFiles()` alone, so
+  `test/suite-manifest.ts` now declares `ROOT_SUITES` and `declaredRootSuites()` — the list
+  `test/layout.test.ts` already compared the directory against, moved there so both readers share it —
+  and the two halves ride the same four checks, an unnamed suite past the bar and a named one that fell
+  back under it alike. The silence was not theoretical: eight root contracts were already past it
+  (`site-docs` 829, `release` 633, `shared-helpers` 628, `dependencies` 628, `theme` 560,
+  `wait-budget` 513, `tool-render` 503, `settings-coverage` 483), which is how four cards grew
+  `test/tool-render.test.ts` from 277 lines to 503 with nothing noticing. That file is split by
+  capability: `tool-render.test.ts` keeps the render contract, `tool-rows.test.ts` takes
+  `COLLAPSED_ROWS` with its per-width tokens and budget cases, and `test/helpers/tool-block.ts` holds
+  the frame harness both draw through, because `shared-helpers.test.ts` fails a body two suites carry.
+  The entry the widening would have named is gone instead, so `LONG_SUITE_TOTAL` is 47,759 — 43,485
+  plus 4,274 for the seven that stay, against a ledger that measures 46,542 — and it may only fall. The
+  17 cases and 2,707 assertions are the same in two files as in one. `test/README.md` states the bar for
+  both halves and indexes the two suites. Rejected: recording the omission as deliberate, since eight
+  contracts already past the bar is the defect rather than a property to document.
+
 - `ci`: `bun run check` is the landing gate and `bun run check:all` is the full sweep. A landing used to pay
   the whole 465-file suite — 116.7 s, plus format and typecheck — for a docs or leaf change, and paid it
   twice on one machine: once as the owner's gate and again when the lead's `board review` ran the card's

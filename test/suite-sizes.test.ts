@@ -2,10 +2,14 @@
  * The suite-size bar, held as a ratchet.
  *
  * `test/README.md` asks for a suite under roughly 400 lines, split by capability once it
- * grows past that. Nothing read that line, so 74 of the declared suites were past it. Each
- * one is named here at its exact line count, and the entries are debt rather than blessings:
- * a `LONG_MODULES` entry claims one responsibility keeps a module whole, while an entry here
- * claims only that the suite has not been split yet.
+ * grows past that. Nothing read that line, so the suites past it were debt nobody could see.
+ * Each one is named here at its exact line count, and the entries are debt rather than
+ * blessings: a `LONG_MODULES` entry claims one responsibility keeps a module whole, while an
+ * entry here claims only that the suite has not been split yet.
+ *
+ * The bar covers the whole tree, not one half of it: a capability suite declared in
+ * `suite-manifest.ts`, and a package-level contract sitting directly under `test/`, which went
+ * unmeasured until #746 and is where four cards quietly grew one file to 503 lines.
  *
  * So a named suite may not gain a line, the total may only fall, and a suite past the bar
  * that is not named fails — the answer to a case that needs room is a split, and a split
@@ -18,10 +22,19 @@
 
 import { describe, expect, test } from "bun:test";
 import { lineCount } from "./helpers/scan.ts";
-import { declaredSuiteFiles } from "./suite-manifest.ts";
+import { declaredRootSuites, declaredSuiteFiles } from "./suite-manifest.ts";
 
 /** The bar `test/README.md` states, in lines. */
 const SUITE_BAR = 400;
+
+/**
+ * Every suite the bar measures: the capability suites beside an extension, `lib/` or `scripts/`,
+ * and the package-level contracts directly under `test/`. One list, so the two halves cannot be
+ * gated differently — which is how a root contract sat outside the bar until #746.
+ */
+function allSuites(): string[] {
+	return [...declaredSuiteFiles(), ...declaredRootSuites()];
+}
 
 /** Every declared suite past the bar, at its height: debt, and a height only falls. */
 const LONG_SUITES: Record<string, number> = {
@@ -80,10 +93,28 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/wechat/commands/commands.test.ts": 760,
 	"extensions/wechat/conversation/turn.test.ts": 529,
 	"extensions/wechat/transport/client.test.ts": 691,
+	// The root contracts, measured from #746 on. Each grew while the bar read only the suites
+	// beside an extension, and `tool-render` reaching 503 is the proof that silence was not safe:
+	// this card split it, which is why there is no entry for it here.
+	"test/dependencies.test.ts": 628,
+	"test/release.test.ts": 633,
+	"test/settings-coverage.test.ts": 483,
+	"test/shared-helpers.test.ts": 628,
+	"test/site-docs.test.ts": 829,
+	"test/theme.test.ts": 560,
+	"test/wait-budget.test.ts": 513,
 };
 
-/** The named suites' total, written down so only a split can move it. */
-const LONG_SUITE_TOTAL = 43485;
+/**
+ * The named suites' total, written down so only a split can move it.
+ *
+ * 43,485 was the ceiling for the declared suites; the seven root contracts named below it are
+ * 4,274 more, so the ceiling is 47,759, and it may only fall from here. Two facts, not one: the
+ * ledger measures 42,268 + 4,274 = 46,542 against it, because the declared half carried 1,217
+ * lines of headroom when the root half joined. The gap is history rather than permission — a
+ * split lowers the ceiling, and nothing raises it again.
+ */
+const LONG_SUITE_TOTAL = 47759;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 
@@ -123,7 +154,7 @@ function namedTotal(named: Readonly<Record<string, number>>): number {
 describe("suite sizes", () => {
 	test("a suite past the bar is named at its height", () => {
 		expect(
-			unnamedSuites(declaredSuiteFiles(), lineCount, LONG_SUITES),
+			unnamedSuites(allSuites(), lineCount, LONG_SUITES),
 			"a suite past the bar is a split, or a named debt",
 		).toEqual([]);
 	});
@@ -141,13 +172,15 @@ describe("suite sizes", () => {
 	});
 
 	test("LONG_SUITES carries no stale entry", () => {
-		expect(staleEntries(LONG_SUITES, new Set(declaredSuiteFiles()), lineCount)).toEqual([]);
+		expect(staleEntries(LONG_SUITES, new Set(allSuites()), lineCount)).toEqual([]);
 	});
 
 	test("the ledger is the whole list, and the tree it reads is the one it expects", () => {
-		const suites = declaredSuiteFiles();
-		// A manifest that stopped being read would make every check above vacuous.
-		expect(suites.length).toBeGreaterThan(150);
+		const suites = allSuites();
+		// Both halves are read. A list that stopped reaching the checks above would make every one
+		// of them vacuous, and the root half is the one that was missing (#746).
+		expect(declaredRootSuites().length, "the root contracts are measured too").toBeGreaterThan(30);
+		expect(suites.length).toBeGreaterThan(400);
 		expect(suites.filter((file) => lineCount(file) > SUITE_BAR)).toHaveLength(named.length);
 		expect(named.length).toBeGreaterThan(50);
 	});
