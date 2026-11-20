@@ -18,6 +18,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BOARD_CLIENT_JS } from "../extensions/board/view/client.ts";
+import { REVIEW_CLIENT_JS as CODE_REVIEW_CLIENT_JS } from "../extensions/code-review/view/client.ts";
 import { CLIENT_JS as BROWSE_CLIENT_JS } from "../extensions/file-browse/view/client.ts";
 import { REVIEW_CLIENT_JS } from "../extensions/plan/web-client.ts";
 import { boardDocument } from "../test/helpers/board-document.ts";
@@ -64,6 +65,8 @@ const PAGES: Readonly<Record<string, () => string>> = {
 	"scripts/shots/file-browse.ts": () => [source("extensions/file-browse/view/html.ts"), BROWSE_CLIENT_JS].join("\n"),
 	"scripts/shots/plan-review.ts": () =>
 		[source("extensions/plan/web-page.ts"), source("extensions/plan/web-blocks.ts"), REVIEW_CLIENT_JS].join("\n"),
+	"scripts/shots/code-review.ts": () =>
+		[source("extensions/code-review/view/page.ts"), CODE_REVIEW_CLIENT_JS].join("\n"),
 };
 
 describe("the shot scripts' selectors", () => {

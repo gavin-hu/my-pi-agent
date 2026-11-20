@@ -15,6 +15,7 @@ import { expect } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import board from "../../extensions/board/index.ts";
 import bytefly from "../../extensions/bytefly/index.ts";
+import codeReview from "../../extensions/code-review/index.ts";
 import fileRead from "../../extensions/file-read/index.ts";
 import goal from "../../extensions/goal/index.ts";
 import jobs from "../../extensions/job/index.ts";
@@ -35,6 +36,7 @@ import { createFakePi } from "./fakes.ts";
 export const EXTENSIONS: Array<(pi: any) => void> = [
 	bytefly,
 	fileRead,
+	codeReview,
 	goal,
 	jobs,
 	memory,
@@ -156,6 +158,10 @@ export const COLLAPSED_ROWS: Record<string, number> = {
 	"plan-write": 2,
 	question: 5,
 	"question-cancelled": 3,
+	// No renderer: the call line and the result's one sentence, which is the address a
+	// person opens and the size of what is behind it. Both actions draw the same 4 rows.
+	"code_review-comments": 4,
+	"code_review-open": 4,
 	read_doc: 2,
 	"read_doc-running": 2,
 	run_doctor: 2,

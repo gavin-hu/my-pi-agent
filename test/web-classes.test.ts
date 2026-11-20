@@ -21,6 +21,7 @@ import { kitNamesIn, rulesClass, sourcesUnder } from "./helpers/web-classes.ts";
 import { WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS } from "../lib/web/index.ts";
 import { BOARD_CSS } from "../extensions/board/view/styles.ts";
 import { REVIEW_CSS } from "../extensions/plan/web-page.ts";
+import { REVIEW_CSS as CODE_REVIEW_CSS } from "../extensions/code-review/view/styles.ts";
 import { BROWSE_CSS } from "../extensions/file-browse/view/styles.ts";
 
 const root = join(import.meta.dir, "..");
@@ -83,6 +84,21 @@ const PAGES: readonly ServedPage[] = [
 			{ name: "bf-review-draft", why: "a localStorage key the composer restores from, not a style" },
 			{ name: "bf-review-name", why: "a localStorage key that remembers the reviewer's name" },
 			{ name: "bf-review-shortcuts", why: "a localStorage key that remembers the reader's shortcut switch" },
+		],
+	},
+	{
+		page: "code-review",
+		dir: join(root, "extensions/code-review/view"),
+		// The diff body is lib/diff's markup: the page supplies its rules, so the renderer
+		// is read as this page's second writer.
+		extraSources: [join(root, "lib/diff")],
+		skip: ["styles.ts"],
+		css: CODE_REVIEW_CSS,
+		exceptions: [
+			{
+				name: "bf-tone--",
+				why: "a family: the client builds a tag's tone from a table, and the kit rules each member",
+			},
 		],
 	},
 	{

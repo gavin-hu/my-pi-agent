@@ -200,9 +200,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 			"Commands whose git behavior cannot be verified pass through unless `worktree.guard.blockUnparsableCommands` is set.",
 		],
 	},
-	rewind: {
-		requires: [gitCheck("rewind snapshots")],
-	},
+	rewind: { requires: [gitCheck("rewind snapshots")] },
 	question: {
 		notes: ["Needs an interactive UI; without one the tool stays inactive."],
 	},
@@ -250,6 +248,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		optional: [gitCheck("the branch chip and the diff view")],
 		notes: ["The default-browser opener is reported when it cannot start; the URL is printed either way."],
 	},
+	"code-review": { optional: [gitCheck("the diff the page serves")], notes: ["Needs `serve` and a browser."] },
 	"file-read": {},
 	"file-open": {
 		notes: [
