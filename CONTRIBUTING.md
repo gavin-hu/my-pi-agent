@@ -1,8 +1,7 @@
 # Contributing
 
-Thanks for wanting to improve `my-pi-agent`. This page is the contributor entry
-point: the setup, the branch flow, the checks, the conventions, and the release
-process. The repo's rules and their gates live in [`AGENTS.md`](./AGENTS.md); the
+Thanks for wanting to improve `my-pi-agent`. This page covers the setup, the branch
+flow, the checks, the conventions and the release process. The repo's rules and their gates live in [`AGENTS.md`](./AGENTS.md); the
 test tiers and determinism rules in [`test/README.md`](./test/README.md); the dev
 tooling in [`scripts/README.md`](./scripts/README.md). The user documentation is
 the site under [`docs/`](./docs/), which GitHub Pages builds.
@@ -10,7 +9,7 @@ the site under [`docs/`](./docs/), which GitHub Pages builds.
 ## Before you start
 
 - Install [Bun](https://bun.sh) and make sure `git` is on `PATH`.
-- Read [`AGENTS.md`](./AGENTS.md) for the rules and the gates that hold them.
+- Read [`AGENTS.md`](./AGENTS.md) — the rules and their gates.
 - For a large change, open an issue first so the approach can be agreed before
   code is written.
 
@@ -18,7 +17,8 @@ the site under [`docs/`](./docs/), which GitHub Pages builds.
 
 ```bash
 bun install             # once per worktree
-bun run check           # the one command that must pass
+bun run check           # the landing gate: format, types, this branch's suites, the sweeps
+bun run check:all       # the full sweep: what CI and publish.yml run, and a release owes
 ```
 
 | Command | What it does |
@@ -32,8 +32,10 @@ bun run check           # the one command that must pass
 
 Selection is Bun's: a slice is a directory and a change is `--changed=<ref>`.
 [`test/README.md`](./test/README.md#running) covers what each invocation leaves out —
-the package-level contracts read the tree, so a narrow run adds `bun test test/` — and
-[`scripts/README.md`](./scripts/README.md) owns the surface itself.
+the package-level contracts read the tree, so the landing gate adds `bun test test/`, and widens
+to `check:all` by itself when the change is the runner's, when there is no branch to
+narrow against, or when `git` cannot say; CI and `publish.yml` run `check:all` because they
+owe the sweep a landing is spared. [`scripts/README.md`](./scripts/README.md) owns the surface.
 
 ## Branch flow
 
@@ -50,7 +52,7 @@ git worktree add .pi/worktrees/<name> -b worktree-<name>
 ```
 
 The branch is cut from `origin/main`, which lags the local `main` when pushes are
-infrequent; leave it there, and let the merge settle divergence once.
+infrequent; leave it there.
 
 `main` moves while you work. Commit as each step finishes; when it is time to land,
 merge `main` into the branch (or the branch on the `main` checkout), resolve the
@@ -77,8 +79,7 @@ for non-trivial changes, and use no emojis.
 
 ## Conventions
 
-Enforced or reviewed; the full list of rules and the gates that hold them is in
-[`AGENTS.md`](./AGENTS.md). This file owns the kit a TUI surface is built from — Pi's
+This file owns the kit a TUI surface is built from — Pi's
 built-in design system and `lib/tui/`: [`tokens.ts`](./lib/tui/tokens.ts) roles,
 [`chrome.ts`](./lib/tui/chrome.ts), [`rules.ts`](./lib/tui/rules.ts),
 [`rows.ts`](./lib/tui/rows.ts), [`columns.ts`](./lib/tui/columns.ts),
@@ -221,7 +222,7 @@ authenticates with npm trusted publishing (OIDC). See
      [`scripts/README.md`](./scripts/README.md#when-an-asset-is-recaptured). An
      `assets/cards/` poster instead follows its page, recaptured in the change that makes
      it stale.
-3. Run `bun run check`, commit as `chore(release): X.Y.Z`, and merge the branch into
+3. Run `bun run check:all`, commit as `chore(release): X.Y.Z`, and merge the branch into
    `main`.
 4. Tag `main`'s HEAD and push the tag with `main` — one push, never after it:
 
@@ -230,9 +231,9 @@ authenticates with npm trusted publishing (OIDC). See
    git push origin vX.Y.Z main
    ```
 
-   A `main`-first push races CI's `fetch-depth: 0` checkout: a release job that starts
-   before the tag arrives fails `test/release.test.ts` with "newest git tag is the package
-   version", and re-running that job clears it.
+   A `main`-first push races CI's `fetch-depth: 0` checkout: a job that starts before the
+   tag arrives fails `test/release.test.ts` with "newest git tag is the package version";
+   re-running it clears that.
 
 5. Create the GitHub release from that changelog section:
 
@@ -259,7 +260,7 @@ authenticates with npm trusted publishing (OIDC). See
    machine fails instead of shipping an unsigned tarball.
 
 GitHub marks the newest creation date as "Latest": after releasing an older version, run
-`gh release edit vX.Y.Z --latest` on the newest tag. A draft does not change that.
+`gh release edit vX.Y.Z --latest` on the newest tag, which a draft does not change.
 
 If the tagged tree is broken and nothing is published yet, move the tag onto the fix
 (`git push --force-with-lease origin vX.Y.Z`, then recreate the notes) — the tag is the
@@ -273,8 +274,6 @@ reason the local flow used to: a machine whose default registry is a read-only m
 
 ### One-time publish setup
 
-Both settings live outside this repository and are needed exactly once.
-
 1. **npmjs.com** → the package → Settings → Trusted publishing → GitHub Actions:
    organization `gavin-hu`, repository `my-pi-agent`, workflow `publish.yml`, environment
    `npm`, and tick **Allow npm publish** — one created after 2026-09-03 defaults to
@@ -286,13 +285,12 @@ Both settings live outside this repository and are needed exactly once.
 
 After the first successful run, set the package's access to **Require two-factor
 authentication and disallow tokens**: trusted publishing keeps working over OIDC, and a
-leaked token stops being a publish path. The setup needs npm CLI 11.5.1 and Node 22.14 or
-newer, and the workflow pins Node 24, which ships npm 11.
+leaked token stops being a publish path. The setup needs npm CLI 11.5.1 and Node 22.14+, and
+the workflow pins Node 24 (npm 11).
 
-None of it is checked when it is saved: a wrong repository, workflow filename (`.yml`
-included) or environment is accepted silently and fails only at publish time as
-`ENEEDAUTH`, which reads like a missing credential. `NPM_CONFIG_LOGLEVEL=verbose npm
-publish` is what tells them apart, answering `package not found` when no entry matched
-this run; a token in `.npmrc` gives the same error, which is why `test/release.test.ts`
-forbids `registry-url` and `token` on `setup-node`. An existing entry cannot be edited:
-delete it and create it again, up to ten per package.
+None of it is checked when saved: a wrong repository, workflow filename or environment is
+accepted silently and fails at publish time as `ENEEDAUTH`, which reads like a missing
+credential. `NPM_CONFIG_LOGLEVEL=verbose npm publish` tells them apart, answering `package
+not found` when no entry matched this run; a token in `.npmrc` gives the same error, which
+is why `test/release.test.ts` forbids `registry-url` and `token` on `setup-node`. An
+existing entry cannot be edited: delete it and create it again, up to ten per package.

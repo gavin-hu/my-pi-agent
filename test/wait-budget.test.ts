@@ -398,15 +398,20 @@ describe("the run's clocks", () => {
 		expect(CASE_BUDGET_MS - SPAWN_WATCHDOG_MS, "the margin a failure reports in").toBeGreaterThanOrEqual(MIN_BUDGET_MS);
 		expect(SPAWN_WATCHDOG_MS).toBe(CASE_BUDGET_MS - REPORT_MARGIN_MS);
 	});
-	test("holds the gate's wrapper to the same budget, since only the flag reaches a hook", () => {
+	test("holds both gate names to the same wrapper and the same budget", () => {
 		const scripts = (
 			JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as { scripts: Record<string, string> }
 		).scripts;
-		// One name for the gate: whatever CI and a person type is the wrapper, which is where the lock
-		// and the budget both live. Two owners, held together here.
+		// Two names, one owner: `check` decides how wide to run and `check:all` asks it for the full
+		// sweep, so a landing and a CI job still share one lock and one budget rather than two chains
+		// that can drift apart.
 		expect(scripts.check, "bun run check is the wrapper").toContain("scripts/check.ts");
+		expect(scripts["check:all"], "bun run check:all is the same wrapper, with --all").toBe(
+			"bun run scripts/check.ts --all",
+		);
 		// `bunfig.toml` has no key for `--timeout` and `setDefaultTimeout` does not reach a hook, so the
-		// number still has to ride the command a person types — now the one in the wrapper.
+		// number still has to ride the command a person types — now the one in the wrapper. The narrow
+		// plan carries it on both of its test commands, which `scripts/check.test.ts` asks of every plan.
 		const wrapper = readFileSync(join(repo, "scripts", "check.ts"), "utf-8");
 		const flag = /"--timeout",\s*"(\d+)"/.exec(wrapper);
 		expect(flag?.[1], "scripts/check.ts passes the case budget as --timeout").toBe(String(CASE_BUDGET_MS));

@@ -136,6 +136,7 @@
   },
   "scripts": {
     "check": "bun run scripts/check.ts",
+    "check:all": "bun run scripts/check.ts --all",
     "check:format": "biome format .",
     "check:types": "tsc --noEmit",
     "format": "biome format --write .",

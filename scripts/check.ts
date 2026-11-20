@@ -1,11 +1,17 @@
 #!/usr/bin/env bun
 /**
- * `bun run check`: the gate a landing needs, behind the lock that makes two panes queue.
+ * `bun run check`: the landing gate, behind the lock that makes two panes queue.
  *
- * The three commands are the same chain this script replaced, in the same order, and every caller
- * already runs `bun run check` — the CI jobs and `publish.yml` included — so nothing outside this
- * file had to learn about the lock. A CI runner runs one gate and never contends, which is why
- * nothing about that job changes.
+ * Two names run this file. `check` is what a landing pays: format, types, then the tests the change
+ * actually reaches — `--changed=main` plus the `test/` sweeps, which read the tree rather than import
+ * it and so cannot be selected by an import graph. `check:all` is the full sweep, which is CI's job,
+ * `publish.yml`'s, and a release's.
+ *
+ * Every plan starts with format and types: they are what a landing owes whatever the tests cost, and
+ * `scripts/check.test.ts` fails if a later edit drops them.
+ *
+ * The chain is printed as it runs, so a narrow gate says which half it is narrowing to rather than
+ * leaving a reader to trust that the missing one was not owed.
  *
  * The budget rides the command a person types: `bunfig.toml` has no key for `--timeout` and
  * `setDefaultTimeout` does not reach a hook, so the number is written here and
@@ -15,32 +21,110 @@
 import { spawnSync } from "node:child_process";
 import { acquireGate } from "./gate-lock.ts";
 
-/** The chain, in the order `check` has always run it. */
-const STEPS: readonly (readonly string[])[] = [
-	[process.execPath, "run", "check:format"],
-	[process.execPath, "run", "check:types"],
-	// 90_000 is `CASE_BUDGET_MS`, and `test/wait-budget.test.ts` is what keeps the two equal.
-	[process.execPath, "test", "--timeout", "90000"],
+/** One command in the chain: what to run, as `spawnSync` takes it. */
+export type Command = readonly string[];
+
+/** `--timeout 90000`, which is `CASE_BUDGET_MS`. See the note above: it cannot live in a config file. */
+const BUDGET: readonly string[] = ["--timeout", "90000"];
+
+const FORMAT: Command = [process.execPath, "run", "check:format"];
+const TYPES: Command = [process.execPath, "run", "check:types"];
+
+/** `bun test` under the case budget, over the selection asked for. No selection is the full sweep. */
+function tests(...selection: readonly string[]): Command {
+	return [process.execPath, "test", ...BUDGET, ...selection];
+}
+
+/**
+ * The files a change to which makes the run a change to the *runner*: the test invocation, its
+ * preload, the compiler's options, the lockfile. `test/README.md` states the rule; this is what
+ * enforces it, so nobody has to remember it on the one morning it matters.
+ */
+export const RUNNER_FILES: readonly string[] = [
+	"package.json",
+	"tsconfig.json",
+	"bun.lock",
+	"bunfig.toml",
+	"test/helpers/preload.ts",
 ];
 
-const lock = acquireGate();
-let code = 0;
-try {
-	for (const [command, ...args] of STEPS) {
-		// Inherited stdio, so the gate reads as it always has and a `Ctrl-C` reaches the child
-		// through the process group. The wrapper does not unwind: `spawnSync` blocks, so no signal
-		// handler of ours can run, and a cancelled gate leaves its lock behind — the next gate's
-		// `check-lock: reclaiming` line is the recovery, and it names the pid it took the file from.
-		const step = spawnSync(command, args, { stdio: "inherit" });
-		if (step.status !== 0) {
-			code = step.status ?? 1;
-			break;
-		}
-	}
-} finally {
-	// The code is carried out rather than exited on inside the `try`: `process.exit` ends the
-	// process without unwinding, so a failing gate would leave its lock behind for the next pane
-	// to reclaim — which is how one dead holder turns into a mystery for a person reading the file.
-	lock?.release();
+/** What the gate knows before it starts. */
+export interface Facts {
+	/** `--all` was asked for: `check:all`'s full sweep, whatever the branch says. */
+	all?: boolean;
+	/** `git diff --name-only main`, or `undefined` when that read could not be made. */
+	changed?: readonly string[];
 }
-process.exit(code);
+
+/** The chain to run, and the line that says why it has that shape (`undefined` for the ordinary one). */
+export interface Plan {
+	commands: readonly Command[];
+	why?: string;
+}
+
+/**
+ * The chain one `check` makes.
+ *
+ * Four answers, and each of the three wider ones says why: a gate that got bigger silently is as
+ * confusing as one that got smaller. The last answer is the only narrow one, and it is narrow only
+ * because the first three did not apply.
+ */
+export function planFor(facts: Facts): Plan {
+	const full = (why: string): Plan => ({ commands: [FORMAT, TYPES, tests()], why });
+	if (facts.all === true) return full("check:all — the full sweep, asked for");
+	// A failed read is not "nothing changed": a shallow clone, a detached HEAD, or a repository whose
+	// default branch is elsewhere has no `main`, and guessing narrow there would skip the very suites
+	// the change touches. Widen, and say so.
+	if (facts.changed === undefined) return full("the branch diff could not be read, so the full sweep runs");
+	// No branch to compare with: the same tree a person gates before a release, where everything is owed.
+	if (facts.changed.length === 0) return full("there is no branch to narrow against, so the full sweep runs");
+	const runner = facts.changed.find((path) => RUNNER_FILES.includes(path));
+	if (runner !== undefined) return full(`\`${runner}\` is the runner, so the full sweep runs`);
+	return { commands: [FORMAT, TYPES, tests("--changed=main"), tests("test/")] };
+}
+
+/** One command as the gate prints it: `bun` for the running interpreter, then its arguments. */
+export function display(command: Command): string {
+	return [command[0] === process.execPath ? "bun" : command[0], ...command.slice(1)].join(" ");
+}
+
+/** `git diff --name-only main`, or `undefined` when git cannot answer. */
+function changedSince(cwd: string): readonly string[] | undefined {
+	const read = spawnSync("git", ["diff", "--name-only", "main"], { cwd, encoding: "utf8" });
+	if (read.error !== undefined || read.status !== 0) return undefined;
+	return read.stdout
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line !== "");
+}
+
+/**
+ * Run the plan, holding the gate's lock, and leave with the first failure's code.
+ *
+ * `process.exit` is deliberately outside the `try`: it ends the process without unwinding, so a
+ * failing gate would leave its lock behind for the next pane to reclaim.
+ */
+export function run(plan: Plan): never {
+	if (plan.why !== undefined) console.error(`check: ${plan.why}`);
+	const lock = acquireGate();
+	let code = 0;
+	try {
+		for (const command of plan.commands) {
+			console.error(`check: ${display(command)}`);
+			const [executable, ...args] = command;
+			const step = spawnSync(executable ?? "", args, { stdio: "inherit" });
+			if (step.status !== 0) {
+				code = step.status ?? 1;
+				break;
+			}
+		}
+	} finally {
+		lock?.release();
+	}
+	process.exit(code);
+}
+
+// The import this file's own suite makes must not start a gate: `planFor` is what a case asks, and a
+// module that exited on import would take the suite with it.
+const plan = planFor({ all: process.argv.includes("--all"), changed: changedSince(process.cwd()) });
+if (import.meta.main) run(plan);

@@ -53,13 +53,15 @@ jobs:
       # does it on each run. A related report, #45483, was filed 2026-10-16. This
       # is not a macOS bug: the ubuntu job parked for 33 minutes on run
       # 41560292494 and passed in 68 s on re-dispatch. No job here passes
-      # --parallel, and a local `bun run check` is the same shape: one file at a
+      # --parallel, and a local `bun run check:all` is the same shape: one file at a
       # time, so an unrelated layer of contention is not in the picture.
       # The default shell per OS is intentional: forcing bash on Windows would
       # reintroduce Git-Bash path conversion, which is itself platform-specific.
-      # format:check, typecheck, test
+      # format:check, typecheck, and the full sweep — `check:all`, because a runner
+      # pays this once and a landing pays the narrow `check`. `test/release.test.ts`
+      # matches the `bun run check` prefix, so the longer name keeps that case green.
       - name: Run checks
-        run: bun run check
+        run: bun run check:all
 
   # Proves the package against the newest published Pi, not the versions the
   # lockfile pinned. Peer ranges stay "*" because the host supplies them, so this
@@ -107,4 +109,4 @@ jobs:
       # The whole gate, which typechecks against the peers just installed: one
       # command, and the same one every other job runs.
       - name: Run the gate against the newest peers
-        run: bun run check
+        run: bun run check:all
