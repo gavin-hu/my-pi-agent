@@ -55,7 +55,7 @@ export interface ServeContext {
 	config: ServeConfig;
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
-	/** Read-only diff provider; omitted when the diff view is unavailable. */
+	/** Read-only change list for the chip and the markers; omitted when unavailable. */
 	diff?: GitDiffProvider;
 	/** Cached quick-open file index; built on demand when omitted. */
 	index?: FileIndexProvider;

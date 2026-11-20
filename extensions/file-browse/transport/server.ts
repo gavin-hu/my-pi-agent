@@ -29,11 +29,11 @@ import type { GitDiffProvider, GitStatusProvider } from "../git/git.ts";
 import { createLiveChannel, createLiveStatus, movedFrameOf } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 
-/** The readers built for one root: the header's git context, and the diff view's. */
+/** The readers built for one root: the header's git context, and the change list's. */
 export interface RootReaders {
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
-	/** Read-only diff provider for the change and diff views; omitted when unavailable. */
+	/** Read-only change list for the chip, the markers and the review link; omitted when unavailable. */
 	diff?: GitDiffProvider;
 }
 
@@ -67,7 +67,7 @@ export interface FileServerOptions {
 	session: string;
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
-	/** Read-only diff provider for the change and diff views; omitted when unavailable. */
+	/** Read-only change list for the chip, the markers and the review link; omitted when unavailable. */
 	diff?: GitDiffProvider;
 	/** Called once the last page has been gone for `idleStopMs`; omitted, the mount waits for `close()`. */
 	onIdle?: () => void;
@@ -90,7 +90,6 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 	const gitReader: GitStatusProvider = () => current.git?.() ?? Promise.resolve(undefined);
 	const diffReader: GitDiffProvider = {
 		list: (mode) => current.diff?.list(mode) ?? Promise.resolve(undefined),
-		file: (rel, mode) => current.diff?.file(rel, mode) ?? Promise.resolve(undefined),
 	};
 	// The status feed's two server-owned facts: how long it has been up, and how
 	// many requests it has answered. Both are read per frame, never cached.

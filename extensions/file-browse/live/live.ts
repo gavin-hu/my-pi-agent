@@ -93,7 +93,7 @@ export interface LiveStatusSource {
 export interface LiveStatusOptions {
 	/** Read-only git context; omitted when the page has none. */
 	git?: GitStatusProvider;
-	/** Read-only diff provider; omitted when the diff view is off. */
+	/** Read-only change list; omitted when the change chrome is off. */
 	diff?: GitDiffProvider;
 	/** When the server started listening, in ms. */
 	startedAt: number;

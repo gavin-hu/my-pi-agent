@@ -25,13 +25,10 @@ import type { FileView } from "../files/files.ts";
 import {
 	formatDate,
 	renderBreadcrumbs,
-	renderDiffPage,
 	hrefFor,
 	renderErrorPage,
-	renderFileDiffPage,
 	renderFilePage,
 	type ChangeSummary,
-	type DiffPage,
 	type FilePage,
 } from "./html.ts";
 import { renderChanges } from "./chrome.ts";
@@ -99,18 +96,6 @@ function imageView(overrides: Partial<Extract<FileView, { kind: "image" }>> = {}
 }
 
 /** One diff overview, so a case reads as the page it is about. */
-function diffPage(overrides: Partial<DiffPage> = {}): string {
-	return renderDiffPage({
-		base: "",
-		rootLabel: ROOT_LABEL,
-		mode: "head",
-		files: [],
-		stat: "",
-		tree: TREE,
-		...overrides,
-	});
-}
-
 function filePage(rel: string, file: FileView, overrides: Partial<FilePage> = {}): string {
 	return renderFilePage({
 		base: "",
@@ -222,22 +207,12 @@ describe("page chrome", () => {
 	});
 
 	test("drops a phone's trailing table column so the name keeps the room", () => {
-		// The listing's Modified and the diff's Changes are the widest fixed columns
-		// and the least of what a reader is choosing between: at 390px the name had
-		// 106px of 342 and every entry truncated. The diff keeps its change letter on
-		// the badge, which carries the same label.
-		expect(BROWSE_CSS).toContain(".browse-listing .bf-table__when,.browse-diff .browse-diff-word{display:none}");
+		// The listing's Modified is one of the widest fixed columns and the least of
+		// what a reader is choosing between: at 390px the name had 106px of 342 and
+		// every entry truncated.
+		expect(BROWSE_CSS).toContain(".browse-listing .bf-table__when");
 		const rows = [entry({ name: "CHANGELOG.md", rel: "CHANGELOG.md" })];
 		expect(directoryPage({ listing: listing(rows) })).toContain('<th scope="col" class="bf-table__when">');
-		const diff = renderDiffPage({
-			base: "",
-			rootLabel: ROOT_LABEL,
-			mode: "head",
-			files: [changed({ rel: "src/config.ts" })],
-			stat: " src/config.ts | 2 +-",
-			tree: TREE,
-		});
-		expect(diff).toContain('<th scope="col" class="browse-diff-word">');
 	});
 
 	test("spans the card with every table instead of leaving a ragged band", () => {
@@ -550,146 +525,6 @@ describe("dates", () => {
 	test("formats a local timestamp and a non-date", () => {
 		expect(formatDate(localTimeMs(2026, 9, 8, 20, 31))).toBe("Oct 8 20:31");
 		expect(formatDate(Number.NaN)).toBe("—");
-	});
-});
-
-describe("diff pages", () => {
-	test("lists changed files with status, mode links, and the stat", () => {
-		const rows = [
-			changed({ rel: "a.ts", index: "M", worktree: " " }),
-			changed({ rel: "new.txt", untracked: true, index: "?", worktree: "?" }),
-			changed({ rel: "x/y.md", origRel: "y/x.md", index: "R", worktree: " " }),
-		];
-		const html = renderDiffPage({
-			base: "",
-			rootLabel: ROOT_LABEL,
-			mode: "head",
-			files: rows,
-			stat: " a.ts | 2 +-\n 1 file changed",
-			tree: TREE,
-			summary: summary(rows, 12, 4),
-		});
-		expect(html).toContain('aria-current="page">head</a>');
-		expect(html).toContain('href="/diff?mode=staged"');
-		expect(html).toContain('href="/diff?mode=worktree"');
-		expect(html).toContain('href="/diff/a.ts"');
-		expect(html).toContain('href="/diff/new.txt"');
-		expect(html).toContain('aria-label="modified">M</span>');
-		expect(html).toContain('aria-label="untracked">?</span>');
-		expect(html).toContain("from y/x.md");
-		expect(html).toContain("1 file changed");
-	});
-
-	test("shows an empty state when nothing changed", () => {
-		const html = renderDiffPage({
-			base: "",
-			rootLabel: ROOT_LABEL,
-			mode: "staged",
-			files: [],
-			stat: "",
-			tree: TREE,
-		});
-		expect(html).toContain("No changes staged vs HEAD.");
-		expect(html).toContain('aria-current="page">staged</a>');
-	});
-
-	test("escapes paths and stat text", () => {
-		const html = renderDiffPage({
-			base: "",
-			rootLabel: ROOT_LABEL,
-			mode: "head",
-			files: [changed({ rel: 'a"<b>.ts' })],
-			stat: "<script>alert(1)</script>",
-			tree: TREE,
-		});
-		expect(html).not.toContain("<script>alert(1)</script>");
-		expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
-		expect(html).toContain("a&quot;&lt;b&gt;.ts");
-	});
-
-	test("renders a per-file diff with mode links that keep the path", () => {
-		const html = renderFileDiffPage({
-			base: "",
-			rootLabel: ROOT_LABEL,
-			rel: "sub/b.md",
-			mode: "staged",
-			tree: TREE,
-			diff: {
-				mode: "staged",
-				rel: "sub/b.md",
-				lines: [
-					{ kind: "hunk", text: "@@ -1 +1 @@" },
-					{ kind: "del", text: "old", oldNo: 1 },
-					{ kind: "add", text: "new", newNo: 1 },
-				],
-				binary: false,
-				truncated: false,
-			},
-		});
-		expect(html).toContain('href="/diff/sub/b.md?mode=staged" aria-current="page">staged</a>');
-		expect(html).toContain('href="/diff/sub/b.md"');
-		expect(html).toContain('aria-label="Diff mode"');
-		expect(html).toContain("bf-diff-line--add");
-		expect(html).toContain('href="/view/sub/b.md"');
-		expect(html).toContain('id="wrap-toggle"');
-	});
-
-	test("notes truncation and reports binary and empty diffs", () => {
-		const base = { rootLabel: ROOT_LABEL, rel: "a.ts", mode: "head" as const, tree: TREE };
-		const truncated = renderFileDiffPage({
-			base: "",
-			...base,
-			diff: {
-				mode: "head",
-				rel: "a.ts",
-				lines: [{ kind: "add", text: "x", newNo: 1 }],
-				binary: false,
-				truncated: true,
-			},
-		});
-		expect(truncated).toContain("Showing the first 1 diff lines.");
-
-		const binary = renderFileDiffPage({
-			base: "",
-			...base,
-			diff: { mode: "head", rel: "a.ts", lines: [], binary: true, truncated: false },
-		});
-		expect(binary).toContain("Binary or unreadable change.");
-
-		const empty = renderFileDiffPage({
-			base: "",
-			...base,
-			diff: { mode: "head", rel: "a.ts", lines: [], binary: false, truncated: false },
-		});
-		expect(empty).toContain("No changes for this file.");
-	});
-
-	test("summarises a file diff and anchors each hunk", () => {
-		const html = renderFileDiffPage({
-			base: "",
-			rootLabel: ROOT_LABEL,
-			rel: "a.ts",
-			mode: "head",
-			tree: TREE,
-			diff: {
-				mode: "head",
-				rel: "a.ts",
-				lines: [
-					{ kind: "hunk", text: "@@ -1 +1 @@" },
-					{ kind: "del", text: "old", oldNo: 1 },
-					{ kind: "add", text: "new", newNo: 1 },
-					{ kind: "add", text: "more", newNo: 2 },
-				],
-				binary: false,
-				truncated: false,
-			},
-		});
-		expect(html).toContain("browse-diff-summary");
-		expect(html).toContain("+2");
-		expect(html).toContain("−1");
-		expect(html).toContain("1 hunk");
-		expect(html).toContain("Next and previous change");
-		expect(html).toContain('data-hunk="1"');
 	});
 });
 
@@ -1335,32 +1170,13 @@ describe("a page served under a prefix", () => {
 		expect(image).toContain('src="/files/raw/sub/i.png"');
 	});
 
-	test("writes the changes chip and the diff pages onto the review page", () => {
+	test("writes the changes chip onto the review page", () => {
 		const changes = renderChanges(
 			{ count: 2, files: new Set(["a.ts"]), dirs: new Set(), insertions: 3, deletions: 1 },
 			undefined,
 		);
 		expect(changes).toContain('href="/review/new?scope=head"');
-		const overview = diffPage({ base: "/files", mode: "staged", files: [changed({ rel: "a.ts" })] });
-		expect(overview).toContain('href="/files/diff?mode=staged"');
-		expect(overview).toContain('href="/files/diff/a.ts?mode=staged"');
-		const file = renderFileDiffPage({
-			base: "/files",
-			rootLabel: ROOT_LABEL,
-			rel: "a.ts",
-			mode: "head",
-			diff: {
-				mode: "head",
-				rel: "a.ts",
-				lines: [{ kind: "hunk", text: "@@ -1 +1 @@" }],
-				binary: false,
-				truncated: false,
-			},
-			tree: TREE,
-		});
-		expect(file).toContain('href="/files/diff/a.ts"');
-		expect(file).toContain('href="/files/view/a.ts"');
-		expect(file).toContain('href="/files/raw/a.ts"');
+		expect(changes).toContain("2 changes");
 	});
 
 	test("writes the error page's way back, and a Markdown link and raw-HTML tag under it", () => {

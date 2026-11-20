@@ -516,37 +516,6 @@ describe("git diff provider", () => {
 		expect((await diff.list("worktree"))?.files.map((file) => file.rel)).toEqual(["a.txt", "c.txt"]);
 	});
 
-	test("parses a per-file diff and requests a literal pathspec", async () => {
-		let literal: string | undefined;
-		const exec = async (_command: string, args: string[]) => {
-			const key = args.join(" ");
-			if (key.startsWith("rev-parse --show-toplevel")) return { stdout: "/repo\n", stderr: "", code: 0 };
-			if (key.startsWith("rev-parse --verify")) return { stdout: "abc1234\n", stderr: "", code: 0 };
-			if (key.startsWith("status --porcelain=v1")) return { stdout: " M a.ts\0", stderr: "", code: 0 };
-			if (key.startsWith("diff --no-color -U3")) {
-				literal = process.env.GIT_LITERAL_PATHSPECS;
-				return { stdout: "@@ -1 +1 @@\n-old\n+new\n", stderr: "", code: 0 };
-			}
-			return { stdout: "", stderr: "unexpected", code: 1 };
-		};
-		const diff = createGitDiff(createFakePi({ exec }).pi, "/repo");
-		const file = await diff.file("a.ts", "head");
-		expect(file?.lines.map((line) => line.kind)).toEqual(["hunk", "del", "add"]);
-		expect(literal).toBe("1");
-	});
-
-	test("renders an untracked file as an all-add diff", async () => {
-		const base = root();
-		const stub = gitStub([ROOT, HEAD_OK, ["status --porcelain=v1", { stdout: "?? a.txt\0" }]]);
-		const diff = createGitDiff(createFakePi({ exec: stub.exec }).pi, base);
-		const file = await diff.file("a.txt", "worktree");
-		expect(file?.binary).toBe(false);
-		expect(file?.lines).toEqual([
-			{ kind: "add", text: "hello", newNo: 1 },
-			{ kind: "add", text: "world", newNo: 2 },
-		]);
-	});
-
 	test("falls back to the index when there is no commit", async () => {
 		const seen: string[] = [];
 		const exec = async (_command: string, args: string[]) => {
@@ -570,7 +539,6 @@ describe("git diff provider", () => {
 		const outside = gitStub([["rev-parse --show-toplevel", { code: 128 }]]);
 		const diff = createGitDiff(createFakePi({ exec: outside.exec }).pi, "/repo");
 		expect(await diff.list("head")).toBeUndefined();
-		expect(await diff.file("a.ts", "head")).toBeUndefined();
 
 		const throwing = createFakePi({
 			exec: async () => {

@@ -66,17 +66,6 @@ function diffProvider(overrides: Partial<GitDiffProvider> = {}): GitDiffProvider
 			insertions: 1,
 			deletions: 0,
 		}),
-		file: async (rel, mode) => ({
-			mode,
-			rel,
-			lines: [
-				{ kind: "hunk", text: "@@ -1 +1 @@" },
-				{ kind: "del", text: "old", oldNo: 1 },
-				{ kind: "add", text: "new", newNo: 1 },
-			],
-			binary: false,
-			truncated: false,
-		}),
 		...overrides,
 	};
 }
@@ -455,7 +444,7 @@ const LIST: DiffList = {
 };
 
 function provider(list: DiffList | undefined = LIST): GitDiffProvider {
-	return { list: async () => list, file: async () => undefined };
+	return { list: async () => list };
 }
 
 describe("live snapshot", () => {
@@ -526,7 +515,7 @@ describe("live snapshot", () => {
 	test("reports null for a non-repository and for a missing provider", async () => {
 		const none = createLiveStatus({
 			git: async () => undefined,
-			diff: { list: async () => undefined, file: async () => undefined },
+			diff: { list: async () => undefined },
 			startedAt: 0,
 			requests: () => 0,
 		});
@@ -548,7 +537,6 @@ describe("live snapshot", () => {
 				list: async () => {
 					throw new Error("no repository");
 				},
-				file: async () => undefined,
 			},
 			startedAt: 0,
 			requests: () => 0,
