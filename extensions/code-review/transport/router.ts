@@ -28,7 +28,13 @@ import {
 } from "../../../lib/http/index.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
 import type { ReviewReader, ReviewSnapshot } from "../git/diff.ts";
-import { type ReviewComment, type ReviewPageState, type ReviewStore, type WriteOp } from "../review/store.ts";
+import {
+	type Review,
+	type ReviewComment,
+	type ReviewPageState,
+	type ReviewStore,
+	type WriteOp,
+} from "../review/store.ts";
 import { parseScope, type ReviewScope } from "../scope.ts";
 import { REVIEW_CLIENT_JS } from "../view/client.ts";
 import { renderReviewPage, renderReviewProblem } from "../view/page.ts";
@@ -106,6 +112,31 @@ function opOf(pathname: string, body: WriteBody): WriteOp | { message: string } 
 /** The four routes a write may take. */
 const WRITE_ROUTES: ReadonlySet<string> = new Set(["/api/comment", "/api/drop", "/api/reviewed", "/api/send"]);
 
+/** The work a scope change would discard: comments still in draft, and files marked reviewed. */
+export function scopeWork(review: Review): { drafts: number; marks: number } {
+	return {
+		drafts: review.comments.filter((comment) => comment.state === "draft").length,
+		marks: review.reviewed.length,
+	};
+}
+
+/** The sentence a scope change refuses with, naming only the work it would discard. */
+export function scopeRefusal(review: Review, label: string): string {
+	const { drafts, marks } = scopeWork(review);
+	const has = [
+		drafts > 0 ? `${drafts} draft comment${drafts === 1 ? "" : "s"}` : "",
+		marks > 0 ? `${marks} file${marks === 1 ? "" : "s"} marked reviewed` : "",
+	].filter((part) => part !== "");
+	const actions = [drafts > 0 ? "send the drafts" : "", marks > 0 ? "clear the marks" : ""].filter(
+		(part) => part !== "",
+	);
+	// Sent comments are the session's already — the notice and `code_review comments` carry
+	// them — so only what a page replacement would destroy is named here, and every action in
+	// the sentence is one the reviewer can take from the page.
+	const action = actions.join(" and ");
+	return `This review has ${has.join(" and ")} on ${label}. ${action.charAt(0).toUpperCase()}${action.slice(1)} before switching scope.`;
+}
+
 /** The handler for one mounted review page. */
 export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 	const { store, reader, base } = deps;
@@ -113,17 +144,13 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 	/** The page's shell for a scope, minting a token when the scope changed. */
 	const pageFor = async (scope: ReviewScope): Promise<ServeResponse> => {
 		const held = store.current();
-		const written = held?.review !== undefined && held.review.comments.length > 0;
-		if (held !== undefined && held.scope !== scope) {
-			if (written && held.review !== undefined) {
+		if (held !== undefined && held.scope !== scope && held.review !== undefined) {
+			const work = scopeWork(held.review);
+			if (work.drafts + work.marks > 0) {
 				return {
 					status: 409,
 					headers: pageHeaders(),
-					body: renderReviewProblem(
-						base,
-						"The review has comments",
-						`This review has ${held.review.comments.length} comment${held.review.comments.length === 1 ? "" : "s"} on ${held.label}. Send them, or open /review again after sending, before switching scope.`,
-					),
+					body: renderReviewProblem(base, "This review has work on this scope", scopeRefusal(held.review, held.label)),
 				};
 			}
 		}
