@@ -1,14 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import {
-	type Component,
-	Container,
-	getKeybindings,
-	KeybindingsManager,
-	setKeybindings,
-	TUI_KEYBINDINGS,
-} from "@earendil-works/pi-tui";
+import { Container, getKeybindings, KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { emptyUsage } from "./stream.ts";
 import { renderSubagentCall, renderSubagentResult, type StreamedSubagentArgs } from "./render.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
@@ -36,8 +29,7 @@ function toolResult(details: SubagentDetails, content = "fallback"): AgentToolRe
 	return { content: [{ type: "text", text: content }], details };
 }
 
-/** The rendered lines of any component, as one string. Pi's `Component` owns that contract. */
-function render(component: Component, width = 80): string {
+function render(component: { render(width: number): readonly string[] }, width = 80): string {
 	return component.render(width).join("\n");
 }
 
