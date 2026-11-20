@@ -125,7 +125,10 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 			// index and a working tree — git answers `diff --cached` and `status` there — so the
 			// scopes that read those render, with no sha to name.
 			const commits = await hasCommits(run, repo);
-			if (!commits && (scope === "base" || scope === "last")) return { kind: "failed", message: NO_COMMITS };
+			// `head` needs one too: `git diff HEAD` has nothing to compare against on an
+			// unborn branch, and git's empty answer would read as a file with no change.
+			if (!commits && (scope === "base" || scope === "last" || scope === "head"))
+				return { kind: "failed", message: NO_COMMITS };
 			if (scope === "last" && !(await revParse(run, repo, "HEAD~1"))) {
 				return { kind: "failed", message: NO_PARENT };
 			}
@@ -186,7 +189,7 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 		args: readonly string[],
 		untracked: boolean,
 	): Promise<{ kind: "list"; files: Listed[] } | { kind: "failed"; message: string }> {
-		if (scope === "staged" || scope === "worktree") {
+		if (scope === "staged" || scope === "worktree" || scope === "head") {
 			const status = await run(["status", "--porcelain=v1", "-z", "--untracked-files=all"], { cwd: repo });
 			if (status.code !== 0) return { kind: "failed", message: "git status could not read this tree" };
 			const files = parseStatusZ(status.stdout)

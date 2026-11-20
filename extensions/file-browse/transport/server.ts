@@ -10,8 +10,8 @@
  * The page takes the namespace `/files`, beside `/board` and `/plan/<id>`: every URL it
  * emits is built from that `base` — the links, the scripts, the destinations it rewrites
  * out of Markdown, and the client's own fetches — so one prefix is all it needs, and the
- * origin's root stays free. `BROWSE_BASE` is that claim, named where the mount and its
- * suite can see it.
+ * origin's root stays free. `FILES_BASE` is that claim, shared with the review page that
+ * links back into it.
  */
 
 import { realpathSync } from "node:fs";
@@ -22,20 +22,12 @@ import {
 	type ServeResponse,
 	textResponse,
 } from "../../../lib/http/index.ts";
+import { FILES_BASE } from "../../../lib/http/prefixes.ts";
 import { IDLE_STOP_MS, type ServeConfig } from "../config/config.ts";
 import { createFileIndex } from "../files/files.ts";
 import type { GitDiffProvider, GitStatusProvider } from "../git/git.ts";
 import { createLiveChannel, createLiveStatus, movedFrameOf } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
-
-/**
- * The prefix this page answers under: its own namespace on the session's origin.
- *
- * Route names inside the page (`/`, `/browse`, `/view`, `/raw`, `/diff`, `/api/*`,
- * `/events`) are unchanged and relative to this prefix, so the same page is served under
- * `/files` and nowhere else, and the origin's root answers nothing at all.
- */
-export const BROWSE_BASE = "/files";
 
 /** The readers built for one root: the header's git context, and the diff view's. */
 export interface RootReaders {
@@ -114,7 +106,7 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 	const live = status ? createLiveChannel({ status, intervalMs: config.liveIntervalMs }) : undefined;
 	const context: ServeContext = {
 		root: current.root,
-		base: BROWSE_BASE,
+		base: FILES_BASE,
 		config,
 		git: gitReader,
 		diff: diffReader,
@@ -125,7 +117,7 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 
 	const outcome: MountOutcome = await options.mount({
 		session: options.session,
-		prefix: BROWSE_BASE,
+		prefix: FILES_BASE,
 		...(options.onIdle === undefined
 			? {}
 			: { idle: { ms: options.idleStopMs ?? IDLE_STOP_MS, onIdle: options.onIdle } }),

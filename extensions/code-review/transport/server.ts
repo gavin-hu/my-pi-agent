@@ -8,14 +8,12 @@
  */
 
 import type { MountOutcome, MountSpec } from "../../../lib/http/index.ts";
+import { REVIEW_BASE } from "../../../lib/http/prefixes.ts";
 import { createReviewReader, type ReviewReader, type SnapshotOutcome } from "../git/diff.ts";
 import type { ReviewConfig } from "../config/config.ts";
 import { createReviewStore, type ReviewStore } from "../review/store.ts";
 import type { ReviewScope } from "../scope.ts";
 import { createReviewHandler, type ReviewHandlerDeps } from "./router.ts";
-
-/** The prefix every review page answers under. */
-export const REVIEW_BASE = "/review";
 
 /** The largest write body the page accepts. */
 export const MAX_BODY_BYTES = 256 * 1024;

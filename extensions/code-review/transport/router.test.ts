@@ -110,6 +110,32 @@ describe("the page's GETs", () => {
 		expect(harnessed.store.current()?.scope).toBe("staged");
 	});
 
+	test("draws one file when the address names it, on both page routes", async () => {
+		const harnessed = harness();
+		// The back link only renders on a focused page, so it is the tell that `file` reached
+		// the renderer — the router decides nothing about the snapshot either way.
+		const focused = await reply(harnessed.handler, request("GET", "/new?scope=staged&file=a.ts"));
+		expect(focused.status).toBe(200);
+		expect(focused.body).toContain('id="rv-all-files"');
+		const unknown = await reply(harnessed.handler, request("GET", "/new?scope=staged&file=gone.ts"));
+		expect(unknown.body).not.toContain('id="rv-all-files"');
+
+		const token = tokenOf(harnessed.store);
+		await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", body: "hi" },
+			}),
+		);
+		const id = harnessed.store.current()?.review?.id;
+		if (id === undefined) throw new Error("no review");
+		const resumed = await reply(harnessed.handler, request("GET", `/${id}?token=${token}&file=a.ts`));
+		expect(resumed.status).toBe(200);
+		expect(resumed.body).toContain('id="rv-all-files"');
+	});
+
 	test("serves the page at / too, and at the review's own id", async () => {
 		const harnessed = harness();
 		const root = await reply(harnessed.handler, request("GET", "/"));
@@ -130,6 +156,24 @@ describe("the page's GETs", () => {
 		expect(resumed.status).toBe(200);
 		const refused = await reply(harnessed.handler, request("GET", `/${id}?token=nope`));
 		expect(refused.status).toBe(403);
+	});
+
+	test("accepts a write a focused page posts about a file it does not draw", async () => {
+		const harnessed = harness();
+		await reply(harnessed.handler, request("GET", "/new?scope=base"));
+		const token = tokenOf(harnessed.store);
+		// The rev a focused page carries is the scope's, so the request it posts is the same
+		// one the full page would have posted — which is what keeps a hidden file writable.
+		const focused = await reply(harnessed.handler, request("GET", "/new?scope=base&file=a.ts"));
+		const island = typeof focused.body === "string" ? focused.body : "";
+		const rev = /"rev":"([^"]+)"/.exec(island)?.[1];
+		if (rev === undefined) throw new Error("no rev in the island");
+		const comment = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", { token, rev, comment: { rel: "b.ts", line: 2, side: "new", body: "hi" } }),
+		);
+		expect(comment.status).toBe(200);
+		expect(harnessed.store.current()?.review?.comments.map((entry) => entry.rel)).toEqual(["b.ts"]);
 	});
 
 	test("refuses a scope change while a draft is on the page", async () => {

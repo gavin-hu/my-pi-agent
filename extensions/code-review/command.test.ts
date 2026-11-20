@@ -40,7 +40,7 @@ function commandFor(session: ReviewSession) {
 }
 
 describe("/review", () => {
-	test("completes the six words and nothing else", () => {
+	test("completes every word it offers, and nothing else", () => {
 		const { session } = fakeSession();
 		const command = commandFor(session);
 		const complete = (prefix: string): string[] =>

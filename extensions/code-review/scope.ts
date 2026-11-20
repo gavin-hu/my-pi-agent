@@ -1,23 +1,24 @@
 /**
  * What a review compares, and the git arguments one comparison is taken with.
  *
- * A review reads a branch, which `file-browse`'s modes do not: its four scopes
- * are the base line the branch left, the last commit, the index, and the working
- * tree. Pure: the reader runs git, this only says what to ask it.
+ * A review reads a branch, which `file-browse`'s modes do not: its scopes are the
+ * base line the branch left, the last commit, everything uncommitted against
+ * HEAD, the index, and the working tree. Pure: the reader runs git, this only
+ * says what to ask it.
  */
 
-/** The four comparisons a review page offers. */
-export type ReviewScope = "base" | "last" | "staged" | "worktree";
+/** The five comparisons a review page offers. */
+export type ReviewScope = "base" | "last" | "head" | "staged" | "worktree";
 
 /** Longest base ref accepted; a ref longer than this is a mistake, not a branch. */
 export const MAX_BASE_LENGTH = 200;
 
 /** Every scope, in the segmented control's order. */
-export const REVIEW_SCOPES: readonly ReviewScope[] = ["base", "last", "staged", "worktree"];
+export const REVIEW_SCOPES: readonly ReviewScope[] = ["base", "last", "head", "staged", "worktree"];
 
 /** Whether an untrusted word names a scope. */
 export function isReviewScope(value: unknown): value is ReviewScope {
-	return value === "base" || value === "last" || value === "staged" || value === "worktree";
+	return value === "base" || value === "last" || value === "head" || value === "staged" || value === "worktree";
 }
 
 /** The word a scope is typed as, or `undefined` when it is not one. */
@@ -43,9 +44,11 @@ export interface ScopeArgs {
  * The git arguments for a scope.
  *
  * `base` and `last` read a committed range, so a file changed and then reverted
- * is absent — that is what a branch review asks. `staged` and `worktree` read
- * the index and the tree, exactly the two `file-browse` offers, so the working
- * tree is reviewable before a commit exists.
+ * is absent — that is what a branch review asks. `head`, `staged` and `worktree`
+ * read the tree against a ref, the index, and the tree alone: `head` is the three
+ * `file-browse` modes' union, and the two beneath it are what `file-browse` calls
+ * its staged and worktree modes, so the working tree is reviewable before a
+ * commit exists.
  */
 export function scopeArgs(scope: ReviewScope, base: string): ScopeArgs {
 	if (scope === "last") {
@@ -55,6 +58,17 @@ export function scopeArgs(scope: ReviewScope, base: string): ScopeArgs {
 			untracked: false,
 			needsParent: true,
 			title: "HEAD~1...HEAD — the last commit",
+		};
+	}
+	// Only HEAD has to exist, which the reader checks for this scope, so it needs no
+	// parent commit: `git diff HEAD` compares against the commit itself.
+	if (scope === "head") {
+		return {
+			args: ["HEAD"],
+			label: "uncommitted",
+			untracked: true,
+			needsParent: false,
+			title: "uncommitted — the index and the tree against HEAD",
 		};
 	}
 	if (scope === "staged") {

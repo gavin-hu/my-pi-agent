@@ -9,7 +9,10 @@
 
 import { realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import { isInside } from "../../../lib/path.ts";
+import { encodePath, isInside } from "../../../lib/path.ts";
+
+// Re-exported where its callers already import it: one body, in `lib/path.ts`.
+export { encodePath };
 
 /** An HTTP-shaped failure the router turns into a status page. */
 export class HttpError extends Error {
@@ -32,15 +35,6 @@ export function decodePath(raw: string): string {
 	}
 	if (decoded.includes("\0")) throw new HttpError(400, "The path contains a NUL byte.");
 	return decoded;
-}
-
-/** Percent-encode each path segment, keeping `/` separators. */
-export function encodePath(rel: string): string {
-	return rel
-		.split("/")
-		.filter(Boolean)
-		.map((segment) => encodeURIComponent(segment))
-		.join("/");
 }
 
 function isMissing(error: unknown): boolean {

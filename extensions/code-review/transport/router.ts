@@ -141,8 +141,12 @@ export function scopeRefusal(review: Review, label: string): string {
 export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 	const { store, reader, base } = deps;
 
-	/** The page's shell for a scope, minting a token when the scope changed. */
-	const pageFor = async (scope: ReviewScope): Promise<ServeResponse> => {
+	/**
+	 * The page's shell for a scope, minting a token when the scope changed. `file` narrows
+	 * what is drawn, never what is read: the snapshot is the whole scope, so its fingerprint
+	 * — and every write's `rev` — stays the same whether the page shows one file or all.
+	 */
+	const pageFor = async (scope: ReviewScope, file: string | undefined): Promise<ServeResponse> => {
 		const held = store.current();
 		if (held !== undefined && held.scope !== scope && held.review !== undefined) {
 			const work = scopeWork(held.review);
@@ -177,6 +181,7 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 				root: deps.root,
 				token: page.token,
 				snapshot: outcome.snapshot,
+				...(file === undefined ? {} : { file }),
 				...(page.review === undefined ? {} : { review: page.review }),
 			}),
 		};
@@ -257,8 +262,10 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		if (method === "POST") return { result: jsonError(404, "That route does not exist.") };
 
 		const scope = parseScope(search.get("scope")) ?? "base";
+		// A focused view is a view: it names a file to draw, and never changes the comparison.
+		const file = search.get("file") ?? undefined;
 		if (pathname === "/" || pathname === "/new" || pathname === "/new/" || pathname === "/index.html") {
-			return { result: await pageFor(scope) };
+			return { result: await pageFor(scope, file) };
 		}
 		const id = pathname.replace(/^\//, "").replace(/\/$/, "");
 		const token = search.get("token") ?? "";
@@ -284,6 +291,7 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 					root: deps.root,
 					token: held.token,
 					snapshot: outcome.snapshot,
+					...(file === undefined ? {} : { file }),
 					...(held.review === undefined ? {} : { review: held.review }),
 				}),
 			},
