@@ -103,13 +103,15 @@ stored value to.
 
 The merge a review became lives in the same module: `Landing` on a card, `LandingProof` as a
 door reads it, and `resolveLanding`, the one rule that answers which commit a `done` records.
-The proof carries the default branch's first-parent chain, oldest first; a reviewed commit
-names itself only when it is a merge or the chain's tip, and any other merge is found through
-its non-first parent — the branch the merge carried. A plain ancestor is the older tree a
-pre-merge sign was taken in, and `reviewedAncestor` refuses it; a commit no merge carries gets
-`unlandedReview` and the override. `landingGate` and `landingFor` are the two questions
-`steps.ts` asks of the same rule, and `movedTree` is the merge that rewrote the review's own
-lines.
+The proof carries the default branch's first-parent chain, oldest first, each commit with its own
+subject; a reviewed commit names itself only when it is a merge or the chain's tip — and a tip whose
+subject ends with another card's id is that card's landing, not this one's — and any other merge is
+found through its non-first parent, the branch the merge carried. A branch landed by squashing has
+no merge to read, so the newest commit whose subject ends with this card's id, at or below the
+review, is the landing (#440). A plain ancestor is the older tree a pre-merge sign was taken in, and
+`reviewedAncestor` refuses it; a commit no merge carries gets `unlandedReview` and the override.
+`landingGate` and `landingFor` are the two questions `steps.ts` asks of the same rule, and
+`movedTree` is the merge that rewrote the review's own lines.
 
 ### links.ts
 

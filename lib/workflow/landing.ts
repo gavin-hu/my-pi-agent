@@ -23,6 +23,8 @@ export interface LandingCommit {
 	at: number;
 	/** Its parents, in git's own order: a merge's second parent is the branch it carried. */
 	parents: readonly string[];
+	/** Its message's first line: a squash landing ends with the card's id (#440). */
+	subject: string;
 }
 
 /** The branch's first-parent chain, and what a landing needs to know about it. */
@@ -62,6 +64,29 @@ function shortSha(sha: string): string {
 }
 
 /**
+ * The card a subject declares as its own: the trailing `（#12）` / `(#12)`, whole number, leading
+ * zeros allowed — and **only the trailing one**.
+ *
+ * A squash landing has no merge to carry it, so the subject is the only thing on the chain that says
+ * which card the commit landed (#440). It is anchored to the end on purpose: a subject that merely
+ * mentions another card is not that card's landing, and `#438`'s "… and corrected #436's plan (#438)"
+ * is the case that proves a loose match would name one commit as two cards' landings.
+ *
+ * **Several ids are read as one**: a landing that also edited another card's plan carries them all,
+ * `（#436、#440）` (#441), and the *last* one says which card landed. That is the same marker the
+ * squashing repository's `land` writes, so the two sides read one form rather than two.
+ */
+function declaredCard(subject: string): string | undefined {
+	const number = /[（(](?:#0*\d+[、,]\s*)*#0*(?<number>\d+)[）)]\s*$/.exec(subject.trimEnd())?.groups?.number;
+	return number === undefined ? undefined : String(Number(number));
+}
+
+/** Whether the subject declares this card. */
+function namesCard(subject: string, id: string): boolean {
+	return declaredCard(subject) === String(Number(id));
+}
+
+/**
  * The merge that carried `reviewed`, or the sentence saying why none can be named.
  *
  * A merge committed before the card's work began is never the landing: that is the checkout's head
@@ -72,14 +97,21 @@ function shortSha(sha: string): string {
  * oldest one whose carried side contains it, which is what a re-merged branch needs (#618). A
  * reviewed commit on the chain that is carried by nothing is an older sign (#652, which is why a
  * checkout sign followed by another landing needs a re-sign); one that is nowhere is a branch
- * nobody merged.
+ * nobody merged. A repository that lands by **squashing** has no merge to read at all, so a subject
+ * ending with the card's id names the landing instead (#440).
  */
 export function resolveLanding(proof: LandingProof, reviewed: string, id: string): LandingCheck {
-	const tip = proof.chain.at(-1)?.sha;
+	const tipCommit = proof.chain.at(-1);
+	const tip = tipCommit?.sha;
 	const candidates = proof.chain.filter((commit) => commit.at >= proof.since);
+	const tipDeclares = tipCommit === undefined ? undefined : declaredCard(tipCommit.subject);
+	const tipIsForeign = tipDeclares !== undefined && tipDeclares !== String(Number(id));
 	// The tip alone may be its own landing. A merge main has moved past carries nothing of its own
 	// any more — the next merge has it as first parent — so naming it would be the base-merge bug.
-	if (reviewed === tip && candidates.some((commit) => commit.sha === reviewed)) return { sha: reviewed };
+	// A tip that **declares another card** is that card's squash landing, not this one's: naming it is
+	// exactly the misnaming this rule exists to stop (#439 was signed on #430's landing).
+	if (reviewed === tip && !tipIsForeign && candidates.some((commit) => commit.sha === reviewed))
+		return { sha: reviewed };
 	for (const commit of candidates) {
 		// A plain commit carries no branch of its own; only a merge has a carried side to ask about.
 		if (commit.parents.length <= 1) continue;
@@ -89,6 +121,15 @@ export function resolveLanding(proof: LandingProof, reviewed: string, id: string
 		return { error: movedTree(proof.branch, reviewed, commit.sha, moved, id), shape: "moved" };
 	}
 	const ancestor = proof.chain.some((commit) => commit.sha === reviewed);
+	// A squashed landing names itself in its own subject: the branch's work is one commit whose subject
+	// ends with the card's id, and the review is at or above it on the chain (#440). Asked only after
+	// the tip and the merge shapes, so those two still win; newest wins among several, since a card can
+	// be landed again; a review taken on an older tree falls through to the refusal below.
+	const squash = candidates.filter((commit) => namesCard(commit.subject, id)).at(-1);
+	if (squash !== undefined) {
+		const landedAt = proof.chain.indexOf(squash);
+		if (proof.chain.findIndex((commit) => commit.sha === reviewed) >= landedAt) return { sha: squash.sha };
+	}
 	return ancestor
 		? { error: landedWithoutMerge(proof.branch, reviewed, id), shape: "ancestor" }
 		: { error: absentFromBranch(proof.branch, reviewed, id), shape: "unlanded" };

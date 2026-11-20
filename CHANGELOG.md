@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a landing is found by its subject when the branch was squashed. `resolveLanding` knew only a
+  reviewed merge — the tip, or one carrying the review — so a repository that lands with `merge --squash`
+  was refused once anything landed on top: the sign had to be repeated on the new tip, and the card then
+  recorded that other commit. The chain carries each commit's subject now; a commit whose subject ends
+  with the card's id is its landing, the newest one at or below the review. The tip shortcut keeps a
+  premise it lacked: a tip whose marker names another card is that card's landing, not this one's — a
+  sign taken on someone else's squash would otherwise be recorded as its own landing, and the rule
+  would never reach the squash shape at all. The marker may name several cards —
+  `（#436、#440）`, the form a landing that also edits another card's plan writes (#441) — and the last
+  id is the one that landed. The trailing marker only: a subject that mentions another card in
+  passing still refuses, and so does one whose last id is another card.
+
 - `plan`: the review's header actions are evenly spaced. Share and Back to Pi sat flush against each
   other while every other pair was 8px apart: the two buttons live inside the More details, which the
   wide row drew as `display:contents`, so Chrome made the pair one anonymous flex item and the row's

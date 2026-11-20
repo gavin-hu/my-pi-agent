@@ -54,16 +54,23 @@ export async function headSha(runGit: RunGit, cwd: string): Promise<string | und
 }
 
 /**
- * One commit on `ref`'s first-parent chain: what it is, when it was committed, and its parents.
+ * One commit on `ref`'s first-parent chain: what it is, when it was committed, its parents, and the
+ * subject line a landing is named by.
  *
  * `at` is the committer's moment in milliseconds, the unit every card stamp uses — `git` speaks
  * seconds, and a comparison across the two units is a comparison of two unrelated numbers.
+ *
+ * `subject` is the message's first line (#440): a repository that lands by squashing has no merge to
+ * carry the review, so the only thing on the chain saying which card a commit landed is the id its
+ * subject ends with.
  */
 export interface ChainCommit {
 	sha: string;
 	/** The committer's moment, in milliseconds. */
 	at: number;
 	parents: string[];
+	/** The message's first line, verbatim. */
+	subject: string;
 }
 
 /**
@@ -102,16 +109,22 @@ export async function firstParentChainOrThrow(runGit: RunGit, cwd: string, ref: 
 
 /** The log call both chain doors make: the format is the parser's, not a caller's. */
 function chainArgs(ref: string): string[] {
-	return ["log", "--first-parent", "--reverse", "--format=%H %ct %P", ref];
+	// `%x00` between the parents and the subject, not a space: a subject contains spaces, and the
+	// parents are a space-separated list of their own (#440). A commit message cannot contain NUL, so
+	// the split is exact.
+	return ["log", "--first-parent", "--reverse", "--format=%H %ct %P%x00%s", ref];
 }
 
-/** One line per commit, as the chain's `--format` writes it. */
+/** One line per commit, as the chain's `--format` writes it: `sha seconds parents\0subject`. */
 function parseChain(stdout: string): ChainCommit[] {
 	const chain: ChainCommit[] = [];
 	for (const line of stdout.split("\n")) {
-		const [sha, seconds, ...parents] = line.trim().split(/\s+/).filter(Boolean);
+		const [head = "", subject = ""] = line.split("\u0000");
+		const [sha, seconds, ...parents] = head.trim().split(/\s+/).filter(Boolean);
 		const at = Number(seconds) * 1_000;
-		if (sha !== undefined && Number.isFinite(at)) chain.push({ sha, at, parents });
+		if (sha !== undefined && Number.isFinite(at)) {
+			chain.push({ sha, at, parents, subject: subject.trimEnd() });
+		}
 	}
 	return chain;
 }
