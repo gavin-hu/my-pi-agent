@@ -148,3 +148,31 @@ export async function openReviewPage(browser: TestBrowser, fixture: ReviewPageFi
 	await page.waitForSelector("#rv-filter", { timeout: REVIEW_PAINT_MS });
 	return page;
 }
+
+/**
+ * The sliver of the document a case's predicate reads, reached by name inside its own body.
+ *
+ * This project's TypeScript has no DOM lib — the client is a string, so nothing here ever
+ * compiled against one — and a predicate handed to Playwright is serialized into the page, so
+ * it cannot close over a helper. It cannot be a string either: the page answers with
+ * `script-src 'self'`, and a string predicate is evaluated, which that policy refuses. Hence a
+ * function per wait, and this shape for what it reads.
+ */
+export interface ReviewDom {
+	document: {
+		querySelector(selector: string): ReviewNode | null;
+		querySelectorAll(selector: string): ArrayLike<ReviewNode>;
+		getElementById(id: string): ReviewNode | null;
+	};
+	location: { hash: string };
+}
+
+/** One node as a predicate reads it: its box, the attributes the page marks it with, its style. */
+export interface ReviewNode {
+	querySelector(selector: string): ReviewNode | null;
+	getAttribute(name: string): string | null;
+	getBoundingClientRect(): { top: number; bottom: number };
+	offsetHeight: number;
+	scrollTop: number;
+	style: { getPropertyValue(name: string): string };
+}

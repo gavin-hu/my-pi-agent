@@ -8,7 +8,11 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { duplicateDeclarations, duplicateFunctions, unfilledPlaceholders } from "../../../test/helpers/bundle.ts";
 import { REVIEW_CLIENT_JS } from "./client.ts";
+import { REVIEW_COMMENTS_JS } from "./client-comments.ts";
+import { REVIEW_KEYS_JS } from "./client-keys.ts";
+import { REVIEW_PLACE_JS } from "./client-place.ts";
 
 /** The URLs the bundle posts to, without the mount prefix. */
 function postPaths(source: string): string[] {
@@ -58,5 +62,19 @@ describe("the review bundle", () => {
 	test("turns the first write's id into the page's address", () => {
 		expect(REVIEW_CLIENT_JS).toContain("window.history.replaceState");
 		expect(REVIEW_CLIENT_JS).toContain('url.searchParams.set("token", token);');
+	});
+
+	/**
+	 * The split's own hazard: three fragments concatenated into one closure, which no compiler
+	 * reads. A fragment left out is a `ReferenceError` on the first paint, and two fragments
+	 * declaring one name is which body a caller reaches decided by concatenation order.
+	 */
+	test("assembles all three fragments, each name once", () => {
+		expect(REVIEW_CLIENT_JS).toContain(REVIEW_COMMENTS_JS);
+		expect(REVIEW_CLIENT_JS).toContain(REVIEW_PLACE_JS);
+		expect(REVIEW_CLIENT_JS).toContain(REVIEW_KEYS_JS);
+		expect(duplicateFunctions(REVIEW_CLIENT_JS)).toEqual([]);
+		expect(duplicateDeclarations(REVIEW_CLIENT_JS)).toEqual([]);
+		expect(unfilledPlaceholders(REVIEW_CLIENT_JS)).toEqual([]);
 	});
 });

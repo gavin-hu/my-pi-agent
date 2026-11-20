@@ -21,6 +21,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A `gitDiff: false` page keeps the tags hidden, and one thing is new to state: the changes tag
   needs `code-review` serving, because its address is that page's.
 
+- `code-review`: the page's client is one closure assembled from three fragments — `view/client-comments.ts`,
+  `view/client-place.ts`, `view/client-keys.ts` — rather than one 920-line module, and its interaction suite waits on
+  the condition each case asserts instead of seven fixed sleeps. The sleeps were the real defect behind main's
+  tree-shape pins: a fixed wait asserts that the machine was fast enough, which is what reddened a gate under load
+  (#711). The place stays one fragment because the cursor, the file in view, the spy and the rail's filter share
+  `cursor`, `currentFile` and the scroll the page made itself; the fragment order is the order its statements run in,
+  so the page's start block is last. Nothing a reader sees changed — the served script is the same script — and the
+  suite is named in `LONG_SUITES` at its new height rather than split.
+
 - `code-review`: a review can be read one file at a time — `?file=<path>` on the page's address,
   which is what the changes tag on a `file-browse` page opens — and the page compares five things
   rather than four. The new `head` scope (shown as *uncommitted*) is the tree
