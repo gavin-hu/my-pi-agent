@@ -102,7 +102,8 @@ describe("memory text", () => {
 
 	test("formatResultText confirms a write without repeating the note", () => {
 		const added = formatResultText(details({ action: "add", changed: true, entry: "x", project: ["x"] }));
-		expect(added).toBe("Added to project memory\nNow 1 project, 0 global.");
+		// The confirmation is one line: the counts are a stat nobody acts on.
+		expect(added).toBe("Added to project memory");
 		expect(formatResultText(details({ action: "add", changed: false, entry: "x" }))).toContain(
 			"Already in project memory",
 		);

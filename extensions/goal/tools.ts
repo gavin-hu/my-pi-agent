@@ -133,6 +133,13 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				text.setText(paint(theme, "faint", `${GLYPHS.stopped} `) + paint(theme, "meta", "Cleared the goal"));
 				return text;
 			}
+			// An active goal is the widget's fact: it sits above the editor, and the call line names
+			// the objective. A finished or re-planned goal draws its word here, because the widget
+			// may be set to hide an achieved one and scrollback is then the only record.
+			if (details.goal.status === "active") {
+				text.setText("");
+				return text;
+			}
 			const view =
 				context.lastComponent instanceof GoalHeader ? context.lastComponent : new GoalHeader(details.goal, theme);
 			view.update(details.goal, theme);

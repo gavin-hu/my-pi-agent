@@ -179,7 +179,12 @@ describe("tool render contract", () => {
 			if (typeof tool?.renderResult !== "function") continue;
 			for (const width of WIDTHS) {
 				const collapsed = drawResult(tool, fixture, false, width);
-				expect(collapsed, `${fixture.name} result drew nothing at ${width}`).not.toHaveLength(0);
+				// A block whose budget is one row draws its call line and no body: `goal` and
+				// `plan enter` state what the widget and the status line already show (#742).
+				// Every other result draws something, which is what this catches.
+				if (COLLAPSED_ROWS[fixture.name] !== 1) {
+					expect(collapsed, `${fixture.name} result drew nothing at ${width}`).not.toHaveLength(0);
+				}
 				expectBounded(collapsed, width, `${fixture.name} result at ${width}`);
 				const expanded = drawResult(tool, fixture, true, width);
 				expectBounded(expanded, width, `${fixture.name} expanded result at ${width}`);
@@ -307,12 +312,19 @@ const COLLAPSED_ROWS: Record<string, number> = {
 	// instruction is still in the result, which is where the model reads it.
 	"board-gated": 2,
 	"board-refused": 2,
-	goal: 2,
+	// 2 -> 1 for an active goal: the call line names the objective and the widget above the
+	// editor carries the status. A finished or re-planned goal still draws its word, because the
+	// widget may be set to hide an achieved one and scrollback is then the only record.
+	goal: 1,
 	job: 3,
-	memory: 3,
-	"memory-long-subject": 3,
+	// 3 -> 2: the confirmation line stays, the `Now 2 project, 1 global.` stat goes -- the next
+	// `list` is where a count is read.
+	memory: 2,
+	"memory-long-subject": 2,
 	open_path: 2,
-	plan: 2,
+	// 2 -> 1: entering plan mode is the session status line's fact, and the call line already
+	// names the verb. The refusals that state something new ("No UI to confirm") still draw.
+	plan: 1,
 	"plan-cancel": 2,
 	// 13 -> 3: the review screen has just drawn the plan, so the block states the count and the
 	// path, and the body is one expand away -- the heading carries that affordance.
@@ -352,6 +364,26 @@ const COLLAPSED_ROWS: Record<string, number> = {
 	"worktree-exit": 2,
 	"worktree-list": 4,
 	"worktree-prune": 3,
+};
+
+/**
+ * What each trimmed block must still say at every width (#742).
+ *
+ * The height is half the rule; the other half is that a block which trims at 80 and wraps
+ * its marks away at 40 has not trimmed, it has lost the fact. Each entry names a token the
+ * block exists to carry, and the cases below draw it at all three widths.
+ */
+const SHAPES: Record<string, string> = {
+	"board-gated": "not approved",
+	goal: "goal → set",
+	memory: "Added to project memory",
+	plan: "plan enter",
+	"plan-exit": "steps",
+	subagent: "Total:",
+	todo: "Adding the retry wrapper",
+	// The worktree's name survives every clip; the branch is what a narrow terminal shortens.
+	worktree: "tool-gallery",
+	"worktree-list": "current, clean",
 };
 
 /** The viewport the budget is measured at: Pi's transcript width on a settled terminal. */
@@ -437,6 +469,26 @@ describe("collapsed block height", () => {
 		const expanded = flatten(collapsedBlock(frame, tools, fixture as ToolFixture, BUDGET_WIDTH, true));
 		expect(expanded, "expanding draws the instruction").toContain("session send");
 	});
+
+	/** One case per trimmed block, at the three widths the transcript is drawn at. */
+	for (const [name, token] of Object.entries(SHAPES)) {
+		test(`${name} still says what it is for, at every width`, () => {
+			const fixture = collapsedFixtures().find((item) => item.name === name);
+			expect(fixture, `${name} is a collapsed package fixture`).toBeDefined();
+			const { frame, tools } = blockHarness();
+			for (const width of [80, 48, 40]) {
+				const lines = collapsedBlock(frame, tools, fixture as ToolFixture, width);
+				const shown = lines.join(" ").replace(/╎/g, " ").replace(/\s+/g, " ");
+				expect(shown, `${name} at ${width} columns`).toContain(token);
+				// The ceiling is measured at the budget's width: a narrow terminal wraps the same
+				// facts onto more rows, which is the host's wrap and not a block that grew.
+				if (width === BUDGET_WIDTH) {
+					expect(lines.length, `${name} at ${width} columns`).toBeLessThanOrEqual(COLLAPSED_ROWS[name] ?? 0);
+				}
+				for (const line of lines) expect(visibleWidth(line), `${name} at ${width}`).toBeLessThanOrEqual(width);
+			}
+		});
+	}
 
 	test("a collapsed block stays inside its row budget", () => {
 		const { frame, tools } = blockHarness();

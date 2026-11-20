@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `tui`: the transcript's densest blocks lose the rows that said nothing new. The worktree tool had no
+  renderer at all, so bytefly's fallback printed the model's text — six rows for one worktree, eight for a
+  listing, at every task start and end; it draws from its own details now, a row per fact, and the six
+  fixtures with no registered renderer are still served by the fallback, which a case in the new
+  `extensions/worktree/transcript.test.ts` holds. `plan exit` stopped printing the plan the review screen
+  had just shown (13 rows to 3: the step count, then the path, with the plan one expand away), `todo`
+  stopped redrawing a list the widget already carries (5 to 2), a collapsed refusal draws its verdict
+  instead of the route written for the model (board-gated 4 to 2, and the result still carries the
+  instruction), and no block spends a row on a blank any more (`subagent` 13 to 10, and each
+  `TailResult` section one row shorter). The one-fact results fold where a widget or the status line
+  already states them: `goal` 2 to 1, `plan enter` 2 to 1, memory's write 3 to 2. The budget the last
+  card set goes from 129 rows to 100 over the same 39 fixtures, mean 3.3 to 2.6, with a case per trimmed
+  block at 80, 48 and 40 columns so a block that trims wide and wraps narrow is caught here.
+
 - `tui`: a collapsed tool block's height is measured now, not remembered. Nothing read how tall the
   transcript drew a block, so one could grow a row per release with every suite green. `test/tool-render.test.ts`
   draws each package fixture's call and its result through bytefly's frame at 80 columns and holds the
