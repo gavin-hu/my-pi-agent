@@ -80,7 +80,9 @@ board({ action: "contract", card: "1", path: "<the path plan returned>",
 The fourth line is not optional: a contract that names no command cannot be
 approved, because the spot-check would then be a sentence nobody can repeat.
 `verify` is the command the lead's `review` runs, in the tree you review in, and
-the sign keeps its exit and the commit it ran against.
+the sign keeps its exit and the commit it ran against. Name the card's own slice
+rather than the repository's whole gate: your `bun run check` before handover and
+CI already ran everything, and the sign is a second reading, not a second run.
 
 `path` is the file `plan` action `write` returned — not one retyped from another
 repository's store. It must be in this repository's plan store, and it must still

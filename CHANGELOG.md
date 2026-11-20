@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a contract's `verify` line is the card's own check, not the repository's whole gate. `review`
+  runs that line on the tree its owner already gated, so a line naming `bun run check` paid a second full
+  run — 116.7 s over 465 files, measured — for a second reading of one sha. The card page said only what
+  `verify` is, while the triage skill already named a narrow one and the tutorial's example already showed
+  a single test file; `docs/extensions/board.md` carries the rule now and points at that example rather
+  than paraphrasing it a third time, and the tutorial says why — the owner's `bun run check` and CI cover
+  the rest. The page's own cap paid for it: the clause went into the existing sentence and the paragraph
+  was rewrapped to the width it already used, so `board.md` is still 119 lines against
+  `USER_PAGE_LINES = 120`. No behaviour changed, and the gate still runs exactly the command a contract
+  names. Rejected: a warning in `contract` when the line equals a repository's gate command — the board
+  cannot know a repository's gate, and the card whose work *is* that gate (#745) would be nagged by its
+  own remedy.
+
 - `tui`: the transcript's densest blocks lose the rows that said nothing new. The worktree tool had no
   renderer at all, so bytefly's fallback printed the model's text — six rows for one worktree, eight for a
   listing, at every task start and end; it draws from its own details now, a row per fact, and the six
