@@ -381,4 +381,38 @@ gated("the review page's interactions", () => {
 		},
 		CASE_MS,
 	);
+
+	/**
+	 * The mint-then-write guard, and the words that come with it: the first save mints the review
+	 * and writes a comment, and the second save on the same page must land — if the shas had moved
+	 * the snapshot's fingerprint, the page's own next write would be refused as SNAPSHOT_MOVED.
+	 * The footer names the comparison it holds, and the chips reveal with their first fact.
+	 */
+	test(
+		"the footer names the comparison, the chip reveals, and a second write lands",
+		async () => {
+			await withPage(
+				async (page) => {
+					await startComment(page, "one");
+					await page.locator(".rv-compose__acts .bf-btn--primary").click();
+					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+
+					expect(await page.locator("#rv-state").isVisible()).toBe(true);
+					expect(await page.locator("#rv-id").isVisible()).toBe(true);
+					expect(await page.locator("#rv-facts").textContent()).toContain("main...HEAD");
+
+					await startComment(page, "two");
+					await page.locator(".rv-compose__acts .bf-btn--primary").click();
+					for (let attempt = 0; attempt < 60; attempt++) {
+						if ((await page.locator(".rv-thread").count()) === 2) break;
+						await page.waitForTimeout(50);
+					}
+					expect(await page.locator(".rv-thread").count()).toBe(2);
+					expect(await page.locator("#rv-state").textContent()).toContain("2 draft");
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
 });

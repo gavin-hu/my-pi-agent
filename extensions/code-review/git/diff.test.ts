@@ -149,13 +149,42 @@ describe("a tree with no answer", () => {
 			message: NOT_A_REPOSITORY,
 		});
 	});
+});
 
-	test("refuses before the first commit", async () => {
-		const empty = temps.track(mkdtempSync(join(tmpdir(), "pi-review-empty-")));
-		await execP("git", ["init", "-q", "-b", "main"], { cwd: empty });
-		expect(await createReviewReaderFrom(run, empty).snapshot("staged")).toEqual({
-			kind: "failed",
-			message: NO_COMMITS,
-		});
+/**
+ * A fresh repository: an index and a working tree, and no HEAD to name. This is the only door
+ * to the page's absent-sha footer, so both halves of the refusal live in one describe: the two
+ * scopes that need a commit refuse, the two that read the index and tree render without one.
+ */
+describe("a repository with no commits", () => {
+	async function unborn(): Promise<string> {
+		const repo = temps.track(mkdtempSync(join(tmpdir(), "pi-review-unborn-")));
+		await execP("git", ["init", "-q", "-b", "main"], { cwd: repo });
+		writeFileSync(join(repo, "a.ts"), "const a = 1;\n");
+		await execP("git", ["add", "a.ts"], { cwd: repo });
+		return repo;
+	}
+
+	test("renders the index and the working tree, with no commit to name", async () => {
+		const repo = await unborn();
+		const staged = await createReviewReaderFrom(run, repo).snapshot("staged");
+		if (staged.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(staged.snapshot.head).toBeUndefined();
+		expect(staged.snapshot.baseSha).toBeUndefined();
+		expect(staged.snapshot.label).toBe("staged");
+		expect(staged.snapshot.files.map((file) => [file.rel, file.add])).toEqual([["a.ts", 1]]);
+
+		writeFileSync(join(repo, "note.txt"), "new\n");
+		const worktree = await createReviewReaderFrom(run, repo).snapshot("worktree");
+		if (worktree.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(worktree.snapshot.files.map((file) => file.rel)).toContain("note.txt");
+		expect(worktree.snapshot.head).toBeUndefined();
+	});
+
+	test("still refuses the comparisons that need a commit", async () => {
+		const repo = await unborn();
+		const reader = createReviewReaderFrom(run, repo, { base: "main" });
+		expect(await reader.snapshot("base")).toEqual({ kind: "failed", message: NO_COMMITS });
+		expect(await reader.snapshot("last")).toEqual({ kind: "failed", message: NO_COMMITS });
 	});
 });
