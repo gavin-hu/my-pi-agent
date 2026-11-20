@@ -27,6 +27,22 @@ build a second terminal renderer.
 - Compact by default, expand for detail: label-first one-line widgets, with more
   revealed on demand or on a dedicated screen.
 
+A collapsed tool block is the call line and one body row, and a third row has to
+earn itself. `test/tool-render.test.ts` owns the numbers: every package fixture's
+height at 80 columns is a ceiling in `COLLAPSED_ROWS`, and an entry is debt rather
+than a blessing, so it may only fall. It reads 3.3 rows on average, with `plan exit`
+and `subagent` at 13 apiece, which is what these rules are here to bring down.
+
+- The call line carries the outcome, so a success that adds no fact draws no body row.
+- Rows the person did not ask for are either the answer itself — a listing whose
+  items are the subject — or they are behind the expand hint.
+- A block never prints what a widget, a footer status, or a dedicated screen already
+  shows; the person read it there.
+- The block shows the person's line, while the result's `content` keeps the model's
+  prose: an error's instructions belong behind the expand hint, not in every rejection.
+- No blank row inside a block, not even above a section heading, and a row that only
+  restates the row above it is noise.
+
 ## Primitives
 
 Reach for a `lib/tui/` primitive before composing your own: `plainRule` /

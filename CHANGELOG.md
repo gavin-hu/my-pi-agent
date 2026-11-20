@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `tui`: a collapsed tool block's height is measured now, not remembered. Nothing read how tall the
+  transcript drew a block, so one could grow a row per release with every suite green. `test/tool-render.test.ts`
+  draws each package fixture's call and its result through bytefly's frame at 80 columns and holds the
+  total against `COLLAPSED_ROWS`: 39 entries, 129 rows, mean 3.3, with `plan exit` and `subagent` at 13
+  apiece. The table is a ratchet — an entry is what the block drew, it may only fall, and a raise is an
+  edit that states its reason beside the number — and the six fixtures with no registered renderer are
+  counted through the generic fallback, so the frames they draw are budgeted too. The density rules those
+  ceilings serve are in `lib/tui/README.md`'s block grammar, which names this test as the owner of the
+  numbers. Rendered lines rather than pictures: there is nothing to recapture, and nothing to go stale.
+
 - `board`: a landing is found by its subject when the branch was squashed. `resolveLanding` knew only a
   reviewed merge — the tip, or one carrying the review — so a repository that lands with `merge --squash`
   was refused once anything landed on top: the sign had to be repeated on the new tip, and the card then
