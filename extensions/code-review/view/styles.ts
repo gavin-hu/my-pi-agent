@@ -20,11 +20,6 @@ export const REVIEW_CSS = `
 /* The body is the rail and the diff. The kit's own body is a fixed 260px sidebar,
    which is the browse tree's width, not a review's. */
 .rv-body{display:grid;grid-template-columns:300px minmax(0,1fr);flex:1 1 auto;min-height:0}
-@media (max-width:${REVIEW_NARROW_PX}px){
-  .rv-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-  .rv-side{max-height:38vh;border-right:0;border-bottom:1px solid var(--border)}
-  .rv-thread,.rv-compose{margin-left:var(--space-4);max-width:100%}
-}
 .rv-side{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--border);background:var(--surface)}
 .rv-side-top{padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border)}
 .rv-side-row{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-2);flex-wrap:wrap}
@@ -111,6 +106,9 @@ export const REVIEW_CSS = `
    came for and an overlay scrollbar is no way to reach it. This sits after the diff rules so
    it wins at equal specificity. */
 @media (max-width:${REVIEW_NARROW_PX}px){
+  .rv-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .rv-side{max-height:38vh;border-right:0;border-bottom:1px solid var(--border)}
+  .rv-thread,.rv-compose{margin-left:var(--space-4);max-width:100%}
   .rv-diff .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}
 }
 `;
