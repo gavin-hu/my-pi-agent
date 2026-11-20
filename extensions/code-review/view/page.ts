@@ -29,7 +29,7 @@ import {
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { Review, ReviewComment } from "../review/store.ts";
 import { MAX_COMMENT_LENGTH, MAX_COMMENTS, MAX_QUOTE_LENGTH } from "../review/store.ts";
-import { REVIEW_SCOPES, type ReviewScope } from "../scope.ts";
+import { REVIEW_SCOPES, scopeArgs, type ReviewScope } from "../scope.ts";
 import { REVIEW_CSS } from "./styles.ts";
 
 /** What the client is told about the page; the island carries it as one value. */
@@ -46,6 +46,8 @@ export interface ReviewData {
 	comments: ReviewComment[];
 	reviewed: string[];
 	limits: { comments: number; body: number; quote: number };
+	/** The footer's first clause, built from whatever commits the snapshot holds. */
+	comparison: string;
 }
 
 /** One page render's inputs. */
@@ -85,8 +87,9 @@ function fileState(rel: string, comments: readonly ReviewComment[], reviewed: Re
 /** The word a file's own line says about its state. */
 function stateWord(state: string): string {
 	if (state === "reviewed") return "marked reviewed";
-	if (state === "commented") return "comments owed";
-	return "not read yet";
+	// A file without a comment is not "unread": the page cannot know that. The `commented`
+	// case never reaches here — a file with comments prints its count instead.
+	return "no comment";
 }
 
 /** A path split for the rail: its directory and its name. */
@@ -163,8 +166,22 @@ function languageOf(rel: string): HighlightLanguage | undefined {
 function scopeSegments(base: string, scope: ReviewScope): string {
 	return `<div class="bf-tabs" role="group" aria-label="What the diff compares">${REVIEW_SCOPES.map(
 		(option) =>
-			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}">${option === "base" ? "base" : option === "last" ? "HEAD~1" : option}</a>`,
+			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}" title="${escapeHtml(scopeArgs(option, "").title)}">${option}</a>`,
 	).join("")}</div>`;
+}
+
+/**
+ * The footer's comparison clause, from whatever commits the snapshot holds: both shas name the
+ * two ends, a head alone names the side it has, and neither leaves the comparison's own label.
+ * Never `undefined` — the absent form is a scope with no commit to name (a fresh repository's
+ * staged or working tree), not a hole in the sentence.
+ */
+export function comparisonLine(snapshot: Pick<ReviewSnapshot, "label" | "head" | "baseSha">): string {
+	const head = snapshot.head === undefined ? "" : `HEAD ${snapshot.head}`;
+	const base = snapshot.baseSha === undefined ? "" : `${snapshot.label.split("...")[0] ?? ""} ${snapshot.baseSha}`;
+	if (base && head) return `${base} → ${head}`;
+	if (head) return `${snapshot.label} · ${head}`;
+	return snapshot.label;
 }
 
 /** The island: the review as data, with `<` escaped so a body cannot end the script. */
@@ -179,6 +196,7 @@ export function reviewData(input: ReviewPageInput): ReviewData {
 		comments: input.review?.comments ?? [],
 		reviewed: input.review?.reviewed ?? [],
 		limits: { comments: MAX_COMMENTS, body: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
+		comparison: comparisonLine(input.snapshot),
 	};
 }
 
@@ -195,11 +213,21 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const stale = input.review !== undefined && input.review.rev !== snapshot.fingerprint;
 	const facts = [
 		chip({
-			label: `${drafts.length === 0 ? "no" : drafts.length} draft`,
+			// Hidden at zero: a chip announcing an absence is noise, where the footer's count inside
+			// a sentence is information. The client reveals it with the first draft.
+			label: `${drafts.length} draft`,
 			tone: drafts.length === 0 ? "dim" : "warn",
-			attrs: { id: "rv-state" },
+			attrs: { id: "rv-state", ...(drafts.length === 0 ? { hidden: "" } : {}) },
 		}),
-		chip({ label: input.review === undefined ? "no review yet" : `review ${input.review.id}`, attrs: { id: "rv-id" } }),
+		chip({
+			// The id is a handle for `/review/<id>`, not a thing to read: the label says a review
+			// exists, the tooltip says which.
+			label: "review",
+			attrs: {
+				id: "rv-id",
+				...(input.review === undefined ? { hidden: "" } : { title: `This review's id: ${input.review.id}` }),
+			},
+		}),
 		chip({ label: snapshot.label, className: "bf-tag--mono", attrs: { id: "rv-scope" } }),
 		reloadChip({ title: "The diff moved — reload the page" }),
 	].join("\n    ");
@@ -259,7 +287,7 @@ ${appHead({
     </div>
   </main>
 </div>
-${pageFooter({ facts: `snapshot ${snapshot.fingerprint} · ${files.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${drafts.length} draft · ${done} of ${files.length} reviewed`, factsId: "rv-facts" })}
+${pageFooter({ facts: `${comparisonLine(snapshot)} · ${files.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${drafts.length} draft · ${done} of ${files.length} reviewed`, factsId: "rv-facts" })}
 
 <div class="rv-selbar" id="rv-selbar" data-open="false" role="toolbar" aria-label="Selected lines">
   <span class="rv-selbar__ref" id="rv-selbar-ref"></span>

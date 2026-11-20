@@ -57,8 +57,8 @@ ${CLIENT_RUNTIME_JS}
   }
   function stateWord(state) {
     if (state === "reviewed") return "marked reviewed";
-    if (state === "commented") return "comments owed";
-    return "not read yet";
+    // A file without a comment is not "unread": the page cannot know that.
+    return "no comment";
   }
   function splitPath(path) {
     var cut = path.lastIndexOf("/");
@@ -197,11 +197,17 @@ ${CLIENT_RUNTIME_JS}
     var pending = drafts().length;
     var state = byId("rv-state");
     if (state) {
-      state.textContent = pending === 0 ? "no draft" : plural(pending, "draft");
+      state.hidden = pending === 0;
+      state.textContent = plural(pending, "draft");
       state.className = "bf-tag bf-tone--" + (pending === 0 ? "dim" : "warn");
     }
     var idChip = byId("rv-id");
-    if (idChip) idChip.textContent = data.id ? "review " + data.id : "no review yet";
+    if (idChip) {
+      idChip.hidden = !data.id;
+      idChip.textContent = "review";
+      if (data.id) idChip.title = "This review's id: " + data.id;
+      else idChip.removeAttribute("title");
+    }
     var send = byId("rv-send");
     if (send) {
       send.disabled = pending === 0;
@@ -702,7 +708,16 @@ ${CLIENT_RUNTIME_JS}
     var shown = visibleState().shown;
     var files = shown === total ? plural(total, "file") : shown + " of " + total + " files";
     facts.textContent =
-      "snapshot " + rev + " · " + files + " · " + drafts().length + " draft · " + reviewedSet().size + " of " + total + " reviewed";
+      data.comparison +
+      " · " +
+      files +
+      " · " +
+      drafts().length +
+      " draft · " +
+      reviewedSet().size +
+      " of " +
+      total +
+      " reviewed";
   }
 
   /**
@@ -816,7 +831,7 @@ ${CLIENT_RUNTIME_JS}
         currentFile = path;
         paintSelection(true);
         var node = cursorRow();
-        if (node && node.scrollIntoView) node.scrollIntoView({ block: "nearest" });
+        scrollMainTo(node);
       } else {
         placeCursor(path, index, false);
       }
