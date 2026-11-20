@@ -139,6 +139,21 @@ describe("the review page", () => {
 		expect(html).toContain('aria-selected="true">base</a>');
 	});
 
+	/**
+	 * The markup a reader relies on before any script runs, and which no filter case can see:
+	 * a row that names its path on the hover, a directory that keeps its leaf in view (an rtl
+	 * line box around a bdi path — the trap the card's risk section names), the count a screen
+	 * reader is told when it changes, and both empty-state hooks the client reveals.
+	 */
+	test("names each row's path, truncates its directory, and announces the count", () => {
+		const html = renderReviewPage(input());
+		expect(html).toContain('title="lib/http/mount.ts"');
+		expect(html).toContain('<span class="rv-rail__dir" dir="rtl"><bdi>lib/http</bdi></span>');
+		expect(html).toContain('id="rv-file-count" aria-live="polite"');
+		expect(html).toContain('id="rv-rail-empty" hidden');
+		expect(html).toContain('id="rv-filter-note" hidden');
+	});
+
 	test("a problem page names the reason and offers the way back", () => {
 		const html = renderReviewProblem("/review", "No diff to review", 'no base branch found — set "base"');
 		expect(html).toContain("No diff to review");
