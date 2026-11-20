@@ -297,13 +297,15 @@ function addFaintRow(container: Container, theme: Theme, text: string): void {
 }
 
 /**
- * The collapsed block's footnote: a blank line, the faint metrics row, then the
- * expand hint. Both collapsed views end through here, so the metrics row and the
- * affordance cannot swap places again.
+ * The collapsed block's footnote: one faint row carrying the metrics and, when there is
+ * more behind the hint, the affordance beside them. Both collapsed views end through
+ * here, so the two cannot swap places again — and they share a row because a block does
+ * not spend one on a key it can print at the end of another.
  */
 function collapsedFooter(theme: Theme, metrics: string, hinted: boolean): string {
-	const rows = metrics ? `\n\n${paint(theme, "faint", metrics)}` : "";
-	return hinted ? `${rows}\n${expandHint(theme)}` : rows;
+	const parts: string[] = metrics === "" ? [] : [paint(theme, "faint", metrics)];
+	if (hinted) parts.push(expandHint(theme));
+	return parts.length === 0 ? "" : `\n${parts.join(" ")}`;
 }
 
 /** Append one result's expanded block: header, error, task, output, usage. */
@@ -370,8 +372,7 @@ function collapsedSingleText(result: SingleResult, theme: Theme, isPartial: bool
 	let text = `\n${resultHeader(result, status, theme, "Step", now)}`;
 
 	const displayItems = getDisplayItems(result.messages);
-	// A blank line separates the header from the body, matching the multi view.
-	text += `\n\n${collapsedBody(result, status, displayItems, theme)}`;
+	text += `\n${collapsedBody(result, status, displayItems, theme)}`;
 	return text + collapsedFooter(theme, usageLine(result), isExpandable(result, status, displayItems));
 }
 
@@ -433,7 +434,9 @@ function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number)
 		if (isExpandable(result, status, displayItems)) hasHidden = true;
 		const taskText = result.taskTemplate ?? result.task;
 		const taskNote = taskText ? paint(theme, "faint", ` ${clip(sanitizeLine(taskText), 50)}`) : "";
-		text += `\n\n${paint(theme, "meta", "─── ")}${paint(theme, "accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme, now)}`;
+		// One line per task: the section rule already separates this task from the last, so a
+		// blank row above it would be a row the block cannot say anything with.
+		text += `\n${paint(theme, "meta", "─── ")}${paint(theme, "accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme, now)}`;
 		text += statusSuffix(result, status, theme, now);
 		text += `\n${collapsedBody(result, status, displayItems, theme)}`;
 	}

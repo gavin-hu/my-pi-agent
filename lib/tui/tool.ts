@@ -299,9 +299,9 @@ export type TailResultInput<Row> =
  *
  * One leading blank line per the block grammar, then either the caller's rows
  * (already ordered and capped) with a "more" note, one headed group of rows per
- * section, or the themed tail with an "earlier" note. A section heading after the
- * first opens with a blank line, so the frame drawing the rail carries it through
- * a gap and one group ends before the next begins. The caller owns the row
+ * section, or the themed tail with an "earlier" note. A section heading opens on the
+ * row after the group before it: the blank line that used to separate them spent a row
+ * the rail already covers (#742). The caller owns the row
  * renderer, so the extension's own row grammar — a peer-session tag, a status
  * glyph — stays with its vocabulary.
  *
@@ -348,11 +348,10 @@ export class TailResult<Row> implements Component {
 		}
 		if (input.kind === "sections") {
 			for (const section of input.sections) {
-				// The heading opens a group and the blank line above it closes the one before;
-				// without it a two-group result reads as more rows of the first, the heading
-				// being muted but otherwise the peer of the rows it follows. The first group
-				// keeps its place, so a single-group result is drawn exactly as before.
-				if (section.label && lines.length > 1) lines.push("");
+				// A heading opens a group on the row after the last one. A blank above it used to
+				// close the group before, and it read as a row the block had nothing to say in:
+				// the heading is faint and the rail already separates the groups (#742).
+
 				if (section.label) lines.push(clip(paint(this.theme, "faint", section.label), w));
 				for (const row of section.rows) lines.push(...rowLines(section.rowLine(row, w, this.theme)));
 				if (section.more > 0) lines.push(clip(`  ${overflowHint(this.theme, section.more)}`, w));

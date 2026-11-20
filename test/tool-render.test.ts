@@ -330,7 +330,10 @@ const COLLAPSED_ROWS: Record<string, number> = {
 	"send_wechat-running": 2,
 	session: 2,
 	"session-name": 2,
-	subagent: 13,
+	// 13 -> 10, not the 11 a plan can promise beforehand: the block drew three blank rows --
+	// after the header, between two tasks, and above the totals -- and the section rule and the
+	// rail already separate those groups. The metrics row carries the expand hint beside it.
+	subagent: 10,
 	"subagent-background": 3,
 	team: 2,
 	"team-assigning": 2,
