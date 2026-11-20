@@ -10,7 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   renderer at all, so bytefly's fallback printed the model's text — six rows for one worktree, eight for a
   listing, at every task start and end; it draws from its own details now, a row per fact, and the six
   fixtures with no registered renderer are still served by the fallback, which a case in the new
-  `extensions/worktree/transcript.test.ts` holds. `plan exit` stopped printing the plan the review screen
+  `extensions/bytefly/block/frame.test.ts` holds. `plan exit` stopped printing the plan the review screen
   had just shown (13 rows to 3: the step count, then the path, with the plan one expand away), `todo`
   stopped redrawing a list the widget already carries (5 to 2), a collapsed refusal draws its verdict
   instead of the route written for the model (board-gated 4 to 2, and the result still carries the
@@ -19,6 +19,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already states them: `goal` 2 to 1, `plan enter` 2 to 1, memory's write 3 to 2. The budget the last
   card set goes from 129 rows to 100 over the same 39 fixtures, mean 3.3 to 2.6, with a case per trimmed
   block at 80, 48 and 40 columns so a block that trims wide and wraps narrow is caught here.
+- board: a close no longer throws when the chain it was handed carries no commit subject. `#442` added
+  the field and the squash rule, and `landing.ts` reads it on the **tip check**, before it looks at any
+  candidate — so a chain from a `lib/git/read.ts` loaded before that landed (a `/reload` is not a
+  restart, so one session can hold both halves) threw `undefined is not an object` on *every* `done`
+  and left the card where it was. Git is not the source: `read.ts` always writes the field, and this
+  repository's own chain is 1,573 entries with none missing. `LandingCommit.subject` is optional now,
+  `declaredCard` reads a missing one as "this commit declares no card", and the tip is not trusted as
+  its own landing while its declaration is unreadable — naming it would put another card's sha on this
+  one, which is the misattribution `#439` fixed. A merge-landed close resolves exactly as it did; a
+  squash landing keeps `#442`'s refusal. The rejected alternative is worth recording: "restart the
+  session" instructs every user about an internal loading order our own code can tolerate, and a
+  refusal they can act on beats a TypeError they cannot.
 
 - `tui`: a collapsed tool block's height is measured now, not remembered. Nothing read how tall the
   transcript drew a block, so one could grow a row per release with every suite green. `test/tool-render.test.ts`

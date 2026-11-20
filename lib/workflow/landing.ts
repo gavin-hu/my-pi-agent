@@ -23,8 +23,15 @@ export interface LandingCommit {
 	at: number;
 	/** Its parents, in git's own order: a merge's second parent is the branch it carried. */
 	parents: readonly string[];
-	/** Its message's first line: a squash landing ends with the card's id (#440). */
-	subject: string;
+	/**
+	 * Its message's first line: a squash landing ends with the card's id (#440).
+	 *
+	 * Optional because the chain crosses a module boundary: `lib/git/read.ts` always writes it, but a
+	 * reader loaded before the field existed keeps handing over entries without it — a `/reload` is
+	 * not a restart, so a session can hold both halves. An absent subject reads as "this commit
+	 * declares nothing", and a chain that cannot say what its tip declares does not get to name it.
+	 */
+	subject?: string;
 }
 
 /** The branch's first-parent chain, and what a landing needs to know about it. */
@@ -76,13 +83,16 @@ function shortSha(sha: string): string {
  * `（#436、#440）` (#441), and the *last* one says which card landed. That is the same marker the
  * squashing repository's `land` writes, so the two sides read one form rather than two.
  */
-function declaredCard(subject: string): string | undefined {
+function declaredCard(subject: string | undefined): string | undefined {
+	// No subject is no declaration, not a fault: an entry from a reader that predates the field (#743)
+	// says nothing about which card it landed, which is exactly what a subject that names nobody means.
+	if (subject === undefined) return undefined;
 	const number = /[（(](?:#0*\d+[、,]\s*)*#0*(?<number>\d+)[）)]\s*$/.exec(subject.trimEnd())?.groups?.number;
 	return number === undefined ? undefined : String(Number(number));
 }
 
 /** Whether the subject declares this card. */
-function namesCard(subject: string, id: string): boolean {
+function namesCard(subject: string | undefined, id: string): boolean {
 	return declaredCard(subject) === String(Number(id));
 }
 
@@ -106,11 +116,15 @@ export function resolveLanding(proof: LandingProof, reviewed: string, id: string
 	const candidates = proof.chain.filter((commit) => commit.at >= proof.since);
 	const tipDeclares = tipCommit === undefined ? undefined : declaredCard(tipCommit.subject);
 	const tipIsForeign = tipDeclares !== undefined && tipDeclares !== String(Number(id));
+	// A tip whose entry carries no subject at all cannot be told from one that declares another card —
+	// the field did not travel (#743) — so it is not trusted as its own landing. Naming it would be
+	// #439's misattribution, and a refusal it can act on beats a sha it cannot verify.
+	const tipUnreadable = tipCommit !== undefined && tipCommit.subject === undefined;
 	// The tip alone may be its own landing. A merge main has moved past carries nothing of its own
 	// any more — the next merge has it as first parent — so naming it would be the base-merge bug.
 	// A tip that **declares another card** is that card's squash landing, not this one's: naming it is
 	// exactly the misnaming this rule exists to stop (#439 was signed on #430's landing).
-	if (reviewed === tip && !tipIsForeign && candidates.some((commit) => commit.sha === reviewed))
+	if (reviewed === tip && !tipIsForeign && !tipUnreadable && candidates.some((commit) => commit.sha === reviewed))
 		return { sha: reviewed };
 	for (const commit of candidates) {
 		// A plain commit carries no branch of its own; only a merge has a carried side to ask about.
