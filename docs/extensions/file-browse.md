@@ -57,6 +57,9 @@ that draws a diff is `code-review`'s, and one of the two drawing it was one too 
 unknown `mode` still answers `400`, and a page with `gitDiff` off or no git answers `404`:
 the route is not kept alive to advertise a page this extension cannot reach.
 
+In a repository with no commits yet the tag opens **staged** — what you have added to
+the index — because there is no commit to compare against, and its totals come from there.
+
 **Previews.** Markdown renders as headings, lists, tables, code, and links, with
 raw HTML allowlisted; code files are tokenized for JavaScript/TypeScript, JSON,
 CSS, HTML and template components, shell, Python, Java, YAML, and SQL. The
