@@ -540,6 +540,27 @@ describe("git diff provider", () => {
 		expect(seen[0]).not.toContain("HEAD");
 	});
 
+	test("falls to the working tree when there is no commit and nothing staged", async () => {
+		const seen: string[] = [];
+		const exec = async (_command: string, args: string[]) => {
+			const key = args.join(" ");
+			if (key.startsWith("rev-parse --show-toplevel")) return { stdout: "/repo\n", stderr: "", code: 0 };
+			if (key.startsWith("rev-parse --verify")) return { stdout: "", stderr: "", code: 1 };
+			if (key.startsWith("status --porcelain=v1")) return { stdout: "?? a.txt\0", stderr: "", code: 0 };
+			if (key.startsWith("diff --no-color --stat")) {
+				seen.push(key);
+				return { stdout: "", stderr: "", code: 0 };
+			}
+			return { stdout: "", stderr: "unexpected", code: 1 };
+		};
+		const list = await createGitDiff(createFakePi({ exec }).pi, "/repo").list("head");
+		// The last rung of the ladder: with nothing added, the working tree is the comparison that
+		// holds what git status counted, and the page behind the totals opens it.
+		expect(list?.mode).toBe("worktree");
+		expect(list?.files.map((file) => file.rel)).toEqual(["a.txt"]);
+		expect(seen[0]).toBe("diff --no-color --stat --");
+	});
+
 	test("returns undefined outside a repository or on failure", async () => {
 		const outside = gitStub([["rev-parse --show-toplevel", { code: 128 }]]);
 		const diff = createGitDiff(createFakePi({ exec: outside.exec }).pi, "/repo");

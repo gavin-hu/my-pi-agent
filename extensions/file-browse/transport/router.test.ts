@@ -434,36 +434,52 @@ describe("diff routes", () => {
 			{ stdout: " a.txt | 1 +\n 1 file changed, 1 insertion(+)\n" },
 		];
 
-		// No commit: the numbers are the index's, so the page they open is the index's too.
-		const unborn = gitAsking([ROOT, ["status --porcelain=v1", { stdout: "A  a.txt\0" }], STAT]);
-		const diff = createGitDiff(createFakePi({ exec: unborn.exec }).pi, "/repo");
-		expect((await diff.list("head"))?.mode).toBe("staged");
+		/** The page a tree's provider draws, the chip's href, and the comparison asked for. */
+		const pageFor = async (status: string, commit: boolean) => {
+			const git = gitAsking([
+				ROOT,
+				...(commit ? ([["rev-parse --verify --quiet HEAD", { stdout: "abc1234\n" }]] as Array<[string, Reply]>) : []),
+				["status --porcelain=v1", { stdout: status }],
+				STAT,
+			]);
+			const diff = createGitDiff(createFakePi({ exec: git.exec }).pi, "/repo");
+			const listing = await handleRequest({ ...context(), diff }, "GET", "/", {});
+			const file = await handleRequest({ ...context(), diff }, "GET", "/view/a.txt", {});
+			return {
+				mode: (await diff.list("head"))?.mode,
+				chip: /id="browse-changes" href="([^"]+)"/.exec(text(listing))?.[1],
+				action: /<a class="bf-btn" href="([^"]+)" title="View this file's uncommitted changes">/.exec(text(file))?.[1],
+				diffs: git.asked.filter((line) => line.startsWith("diff ")),
+				mentionsHead: git.asked.filter((line) => line.includes("HEAD")),
+			};
+		};
 
-		const listing = await handleRequest({ ...context(), diff }, "GET", "/", {});
-		expect(text(listing)).toContain('id="browse-changes" href="/review/new?scope=staged"');
-		expect(text(listing)).toContain("1 change");
-		const file = await handleRequest({ ...context(), diff }, "GET", "/view/a.txt", {});
-		expect(text(file)).toContain('href="/review/new?scope=staged&amp;file=a.txt"');
-		// The numbers came from the index: the diff ran against `--cached`, and the one question
-		// about `HEAD` is the probe that found it missing, not a comparison against it.
-		expect(unborn.asked.filter((line) => line.startsWith("diff ")).every((line) => line.includes("--cached"))).toBe(
-			true,
-		);
-		expect(unborn.asked.filter((line) => line.includes("HEAD"))).toEqual(["rev-parse --verify --quiet HEAD"]);
+		// The ladder's three rungs, each with the comparison git was asked for beside its href.
+		// No commit, nothing staged: the working tree is the first comparison holding the change.
+		const written = await pageFor("?? a.txt\0", false);
+		expect(written.mode).toBe("worktree");
+		expect(written.chip).toBe("/review/new?scope=worktree");
+		expect(written.action).toBe("/review/new?scope=worktree&amp;file=a.txt");
+		expect(written.diffs.every((line) => !line.includes("--cached") && !line.includes("HEAD"))).toBe(true);
 
-		// With a commit: the comparison asked for is the one reported, and the one linked.
-		const committed = gitAsking([
-			ROOT,
-			["rev-parse --verify --quiet HEAD", { stdout: "abc1234\n" }],
-			["status --porcelain=v1", { stdout: " M a.txt\0" }],
-			STAT,
-		]);
-		const againstHead = createGitDiff(createFakePi({ exec: committed.exec }).pi, "/repo");
-		expect((await againstHead.list("head"))?.mode).toBe("head");
+		// No commit, one file added: the index.
+		const staged = await pageFor("A  a.txt\0", false);
+		expect(staged.mode).toBe("staged");
+		expect(staged.chip).toBe("/review/new?scope=staged");
+		expect(staged.action).toBe("/review/new?scope=staged&amp;file=a.txt");
+		expect(staged.diffs.every((line) => line.includes("--cached"))).toBe(true);
 
-		const page = await handleRequest({ ...context(), diff: againstHead }, "GET", "/", {});
-		expect(text(page)).toContain('id="browse-changes" href="/review/new?scope=head"');
-		expect(committed.asked.some((line) => line.startsWith("diff ") && line.includes("HEAD"))).toBe(true);
+		// A commit exists: the comparison asked for.
+		const committed = await pageFor(" M a.txt\0", true);
+		expect(committed.mode).toBe("head");
+		expect(committed.chip).toBe("/review/new?scope=head");
+		expect(committed.diffs.some((line) => line.includes("HEAD"))).toBe(true);
+
+		// An unborn branch never compares against the commit: the one question about `HEAD` is the
+		// probe that found it missing.
+		for (const unborn of [written, staged]) {
+			expect(unborn.mentionsHead).toEqual(["rev-parse --verify --quiet HEAD"]);
+		}
 	});
 
 	test("shows the changes chip with the change totals", async () => {
