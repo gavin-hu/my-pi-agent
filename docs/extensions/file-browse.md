@@ -1,8 +1,8 @@
 # file-browse — your working directory, in a browser
 
 `/browse` serves the project you are working in to a loopback page and opens it: a
-tree, file previews, a fuzzy quick open, and a read-only git diff. Nothing on the
-page writes.
+tree, file previews, a fuzzy quick open, and the change list its tags and markers
+come from. Nothing on the page writes.
 
 <img src="../../assets/screens/file-browse.png" alt="The file browser: a path filter above a collapsible tree, and a rendered Markdown file in the right pane" width="1280" height="991">
 
@@ -20,7 +20,7 @@ page writes.
 | Jump to a file | `Ctrl+K` (`Cmd+K`), then type part of the path |
 | Read Markdown as a page | click the file; the toolbar has a raw view |
 | Look at an image | click it — thumbnails are inline in the listing |
-| Read a diff | the **changes** tag, or `/files/diff`; `n`/`p` move between hunks |
+| Read a diff | the **changes** tag, or `/files/diff`, opens the review page |
 | Paste a line reference | select lines, then copy the `path:12-30` form |
 | Sort a folder | the Name / Size / Modified headers |
 | See every key on the page | `?` opens the shortcut sheet |
@@ -46,11 +46,16 @@ root and URL, or "not running"; `/browse stop` closes it.
 
 **Routes.** Everything lives under `/files/`: the tree and a listing
 (`/files/browse/<rel>`), a file page (`/files/view/<rel>`, `?raw=1` for source),
-raw bytes (`/files/raw/<rel>`), the diff (`/files/diff[/<rel>]?mode=head|staged|worktree`),
-and the JSON calls the page makes for the tree, quick open, and the reload check. A path
-under `/files/api/` that matches nothing answers JSON with that status, as those calls do;
-every other unmatched path answers the error page.
+raw bytes (`/files/raw/<rel>`), and the JSON calls the page makes for the tree, quick open,
+and the reload check. A path under `/files/api/` that matches nothing answers JSON with that
+status, as those calls do; every other unmatched path answers the error page.
 `/files/events` carries the live status frames.
+
+`/files/diff[/<rel>]?mode=head|staged|worktree` is a `308` onto the review page —
+`/review/new?scope=<mode>` and, for the per-file shape, `&file=<rel>` — because the page
+that draws a diff is `code-review`'s, and one of the two drawing it was one too many. An
+unknown `mode` still answers `400`, and a page with `gitDiff` off or no git answers `404`:
+the route is not kept alive to advertise a page this extension cannot reach.
 
 **Previews.** Markdown renders as headings, lists, tables, code, and links, with
 raw HTML allowlisted; code files are tokenized for JavaScript/TypeScript, JSON,
@@ -74,7 +79,9 @@ moving — a worktree switch — reloads the page onto the new tree.
   `Host` allowlist, with no CORS headers; there is no LAN exposure.
 - Live status patches what the page already has. A new file on disk needs the
   page's `⟳ reload`; the check covers the listed folder by name, not the folders
-  inside it, a listed file's contents, or a file page's diff.
+  inside it, or a listed file's contents.
+- The changes tag and a changed file's **changes** action are links into the review
+  page, so they need `code-review` serving: without it the address answers `404`.
 - Files over `maxFileBytes` show a download card; images over `maxThumbBytes` get
   an icon; long listings and diffs are truncated with the cap named.
 - It is not a static-file server: the root is confined to the session's working
@@ -90,13 +97,13 @@ moving — a worktree switch — reloads the page onto the new tree.
 | `autoOpen` | `true` | Open the browser on start; `false` keeps it headless and only prints the URL. |
 | `maxFileBytes` | `1048576` | Larger files show a download card instead of a view. |
 | `markdown` | `true` | Render Markdown files as pages. |
-| `gitDiff` | `true` | Offer the read-only diff view. |
+| `gitDiff` | `true` | Offer the uncommitted-change tags: the changes tag, the row markers, and both links onto the review page. |
 | `live` | `true` | Stream live status to open pages. |
 
-The rest — thumbnail, listing, and diff caps, `maxIndexEntries`, `diffContext`,
-and `liveIntervalMs` — are in
-[configuration](../configuration-reference.md#file-browse--the-local-file-server). To
-switch the extension off, toggle `file-browse` in `/bytefly`.
+The rest — thumbnail, listing, and text caps, `maxIndexEntries`, and `liveIntervalMs` —
+are in [configuration](../configuration-reference.md#file-browse--the-local-file-server).
+The diff's own two caps (`diffContext`, `maxDiffLines`) belong to `code-review` now, whose
+page reads them. To switch the extension off, toggle `file-browse` in `/bytefly`.
 
 Whether `/browse` opens a tab is `serve.autoOpen`, not a `file-browse` key: the same
 switch governs `/board`, and it is documented with the page server
