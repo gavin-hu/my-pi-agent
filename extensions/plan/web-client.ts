@@ -83,7 +83,7 @@ ${CLIENT_BASE_JS}
   /** The card a write asked the next frame to focus; the renderer consumes it once. */
   var pendingFocus = null;
 
-  var sectionObserver = null;
+  var sectionWatch = null;
   var pendingQuote = null;
   var activeIndex = -1;
   /** What the reader asked the plan to show: every block, the changed ones, or the annotated. */
@@ -316,7 +316,7 @@ ${WEB_MARKDOWN_JS}
     outlineItems = renderOutline(outlineList, outlineEntries(), function (id) {
       focusSection(planEl, id);
     });
-    sectionObserver = renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver);
+    sectionWatch = renderPlanFrame(planFrame(), closeOpenComposer, watchSections, sectionWatch);
     syncView();
   }
 

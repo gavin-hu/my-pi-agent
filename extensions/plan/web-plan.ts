@@ -21,7 +21,7 @@ import { pageSource } from "../../lib/format.ts";
 import type { ClientNode } from "../../lib/web/client-runtime.ts";
 import type { ComposerDeps } from "./web-composer.ts";
 import { blockElements, type IslandBlock, setActive } from "./web-blocks.ts";
-import type { SectionWatcher } from "./web-outline.ts";
+import type { SectionWatch } from "./web-outline.ts";
 
 /** What `el` has to answer for a frame. Spliced beside it; declared for the checker. */
 type Build = (tag: string, className?: string, text?: string | null) => ClientNode;
@@ -73,7 +73,7 @@ export interface PlanRenderDeps {
 }
 
 /**
- * Draw the plan, and put the reader back. Returns the section watcher it installed.
+ * Draw the plan, and put the reader back. Returns the section watch it installed.
  *
  * The client's own zero-argument entry is `renderAll()`: it builds the frame's deps and
  * hands them here, which is how the fragments keep calling a name that takes nothing.
@@ -81,15 +81,15 @@ export interface PlanRenderDeps {
 export function renderPlanFrame(
 	deps: PlanRenderDeps,
 	closePlan: () => void,
-	observe: (
+	watch: (
 		planEl: ClientNode | null,
 		list: ClientNode | null,
-		previous: SectionWatcher | null,
-	) => SectionWatcher | null,
-	previousObserver: SectionWatcher | null,
-): SectionWatcher | null {
+		previous: SectionWatch | null,
+	) => SectionWatch | null,
+	previousWatch: SectionWatch | null,
+): SectionWatch | null {
 	const { planEl } = deps;
-	if (!planEl) return previousObserver;
+	if (!planEl) return previousWatch;
 	// Focus is only put back when it was inside this document to begin with.
 	const keepFocus = !!(deps.focused && deps.focused !== planEl && planEl.contains(deps.focused));
 	closePlan();
@@ -221,9 +221,9 @@ export function renderPlanFrame(
 		if (stop) stop.focus();
 	}
 	deps.facts();
-	const observer = observe(planEl, deps.outlineList, previousObserver);
+	const installed = watch(planEl, deps.outlineList, previousWatch);
 	deps.updateState();
-	return observer;
+	return installed;
 }
 
 /** The block renderer as source, for the client bundle. */
