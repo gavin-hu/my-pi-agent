@@ -89,4 +89,55 @@ gated("the review page's interactions", () => {
 		},
 		CASE_MS,
 	);
+
+	test(
+		"a filter that matches nothing leaves the diff readable and offers a clear",
+		async () => {
+			await withPage(async (page) => {
+				await page.fill("#rv-filter", "zzz");
+				await page.waitForSelector("#rv-rail-empty", { state: "visible", timeout: REVIEW_PAINT_MS });
+				expect(await page.locator("#rv-rail-empty-text").textContent()).toBe('No files match "zzz"');
+				expect(await page.locator("#rv-file-count").textContent()).toBe("0 of 1 files");
+				// The rail narrowed; the reading pane did not.
+				expect(await page.locator(".rv-file").isVisible()).toBe(true);
+				expect(await page.locator("#rv-filter-note").isVisible()).toBe(true);
+				expect(await page.locator("#rv-filter-note-text").textContent()).toContain(
+					'Showing 0 of 1 files · filter "zzz"',
+				);
+
+				await page.locator("#rv-rail-clear").click();
+				expect(await page.locator("#rv-filter").inputValue()).toBe("");
+				expect(await page.locator("#rv-rail-empty").isHidden()).toBe(true);
+				expect(await page.locator(".rv-rail").first().isVisible()).toBe(true);
+				expect(await page.locator("#rv-filter-note").isHidden()).toBe(true);
+			});
+		},
+		CASE_MS,
+	);
+
+	test(
+		"only commented is offered only once there is one",
+		async () => {
+			await withPage(async (page) => {
+				const box = page.locator("#rv-only-commented");
+				const label = page.locator("label").filter({ has: page.locator("#rv-only-commented") });
+				expect(await box.isDisabled()).toBe(true);
+				expect(await label.getAttribute("title")).toBe("No comments on this review yet");
+
+				await startComment(page, "one note");
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+
+				expect(await box.isDisabled()).toBe(false);
+				await box.check();
+				expect(await page.locator("#rv-file-count").textContent()).toBe("1 of 1 files");
+				expect(await page.locator("#rv-filter-note-text").textContent()).toContain(
+					"Showing 1 of 1 files · only commented",
+				);
+				// Narrowed to the one file, it is still drawn.
+				expect(await page.locator(".rv-file").isVisible()).toBe(true);
+			});
+		},
+		CASE_MS,
+	);
 });
