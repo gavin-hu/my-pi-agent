@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `code-review`: a branch, the index, or the working tree served as a review page at `/review/`, with a
+  `code_review` tool (`open`, `status`, `comments`, `close`) and a `/review` command. A comment anchors to a
+  path, a side, and a line; the page mints its review id on the first write and posts the snapshot it rendered
+  with every write, so a tree that moved refuses the write instead of landing a note on a line nobody read.
+  **Send feedback** marks the drafts sent and the session reads one `[CODE REVIEW]` notice at its next turn —
+  nothing is written to the tree and nothing wakes a turn. The page is loopback-only with a 128-bit token, one
+  page per session, and it reads the `code-review` section of `bytefly.json` (`base`, `diffContext`,
+  `maxDiffLines`, `maxFiles`). `serve`'s prefix table names it. It is the diff page `#751` converges
+  `/files/diff` onto; that route still answers from `file-browse` here.
+
 - **Breaking** `serve`: whether a page opens a tab is `serve.autoOpen`, and `file-browse.autoOpen` is gone. One
   switch governs `/browse` and `/board`, because the tab belongs to the session's page server rather than to one
   extension; move the key, or a project that set it to `false` starts getting tabs again. `/plan`'s browser step is

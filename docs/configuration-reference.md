@@ -17,6 +17,7 @@ resolves, and how to change one, is in [Configuration](./configuration.md).
 - [`chrome` — transcript chrome](#chrome--transcript-chrome)
 - [`file-read` — document and spreadsheet extraction](#file-read--document-and-spreadsheet-extraction)
 - [`file-browse` — the local file server](#file-browse--the-local-file-server)
+- [`code-review` — what a review compares](#code-review--what-a-review-compares)
 - [`goal` — the goal widget](#goal--the-goal-widget)
 - [`job` — background jobs](#job--background-jobs)
 - [`watch` — file and command watchers](#watch--file-and-command-watchers)
@@ -42,7 +43,7 @@ The sections, by what they are for:
 |---|---|
 | Plan and delegate | [`board`](#board--the-shared-feature-board), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
 | Keep your work safe | [`worktree`](#worktree--isolated-worktrees), [`rewind`](#rewind--snapshots), [`memory`](#memory--durable-notes) |
-| Reach the world | [`web-access`](#web-access--search-and-fetch), [`serve`](#serve--the-sessions-page-server), [`file-browse`](#file-browse--the-local-file-server), [`file-read`](#file-read--document-and-spreadsheet-extraction), [`wechat`](#wechat--the-wechat-bridge) |
+| Reach the world | [`web-access`](#web-access--search-and-fetch), [`serve`](#serve--the-sessions-page-server), [`file-browse`](#file-browse--the-local-file-server), [`code-review`](#code-review--what-a-review-compares), [`file-read`](#file-read--document-and-spreadsheet-extraction), [`wechat`](#wechat--the-wechat-bridge) |
 | Chrome and upkeep | [`price`](#price--cost-calculation), [`notify`](#notify--os-notifications), [`doctor`](#doctor--diagnostics), [`chrome`](#chrome--transcript-chrome) |
 
 Every table is checked against the defaults its loader exports by
@@ -63,6 +64,7 @@ repository root rather than the active working directory.
 | [`serve`](extensions/serve.md) | `serve` | The port every page of a session shares. |
 | [`file-read`](extensions/file-read.md) | `file-read` | Read limits, enabled formats. |
 | [`file-browse`](extensions/file-browse.md) | `file-browse` | Page limits. |
+| [`code-review`](extensions/code-review.md) | `code-review` | The diff a review reads and the page's limits. |
 | [`goal`](extensions/goal.md) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
 | [`job`](extensions/job.md) | `job` | Log-tail size and other job limits. |
 | [`watch`](extensions/watch.md) | `watch` | Watch limits, wake behaviour, and poll interval. |
@@ -227,6 +229,19 @@ ignored, and an absent id keeps its registry default.
 | `maxDiffLines` | integer | `4000` | `1`–`1000000` | Diff lines rendered before the view is truncated. |
 | `live` | boolean | `true` | | Push live status to open pages over `/events`. |
 | `liveIntervalMs` | integer | `5000` | `250`–`60000` | How often a connected page is sent a status frame. |
+
+## `code-review` — what a review compares
+
+The page reads the branch against `base`; the other comparisons need no ref.
+`/review base` reports the repository's default branch, so a project whose
+default is not `main` or `master` names it once here.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `base` | string | `""` | a ref, or `""` to detect | The ref a `base` review compares against: `""` means `origin/HEAD`, then `main`, then `master`. |
+| `diffContext` | integer | `3` | `0`–`100` | Unified context lines around each hunk. |
+| `maxDiffLines` | integer | `4000` | `1`–`1000000` | Diff lines per file before the page truncates and says so. |
+| `maxFiles` | integer | `200` | `1`–`10000` | Changed files the page lists; the rest are counted, not drawn. |
 
 ## `goal` — the goal widget
 

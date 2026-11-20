@@ -68,7 +68,7 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 
 ## 包含内容
 
-21 个扩展、4 个随包技能，以及 2 个主题，按它们所服务的工作分组。
+22 个扩展、4 个随包技能，以及 2 个主题，按它们所服务的工作分组。
 每个扩展在 `docs/extensions/` 下的页面提供完整的工具与命令说明，并以能力表开头。
 
 ### 规划与委派
@@ -101,7 +101,8 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
 | [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | 搜索网络并把页面抓取为可读文本，支持分页、`find` 与 SSRF 检查。 |
-| [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | 以工作目录为根的回环只读浏览器，带 Markdown 预览与快速打开。 |
+| [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | 以工作目录为根的回环只读浏览器，带 Markdown 预览。 |
+| [`code-review`](./docs/extensions/code-review.md) | `code_review`, `/review` | 把 diff 变成评审页：在行上留言，再把意见送回会话。 |
 | [`file-read`](./docs/extensions/file-read.md) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
 | [`file-open`](./docs/extensions/file-open.md) | `/open`, `open_path` | 用操作系统原生应用打开或定位文件/目录。 |
 | [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | 把一段微信聊天桥接到实时会话：入站消息进入，回答流式返回。 |
