@@ -245,6 +245,12 @@
       "summary": "A loopback, read-only browser rooted at the working directory."
     },
     {
+      "path": "extensions/code-review.md",
+      "title": "code-review",
+      "group": "Reach the world",
+      "summary": "Review a diff as a page, comment line by line, and send the notes to the session."
+    },
+    {
       "path": "extensions/file-read.md",
       "title": "file-read",
       "group": "Reach the world",

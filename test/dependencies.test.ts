@@ -286,6 +286,12 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/file-browse/config/config.ts": "the browse config loads when /browse opens a page",
 	"extensions/file-browse/files/paths.ts": "the browse path guard loads when /browse resolves or serves a path",
 	"extensions/file-browse/git/git.ts": "the browse status and diff load when /browse opens a page",
+	"extensions/code-review/config/config.ts": "the review config loads when /review opens a page",
+	"extensions/code-review/git/diff.ts": "the review's snapshot reader loads when a page opens or a write checks it",
+	"extensions/code-review/transport/router.ts": "the review's routes load with the page's mount",
+	"extensions/code-review/transport/server.ts": "the review server loads on the first /review or code_review open",
+	"extensions/code-review/review/store.ts": "the review's own record loads with the page that holds it",
+	"extensions/code-review/review/session.ts": "the session's page lifecycle loads on its first open",
 	"extensions/worktree/screen.ts": "the worktree screen loads in the TUI branch of /worktree",
 	"extensions/bytefly/panel/tui.ts": "the panel screen loads in the TUI branch of /bytefly",
 	"extensions/bytefly/panel/kit.ts": "the panel's listing, prices, and theme names load when /bytefly opens a surface",
@@ -446,6 +452,11 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	serve: 12,
 	context: 8,
 	"file-open": 3,
+	// The registration path pays what Pi reads before any page exists: the tool and its
+	// schema, the command, the notice assembly, and the reporter channel. The page,
+	// the reader, the routes, and the session load on the first open; the row is the
+	// graph this tree measured, and it may only fall.
+	"code-review": 13,
 	"file-browse": 2,
 };
 

@@ -17,13 +17,30 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { kitNamesIn, rulesClass, sourcesUnder } from "./helpers/web-classes.ts";
+import { kitNamesIn, rule, rulesClass, sourcesUnder } from "./helpers/web-classes.ts";
 import { WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS } from "../lib/web/index.ts";
 import { BOARD_CSS } from "../extensions/board/view/styles.ts";
 import { REVIEW_CSS } from "../extensions/plan/web-page.ts";
+import { REVIEW_CSS as CODE_REVIEW_CSS, REVIEW_NARROW_PX } from "../extensions/code-review/view/styles.ts";
 import { BROWSE_CSS } from "../extensions/file-browse/view/styles.ts";
 
 const root = join(import.meta.dir, "..");
+
+/** One whole `@media (max-width: <px>px){…}` block, brace-matched, or `""` when there is none. */
+function mediaBlock(css: string, px: number): string {
+	const marker = `@media (max-width:${px}px){`;
+	const start = css.indexOf(marker);
+	if (start < 0) return "";
+	let depth = 0;
+	for (let index = start + marker.length - 1; index < css.length; index++) {
+		if (css[index] === "{") depth += 1;
+		else if (css[index] === "}") {
+			depth -= 1;
+			if (depth === 0) return css.slice(start, index + 1);
+		}
+	}
+	return "";
+}
 
 /** One name a page writes that is not a class of its own, and why. */
 interface Exception {
@@ -83,6 +100,21 @@ const PAGES: readonly ServedPage[] = [
 			{ name: "bf-review-draft", why: "a localStorage key the composer restores from, not a style" },
 			{ name: "bf-review-name", why: "a localStorage key that remembers the reviewer's name" },
 			{ name: "bf-review-shortcuts", why: "a localStorage key that remembers the reader's shortcut switch" },
+		],
+	},
+	{
+		page: "code-review",
+		dir: join(root, "extensions/code-review/view"),
+		// The diff body is lib/diff's markup: the page supplies its rules, so the renderer
+		// is read as this page's second writer.
+		extraSources: [join(root, "lib/diff")],
+		skip: ["styles.ts"],
+		css: CODE_REVIEW_CSS,
+		exceptions: [
+			{
+				name: "bf-tone--",
+				why: "a family: the client builds a tag's tone from a table, and the kit rules each member",
+			},
 		],
 	},
 	{
@@ -176,6 +208,22 @@ describe("a served page's kit classes", () => {
 				expect(css.includes(`.${exception.name}`), `${page.page} ${exception.name}`).toBe(true);
 			}
 		}
+	});
+
+	/**
+	 * The review page's diff line is `white-space:pre` so a tab and a column stay put, and at
+	 * the narrow fold that rule must yield to a wrap: a page rule outranks the kit's own narrow
+	 * media rule at equal specificity, so a page that states `pre` and no narrow counterpart
+	 * runs its code off the right edge with no scrollbar. Every suite was green on that, and a
+	 * person reading the page at 390 is what found it; this is the case that would have.
+	 */
+	test("the review page's line yields to a wrap at the narrow fold", () => {
+		const base = rule(CODE_REVIEW_CSS, ".rv-diff .bf-diff-line{");
+		expect(base, "the line's own rule states pre").toContain("white-space:pre");
+		const narrow = mediaBlock(CODE_REVIEW_CSS, REVIEW_NARROW_PX);
+		expect(narrow, `no @media (max-width:${REVIEW_NARROW_PX}px) block`).toBeString();
+		expect(narrow, "the page states no narrow rule for the diff line").toContain(".rv-diff .bf-diff-line");
+		expect(narrow, "the narrow rule does not wrap").toContain("white-space:pre-wrap");
 	});
 
 	test("has a row for every extension that dresses a page in the kit", () => {

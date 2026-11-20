@@ -41,6 +41,7 @@ import {
 	DEFAULT_CONFIG as DEFAULT_FILE_READ_CONFIG,
 	normalizeConfig as normalizeFileReadConfig,
 } from "../extensions/file-read/config.ts";
+import { DEFAULT_REVIEW_CONFIG, normalizeReviewConfig } from "../extensions/code-review/config/config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_FILE_BROWSE_CONFIG,
 	normalizeConfig as normalizeFileBrowseConfig,
@@ -171,6 +172,17 @@ const SECTIONS: readonly SectionCase[] = [
 			maxDiffLines: "a rendering limit, not a preference",
 			live: "a browser-surface switch, not agent behaviour",
 			liveIntervalMs: "a refresh interval, tuned once",
+		},
+	},
+	{
+		section: "code-review",
+		defaults: DEFAULT_REVIEW_CONFIG,
+		normalize: (raw) => normalizeReviewConfig(raw, DEFAULT_REVIEW_CONFIG),
+		jsonOnly: {
+			base: "one project fact, set once",
+			diffContext: "a rendering limit, not a preference",
+			maxDiffLines: "a rendering limit, not a preference",
+			maxFiles: "a rendering limit, not a preference",
 		},
 	},
 	{

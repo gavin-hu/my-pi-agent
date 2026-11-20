@@ -30,7 +30,7 @@ or off, its settings changed, and `/bytefly doctor` names anything missing.
 
 ## What you get
 
-21 extensions, 4 packaged skills, and 2 themes, grouped by the work they serve.
+22 extensions, 4 packaged skills, and 2 themes, grouped by the work they serve.
 The [extension index](./extensions/README.md) and the
 [skill index](./skills/README.md) list every one, and the
 [README](https://github.com/gavin-hu/my-pi-agent#what-you-get) carries the same

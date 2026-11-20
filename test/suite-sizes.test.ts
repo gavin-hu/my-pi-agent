@@ -96,9 +96,9 @@ const LONG_SUITES: Record<string, number> = {
 	// The root contracts, measured from #746 on. Each grew while the bar read only the suites
 	// beside an extension, and `tool-render` reaching 503 is the proof that silence was not safe:
 	// this card split it, which is why there is no entry for it here.
-	"test/dependencies.test.ts": 628,
+	"test/dependencies.test.ts": 639,
 	"test/release.test.ts": 633,
-	"test/settings-coverage.test.ts": 482,
+	"test/settings-coverage.test.ts": 494,
 	"test/shared-helpers.test.ts": 628,
 	"test/site-docs.test.ts": 829,
 	"test/theme.test.ts": 560,
