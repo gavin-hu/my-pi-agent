@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: Pi 1.6.0's `Component.render()` returns `readonly string[]`, so the two declarations that still promised a
+  mutable array say `readonly` too. `bodyLines` hands the inner component's own lines through rather than copying
+  them — Pi may return an array it caches across frames, so a copy would cost a fresh array per frame for every
+  tool block and defeat the identity comparison `RenderCache` relies on, and the narrower type now tells a caller
+  not to edit one in place. The subagent render test names Pi's `Component` instead of re-declaring its
+  `{ render(width): string[] }`, the duplicate that broke when the return widened. What a block draws is unchanged:
+  on the 1.6.0 peers `check:types` went from 19 errors to 0, which is what CI's `compat` job would otherwise have
+  found on the next landing.
+
 - `code-review`: a branch, the index, or the working tree served as a review page at `/review/`, with a
   `code_review` tool (`open`, `status`, `comments`, `close`) and a `/review` command. A comment anchors to a
   path, a side, and a line; the page mints its review id on the first write and posts the snapshot it rendered

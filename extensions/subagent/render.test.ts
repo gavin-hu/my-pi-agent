@@ -29,7 +29,7 @@ function toolResult(details: SubagentDetails, content = "fallback"): AgentToolRe
 	return { content: [{ type: "text", text: content }], details };
 }
 
-function render(component: { render(width: number): string[] }, width = 80): string {
+function render(component: { render(width: number): readonly string[] }, width = 80): string {
 	return component.render(width).join("\n");
 }
 
@@ -44,7 +44,7 @@ interface ViewOptions {
 }
 
 /** The rendered result block for one details object, collapsed unless asked. */
-function view(details: SubagentDetails, options: ViewOptions = {}): string[] {
+function view(details: SubagentDetails, options: ViewOptions = {}): readonly string[] {
 	return renderSubagentResult(
 		toolResult(details, options.content),
 		{ expanded: options.expanded ?? false, isPartial: options.isPartial, now: options.now },
