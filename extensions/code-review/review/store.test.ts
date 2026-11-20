@@ -223,6 +223,30 @@ describe("sending", () => {
 		expect(second.sent).toEqual([]);
 	});
 
+	/**
+	 * Not the defection the refusal cases fixed: a person asked to send, so the write was
+	 * accepted rather than refused, and the page says so by answering `ok` with nothing
+	 * sent. The review it mints is the record of the request — the signed plan states that
+	 * `send` mints on success — and the second send answers the same id with the same empty
+	 * list, so the route stays idempotent for a page that sends twice.
+	 */
+	test("an empty send is accepted: it mints one review and answers no comments", () => {
+		const { store, count } = countingStore();
+		const page = store.open("base", "main", "main...HEAD");
+		expect(store.current()?.review).toBeUndefined();
+		const sent = store.write(page.token, REV, REV, { kind: "send" });
+		if (!sent.ok) throw new Error(sent.message);
+		expect(sent.sent).toEqual([]);
+		expect(store.current()?.review?.id).toBe(sent.id);
+		expect(count(), "the send minted the review's one id").toBe(2);
+
+		const again = store.write(page.token, REV, REV, { kind: "send" });
+		if (!again.ok) throw new Error(again.message);
+		expect(again.id).toBe(sent.id);
+		expect(again.sent).toEqual([]);
+		expect(count(), "a second send mints nothing").toBe(2);
+	});
+
 	test("a comment written after a send is a fresh draft", () => {
 		const { store } = countingStore();
 		const page = store.open("base", "main", "main...HEAD");
