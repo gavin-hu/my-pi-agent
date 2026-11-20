@@ -35,7 +35,9 @@ export const REVIEW_CSS = `
 .rv-rail[data-state="reviewed"]{--paper:var(--success-soft);--role:var(--success)}
 .rv-rail__mark{font:var(--fw-semibold) var(--fs-xs)/1.7 var(--font-mono);color:var(--role)}
 .rv-rail__name{font:var(--fw-semibold) var(--fs-sm)/1.4 var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv-rail__dir{display:block;font:var(--fs-xs)/1.5 var(--font-mono);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The directory keeps its leaf in view: an rtl line box puts the ellipsis at the start, and
+   the bdi isolates the path as the LTR text it is, so its own slashes stay where they were. */
+.rv-rail__dir{display:block;direction:rtl;text-align:left;font:var(--fs-xs)/1.5 var(--font-mono);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rv-rail__notes{display:block;margin-top:2px;font:var(--fs-xs)/1.5 var(--font-ui);color:var(--role)}
 .rv-rail__meta{display:flex;gap:5px;font:var(--fs-xs)/1.5 var(--font-mono);font-variant-numeric:tabular-nums}
 .rv-add{color:var(--success)}
@@ -96,6 +98,11 @@ export const REVIEW_CSS = `
 .rv-toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);max-width:min(560px,calc(100vw - 32px));padding:var(--space-2) var(--space-4);background:var(--raised);border:1px solid var(--border-strong);border-left:2px solid var(--success);border-radius:var(--radius-md);box-shadow:var(--shadow-2);z-index:70;font-size:var(--fs-sm);opacity:0;pointer-events:none;transition:opacity var(--motion-base) var(--motion-ease)}
 .rv-toast[data-open="true"]{opacity:1}
 .rv-empty{margin:var(--space-6) var(--space-5);padding:var(--space-5);border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted)}
+/* The rail's own empty state and the pane's filter line: both say what a narrowed view hides. */
+.rv-side__empty{margin:var(--space-2);padding:var(--space-3);border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted);font:var(--fs-sm)/1.5 var(--font-ui)}
+.rv-side__empty .bf-btn{margin-left:var(--space-2)}
+.rv-filter-note{margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--accent);background:var(--accent-soft);border-radius:var(--radius-sm);color:var(--muted);font:var(--fs-sm)/1.5 var(--font-ui)}
+.rv-filter-note .bf-btn{margin-left:var(--space-2)}
 .rv-empty__title{margin:0;color:var(--text);font-weight:var(--fw-semibold)}
 .rv-empty__sub{margin:var(--space-1) 0 0;font-size:var(--fs-sm)}
 .rv-dialog-list{display:flex;flex-direction:column;gap:var(--space-2);max-height:52vh;overflow:auto}

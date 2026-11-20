@@ -64,6 +64,7 @@ export interface ReviewPageInput {
 /** The kit's shortcut rows for this page. */
 const REVIEW_KEYS = [
 	{ keys: "?", label: "This sheet" },
+	{ keys: "/", label: "Focus the file filter" },
 	{ keys: "j k", label: "Next and previous file" },
 	{ keys: "]", label: "Next hunk" },
 	{ keys: "[", label: "Previous hunk" },
@@ -104,9 +105,9 @@ function railRow(
 	const count = comments.filter((comment) => comment.rel === file.rel).length;
 	const { dir, name } = splitPath(file.rel);
 	const note = count === 0 ? stateWord(state) : `${count} comment${count === 1 ? "" : "s"}`;
-	return `<a class="rv-rail" href="#rv-file-${index}" data-path="${escapeHtml(file.rel)}" data-state="${state}"${index === 0 ? ' aria-current="true"' : ""}>
+	return `<a class="rv-rail" href="#rv-file-${index}" data-path="${escapeHtml(file.rel)}" data-state="${state}"${index === 0 ? ' aria-current="true"' : ""} title="${escapeHtml(file.rel)}">
   <span class="rv-rail__mark" aria-hidden="true">${escapeHtml(file.status)}</span>
-  <span><span class="rv-rail__name">${escapeHtml(name)}</span><span class="rv-rail__dir">${escapeHtml(dir)}</span><span class="rv-rail__notes">${escapeHtml(note)}</span></span>
+  <span><span class="rv-rail__name">${escapeHtml(name)}</span><span class="rv-rail__dir" dir="rtl"><bdi>${escapeHtml(dir)}</bdi></span><span class="rv-rail__notes">${escapeHtml(note)}</span></span>
   <span class="rv-rail__meta"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
 </a>`;
 }
@@ -239,16 +240,18 @@ ${appHead({
       <label class="bf-field bf-field--filter"><span class="bf-field__prompt" aria-hidden="true"></span><span class="sr-only">Filter files</span><input class="bf-input" id="rv-filter" type="search" placeholder="filter files" autocomplete="off"></label>
       <div class="rv-side-row">
         <label class="rv-file__check"><input type="checkbox" id="rv-only-commented"> only commented</label>
-        <span class="bf-tag bf-tag--mono" id="rv-file-count">${files.length} of ${files.length} files</span>
+        <span class="bf-tag bf-tag--mono" id="rv-file-count" aria-live="polite">${files.length} of ${files.length} files</span>
       </div>
     </div>
     <div class="rv-side-scroll">
       <div class="rv-side-head"><span>changed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
       <nav class="rv-files" id="rv-rail" aria-label="Changed files">${files.map((file, index) => railRow(file, index, comments, reviewed)).join("\n")}</nav>
+      <p class="rv-side__empty" id="rv-rail-empty" hidden><span id="rv-rail-empty-text"></span> <button type="button" class="bf-btn" id="rv-rail-clear">Clear filter</button></p>
     </div>
   </aside>
   <main class="bf-app__main rv-main" id="rv-main" tabindex="-1">
     <div class="rv-files-scroll" id="rv-diff">
+      <p class="rv-filter-note" id="rv-filter-note" hidden><span id="rv-filter-note-text"></span> <button type="button" class="bf-btn" id="rv-filter-clear">Clear</button></p>
       ${banner}
       ${omitted}
       ${main}

@@ -204,13 +204,17 @@ ${CLIENT_RUNTIME_JS}
       send.setAttribute("data-count", String(pending));
       send.textContent = "Send feedback " + pending;
     }
-    var facts = byId("rv-facts");
-    if (facts) {
-      var done = reviewedSet().size;
-      var files = sections().length;
-      facts.textContent = "snapshot " + rev + " · " + plural(files, "file") + " · " + pending + " draft · " + done + " of " + files + " reviewed";
+    // Nothing to filter to: say so on the control rather than letting it blank the rail.
+    var only = byId("rv-only-commented");
+    if (only) {
+      var none = (data.comments || []).length === 0;
+      only.disabled = none;
+      var label = only.closest ? only.closest("label") : null;
+      if (label) label.title = none ? "No comments on this review yet" : "";
+      if (none) only.checked = false;
     }
     paintStates();
+    filtered();
   }
 
   // ── writes ────────────────────────────────────────────────────────────────
@@ -398,31 +402,89 @@ ${CLIENT_RUNTIME_JS}
   }
 
   // ── keys and wiring ───────────────────────────────────────────────────────
-  function filtered() {
+  // ── the rail's filter ────────────────────────────────────────────────────
+  /** The rail rows the current filter shows, and what the filter is. */
+  function visibleState() {
     var text = byId("rv-filter").value.trim().toLowerCase();
     var only = byId("rv-only-commented").checked;
     var shown = 0;
-    sections().forEach(function (section) {
-      var path = section.getAttribute("data-path");
-      var rail = railFor(path);
+    nodeList(".rv-rail").forEach(function (row) {
+      var path = row.getAttribute("data-path");
       var match = text === "" || path.toLowerCase().indexOf(text) >= 0;
       if (only) match = match && commentsFor(path).length > 0;
-      section.hidden = !match;
-      if (rail) rail.hidden = !match;
+      row.hidden = !match;
       if (match) shown += 1;
     });
-    byId("rv-file-count").textContent = shown + " of " + sections().length + " files";
+    return { text: text, only: only, shown: shown, total: nodeList(".rv-rail").length };
+  }
+
+  /** The file fact the footer prints, which follows the rail while a filter is on. */
+  function paintFacts() {
+    var facts = byId("rv-facts");
+    if (!facts) return;
+    var total = sections().length;
+    var shown = visibleState().shown;
+    var files = shown === total ? plural(total, "file") : shown + " of " + total + " files";
+    facts.textContent =
+      "snapshot " + rev + " · " + files + " · " + drafts().length + " draft · " + reviewedSet().size + " of " + total + " reviewed";
+  }
+
+  /**
+   * Narrowing is the rail's business: the rows hide, the diff keeps every section, and the
+   * rail and the pane both say what the narrower index leaves out.
+   */
+  function filtered() {
+    var state = visibleState();
+    byId("rv-file-count").textContent = state.shown + " of " + state.total + " files";
+    var empty = byId("rv-rail-empty");
+    if (empty) {
+      var none = (data.comments || []).length === 0;
+      var message =
+        state.shown > 0 || state.total === 0
+          ? ""
+          : state.only && none
+            ? "No comments on this review yet"
+            : 'No files match "' + state.text + '"';
+      empty.hidden = message === "";
+      byId("rv-rail-empty-text").textContent = message;
+    }
+    var note = byId("rv-filter-note");
+    if (note) {
+      var active = state.text !== "" || state.only;
+      note.hidden = !active;
+      byId("rv-filter-note-text").textContent =
+        "Showing " +
+        state.shown +
+        " of " +
+        state.total +
+        " files" +
+        (state.text !== "" ? ' · filter "' + state.text + '"' : "") +
+        (state.only ? " · only commented" : "");
+    }
+    paintFacts();
+  }
+
+  /** Clear both halves of the filter, then put the cursor back where it was typed. */
+  function clearFilter() {
+    byId("rv-filter").value = "";
+    byId("rv-only-commented").checked = false;
+    filtered();
+    byId("rv-filter").focus();
   }
 
   function moveFile(step) {
-    var visible = sections().filter(function (section) { return !section.hidden; });
+    // A key move walks the rail's visible rows, so a filter narrows where j and k go.
+    var visible = nodeList(".rv-rail")
+      .filter(function (row) { return !row.hidden; })
+      .map(function (row) { return row.getAttribute("data-path"); });
     if (visible.length === 0) return;
-    var current = selection.path === null ? -1 : visible.findIndex(function (section) { return section.getAttribute("data-path") === selection.path; });
+    var current = selection.path === null ? -1 : visible.indexOf(selection.path);
     var next = Math.min(visible.length - 1, Math.max(0, (current < 0 ? 0 : current) + step));
-    var path = visible[next].getAttribute("data-path");
-    var line = firstLineOf(visible[next]);
+    var path = visible[next];
+    var line = firstLineOf(sectionFor(path));
     setSelection(path, "new", line, line);
-    visible[next].scrollIntoView({ block: "start" });
+    var section = sectionFor(path);
+    if (section) section.scrollIntoView({ block: "start" });
   }
 
   function moveHunk(step) {
@@ -445,7 +507,18 @@ ${CLIENT_RUNTIME_JS}
   if (reloadHint) reloadHint.addEventListener("click", function () { window.location.reload(); });
 
   byId("rv-filter").addEventListener("input", filtered);
+  byId("rv-filter").addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") return;
+    // Inside the field, Escape is the field's: clear both halves and leave the field.
+    event.stopPropagation();
+    byId("rv-filter").value = "";
+    byId("rv-only-commented").checked = false;
+    filtered();
+    byId("rv-filter").blur();
+  });
   byId("rv-only-commented").addEventListener("change", filtered);
+  byId("rv-rail-clear").addEventListener("click", clearFilter);
+  byId("rv-filter-clear").addEventListener("click", clearFilter);
   byId("rv-wrap").addEventListener("click", toggleWrap);
   byId("rv-copy").addEventListener("click", function () {
     var text = (data.comments || []).map(function (comment) { return comment.rel + ":" + comment.line + "\n" + comment.body; }).join("\n\n");
@@ -500,10 +573,18 @@ ${CLIENT_RUNTIME_JS}
     if (event.key === "Escape") {
       if (!byId("rv-send-dialog").hidden) { closeSend(); return; }
       if (document.querySelector(".rv-compose")) { forgetDraft(); closeComposer(); return; }
+      var filter = byId("rv-filter");
+      if (document.activeElement === filter || filter.value !== "") {
+        filter.value = "";
+        filtered();
+        filter.blur();
+        return;
+      }
       clearSelection();
       return;
     }
     if (typing(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === "/") { event.preventDefault(); byId("rv-filter").focus(); return; }
     if (event.key === "w") { toggleWrap(); return; }
     if (event.key === "j") { moveFile(1); return; }
     if (event.key === "k") { moveFile(-1); return; }
