@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `code-review`: a review can be read one file at a time — `?file=<path>` on the page's address,
+  which is what the changes tag on a `file-browse` page will open once #763 lands — and the page
+  compares five things rather than four. The new `head` scope (shown as *uncommitted*) is the tree
+  against `HEAD`, the index and the working tree together with untracked files, so the three modes
+  `file-browse` publishes map onto the review's scopes one to one instead of losing half of what a
+  reader was looking at. The focused page draws that one file with **view file** and **download**
+  pairing it with the browse page's own routes, `n`/`p` stepping its hunks beside the review's
+  `[`/`]`, and a copied line reference in `path:12-30`. The snapshot behind both pages is still the
+  whole scope, so a focused page and the full one accept each other's writes and a comment on a
+  hidden file is still counted and still sent; the rail keeps the one row and a way back to the
+  whole comparison. `lib/http/prefixes.ts` owns the two mount prefixes now, because the two pages
+  name each other's address and neither may import the other's modules.
+
 - `code-review`: the page's words now name the facts it holds, and one refusal narrowed. The scope segment reads
   `last` like the URL, the command and the tool (its title says `HEAD~1...HEAD`); the draft and review-id chips stay
   hidden until there is something to say, the id behind its tooltip; the footer names the comparison and the commits

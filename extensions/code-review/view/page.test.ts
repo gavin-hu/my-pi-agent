@@ -209,6 +209,26 @@ describe("the review page", () => {
 		expect(focused.rev).toBe("abc123");
 	});
 
+	test("each file's head pairs it with the browse page's own views", () => {
+		const html = renderReviewPage(input());
+		expect(html).toContain('href="/files/view/lib/http/mount.ts"');
+		expect(html).toContain('href="/files/raw/lib/http/mount.ts"');
+		expect(html).toContain('href="/files/view/docs/serve.md"');
+	});
+
+	test("a focused page still counts the comments it does not draw", () => {
+		// The Limits sentence has to be a fact: a draft on a hidden file is hidden from the
+		// page and still the reader's, so the island and the send button keep it.
+		const both = reviewData({ ...input({ review: review() }), file: "docs/serve.md" });
+		expect(both.comments.map((comment) => comment.rel)).toEqual(["lib/http/mount.ts"]);
+		const html = renderReviewPage({ ...input({ review: review() }), file: "docs/serve.md" });
+		expect(html.match(/class="rv-file"/g)).toHaveLength(1);
+		// The one section is the file asked for; the draft on the other file is still the
+		// reader's, so the button that sends it still counts it.
+		expect(html).toContain('data-path="docs/serve.md"');
+		expect(html).toContain("Send feedback 1");
+	});
+
 	test("a problem page names the reason and offers the way back", () => {
 		const html = renderReviewProblem("/review", "No diff to review", 'no base branch found — set "base"');
 		expect(html).toContain("No diff to review");

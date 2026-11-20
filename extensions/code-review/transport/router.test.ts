@@ -158,6 +158,24 @@ describe("the page's GETs", () => {
 		expect(refused.status).toBe(403);
 	});
 
+	test("accepts a write a focused page posts about a file it does not draw", async () => {
+		const harnessed = harness();
+		await reply(harnessed.handler, request("GET", "/new?scope=base"));
+		const token = tokenOf(harnessed.store);
+		// The rev a focused page carries is the scope's, so the request it posts is the same
+		// one the full page would have posted — which is what keeps a hidden file writable.
+		const focused = await reply(harnessed.handler, request("GET", "/new?scope=base&file=a.ts"));
+		const island = typeof focused.body === "string" ? focused.body : "";
+		const rev = /"rev":"([^"]+)"/.exec(island)?.[1];
+		if (rev === undefined) throw new Error("no rev in the island");
+		const comment = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", { token, rev, comment: { rel: "b.ts", line: 2, side: "new", body: "hi" } }),
+		);
+		expect(comment.status).toBe(200);
+		expect(harnessed.store.current()?.review?.comments.map((entry) => entry.rel)).toEqual(["b.ts"]);
+	});
+
 	test("refuses a scope change while a draft is on the page", async () => {
 		const harnessed = harness();
 		const token = await opened(harnessed);

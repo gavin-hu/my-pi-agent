@@ -61,3 +61,17 @@ export function isInsideReal(root: string, target: string): boolean {
 export function lastSegment(path: string): string {
 	return path.split(/[\\/]/).filter(Boolean).at(-1) ?? "";
 }
+
+/**
+ * Percent-encode each segment of a root-relative path, keeping `/` separators.
+ *
+ * A URL is built from a path git printed, and a path may hold a space, a `#` or a `?`:
+ * encoding per segment keeps the separators readable while the segments are safe.
+ */
+export function encodePath(rel: string): string {
+	return rel
+		.split("/")
+		.filter(Boolean)
+		.map((segment) => encodeURIComponent(segment))
+		.join("/");
+}
