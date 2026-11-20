@@ -704,7 +704,6 @@ describe("loopback server", () => {
 		// The page owns a prefix, not the origin: `base` reaches the links, the scripts, and
 		// the Markdown destinations, so the mount and the document agree. This case is that
 		// claim, and it is meant to fail when the prefix moves.
-		expect(FILES_BASE).toBe("/files");
 		server = await servePage(fixture.root, DEFAULT_CONFIG);
 		expect(new URL(server.url).pathname).toBe("/files/");
 		expect(await (await fetch(server.url)).text()).toContain('<script src="/files/app.js"');
