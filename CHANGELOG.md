@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `tools`: every cap a tool enforces is now in its parameter schema, and no tool publishes `anyOf`/`const`.
+  `board`'s five union fields (`action`, `lane`, `blocker`, `priority`, `type`) and `team`'s `action` became
+  `StringEnum`, the plain `{ type: "string", enum: [...] }` form `lib/tool-schema.ts` documents for a provider that
+  supports neither keyword — which also took the board surface from 6,999 to 6,378 characters against a ceiling
+  that fell with it (7,013 → 6,378), and team's to 2,335. The caps only the runtime held are now `maxLength` and
+  `maxItems` read from the constants that own them: board `title`, `note`, `text`, `blockedBy`, `path`, `override`,
+  the four contract lines, `paths` and `dependsOn`; team `note`, `question`, `to`; session `paths`, `text`, `to`,
+  `label`; job `command`, `label`, `input`; watch `path`, `command`, `pattern`, `label`, `exclude`; memory `to`,
+  `merged`. Pi refuses an over-cap call before `execute` instead of after it, and the digits left the descriptions
+  that restated them. Every normalizer keeps its own check, so a codemode caller still gets the model-readable
+  sentence. Two caps stay in prose because one field cannot carry them — `memory.text` is a selector for `update`
+  and `forget` as well as the note `add` writes, and `job.timeoutMs` is a floor of 1 for `start` and a ceiling of
+  600,000 for `wait`. `test/tool-caps.test.ts` walks the *registered* surface through the fake runtime: no
+  `anyOf`/`const` anywhere, every carried bound equal to its constant, a description that does not restate one, and
+  the two prose-only caps still spelling their number. Red before the change — `board.action: anyOf`,
+  `board.lane: anyOf`, `board.title.maxLength: undefined, expected 120`; green after. The 18-name list moved to
+  `test/helpers/registry.ts`, where `naming.test.ts` and the new gate read one entry instead of two that drift.
+
 - plan: the browser review's current-section mark answers any movement of the pane, not only a stepped
   scroll. `observeSections` owned the mark through an `IntersectionObserver` rooted in the pane, and an
   observer only ever marks what just intersected: a jump to the end delivers no entry that intersects,

@@ -9,23 +9,30 @@
 
 import type { Static } from "typebox";
 import { Type } from "typebox";
-import { MAX_BLOCKED, MAX_NOTE, PRIORITIES } from "../../lib/workflow/card.ts";
+import {
+	BLOCKERS,
+	MAX_BLOCKED,
+	MAX_DEPENDS,
+	MAX_NOTE,
+	MAX_PATH,
+	MAX_PATHS,
+	MAX_PLAN,
+	MAX_TITLE,
+	PRIORITIES,
+} from "../../lib/workflow/card.ts";
 import { CARD_TYPES } from "../../lib/workflow/kind.ts";
 import { MAX_CONTRACT } from "../../lib/workflow/contract.ts";
 import { listOf } from "../../lib/format.ts";
-import { BLOCKERS } from "../../lib/workflow/card.ts";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import { LANES, movableLanes } from "../../lib/workflow/lanes.ts";
 import { BOARD_ACTIONS } from "./types.ts";
 
 export const BoardParams = Type.Object({
-	action: Type.Union(
-		BOARD_ACTIONS.map((action) => Type.Literal(action)),
-		{
-			// The verbs and their meanings live in the tool description, built from
-			// `BOARD_ACTION_DOCS`; this says only what a caller needs to choose one.
-			description: "`list` reads the board, or one card when `card` names it; every other verb changes it.",
-		},
-	),
+	action: StringEnum(BOARD_ACTIONS, {
+		// The verbs and their meanings live in the tool description, built from
+		// `BOARD_ACTION_DOCS`; this says only what a caller needs to choose one.
+		description: "`list` reads the board, or one card when `card` names it; every other verb changes it.",
+	}),
 	card: Type.Optional(
 		Type.String({
 			description:
@@ -33,52 +40,51 @@ export const BoardParams = Type.Object({
 		}),
 	),
 	lane: Type.Optional(
-		Type.Union(
-			LANES.map((lane) => Type.Literal(lane)),
-			{
-				// The lanes a move may name are every lane but `backlog`: which targets exist
-				// depends on the card's own lane, and a schema has no card. `steps.ts` refuses a
-				// route that does not exist, and prints the targets `targetsFrom` allows.
-				description:
-					"`list`: only this lane, and not skip the `done` cards. " +
-					`\`move\`: the lane to move to — ${listOf(movableLanes())}; \`backlog\` is \`release\`'s, and only a transition from the card's own lane is allowed.`,
-			},
-		),
+		StringEnum(LANES, {
+			// The lanes a move may name are every lane but `backlog`: which targets exist
+			// depends on the card's own lane, and a schema has no card. `steps.ts` refuses a
+			// route that does not exist, and prints the targets `targetsFrom` allows.
+			description:
+				"`list`: only this lane, and not skip the `done` cards. " +
+				`\`move\`: the lane to move to — ${listOf(movableLanes())}; \`backlog\` is \`release\`'s, and only a transition from the card's own lane is allowed.`,
+		}),
 	),
 	blockedBy: Type.Optional(
 		Type.String({
-			description:
-				"`move` to `blocked`: what it waits on — the decision a person owes, one line, " +
-				`≤${MAX_BLOCKED} characters.`,
+			maxLength: MAX_BLOCKED,
+			description: "`move` to `blocked`: what it waits on — the decision a person owes, one line.",
 		}),
 	),
 	blocker: Type.Optional(
-		Type.Union(
-			BLOCKERS.map((blocker) => Type.Literal(blocker)),
-			{
-				description:
-					"`move` to `blocked`, required: why it is blocked — the errand, not the route. A blocked card resumes in `plan`, or in `execute` once its contract is approved.",
-			},
-		),
+		StringEnum(BLOCKERS, {
+			description:
+				"`move` to `blocked`, required: why it is blocked — the errand, not the route. A blocked card resumes in `plan`, or in `execute` once its contract is approved.",
+		}),
 	),
-	title: Type.Optional(Type.String({ description: "`add` and `edit`: the feature's outcome, one line." })),
+	title: Type.Optional(
+		Type.String({ maxLength: MAX_TITLE, description: "`add` and `edit`: the feature's outcome, one line." }),
+	),
 	paths: Type.Optional(
-		Type.Array(Type.String(), {
+		Type.Array(Type.String({ maxLength: MAX_PATH }), {
+			maxItems: MAX_PATHS,
 			description: "`add` and `edit`: repository-relative hints where the work happens. Not claims.",
 		}),
 	),
 	note: Type.Optional(
 		Type.String({
-			description: `\`add\`: a first note, e.g. why the card exists; one line, ≤${MAX_NOTE} characters.`,
+			maxLength: MAX_NOTE,
+			description: "`add`: a first note, e.g. why the card exists; one line.",
 		}),
 	),
 	text: Type.Optional(
 		Type.String({
-			description: `\`note\`: the note to append; \`approve\` and \`review\`: what the signer saw; one line, ≤${MAX_NOTE} characters.`,
+			maxLength: MAX_NOTE,
+			description: "`note`: the note to append; `approve` and `review`: what the signer saw; one line.",
 		}),
 	),
 	override: Type.Optional(
 		Type.String({
+			maxLength: MAX_CONTRACT,
 			description: "`move` to `done`: why, when no merge can be named.",
 		}),
 	),
@@ -89,44 +95,43 @@ export const BoardParams = Type.Object({
 	),
 	path: Type.Optional(
 		Type.String({
+			maxLength: MAX_PLAN,
 			description:
 				"`contract`, required: the plan file this card is executed against — the path `plan` action `write` returned.",
 		}),
 	),
 	goal: Type.Optional(
-		Type.String({ description: `\`contract\`: what the feature is for, one line, ≤${MAX_CONTRACT} characters.` }),
+		Type.String({ maxLength: MAX_CONTRACT, description: "`contract`: what the feature is for, one line." }),
 	),
 	acceptance: Type.Optional(
 		Type.String({
-			description: `\`contract\`: how a reader can tell it is done, one line, ≤${MAX_CONTRACT} characters.`,
+			maxLength: MAX_CONTRACT,
+			description: "`contract`: how a reader can tell it is done, one line.",
 		}),
 	),
 	verify: Type.Optional(
 		Type.String({
-			description: `\`contract\`, required: the command its acceptance is checked by — one line, ≤${MAX_CONTRACT} characters — which the spot-check runs and records.`,
+			maxLength: MAX_CONTRACT,
+			description:
+				"`contract`, required: the command its acceptance is checked by — one line — which the spot-check runs and records.",
 		}),
 	),
 	scopeOut: Type.Optional(
 		Type.String({
-			description: `\`contract\`: what this deliberately does not do, one line, ≤${MAX_CONTRACT} characters.`,
+			maxLength: MAX_CONTRACT,
+			description: "`contract`: what this deliberately does not do, one line.",
 		}),
 	),
 	priority: Type.Optional(
-		Type.Union(
-			PRIORITIES.map((priority) => Type.Literal(priority)),
-			{
-				description:
-					"`add` and `edit`: how urgent the feature is. `high` sorts first inside its lane; `normal` is the default.",
-			},
-		),
+		StringEnum(PRIORITIES, {
+			description:
+				"`add` and `edit`: how urgent the feature is. `high` sorts first inside its lane; `normal` is the default.",
+		}),
 	),
 	type: Type.Optional(
-		Type.Union(
-			CARD_TYPES.map((type) => Type.Literal(type)),
-			{
-				description: "`add` and `edit`: what the card changes about the package; absent draws nothing.",
-			},
-		),
+		StringEnum(CARD_TYPES, {
+			description: "`add` and `edit`: what the card changes about the package; absent draws nothing.",
+		}),
 	),
 	breaking: Type.Optional(
 		Type.Boolean({
@@ -135,6 +140,7 @@ export const BoardParams = Type.Object({
 	),
 	dependsOn: Type.Optional(
 		Type.Array(Type.String(), {
+			maxItems: MAX_DEPENDS,
 			description:
 				"`edit`: the cards this one waits for, as ids. An unfinished one refuses a claim and a move to execute or done; `[]` removes every link.",
 		}),

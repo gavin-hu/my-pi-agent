@@ -402,7 +402,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
-	board: 63,
+	board: 64, // 64 <= 64: the +1 is lib/tool-schema.ts (#748), and a schema built at load cannot defer
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
 	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks), and
 	// one more for lib/json: the temp name plan-files used to spell for itself is the owner's
@@ -423,7 +423,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// `planMerge` (`todo-seed.ts:37`). Re-derive any price with `staticGraph`
 	// (`test/helpers/graph.ts`) over a reader that drops one specifier.
 	plan: 52,
-	team: 53,
+	team: 54, // the same +1, the same module: 54 <= 54 (#748).
 	job: 45,
 	"session-bus": 45,
 	subagent: 34,

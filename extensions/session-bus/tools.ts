@@ -11,13 +11,21 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { notDeliveredLine, sendOutcome } from "../../lib/session-tool.ts";
+import { notDeliveredLine, sendOutcome, MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { formatClaim, formatInbox, formatJoin, formatRead, formatRelease, formatSend, formatStatus } from "./format.ts";
-import { normalizeAction, normalizeLimit, MAX_REFERENCE, REFERENCE_PATTERN, TOOL_NAME } from "./protocol.ts";
+import {
+	MAX_LABEL,
+	MAX_PATHS,
+	MAX_REFERENCE,
+	normalizeAction,
+	normalizeLimit,
+	REFERENCE_PATTERN,
+	TOOL_NAME,
+} from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { collapsedLine, resultSections } from "./result.ts";
 import type { BusRow } from "./rows.ts";
@@ -39,8 +47,13 @@ export const SessionParams = Type.Object({
 	action: StringEnum(["status", "send", "inbox", "read", "claim", "release", "join"] as const, {
 		description: "`status` reads without joining; every other action joins.",
 	}),
-	to: Type.Optional(Type.String({ description: 'Target label/id, or `*` for a broadcast — needs `kind: "event"`.' })),
-	text: Type.Optional(Type.String({ description: "Text, at most 4000." })),
+	to: Type.Optional(
+		Type.String({
+			maxLength: MAX_LABEL,
+			description: 'Target label/id, or `*` for a broadcast — needs `kind: "event"`.',
+		}),
+	),
+	text: Type.Optional(Type.String({ maxLength: MAX_MESSAGE_TEXT, description: "Text to send." })),
 	kind: Type.Optional(
 		StringEnum(["message", "event", "ask", "handoff"] as const, {
 			description: "Kind; defaults to message.",
@@ -60,7 +73,10 @@ export const SessionParams = Type.Object({
 		}),
 	),
 	paths: Type.Optional(
-		Type.Array(Type.String(), { description: "Repo-relative paths to claim or release; at most 20." }),
+		Type.Array(Type.String(), {
+			maxItems: MAX_PATHS,
+			description: "Repo-relative paths to claim or release.",
+		}),
 	),
 	limit: Type.Optional(
 		Type.Integer({ minimum: 1, maximum: 50, description: "Messages shown or consumed; default 20." }),
@@ -73,7 +89,12 @@ export const SessionParams = Type.Object({
 	listen: Type.Optional(
 		Type.Boolean({ description: "With join: false joins without listening; mail waits for `inbox`." }),
 	),
-	label: Type.Optional(Type.String({ description: "With join: the name peers address, e.g. `billing-lead`." })),
+	label: Type.Optional(
+		Type.String({
+			maxLength: MAX_LABEL,
+			description: "With join: the name peers address, e.g. `billing-lead`.",
+		}),
+	),
 });
 
 type SessionArgs = Static<typeof SessionParams>;

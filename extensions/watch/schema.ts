@@ -29,19 +29,26 @@ export const MAX_LINES = 2000;
 export const WatchParams = Type.Object({
 	action: StringEnum(WATCH_ACTIONS),
 	id: Type.Optional(Type.String({ description: "Watcher id, e.g. `w1`." })),
-	path: Type.Optional(Type.String({ description: "File to tail (`add`)." })),
-	command: Type.Optional(Type.String({ description: "Shell command whose output to tail (`add`)." })),
+	path: Type.Optional(Type.String({ maxLength: MAX_SOURCE, description: "File to tail (`add`)." })),
+	command: Type.Optional(
+		Type.String({ maxLength: MAX_SOURCE, description: "Shell command whose output to tail (`add`)." }),
+	),
 	cwd: Type.Optional(
 		Type.String({ description: "Working directory for a command source; defaults to the session cwd." }),
 	),
-	pattern: Type.Optional(Type.String({ description: "Regular expression a line must match (`add`)." })),
+	pattern: Type.Optional(
+		Type.String({ maxLength: MAX_PATTERN, description: "Regular expression a line must match (`add`)." }),
+	),
 	exclude: Type.Optional(
-		Type.Array(Type.String(), { description: "Regular expressions that suppress a match (`add`)." }),
+		Type.Array(Type.String({ maxLength: MAX_PATTERN }), {
+			maxItems: MAX_EXCLUDE,
+			description: "Regular expressions that suppress a match (`add`).",
+		}),
 	),
 	caseSensitive: Type.Optional(
 		Type.Boolean({ description: "Match case-sensitively; default false (case-insensitive)." }),
 	),
-	label: Type.Optional(Type.String({ description: "Short display label (`add`)." })),
+	label: Type.Optional(Type.String({ maxLength: MAX_LABEL, description: "Short display label (`add`)." })),
 	wake: Type.Optional(
 		Type.Boolean({ description: "Wake the agent with one triggered turn when this watcher matches (`add`)." }),
 	),

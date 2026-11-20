@@ -1,0 +1,222 @@
+/**
+ * The shape of the tool surface: every bound is in the schema, and every enum is a plain
+ * string enum.
+ *
+ * Pi validates a call against the parameter schema before `execute`, so a bound written
+ * there is refused by the host and reads in the definition the model gets every request;
+ * a bound only the runtime holds is discovered by a failed call, which is a round trip the
+ * model had no way to avoid. `board` and `team` published `anyOf`/`const` unions until
+ * #748, the form `lib/tool-schema.ts:1-33` documents as the one a provider that supports
+ * neither cannot express.
+ *
+ * The walk is the *registered* surface, loaded through the fake runtime the way
+ * `extension-load.test.ts` loads it: a schema exported but never wired into
+ * `registerTool` is a schema the model never receives, and a hand list of schemas would
+ * pass it. `REGISTERED` (`helpers/registry.ts`) is the one name list, so a tool that is
+ * named and documented cannot go missing here.
+ */
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, test } from "bun:test";
+import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
+import { MAX_BLOCKED, MAX_DEPENDS, MAX_NOTE, MAX_PATH, MAX_PATHS, MAX_PLAN, MAX_TITLE } from "../lib/workflow/card.ts";
+import { MAX_CONTRACT } from "../lib/workflow/contract.ts";
+import { MAX_ENTRY_CHARS } from "../extensions/memory/schema.ts";
+import { MAX_LABEL as JOB_LABEL, MAX_COMMAND, MAX_STDIN } from "../extensions/job/schema.ts";
+import { MAX_WAIT_MS } from "../extensions/job/waiters.ts";
+import { MAX_LABEL as WATCH_LABEL, MAX_EXCLUDE, MAX_PATTERN, MAX_SOURCE } from "../extensions/watch/schema.ts";
+import { MAX_LABEL } from "../lib/session-label.ts";
+import { MAX_PATHS as MAX_SESSION_PATHS } from "../extensions/session-bus/protocol.ts";
+import { MAX_MESSAGE_TEXT } from "../lib/session-tool.ts";
+import { ALL_EXTENSIONS_ENV, withAgentDir, withEnv } from "./helpers/env.ts";
+import { createFakePi } from "./helpers/fakes.ts";
+import { REGISTERED } from "./helpers/registry.ts";
+
+const root = join(import.meta.dir, "..");
+
+/** The extension entry files the package manifest declares, as Pi loads them. */
+const manifest = (JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as { pi: { extensions: string[] } }).pi
+	.extensions;
+
+/**
+ * A parameter schema as JSON Schema, which is what Pi validates against.
+ *
+ * The cast names the guarantee: TypeBox emits JSON Schema, and the walk below reads only
+ * the keywords it emits.
+ */
+interface SchemaNode {
+	type?: string;
+	anyOf?: unknown[];
+	const?: unknown;
+	properties?: Record<string, SchemaNode>;
+	items?: SchemaNode;
+	additionalProperties?: SchemaNode | boolean;
+	maxLength?: number;
+	maxItems?: number;
+	maximum?: number;
+	description?: string;
+}
+
+/** One registered tool, with the schema Pi receives with it. */
+interface Registered {
+	name: string;
+	entry: string;
+	parameters?: SchemaNode;
+}
+
+/** One schema node and where it sits, as `paths[items]` reads. */
+type Walked = { at: string; node: SchemaNode };
+
+/** Every node of `node`, keeping the path a failure can name. */
+function nodes(node: SchemaNode, at = "", out: Walked[] = []): Walked[] {
+	out.push({ at, node });
+	for (const [key, child] of Object.entries(node.properties ?? {})) {
+		nodes(child, at === "" ? key : `${at}.${key}`, out);
+	}
+	if (node.items !== undefined) nodes(node.items, `${at}[items]`, out);
+	if (typeof node.additionalProperties === "object") nodes(node.additionalProperties, `${at}[value]`, out);
+	return out;
+}
+
+/** Load every manifest extension once, and keep the tools it registers. */
+let registeredPromise: Promise<Registered[]> | undefined;
+
+function registered(): Promise<Registered[]> {
+	registeredPromise ??= (async () => {
+		const tools: Registered[] = [];
+		for (const entry of manifest) {
+			const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
+			await withAgentDir(async () => {
+				await withEnv(ALL_EXTENSIONS_ENV, () => {
+					const fake = createFakePi();
+					module.default?.(fake.pi);
+					for (const [name, tool] of fake.tools) {
+						tools.push({ name, entry, parameters: (tool as { parameters?: SchemaNode }).parameters });
+					}
+				});
+			});
+		}
+		const pathTools = new Set<string>(ROOT_TOOL_NAMES);
+		return tools.filter((tool) => !pathTools.has(tool.name));
+	})();
+	return registeredPromise;
+}
+
+/** One bound a schema is expected to carry, and where the value comes from. */
+interface Carried {
+	tool: string;
+	at: string;
+	bound: "maxLength" | "maxItems";
+	value: number;
+}
+
+/**
+ * Every bound this package enforces, read from the constant that owns it.
+ *
+ * A raise in one of those constants now fails here rather than stranding the schema, which
+ * is the half a hand-kept schema loses one field at a time.
+ */
+const CARRIED: readonly Carried[] = [
+	{ tool: "board", at: "title", bound: "maxLength", value: MAX_TITLE },
+	{ tool: "board", at: "note", bound: "maxLength", value: MAX_NOTE },
+	{ tool: "board", at: "text", bound: "maxLength", value: MAX_NOTE },
+	{ tool: "board", at: "blockedBy", bound: "maxLength", value: MAX_BLOCKED },
+	{ tool: "board", at: "path", bound: "maxLength", value: MAX_PLAN },
+	{ tool: "board", at: "override", bound: "maxLength", value: MAX_CONTRACT },
+	{ tool: "board", at: "goal", bound: "maxLength", value: MAX_CONTRACT },
+	{ tool: "board", at: "acceptance", bound: "maxLength", value: MAX_CONTRACT },
+	{ tool: "board", at: "scopeOut", bound: "maxLength", value: MAX_CONTRACT },
+	{ tool: "board", at: "verify", bound: "maxLength", value: MAX_CONTRACT },
+	{ tool: "board", at: "paths", bound: "maxItems", value: MAX_PATHS },
+	{ tool: "board", at: "paths[items]", bound: "maxLength", value: MAX_PATH },
+	{ tool: "board", at: "dependsOn", bound: "maxItems", value: MAX_DEPENDS },
+	{ tool: "team", at: "to", bound: "maxLength", value: MAX_LABEL },
+	{ tool: "team", at: "note", bound: "maxLength", value: MAX_MESSAGE_TEXT },
+	{ tool: "team", at: "question", bound: "maxLength", value: MAX_MESSAGE_TEXT },
+	{ tool: "session", at: "paths", bound: "maxItems", value: MAX_SESSION_PATHS },
+	{ tool: "session", at: "text", bound: "maxLength", value: MAX_MESSAGE_TEXT },
+	{ tool: "session", at: "to", bound: "maxLength", value: MAX_LABEL },
+	{ tool: "session", at: "label", bound: "maxLength", value: MAX_LABEL },
+	{ tool: "job", at: "command", bound: "maxLength", value: MAX_COMMAND },
+	{ tool: "job", at: "label", bound: "maxLength", value: JOB_LABEL },
+	{ tool: "job", at: "input", bound: "maxLength", value: MAX_STDIN },
+	{ tool: "watch", at: "path", bound: "maxLength", value: MAX_SOURCE },
+	{ tool: "watch", at: "command", bound: "maxLength", value: MAX_SOURCE },
+	{ tool: "watch", at: "pattern", bound: "maxLength", value: MAX_PATTERN },
+	{ tool: "watch", at: "label", bound: "maxLength", value: WATCH_LABEL },
+	{ tool: "watch", at: "exclude", bound: "maxItems", value: MAX_EXCLUDE },
+	{ tool: "watch", at: "exclude[items]", bound: "maxLength", value: MAX_PATTERN },
+	{ tool: "memory", at: "to", bound: "maxLength", value: MAX_ENTRY_CHARS },
+	{ tool: "memory", at: "merged", bound: "maxLength", value: MAX_ENTRY_CHARS },
+];
+
+/**
+ * The two caps a schema cannot state, and the sentence that carries them instead.
+ *
+ * `memory.text` is a selector for `update` and `forget` as well as the note `add` writes,
+ * and `schema.ts:89-96` records why capping it would strand a hand-edited note;
+ * `job.timeoutMs` is a ceiling for `wait` and a floor of 1 for `start`, so one number
+ * cannot be the field's bound. Each stays in its own description, naming its verb.
+ */
+const PROSE_ONLY: readonly { tool: string; at: string; value: number }[] = [
+	{ tool: "memory", at: "text", value: MAX_ENTRY_CHARS },
+	{ tool: "job", at: "timeoutMs", value: MAX_WAIT_MS },
+];
+
+describe("the tool surface's schema", () => {
+	test("every tool named in the registry is registered, and every registered tool is named", async () => {
+		const live = (await registered()).map((tool) => tool.name).sort();
+		expect(live).toEqual(REGISTERED.map((entry) => entry.name).sort());
+	});
+
+	test("no parameter schema publishes anyOf or const, the form a provider may not support", async () => {
+		const offenders: string[] = [];
+		for (const tool of await registered()) {
+			if (tool.parameters === undefined) continue;
+			for (const { at, node } of nodes(tool.parameters)) {
+				if (node.anyOf !== undefined) offenders.push(`${tool.name}${at === "" ? "" : `.${at}`}: anyOf`);
+				if (node.const !== undefined) offenders.push(`${tool.name}${at === "" ? "" : `.${at}`}: const`);
+			}
+		}
+		expect(offenders, "use StringEnum from lib/tool-schema.ts").toEqual([]);
+	});
+
+	test("every carried bound is the constant that owns it", async () => {
+		const offenders: string[] = [];
+		for (const { tool, at, bound, value } of CARRIED) {
+			const registration = (await registered()).find((candidate) => candidate.name === tool);
+			const node = nodes(registration?.parameters ?? {}).find((walked) => walked.at === at)?.node;
+			if (node === undefined) {
+				offenders.push(`${tool}.${at}: no such parameter`);
+				continue;
+			}
+			if (node[bound] !== value) offenders.push(`${tool}.${at}.${bound}: ${String(node[bound])}, expected ${value}`);
+			// Said once, where it is enforced: a description that still spells the number is the
+			// copy that drifts when the constant moves, and the schema already states it.
+			if ((node.description ?? "").includes(`≤${value}`)) {
+				offenders.push(`${tool}.${at}: the description restates the ${bound} the schema carries`);
+			}
+		}
+		expect(offenders, "read the cap from the constant instead of writing the number").toEqual([]);
+	});
+
+	test("the two caps the schema cannot state are stated where they are read", async () => {
+		const offenders: string[] = [];
+		for (const { tool, at, value } of PROSE_ONLY) {
+			const registration = (await registered()).find((candidate) => candidate.name === tool);
+			const node = nodes(registration?.parameters ?? {}).find((walked) => walked.at === at)?.node;
+			if (node === undefined) {
+				offenders.push(`${tool}.${at}: no such parameter`);
+				continue;
+			}
+			if (node.maxLength !== undefined) {
+				offenders.push(`${tool}.${at}: carries maxLength ${node.maxLength}, so it is not prose-only`);
+			}
+			if (!(node.description ?? "").includes(String(value))) {
+				offenders.push(`${tool}.${at}: its description does not state ${value}`);
+			}
+		}
+		expect(offenders, "a prose-only cap names its number in the description").toEqual([]);
+	});
+});

@@ -476,6 +476,7 @@ export const ROOT_SUITES: readonly string[] = [
 	"spliced-bodies",
 	"suite-sizes",
 	"theme",
+	"tool-caps",
 	"tool-render",
 	"tool-rows",
 	"tui-conventions",
