@@ -381,9 +381,9 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * brings `lib/child.ts` with it: the three are the split, and every one of them
  * is what the old single module already evaluated, spread differently.
  * `worktree`'s one raise is `lib/events.ts`: the channel `file-browse` follows moved
- * out of the publishing module, so both sides compile against one name. The eleven
- * entries that declare a string-enum parameter each pay one more for
- * `lib/tool-schema.ts`, which owns the type Pi's own typings stopped giving it.
+ * out of the publishing module, so both sides compile against one name. The thirteen entries
+ * that declare a string-enum parameter each pay one more for `lib/tool-schema.ts`, the type
+ * Pi's typings dropped — `board` and `team` joined in #748, and built at load it cannot defer.
  * `lib/config.ts`'s JSON boundary became `lib/json.ts`. Fifteen entries that clamp a
  * number *and* load their own `bytefly.json` section now evaluate both modules —
  * bytefly, board, file-read, goal, job, memory, rewind, serve, subagent, team, todo,
@@ -402,7 +402,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
-	board: 64, // 64 <= 64: the +1 is lib/tool-schema.ts (#748), and a schema built at load cannot defer
+	board: 64, // 64 <= 64 (#748)
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
 	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks), and
 	// one more for lib/json: the temp name plan-files used to spell for itself is the owner's
@@ -423,7 +423,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// `planMerge` (`todo-seed.ts:37`). Re-derive any price with `staticGraph`
 	// (`test/helpers/graph.ts`) over a reader that drops one specifier.
 	plan: 52,
-	team: 54, // the same +1, the same module: 54 <= 54 (#748).
+	team: 54, // 54 <= 54 (#748)
 	job: 45,
 	"session-bus": 45,
 	subagent: 34,

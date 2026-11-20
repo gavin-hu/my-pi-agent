@@ -50,7 +50,6 @@ const LEADING_VERBS = new Set([
 	"run",
 ]);
 
-/** Every tool this package registers, with the extension that owns it. */
 const names = REGISTERED.map((entry) => entry.name);
 const nameSet = new Set(names);
 
