@@ -16,6 +16,7 @@
 export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	bytefly: [
 		"block/block",
+		"block/frame",
 		"chrome",
 		"doctor/doctor",
 		"footer/budget",

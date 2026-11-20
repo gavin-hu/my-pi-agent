@@ -12,7 +12,6 @@
 
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import bytefly from "../bytefly/index.ts";
 import { createFakePi, fakeTheme as theme, toolRenderContext } from "../../test/helpers/fakes.ts";
 import { registerTools } from "./tools.ts";
 
@@ -185,27 +184,5 @@ describe("the worktree block", () => {
 			expect(call(tool, { action: "list" }, width)[0]).toContain("list");
 			expectFits(call(tool, { action: "enter", name: "tool-gallery" }, width), width);
 		}
-	});
-});
-
-describe("the fallback a renderer does not cover", () => {
-	test("a tool with no renderer still draws through the resolver", () => {
-		// Adding a renderer to one tool must not change what the resolver does for the next:
-		// the fallback is the only drawing a third-party or MCP call gets.
-		const fake = createFakePi();
-		bytefly(fake.pi as any);
-		registerTools(fake.pi as any);
-		const frame: any = fake.toolRenderers[0];
-		expect(frame, "bytefly registered no tool frame").toBeDefined();
-		const bare = { name: "bare_tool" };
-		const wrapped = frame("bare_tool", () => bare);
-		const context = { ...toolRenderContext(), args: { path: "src/http.ts" }, state: {} };
-		const result = { content: [{ type: "text", text: "bare output" }], details: {} };
-		const lines = [
-			...wrapped.renderCall({ path: "src/http.ts" }, theme, context).render(80),
-			...wrapped.renderResult(result, { expanded: false, isPartial: false }, theme, context).render(80),
-		].join("\n");
-		expect(lines).toContain("bare_tool");
-		expect(lines).toContain("bare output");
 	});
 });
