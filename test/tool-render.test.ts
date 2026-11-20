@@ -275,3 +275,135 @@ describe("tool render contract", () => {
 		}
 	});
 });
+
+/**
+ * The height each package fixture's collapsed block is allowed, in rows, at 80 columns.
+ *
+ * A number here is a ceiling, and the table is a ratchet: each one is what the block
+ * drew when the budget landed, a trim lowers it, and an entry may only fall. Raising
+ * one is a deliberate edit that states its reason beside the number — never an
+ * adjustment to get green, which is how a transcript grows a row per release in
+ * silence. `LONG_SUITES` in `suite-sizes.test.ts` holds the same shape for a suite's
+ * lines, and `LONG_MODULES` for a module's.
+ *
+ * Package fixtures only. The builtin fixtures are Pi's own renderers, so a ceiling over
+ * them would pin the host's release cadence, and the eight expanded fixtures are the
+ * gallery's `ctrl+o` variants rather than the block a session shows.
+ *
+ * Six entries reach the transcript through bytefly's generic fallback — the four
+ * `worktree` blocks, `open_path`, and `subagent-background` — which is why the frame
+ * resolves each fixture's tool instead of reading `fake.tools` alone: those six are the
+ * blocks no registered renderer shapes.
+ */
+const COLLAPSED_ROWS: Record<string, number> = {
+	board: 2,
+	"board-archived": 2,
+	"board-contract": 2,
+	"board-gated": 4,
+	"board-refused": 2,
+	goal: 2,
+	job: 3,
+	memory: 3,
+	"memory-long-subject": 3,
+	open_path: 2,
+	plan: 2,
+	"plan-cancel": 2,
+	"plan-exit": 13,
+	"plan-steps": 2,
+	"plan-steps-batch": 2,
+	"plan-write": 2,
+	question: 5,
+	"question-cancelled": 3,
+	read_doc: 2,
+	"read_doc-running": 2,
+	run_doctor: 2,
+	send_wechat: 2,
+	"send_wechat-file": 2,
+	"send_wechat-running": 2,
+	session: 2,
+	"session-name": 2,
+	subagent: 13,
+	"subagent-background": 3,
+	team: 2,
+	"team-assigning": 2,
+	todo: 5,
+	watch: 3,
+	web_fetch: 2,
+	"web_fetch-rejected": 2,
+	web_search: 7,
+	worktree: 6,
+	"worktree-exit": 2,
+	"worktree-list": 8,
+	"worktree-prune": 2,
+};
+
+/** The viewport the budget is measured at: Pi's transcript width on a settled terminal. */
+const BUDGET_WIDTH = 80;
+
+/** The frame and the tools, registered once for the height cases. */
+function blockHarness(): { frame: any; tools: Map<string, any> } {
+	const fake = createFakePi();
+	for (const extension of EXTENSIONS) extension(fake.pi);
+	const frame: any = fake.toolRenderers[0];
+	expect(frame, "bytefly registered no tool frame").toBeDefined();
+	return { frame, tools: fake.tools };
+}
+
+/** The package fixtures the budget covers: collapsed, with a result to draw. */
+function collapsedFixtures(): ToolFixture[] {
+	return FIXTURES.filter(
+		(fixture) => fixture.group === "package" && fixture.result !== undefined && fixture.options?.expanded !== true,
+	);
+}
+
+/**
+ * One fixture's collapsed block: the call line and the result the transcript draws
+ * before any expand, through the frame that draws it there.
+ */
+function collapsedBlock(frame: any, tools: Map<string, any>, fixture: ToolFixture, width: number): string[] {
+	const name = fixture.tool ?? fixture.name;
+	const wrapped = frame(name, () => tools.get(name));
+	const isPartial = fixture.options?.isPartial ?? false;
+	const args = fixture.args ?? {};
+	const call = wrapped.renderCall?.(args, fakeTheme, context({ args, isPartial }));
+	const result = wrapped.renderResult?.(
+		fixture.result,
+		{ expanded: false, isPartial },
+		fakeTheme,
+		context({
+			args,
+			expanded: false,
+			isPartial,
+			isError: fixture.result?.isError === true,
+			durationMs: fixture.options?.durationMs,
+			state: fixtureState(fixture),
+		}),
+	);
+	return [...(call?.render(width) ?? []), ...(result?.render(width) ?? [])];
+}
+
+describe("collapsed block height", () => {
+	test("every package fixture is named in the row budget", () => {
+		const drawn = collapsedFixtures().map((fixture) => fixture.name);
+		const named = new Set(Object.keys(COLLAPSED_ROWS));
+		expect(
+			drawn.filter((name) => !named.has(name)),
+			"record the block's height in COLLAPSED_ROWS so a later row has a number to beat",
+		).toEqual([]);
+		expect(
+			[...named].filter((name) => !drawn.includes(name)),
+			"a stale entry names no collapsed fixture; drop it",
+		).toEqual([]);
+	});
+
+	test("a collapsed block stays inside its row budget", () => {
+		const { frame, tools } = blockHarness();
+		const over: string[] = [];
+		for (const fixture of collapsedFixtures()) {
+			const ceiling = COLLAPSED_ROWS[fixture.name] ?? 0;
+			const rows = collapsedBlock(frame, tools, fixture, BUDGET_WIDTH).length;
+			if (rows > ceiling) over.push(`${fixture.name} drew ${rows} rows at ${BUDGET_WIDTH}, ceiling ${ceiling}`);
+		}
+		expect(over, "trim the block, or raise its entry in COLLAPSED_ROWS and write the reason beside it").toEqual([]);
+	});
+});
