@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `test`: the plan page's scroll walk stops waiting on frames that cannot answer. `stepDown` in
+  `extensions/plan/web-outline-live.test.ts` scrolled 80 px and then awaited up to twelve animation
+  frames for the rail's current-section mark to move — but a section is several steps long, so most
+  steps could only answer "no": 131 steps spent 1,407 frames to see 15 mark changes, and three cases
+  were 21.1 s of a 118.2 s full sweep. It now waits two paints per step, which is the floor the
+  rendering order sets — an animation-frame callback runs before that frame's intersection
+  observations are delivered, so a scroll's own frame cannot show the mark it caused — and the step
+  returns the mark from the same call, dropping a round trip per step. 22.3 s alone became 5.6 s at
+  the same load; the sweep measured 97.1 s after against 110.9 s on the same tree before, though the
+  before run carried three times the load, so the suite's own pair is the clean reading. The three
+  cases, the six-section assertion in order and the return-to-top check are untouched, and the 80 px
+  step is kept because the rail's band is 96 px at the narrowest viewport: a larger step could carry
+  a heading through the band between two paints. Rejected: scrolling by the pane (the band, not the
+  pane, is what a step must not outrun), observing only the steps near a heading (a mark that
+  changed between headings would go unseen), and running the three viewports concurrently (3.2 s,
+  but three pages painting at once is the contention that makes a browser suite flaky).
+
 - `test`: the 400-line suite bar covers the package-level contracts under `test/`, not only the suites
   beside an extension. `test/suite-sizes.test.ts` read `declaredSuiteFiles()` alone, so
   `test/suite-manifest.ts` now declares `ROOT_SUITES` and `declaredRootSuites()` — the list

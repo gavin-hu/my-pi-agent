@@ -61,6 +61,17 @@ const SECTIONS = ["s-0", "s-11", "s-22", "s-33", "s-44", "s-55"];
 /** How long one case may take: a boot, a six-section walk, and the trip back to the top. */
 const CASE_MS = 30_000;
 
+/**
+ * How far one step scrolls, in px.
+ *
+ * Measured rather than chosen for feel: the rail marks the heading that intersects the top 40% of
+ * the pane, which is 96 px at the narrowest viewport this suite draws (a 240 px pane at 390x844) and
+ * 115 px at the widest (288 px at 900x844). A step no larger than that band cannot carry a heading
+ * through it between two paints, so 80 px keeps a reader-sized scroll and still cannot skip a
+ * section; the sections themselves are 518 to 758 px apart, so no step straddles two either.
+ */
+const STEP_PX = 80;
+
 /** The section the rail marks right now, by link id; "" when it marks nothing. */
 async function marked(page: Page): Promise<string> {
 	return page.$eval("#outline-list", (list) => {
@@ -89,12 +100,19 @@ async function marks(page: Page, id: string): Promise<void> {
 }
 
 /**
- * Scroll the pane one step down, then wait for the rail to answer: the mark moved off `previous`, or
- * the pane reached its end. Returns whether the end was reached.
+ * Scroll the pane one step down, then wait for the rail to answer. Returns the mark the pane shows
+ * afterwards, and whether it reached its end.
+ *
+ * Two paints, because the rendering order says so: an animation-frame callback runs before the
+ * frame's intersection observations are delivered, so a scroll's own frame cannot show the mark it
+ * caused — the next one does. That is the floor for a walk that observes every step, and it is a
+ * frame count rather than a clock, so a loaded machine changes how long a frame takes and never
+ * what the walk sees. The old twelve were a guess at quietness on steps that can only answer "no":
+ * a section is several steps long, so most steps cannot move the mark at all.
  */
-async function stepDown(page: Page, previous: string): Promise<boolean> {
+async function stepDown(page: Page): Promise<{ mark: string; atEnd: boolean }> {
 	return page.evaluate(
-		async ({ from }) => {
+		async ({ step }) => {
 			const doc = (
 				globalThis as unknown as {
 					document: { querySelector(selector: string): unknown };
@@ -108,33 +126,29 @@ async function stepDown(page: Page, previous: string): Promise<boolean> {
 				} | null;
 				return link?.getAttribute("data-id") ?? "";
 			};
-			pane.scrollBy(0, 80);
-			// A scroll lands before the frame paints, and the observer answers on it: a dozen frames is
-			// far more than that, and waiting the full budget on a step that changes nothing is what
-			// made this suite slow.
 			const nextFrame = (globalThis as unknown as { requestAnimationFrame(callback: () => void): number })
 				.requestAnimationFrame;
-			for (let frame = 0; frame < 12; frame++) {
-				await new Promise((resolve) => nextFrame(() => resolve(undefined)));
-				if (current() !== from || atEnd()) break;
-			}
-			return atEnd();
+			const paint = () => new Promise<void>((resolve) => nextFrame(() => resolve(undefined)));
+
+			pane.scrollBy(0, step);
+			await paint();
+			await paint();
+			return { mark: current(), atEnd: atEnd() };
 		},
-		{ from: previous },
+		{ step: STEP_PX },
 	);
 }
 
 /** Mark each new section as the reader scrolls to the end of the document. */
 async function walkDown(page: Page): Promise<string[]> {
 	const seen: string[] = [];
-	const note = async () => {
-		const id = await marked(page);
+	const note = (id: string) => {
 		if (id !== "" && seen[seen.length - 1] !== id) seen.push(id);
 	};
-	await note();
+	note(await marked(page));
 	for (let step = 0; step < 400; step++) {
-		const atEnd = await stepDown(page, seen[seen.length - 1] ?? "");
-		await note();
+		const { mark, atEnd } = await stepDown(page);
+		note(mark);
 		// The assertion is the six sections in order, so the walk stops as soon as it has them: the
 		// last of them is marked before the pane reaches its end.
 		if (atEnd || seen.length === SECTIONS.length) break;
