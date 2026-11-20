@@ -45,7 +45,7 @@ describe("the review's scopes", () => {
 	test("read everything uncommitted against HEAD, untracked files joining it", () => {
 		expect(scopeArgs("head", "main")).toEqual({
 			args: ["HEAD"],
-			label: "HEAD",
+			label: "uncommitted",
 			untracked: true,
 			needsParent: false,
 		});

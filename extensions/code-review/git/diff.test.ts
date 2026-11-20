@@ -132,7 +132,7 @@ describe("the other four scopes", () => {
 		writeFileSync(join(repo, "note.txt"), "one\n");
 		const outcome = await createReviewReaderFrom(run, repo).snapshot("head");
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
-		expect(outcome.snapshot.label).toBe("HEAD");
+		expect(outcome.snapshot.label).toBe("uncommitted");
 		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
 		expect([...byPath.keys()].sort()).toEqual(["README.md", "a.ts", "note.txt"]);
 		expect(byPath.get("README.md")?.add).toBe(1);

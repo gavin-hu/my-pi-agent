@@ -57,9 +57,9 @@ Run `code_review` action "comments" for all of them.
 | `close` | End the page; refused while comments are still drafts |
 
 **The five comparisons.** `base` reads `<base>...HEAD`, the branch against the
-line it left; `last` reads `HEAD~1...HEAD`; `head` reads the tree against `HEAD`,
-so the index and the working tree arrive together with untracked files, which is
-the comparison `file-browse`'s changes tag means; `staged` reads the index; and
+line it left; `last` reads `HEAD~1...HEAD`; `head` (shown as **uncommitted**) reads the tree
+against `HEAD`, so the index and the working tree arrive together with untracked
+files, which is the comparison `file-browse`'s changes tag means; `staged` reads the index; and
 `worktree` reads the working tree alone, untracked files included. The base ref is
 `code-review.base`, else `origin/HEAD`, else `main` or `master`; a repository
 where none resolves is refused, naming the key to set.

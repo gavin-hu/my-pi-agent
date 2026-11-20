@@ -16,6 +16,23 @@ export const MAX_BASE_LENGTH = 200;
 /** Every scope, in the segmented control's order. */
 export const REVIEW_SCOPES: readonly ReviewScope[] = ["base", "last", "head", "staged", "worktree"];
 
+/**
+ * How a scope is named where the name is a word rather than the range it compares.
+ *
+ * The control offers every scope by its word, and the header names the one showing
+ * by the same word, so `head` reads as `uncommitted` in both places: a bare `HEAD`
+ * beside `base...HEAD` invites "compare HEAD with itself" instead of "show me
+ * everything not committed". `base` and `last` are the exceptions — a reader wants
+ * the range, so their header label is the range itself.
+ */
+export const SCOPE_WORDS: Readonly<Record<ReviewScope, string>> = {
+	base: "base",
+	last: "HEAD~1",
+	head: "uncommitted",
+	staged: "staged",
+	worktree: "worktree",
+};
+
 /** Whether an untrusted word names a scope. */
 export function isReviewScope(value: unknown): value is ReviewScope {
 	return value === "base" || value === "last" || value === "head" || value === "staged" || value === "worktree";
@@ -54,8 +71,9 @@ export function scopeArgs(scope: ReviewScope, base: string): ScopeArgs {
 	}
 	// Only HEAD has to exist, which the reader checks for every scope, so nothing
 	// here needs a parent commit.
-	if (scope === "head") return { args: ["HEAD"], label: "HEAD", untracked: true, needsParent: false };
-	if (scope === "staged") return { args: ["--cached"], label: "staged", untracked: false, needsParent: false };
-	if (scope === "worktree") return { args: [], label: "worktree", untracked: true, needsParent: false };
+	if (scope === "head") return { args: ["HEAD"], label: SCOPE_WORDS.head, untracked: true, needsParent: false };
+	if (scope === "staged")
+		return { args: ["--cached"], label: SCOPE_WORDS.staged, untracked: false, needsParent: false };
+	if (scope === "worktree") return { args: [], label: SCOPE_WORDS.worktree, untracked: true, needsParent: false };
 	return { args: [`${base}...HEAD`], label: `${base}...HEAD`, untracked: false, needsParent: false };
 }
