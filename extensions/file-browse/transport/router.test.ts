@@ -12,12 +12,13 @@ import { createConnection } from "node:net";
 import { join } from "node:path";
 import { type RepeatTimer } from "../../../lib/timer.ts";
 import { DEFAULT_CONFIG, LIVE_MAX_CLIENTS, type ServeConfig } from "../config/config.ts";
-import type { DiffList, GitDiffProvider } from "../git/git.ts";
+import { createGitDiff, type DiffList, type GitDiffProvider } from "../git/git.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 import { type FileServer } from "./server.ts";
 import { FILES_BASE } from "../../../lib/http/prefixes.ts";
 import type { ServeResponse } from "../../../lib/http/index.ts";
+import { createFakePi } from "../../../test/helpers/fakes.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { useEnv } from "../../../test/helpers/env.ts";
 import { makeFixture, servePage, type Fixture } from "../../../test/helpers/fixtures/file-browse.ts";
@@ -407,6 +408,62 @@ describe("diff routes", () => {
 	test("marks a changed file in the listing and the tree", async () => {
 		const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/", {});
 		expect(text(response)).toContain('class="browse-change"');
+	});
+
+	test("names the comparison its numbers came from, in the chip and the action", async () => {
+		interface Reply {
+			stdout?: string;
+			code?: number;
+		}
+		/** A fake git answering by argv prefix, and the argv it was asked for, in order. */
+		const gitAsking = (replies: Array<[string, Reply]>) => {
+			const asked: string[] = [];
+			const exec = async (_command: string, args: string[]) => {
+				const key = args.join(" ");
+				asked.push(key);
+				for (const [prefix, reply] of replies) {
+					if (key.startsWith(prefix)) return { stdout: reply.stdout ?? "", stderr: "", code: reply.code ?? 0 };
+				}
+				return { stdout: "", stderr: "unexpected", code: 1 };
+			};
+			return { exec, asked };
+		};
+		const ROOT: [string, Reply] = ["rev-parse --show-toplevel", { stdout: "/repo\n" }];
+		const STAT: [string, Reply] = [
+			"diff --no-color --stat",
+			{ stdout: " a.txt | 1 +\n 1 file changed, 1 insertion(+)\n" },
+		];
+
+		// No commit: the numbers are the index's, so the page they open is the index's too.
+		const unborn = gitAsking([ROOT, ["status --porcelain=v1", { stdout: "A  a.txt\0" }], STAT]);
+		const diff = createGitDiff(createFakePi({ exec: unborn.exec }).pi, "/repo");
+		expect((await diff.list("head"))?.mode).toBe("staged");
+
+		const listing = await handleRequest({ ...context(), diff }, "GET", "/", {});
+		expect(text(listing)).toContain('id="browse-changes" href="/review/new?scope=staged"');
+		expect(text(listing)).toContain("1 change");
+		const file = await handleRequest({ ...context(), diff }, "GET", "/view/a.txt", {});
+		expect(text(file)).toContain('href="/review/new?scope=staged&amp;file=a.txt"');
+		// The numbers came from the index: the diff ran against `--cached`, and the one question
+		// about `HEAD` is the probe that found it missing, not a comparison against it.
+		expect(unborn.asked.filter((line) => line.startsWith("diff ")).every((line) => line.includes("--cached"))).toBe(
+			true,
+		);
+		expect(unborn.asked.filter((line) => line.includes("HEAD"))).toEqual(["rev-parse --verify --quiet HEAD"]);
+
+		// With a commit: the comparison asked for is the one reported, and the one linked.
+		const committed = gitAsking([
+			ROOT,
+			["rev-parse --verify --quiet HEAD", { stdout: "abc1234\n" }],
+			["status --porcelain=v1", { stdout: " M a.txt\0" }],
+			STAT,
+		]);
+		const againstHead = createGitDiff(createFakePi({ exec: committed.exec }).pi, "/repo");
+		expect((await againstHead.list("head"))?.mode).toBe("head");
+
+		const page = await handleRequest({ ...context(), diff: againstHead }, "GET", "/", {});
+		expect(text(page)).toContain('id="browse-changes" href="/review/new?scope=head"');
+		expect(committed.asked.some((line) => line.startsWith("diff ") && line.includes("HEAD"))).toBe(true);
 	});
 
 	test("shows the changes chip with the change totals", async () => {
