@@ -68,7 +68,7 @@ afterAll(() => {
 
 /** The store one repository's plans land in: the agent dir, keyed by its common git dir. */
 function storeDir(root: string): string {
-	return join(AGENT, "plans", repoKeyOf(join(root, ".git")));
+	return join(AGENT, "repos", `local-${repoKeyOf(join(root, ".git"))}`, "plans");
 }
 
 // Windows requires Developer Mode/admin to create symlinks; skip those tests
@@ -139,9 +139,9 @@ describe("plan store — directory resolution", () => {
 		expect(await repoStore(root).dirFor(root)).toBe(storeDir(root));
 	});
 
-	test("falls back to an unkeyed agent directory outside a repository", async () => {
+	test("files a directory outside a repository under a local- name in the one layout", async () => {
 		const store = createPlanStore(noRepoPi(), { now: () => FIXED });
-		expect(await store.dirFor(process.cwd())).toBe(join(AGENT, "plans"));
+		expect(await store.dirFor(process.cwd())).toBe(join(AGENT, "repos", `local-${repoKeyOf(process.cwd())}`, "plans"));
 	});
 
 	test("is the same store from the main checkout and from a worktree", async () => {

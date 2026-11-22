@@ -40,7 +40,7 @@ afterAll(() => {
 
 /** The store one repository's plans land in, keyed by its common git dir. */
 function planDir(root: string): string {
-	return join(AGENT, "plans", repoKeyOf(root));
+	return join(AGENT, "repos", `local-${repoKeyOf(root)}`, "plans");
 }
 
 function repoExec(root: string) {

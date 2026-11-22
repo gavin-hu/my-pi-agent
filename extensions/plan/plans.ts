@@ -31,7 +31,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
-import { isContainedPlan, isPlanFileName, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
+import { isContainedPlan, isPlanFileName, PLANS_DIR_NAME, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
 import { pageRevision } from "./plan-text.ts";
 import { extractSections } from "./sections.ts";
@@ -264,12 +264,21 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	const resolve = async (cwd: string): Promise<{ dir: string; root: string | undefined }> => {
 		// The repository key needs `git`, the heaviest thing a planning start could pay for: no plan
 		// is read or written before this call, so the cluster loads here rather than at import.
-		const { repoKeyFor } = await import("../../lib/repo-key.ts");
+		const { repoIdFor, repoKeyFor, repoStoreDir, storeIdOf } = await import("../../lib/repo-key.ts");
 		const base = baseOf(cwd);
 		const cached = dirCache.get(base);
 		if (cached) return cached;
 		const repo = await repoKeyFor(pi, base);
-		const dir = plansDirFor(getAgentDir(), repo);
+		const agentDir = getAgentDir();
+		// The store is filed under the identity two machines can agree on, inside the one layout:
+		// `repos/<id>/plans`, or `repos/local-<pathKey>/plans` where the directory has no remote and
+		// no commit to compare.
+		const dir = repoStoreDir(agentDir, storeIdOf(await repoIdFor(pi, base), repo.key), PLANS_DIR_NAME);
+		// A store an older build wrote at the flat spelling is taken across once, on the first
+		// resolve that misses the new one; the mover is loaded here rather than at import because
+		// only an upgrade pays for it.
+		const { migrateStoreDir } = await import("../../lib/store-paths.ts");
+		await migrateStoreDir(plansDirFor(agentDir, repo), dir);
 		dirCache.set(base, { dir, root: repo.fromGit ? repo.root : undefined });
 		if (repo.fromGit) {
 			// The keyed directory is the store; a store an older version left in the
