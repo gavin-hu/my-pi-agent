@@ -164,18 +164,25 @@ __LABEL_KEY__
   }
 
   /**
-   * Who holds a card: a state dot and the name, never a pill.
+   * Who holds a card: the state dot, the name, and the state said in words.
    *
    * One shape for both rows in this column. A chip in the queue and a dot on the swimlane card
    * was the last two-treatments-for-one-fact in a column that is read for who is on what: the
    * dot is the quieter of the two, and it says how the
-   * owner is doing rather than only who it is.
+   * owner is doing rather than only who it is. The word says it too — from the roster's own table,
+   * the one the Agents column prints — because a hue alone is a fact a colour-blind reader cannot
+   * read and a screen reader never hears. The dot keeps only the colour: the word is the state, and
+   * the dot agrees with it.
    */
   function ownerMeta(view, label) {
     var wrap = el("span", N.owner);
+    var state = ownerState(view, label);
+    var said = label + ", " + (board.stateWord[state] || state);
+    wrap.setAttribute("title", said);
+    wrap.setAttribute("aria-label", said);
     var dot = el("span", N.dot);
     dot.setAttribute("aria-hidden", "true");
-    dot.setAttribute("data-state", ownerState(view, label));
+    dot.setAttribute("data-state", state);
     wrap.appendChild(dot);
     wrap.appendChild(document.createTextNode(label));
     return wrap;
