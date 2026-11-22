@@ -21,7 +21,11 @@ import {
 	repoIdFor,
 	repoKeyFor,
 	repoKeyOf,
+	repoStoreDir,
+	reposRoot,
 	rootCommitIdOf,
+	storeIdOf,
+	worktreeRootFor,
 	settingsRootFor,
 } from "./repo-key.ts";
 
@@ -163,6 +167,23 @@ describe("repoIdFor", () => {
 
 	test("never throws: a git that cannot start is the same answer as neither", async () => {
 		expect(await repoIdFor({ exec: failingSeam() } as never, "/repo")).toEqual({ source: "none" });
+	});
+});
+
+describe("where a repository's state lives", () => {
+	test("files one store under the agent directory's repos, by id and concept", () => {
+		expect(reposRoot("/agent")).toBe(join("/agent", "repos"));
+		expect(repoStoreDir("/agent", "5f3c8a1b2d4e", "board")).toBe(join("/agent", "repos", "5f3c8a1b2d4e", "board"));
+	});
+
+	test("gives a directory with no identity a local- name that no other host computes", () => {
+		expect(storeIdOf({ id: "5f3c8a1b2d4e" }, "abc123")).toBe("5f3c8a1b2d4e");
+		// No id at all: filed under the path key, prefixed so it cannot collide with a real one.
+		expect(storeIdOf({}, "abc123")).toBe("local-abc123");
+	});
+
+	test("keeps a repository's checkouts on this machine, under its id", () => {
+		expect(worktreeRootFor("/agent", "5f3c8a1b2d4e")).toBe(join("/agent", "worktrees", "5f3c8a1b2d4e"));
 	});
 });
 
