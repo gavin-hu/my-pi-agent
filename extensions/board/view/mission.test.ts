@@ -192,12 +192,12 @@ describe("the mission control's contracts", () => {
 
 	test("counts each column itself, a zero included, and never a share of a filtered total", () => {
 		expect(BOARD_CLIENT_JS).toContain('board.captionOf("Agents"');
-		expect(BOARD_CLIENT_JS).toContain('board.captionOf("Active work"');
+		expect(BOARD_CLIENT_JS).toContain('board.captionOf("Needs you"');
 		expect(BOARD_CLIENT_JS).toContain('board.captionOf("Activity"');
-		// A caption is a count, not a share: the pill a column head draws has no total to show,
-		// and the ratio the panes' heads keep is their own (NEEDS YOU against the whole queue).
-		expect(BOARD_CLIENT_JS).toContain("board.captionOf = function (text, count, noun)");
-		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", "bf-section__count", String(count)));');
+		// A caption is a count, not a share — except a filtered column, whose head names what it
+		// hid ("0 of 6 asks") because the rows it would have counted are the ones missing.
+		expect(BOARD_CLIENT_JS).toContain("board.captionOf = function (text, count, noun, total)");
+		expect(BOARD_CLIENT_JS).toContain('filtered ? count + "/" + total : String(count)');
 		// A zero is drawn: an empty lane, an empty pane, and an empty column all say 0.
 		expect(BOARD_CLIENT_JS).toContain('slot.appendChild(el("p", N.teamEmpty');
 	});
@@ -244,11 +244,12 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", "bf-lane__count", String(band.rows.length)));');
 		// The rows are the kit's list, so the column has one way of holding rows together.
 		expect(BOARD_CLIENT_JS).toContain('var list = el("ol", N.laneList);');
-		// The reason is printed on the row rather than left to a hover, and the control that opens
-		// the card is described by it — or by the band's head, for a sentence the head already said.
+		// The reason is printed on every row rather than left to a hover, and the control that opens
+		// the card is described by that row's own sentence: no band head carries it, so no row
+		// points at one (the shared-sentence path is gone).
 		expect(BOARD_CLIENT_JS).toContain("meta.appendChild(document.createTextNode(entry.why));");
 		expect(BOARD_CLIENT_JS).toContain('title.setAttribute("aria-describedby", meta.id);');
-		expect(BOARD_CLIENT_JS).toContain('title.setAttribute("aria-describedby", said.id);');
+		expect(BOARD_CLIENT_JS).not.toContain('"team-said-");');
 		// The caption is a count alone: the tab strip is the way to the whole board, so the
 		// column carries no second door for a heading to be a control.
 		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");

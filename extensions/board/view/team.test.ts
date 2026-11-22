@@ -227,9 +227,7 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 	};
 
 	/** Each band: its label, the count in its head, the rows it drew, and what its head says. */
-	async function bands(
-		page: Page,
-	): Promise<Array<{ label: string; count: number; rows: number; said: string; fold: string }>> {
+	async function bands(page: Page): Promise<Array<{ label: string; count: number; rows: number; fold: string }>> {
 		return page.$$eval("#board-team .board-queue__band", (nodes) =>
 			Array.from(nodes as ArrayLike<HeadNode>, (band) => ({
 				label: band.querySelector("span")?.textContent ?? "",
@@ -237,7 +235,6 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 				// the band's whole, where `rows` is what a fold chose to draw.
 				count: Number(band.querySelector(".bf-lane__count")?.textContent ?? "0"),
 				rows: Array.from(band.querySelectorAll(".board-queue__row")).length,
-				said: band.querySelector(".board-queue__said")?.textContent ?? "",
 				fold: band.querySelector(".board-fold")?.textContent ?? "",
 			})),
 		);
@@ -246,7 +243,7 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 	/** The unclaimed band, as drawn: its head's count, its rows, and its fold. */
 	const bandOf = async (page: Page) => (await bands(page)).find((band) => band.label === "Unclaimed");
 
-	test("folds a band at five rows, and says what all its rows share once", async () => {
+	test("folds a band at five rows, and every row says its own reason", async () => {
 		const page = await board.reuse();
 		await page.click("#tab-team");
 		// Ten more unclaimed cards arrive the way a peer's write does, so the band is past its fold.
@@ -255,8 +252,9 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		// redraw between two of them draws five rows of ten and reads "+5 more". One pass paints all.
 		await waitFor(async () => (await bandOf(page))?.count === 12, PAINT_MS);
 		const closed = await bandOf(page);
-		// The count in the head is what says the rest exists, and the rows are five.
-		expect(closed).toMatchObject({ count: 12, rows: 5, fold: "+7 more", said: "nobody holds it" });
+		// The count in the head is what says the rest exists, the rows are five, and the sentence
+		// the head used to print is now each row's own — the head is its name and count.
+		expect(closed).toMatchObject({ count: 12, rows: 5, fold: "Show 7 more" });
 		const repeated = await page.$$eval(
 			"#board-team .board-queue__why",
 			(nodes) =>
@@ -264,9 +262,9 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 					(node) => (node.textContent ?? "").trim() === "nobody holds it",
 				).length,
 		);
-		expect(repeated).toBe(0);
-		// A row with no line of its own is still described: it points at the head that said it. The
-		// read is the claim band's own, because the tab draws a signature band above it.
+		expect(repeated).toBe(5);
+		// Every row is described by its own line: the sentence moved from the head onto the row,
+		// and the claim band is read because the tab draws a signature band above it.
 		const described = await page.evaluate(() => {
 			const document = (globalThis as unknown as { document: Doc }).document;
 			type Node = ElementLike & {
@@ -279,14 +277,14 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			const id = title?.getAttribute("aria-describedby") ?? "";
 			return { id, said: document.getElementById(id)?.textContent ?? "" };
 		});
-		expect(described.id).toBe("team-said-claim");
+		expect(described.id.startsWith("team-why-")).toBe(true);
 		expect(described.said).toBe("nobody holds it");
 		// One press draws the rest and one more folds them back: nothing is cut, only folded.
 		await page.click('#board-team [data-fold="team-band-claim"]');
 		await waitFor(async () => (await bandOf(page))?.rows === 12, PAINT_MS);
 		const open = await bandOf(page);
 		expect(open?.rows).toBe(12);
-		expect(open?.fold).toBe("show fewer");
+		expect(open?.fold).toBe("Show fewer");
 		await page.click('#board-team [data-fold="team-band-claim"]');
 		await waitFor(async () => (await bandOf(page))?.rows === 5, PAINT_MS);
 		expect((await bandOf(page))?.rows).toBe(5);
@@ -314,8 +312,8 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		await page.waitForSelector("#board-team .bf-section__cap", { timeout: PAINT_MS });
 		await drawn(page);
 		const { bottoms } = await census(page);
-		// Three columns and three panes: the tab's six landmarks, and the only lines it draws.
-		expect(bottoms).toHaveLength(6);
+		// Three columns and two panes: the tab's five landmarks, and the only lines it draws.
+		expect(bottoms).toHaveLength(5);
 		expect(bottoms.filter((name) => !name.includes(".bf-section__cap"))).toEqual([]);
 	});
 

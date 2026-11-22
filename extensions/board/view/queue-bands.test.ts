@@ -1,18 +1,10 @@
 /**
- * The Needs you queue's column and its rows, measured in the browser.
- *
- * `team.test.ts` holds the tab's own contracts and is named at its height in
- * `test/suite-sizes.test.ts`, so the queue's geometry lives here rather than growing a suite that
- * may not gain a line. Everything here is a computed layout: one column of bands at every width, a
- * band head drawn even at 0, a title that reads whole on its own line, the facts under it, and a
- * reason bounded to two of them.
- *
- * Both sides of a comparison come off the page — the queue's content box, a band's box, a row's
- * computed height, the line rects a clamped reason draws — so a case cannot pass while the layout
- * drifts under a number written here.
- *
- * It needs a browser. Where the machine has none the suite skips, naming `PI_CHROME`, so
- * `bun run check` stays green on a runner without Chrome and still says why nothing ran.
+ * The Needs you queue's column and its rows, measured in the browser: one column of always-drawn
+ * bands, one caption, a two-line ask whose title is the headline and whose reason is bounded, the
+ * fold's words, the filtered sentence, the phone's wrap and the 2K row that spans its band. Both
+ * sides of every comparison come off the page, so a case cannot pass while the layout drifts
+ * under a number written here. It needs a browser; where the machine has none the suite skips,
+ * naming PI_CHROME.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -64,7 +56,9 @@ async function bands(page: Page): Promise<Array<{ label: string; count: number; 
 const headGap = (page: Page, label: string) =>
 	page.evaluate((name: string) => {
 		const document = (globalThis as unknown as { document: Doc }).document;
-		const pane = document.querySelector('[data-pane="needs-you"] .bf-section__cap') as unknown as Boxed | null;
+		const pane = document.querySelector(
+			'#board-team .board-team__column[data-column="active"] > .bf-section__cap',
+		) as unknown as Boxed | null;
 		const band = Array.from(document.querySelectorAll("#board-team .board-queue__band"))
 			.map((node) => node as unknown as Boxed)
 			.find((node) => (node.querySelector("span")?.textContent ?? "") === name);
@@ -88,7 +82,7 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		await board?.close();
 	}, HOOK_MS);
 
-	test("stacks every band in one column, and gives each the whole of it", async () => {
+	test("stacks every band in one column, and gives each the whole of it, its rows included", async () => {
 		const page = await board.reuse();
 		await page.click("#tab-team");
 		await page.waitForSelector("#board-team .board-queue__band", { timeout: PAINT_MS });
@@ -100,30 +94,52 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 				const computed = (
 					globalThis as unknown as { getComputedStyle(node: unknown): { paddingLeft: string; paddingRight: string } }
 				).getComputedStyle;
+				// A box's content width, not its border box: a padded band would otherwise pass with its rows
+				// still short of the width a reader sees them fill.
+				const content = (node: Boxed & { clientWidth: number }) => {
+					const style = computed(node);
+					return node.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+				};
 				const queue = document.querySelector("#board-team .board-queue") as unknown as Boxed & {
 					clientWidth: number;
 				};
-				const style = computed(queue);
 				return {
-					content: queue.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight),
-					bands: Array.from(
-						document.querySelectorAll("#board-team .board-queue__band"),
-						(node) => node as unknown as Boxed,
-					).map((band) => ({
-						top: Math.round(band.getBoundingClientRect().top),
-						width: band.getBoundingClientRect().width,
-					})),
+					content: content(queue),
+					bands: Array.from(document.querySelectorAll("#board-team .board-queue__band"), (node) => {
+						const band = node as unknown as Boxed & { clientWidth: number };
+						return {
+							top: Math.round(band.getBoundingClientRect().top),
+							width: band.getBoundingClientRect().width,
+							content: content(band),
+							rows: Array.from(band.querySelectorAll(".board-queue__row"), (row) => row.getBoundingClientRect().width),
+						};
+					}),
 				};
 			});
 			// One band per line, at a 2K window as much as at 1280: the column is the queue's shape,
 			// not a function of the width.
 			expect(new Set(layout.bands.map((band) => band.top)).size, `width ${width}`).toBe(layout.bands.length);
+			expect(
+				layout.bands.reduce((count, band) => count + band.rows.length, 0),
+				`width ${width}`,
+			).toBeGreaterThan(0);
 			for (const band of layout.bands) {
-				// Each band fills the column to the browser's sub-pixel rounding — a band that kept a
-				// track of its own, or a cap, leaves the pane short of itself.
+				// A band and its rows each fill the column's whole content width to the browser's sub-pixel
+				// rounding: a band that kept a track of its own leaves the pane short of itself, and a row
+				// stopped at a readable measure — 800px short of its band at 2560 — leaves an age mid-air.
 				expect(Math.abs(band.width - layout.content), `width ${width}`).toBeLessThanOrEqual(1);
+				for (const row of band.rows) expect(Math.abs(row - band.content), `width ${width}`).toBeLessThanOrEqual(1);
 			}
 		}
+		// One head for the column: the caption counts asks, and the lanes keep their own count under
+		// a plain label, so the two numbers cannot be read for each other.
+		const heads = await page.$$eval("#board-team .bf-section__cap", (nodes) =>
+			Array.from(nodes as ArrayLike<Boxed>, (node) => node.getAttribute?.("aria-label") ?? ""),
+		);
+		expect(heads.filter((label) => label.startsWith("Needs you")).length).toBe(1);
+		expect(heads.some((label) => label.startsWith("Active work"))).toBe(false);
+		const moving = await page.$eval("#board-team .board-queue__moving", (node) => (node.textContent ?? "").trim());
+		expect(moving).toMatch(/^Moving \u00b7 \d+ cards?$/);
 	});
 
 	test("draws every band, a head with no asks included", async () => {
@@ -133,7 +149,10 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		// A filter that matches nothing empties all three bands at once, which is the state the
 		// always-drawn rule exists for: the sections are still the column's shape.
 		await page.fill("#board-filter", "no card answers to this");
-		await waitFor(async () => (await bands(page)).every((band) => band.count === 0), PAINT_MS);
+		await waitFor(async () => {
+			const drawnBands = await bands(page);
+			return drawnBands.length === 3 && drawnBands.every((band) => band.count === 0);
+		}, PAINT_MS);
 		const drawnBands = await bands(page);
 		expect(drawnBands.map((band) => band.label)).toEqual(BANDS);
 		expect(drawnBands.map((band) => band.count)).toEqual([0, 0, 0]);
@@ -227,22 +246,10 @@ describe.skipIf(CHROME === undefined)("the Needs you rows", () => {
 		const fold = '#board-team [data-fold="team-band-claim"]';
 		if ((await page.$(fold)) !== null) {
 			await page.click(fold);
-			await waitFor(async () => (await bands(page))[1]?.fold === "show fewer", PAINT_MS);
+			await waitFor(async () => (await bands(page))[1]?.fold === "Show fewer", PAINT_MS);
 		}
 		await drawn(page);
 	}
-
-	/** The height of one line of a reason, measured from the shortest reason the page draws. */
-	const whyUnit = (page: Page) =>
-		page.evaluate(() => {
-			const document = (globalThis as unknown as { document: Doc }).document;
-			const heights = Array.from(document.querySelectorAll("#board-team .board-queue__why"))
-				.map((node) => node as unknown as Boxed)
-				.map((node) => node.getBoundingClientRect().height)
-				.sort((left, right) => left - right);
-			if (heights.length === 0) throw new Error("no reason is on the page");
-			return heights[0] as number;
-		});
 
 	/** The row's box, its title's box, its reason's box, and whether the reason is clamped. */
 	const rowShape = (page: Page, card: string) =>
@@ -284,20 +291,27 @@ describe.skipIf(CHROME === undefined)("the Needs you rows", () => {
 		}
 	});
 
-	test("bounds a band-suppressed row to two lines, and a long reason to two clamped ones", async () => {
+	test("gives every row its own sentence, and bounds the long one", async () => {
 		const page = await rowsBoard.reuse();
 		await page.click("#tab-team");
 		await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
 		await openClaim(page);
-		// A band that prints the sentence its rows share keeps their reasons off the rows: the facts
-		// still have their line, which is the two-line row.
-		const suppressed = await rowShape(page, seeded.titles[0] as string);
-		expect(suppressed.why).toBeNull();
-		expect(suppressed.row).toBeLessThanOrEqual(50);
-		// The wait's chain of four titles is the 400-char reason: two lines of it, the whole sentence
-		// on the hover and in the description, and three text lines at most.
+		// No band head carries a summary sentence, and no row hides its reason behind one: the band
+		// names the move, the row says why it is here.
+		const rowSentences = await page.$$eval("#board-team .board-queue__row", (nodes) =>
+			Array.from(nodes as ArrayLike<Boxed>, (row) => row.querySelector(".board-queue__why") !== null),
+		);
+		expect(rowSentences.length).toBeGreaterThan(1);
+		expect(rowSentences.every(Boolean)).toBe(true);
+		const headText = await page.$$eval("#board-team .board-queue__band > .bf-lane__head", (nodes) =>
+			Array.from(nodes as ArrayLike<Boxed>, (head) => (head.textContent ?? "").trim()),
+		);
+		for (const text of headText) expect(text).toMatch(/^(Your signature|Unclaimed|Stalled)\d+$/);
+		// A row with a short reason is the two-line ask; the wait's chain of four titles is the
+		// 400-char reason: two lines of it, the whole sentence on the hover and in the description,
+		// and three text lines at most.
 		const long = await rowShape(page, seeded.waits);
-		const unit = await whyUnit(page);
+		const unit = (await rowShape(page, seeded.titles[0] as string)).why ?? 0;
 		expect(long.why ?? 0).toBeLessThanOrEqual(unit * 2 + 1);
 		expect(long.row).toBeLessThanOrEqual(72);
 		expect(long.whyTitle.length).toBeGreaterThan(300);
@@ -315,6 +329,58 @@ describe.skipIf(CHROME === undefined)("the Needs you rows", () => {
 		);
 		expect(ranks).toEqual(ranks.map((_rank, index) => String(index + 1)));
 		expect((await rowShape(page, seeded.waits)).stamped).toBe(false);
+	});
+
+	test("reads its title as the row's headline, not as its metadata", async () => {
+		const page = await rowsBoard.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
+		// The colour is compared with a probe painted var(--text), not a hex: the token is the claim.
+		const painted = await page.evaluate(() => {
+			const doc = globalThis as unknown as {
+				document: {
+					querySelector(s: string): unknown;
+					createElement(tag: string): { style: { color: string }; remove(): void };
+					body: { appendChild(node: unknown): void };
+				};
+				getComputedStyle(n: unknown): { color: string; fontWeight: string };
+			};
+			const title = doc.document.querySelector("#board-team .bf-row__title");
+			if (title === null) throw new Error("no title on the page");
+			const probe = doc.document.createElement("span");
+			probe.style.color = "var(--text)";
+			doc.document.body.appendChild(probe);
+			const expected = doc.getComputedStyle(probe).color;
+			probe.remove();
+			const style = doc.getComputedStyle(title);
+			return { color: style.color, weight: style.fontWeight, expected };
+		});
+		expect(painted.color).toBe(painted.expected);
+		expect(Number(painted.weight)).toBeGreaterThanOrEqual(500);
+	});
+
+	test("keeps the filtered sentence under the three heads, before and after Enter", async () => {
+		const page = await rowsBoard.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .board-queue__band", { timeout: PAINT_MS });
+		await page.fill("#board-filter", "no card answers to this");
+		await waitFor(async () => {
+			const drawnBands = await bands(page);
+			return drawnBands.length === 3 && drawnBands.every((band) => band.count === 0);
+		}, PAINT_MS);
+		const sentence = () =>
+			page.evaluate(() => {
+				const doc = globalThis as unknown as {
+					document: { querySelector(s: string): { textContent: string | null } | null };
+				};
+				return (doc.document.querySelector("#board-team .board-queue > .board-team__empty")?.textContent ?? "").trim();
+			});
+		expect(await sentence()).toBe('nothing matches "no card answers to this"');
+		// A reader presses Enter to apply what they typed: the sentence is the build's, not the
+		// keystroke's, so it survives the second render (the #782 case).
+		await page.press("#board-filter", "Enter");
+		await drawn(page);
+		expect(await sentence()).toBe('nothing matches "no card answers to this"');
 	});
 
 	test("gives a phone the whole title, wrapped rather than elided", async () => {

@@ -11,13 +11,12 @@
  * cards read as the backlog. `DECISION_BAND` in `lib/workflow/tone.ts` is that filing, and it is
  * the same table the pill and the rank come from.
  *
- * Every ask is drawn, as one line and its reason: an id in mono, the pill it wears, the kind it
- * changes beside an elided title, who holds it with their state's dot, and one age — then the
- * sentence the queue exists for, printed rather than hovered and carried by `aria-describedby`
- * for a reader who never hovers. A band shows five rows and counts the rest behind one fold, and
- * a sentence every row in a band shares is printed once, in the band's head: sixty rows saying
- * "nobody holds it" is one fact, not sixty lines, and a queue a lead cannot reach the end of is
- * a queue that hid the three swimlanes under it.
+ * Every ask is two lines: the id and the title it changes, then the facts it is read for — the
+ * pill it wears, the kind, the sentence the queue exists for (printed rather than hovered, and
+ * carried by `aria-describedby` for a reader who never hovers), who holds it with their state's
+ * dot, and one age. A band shows five rows and counts the rest behind one fold; its head is the
+ * band's name and count and nothing else, because the name already says the shared move and the
+ * sentence belongs to the row — a row read on its own still says why it is here.
  *
  * A mission card under the queue is the board's own card, unchanged: a lane bar, a reference,
  * one line of title, and who holds it with their state's dot.
@@ -214,31 +213,6 @@ __LABEL_KEY__
   }
 
   /**
-   * The one sentence a band repeats, when it has one.
-   *
-   * Only a plain sentence can be shared: a reason that names an age is stamped on its own row,
-   * because the age is the part of it that moves. A band whose rows all say something different
-   * keeps every line, and the majority is still the band's — fifty-nine unclaimed cards and one
-   * that waits on a blocker is one shared sentence and one exception, and the exception is the
-   * row worth reading.
-   */
-  function sharedWhy(rows) {
-    var tally = {};
-    var best;
-    var count = 0;
-    for (var i = 0; i < rows.length; i++) {
-      if (rows[i].at !== undefined) continue;
-      var said = rows[i].why;
-      tally[said] = (tally[said] || 0) + 1;
-      if (tally[said] > count) {
-        best = said;
-        count = tally[said];
-      }
-    }
-    return count > 1 ? { text: best, count: count } : undefined;
-  }
-
-  /**
    * One ask: a title line and a facts line.
    *
    * The title is the row's one control, as it is on the board's own face, so j/k and the
@@ -249,10 +223,9 @@ __LABEL_KEY__
    * the reason already ran.
    *
    * The reason is printed rather than hidden in a tooltip: it is the sentence the queue exists
-   * for — except for a row that says what its band already said, which is described by the head
-   * instead and keeps its facts line for the rest.
+   * for, and every row says its own — the band's head names the move, never the sentence.
    */
-  function decisionRow(entry, view, said) {
+  function decisionRow(entry, view) {
     var card = entry.card;
     var row = el("li", N.queueRow);
     // The tone is the pill's and a danger row's sentence — two statements, neither of them the
@@ -272,30 +245,28 @@ __LABEL_KEY__
     head.appendChild(title);
     row.appendChild(head);
     var facts = el("div", N.queueFacts);
-    facts.appendChild(whyPill(entry));
+    var labels = el("div", N.queueLabels);
+    labels.appendChild(whyPill(entry));
     // What the card is, in the label the face and the record wear: it leaves the title's line,
     // where it cost the room an 80-character title needs, and a breaking change keeps the word a
     // decision must not hide.
     var kind = kindLabel(card);
-    if (kind !== undefined) facts.appendChild(kind);
-    // A row that says what its band already said keeps no sentence of its own: the band's head is
-    // the sentence for every row under it, and the title is described by that head.
-    if (said !== undefined && entry.at === undefined && entry.why === said.text) {
-      title.setAttribute("aria-describedby", said.id);
+    if (kind !== undefined) labels.appendChild(kind);
+    facts.appendChild(labels);
+    // The row's own sentence, always: the head names the move, the row says why it is here, and
+    // the title is described by the line under it.
+    var meta = el("p", N.queueWhy);
+    if (entry.at === undefined) {
+      meta.appendChild(document.createTextNode(entry.why));
     } else {
-      var meta = el("p", N.queueWhy);
-      if (entry.at === undefined) {
-        meta.appendChild(document.createTextNode(entry.why));
-      } else {
-        meta.appendChild(board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording }));
-      }
-      meta.id = "team-why-" + card.id;
-      // The whole sentence on the hover: the line is clamped to two, and nothing is lost with the
-      // words the box hides.
-      meta.title = entry.why;
-      title.setAttribute("aria-describedby", meta.id);
-      facts.appendChild(meta);
+      meta.appendChild(board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording }));
     }
+    meta.id = "team-why-" + card.id;
+    // The whole sentence on the hover: the line is clamped to two, and nothing is lost with the
+    // words the box hides.
+    meta.title = entry.why;
+    title.setAttribute("aria-describedby", meta.id);
+    facts.appendChild(meta);
     facts.appendChild(card.owner ? ownerMeta(view, card.owner.label) : el("span", N.owner));
     // A waiting row's stamp would be the card's last write, not the wait: the reason already
     // names what it waits on, so the row keeps no age rather than the wrong one.
@@ -315,9 +286,9 @@ __LABEL_KEY__
    * order they are drawn, because the queue is one order the bands explain — not three lists whose
    * numbers would run backwards.
    *
-   * A band carries the sentence its rows share and whether it starts folded, because the frame
-   * and the build have to agree about both: the signature is what says the pane must be rebuilt,
-   * and a fold the signature did not know about would open and close without a repaint.
+   * A band carries whether it starts folded, because the frame and the build have to agree about
+   * it: the signature is what says the pane must be rebuilt, and a fold the signature did not know
+   * about would open and close without a repaint.
    */
   function banded(entries) {
     var bands = [];
@@ -331,7 +302,6 @@ __LABEL_KEY__
         key: key,
         label: BANDS.label[key],
         rows: rows,
-        said: sharedWhy(rows),
         collapsed: collapsedOf(rows, key)
       });
     }
@@ -339,12 +309,13 @@ __LABEL_KEY__
   }
 
   /**
-   * One band: the head that names whose move it is, the sentence its rows share, and five asks
-   * under it — then one control that carries the rest.
+   * One band: the head that names whose move it is, the asks under it, and one control that
+   * carries the rest.
    *
-   * The head is a lane head one level down — a dot, the word, and how many — the shape the
-   * swimlanes under the queue already wear, so the column has one way of saying "these rows
-   * belong together".
+   * The head is the band's name and count and nothing else: the name already says the shared
+   * move, the sentence belongs to the row, and a head that repeated it made the row's facts line
+   * empty. The head is a lane head one level down — the shape the swimlanes under the queue
+   * already wear — so the column has one way of saying "these rows belong together".
    */
   function bandSection(band, view) {
     var section = el("section", N.queueBand);
@@ -352,30 +323,17 @@ __LABEL_KEY__
     var head = el("h4", "bf-lane__head");
     head.appendChild(el("span", "", band.label));
     head.appendChild(el("span", "bf-lane__count", String(band.rows.length)));
-    var said;
-    var saidLabel = "";
-    if (band.said !== undefined) {
-      said = { text: band.said.text, id: "team-said-" + band.key };
-      // The count is only worth saying when the band is not of one voice: "60 of 60" is noise
-      // beside a band that says 60.
-      var line = el("span", N.queueSaid, band.said.count === band.rows.length
-        ? band.said.text
-        : band.said.count + " say: " + band.said.text);
-      line.id = said.id;
-      head.appendChild(line);
-      saidLabel = ", " + band.said.count + " of them: " + band.said.text;
-    }
-    head.setAttribute("aria-label", band.label + ", " + plural(band.rows.length, "row") + saidLabel);
+    head.setAttribute("aria-label", band.label + ", " + plural(band.rows.length, "row"));
     section.appendChild(head);
     var shown = band.collapsed ? band.rows.slice(0, board.foldAt.queue) : band.rows;
     // An empty band is its head and its count: a list under it would be a gap with nothing in it.
     if (shown.length === 0) return section;
     var list = el("ol", N.laneList);
     list.id = rowsId(band.key);
-    for (var i = 0; i < shown.length; i++) list.appendChild(decisionRow(shown[i], view, said));
+    for (var i = 0; i < shown.length; i++) list.appendChild(decisionRow(shown[i], view));
     section.appendChild(list);
     if (band.rows.length > board.foldAt.queue) {
-      var more = el("button", N.fold, band.collapsed ? "+" + (band.rows.length - shown.length) + " more" : "show fewer");
+      var more = el("button", N.fold, band.collapsed ? "Show " + (band.rows.length - shown.length) + " more" : "Show fewer");
       more.type = "button";
       more.setAttribute("data-fold", foldKey(band.key));
       // The pair a disclosure owes: it says whether the rows are open, and which list it opens.
@@ -472,9 +430,7 @@ __LABEL_KEY__
       sig.push(shown[d].card.id + ":" + shown[d].card.rev + ":" + shown[d].kind + ":" + shown[d].why);
     }
     for (var b = 0; b < bands.length; b++) {
-      var said = bands[b].said;
-      sig.push(bands[b].key + ":" + bands[b].rows.length + ":" + (bands[b].collapsed ? "folded" : "open") +
-        ":" + (said === undefined ? "" : said.count + said.text));
+      sig.push(bands[b].key + ":" + bands[b].rows.length + ":" + (bands[b].collapsed ? "folded" : "open"));
     }
     for (var l = 0; l < lanes.length; l++) {
       var ids = [lanes[l].key];
@@ -490,15 +446,12 @@ __LABEL_KEY__
       total: view.total,
       decisions: shown.length,
       build: function (slot) {
-        // The caption is a count and nothing else: the tab strip above the page is the way to
-        // the whole board, and a second door in a heading was a control in a label.
-        slot.appendChild(board.captionOf("Active work", active, "card"));
+        // One head for the column: it counts the asks, and carries the filtered total when a
+        // filter narrows them. The tab strip above the page is the way to the whole board, and a
+        // second door in a heading was a control in a label.
+        slot.appendChild(board.captionOf("Needs you", shown.length, "ask", decisions.length));
         var pane = el("section", "bf-section " + N.paneBody);
         pane.setAttribute("data-pane", "needs-you");
-        pane.setAttribute("data-tone", "warn");
-        // The pane has a name and a number of its own: the caption above counts the lanes, and
-        // a reader was left to add the rows under it to a number that did not include them.
-        pane.appendChild(board.paneHead("Needs you", shown.length, decisions.length));
         var queue = el("div", N.queue);
         for (var b = 0; b < bands.length; b++) queue.appendChild(bandSection(bands[b], view));
         // Every band is drawn, so an empty queue is three 0-count heads: the sentence under them
@@ -508,6 +461,9 @@ __LABEL_KEY__
         }
         pane.appendChild(queue);
         slot.appendChild(pane);
+        // The lanes keep their own count under a plain label: the column has one head, and the
+        // three they count are moving cards, not asks.
+        slot.appendChild(el("p", N.queueMoving, "Moving \u00b7 " + plural(active, "card")));
         var list = el("div", N.teamLanes);
         for (var p = 0; p < lanes.length; p++) list.appendChild(swimlane(view, lanes[p], lanes[p].cards));
         slot.appendChild(list);

@@ -15,6 +15,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `job` follows in #788, and a managed checkout stays where `worktree.dir` says — relocating a live
   worktree is `git worktree move`, which is its own card.
 
+- `board`: a Needs you row spans its band at every width, lifting the 1024px measure #784 gave it.
+  The cap bought a readable line, but on a 2K window, where the band is 1824px, it stopped every row
+  800px short of the band's edge with nothing to its right, so the queue read as two right edges and
+  an age floated mid-air; the row now takes the band's width, the age reaches the edge, and the cost
+  is that same gap on a short ask, where the reason and its age sit far apart. The Team page's screen
+  capture is unchanged — its three columns leave the queue 560px wide at 1280, already under the cap
+  — and the 2K case now measures a row against its band's content width rather than a number.
+
+- `board`: the Needs you ask row's facts line is one type size. The kind and the owner were inheriting
+  the column's 15px/22.5 in a line whose pill, reason and age are 12px, so a row carried three things
+  at title size, its sentence was the smallest, and a one-line row was 43px without a kind or an
+  owner, 51 with a kind and 52 with one. `.board-queue__facts` sets 12px/16 itself now, so every
+  one-line row is 44px; the pill and the kind sit in a 13rem track so the reason starts at one x
+  instead of 138px apart on two rows; and at a phone the reason takes a full line rather than the
+  99px strip the labels left it.
+
+- `board`: the Needs you queue is one head over one column of asks, and every row says its own reason.
+  The `ACTIVE WORK` caption and the pane's `NEEDS YOU` head were two counts of different things —
+  four cards, six asks — so one caption counts the asks and carries the filtered `0 of 6`, while the
+  swimlanes keep their own count under a `Moving` label. The pane loses its warn tone: the kit mutes
+  a title inside a toned section, so every ask's title was painted `--muted` at weight 400 while its
+  pill was amber; the title is the row's headline again and colour is spent on the pill and a danger
+  sentence. A band's head is its name and count — the shared `2 say: …` sentence and the suppression
+  it drove are gone, reversing #550's choice (a reader of the last release was told the opposite), so
+  every row prints its own reason, which closes the row whose facts line spanned ~400 px of nothing.
+  The fold reads `Show N more` / `Show fewer`, a phone keeps the id beside the title, a 2K row stops
+  at a readable measure, and the filter's `nothing matches` sentence survives Enter: the tab's own
+  empty statement matched a class inside the queue and removed it on the next frame, and it is now
+  scoped to the root. The Team page said the queue was one line per ask, none behind a fold, a column
+  per band on a 2K window — false since the last release — and now says what the page draws.
+
 - `board`, `session-bus`, `memory`, `wechat`, `job` and `plan`: every store this package creates is
   owner-only now — `0700` with `0600` files — where `jobs/<key>/` and `plans/<key>/` were `0755`
   with `0644` files. A job's log can carry what a command printed, a token included, and a plan is

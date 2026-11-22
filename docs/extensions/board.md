@@ -57,7 +57,7 @@ is closed. Each move follows the one transition from where the card is; no lane 
 **The page.** A lane's width follows its work; five lanes sit side by side (one below 1180px, via the picker)
 and a lane of 24 cards folds. The pane is the one scroll box: a lane is as tall as the board, its head riding
 its edge. The Team tab draws the board's card and raises what needs a lead above it: a band shows five rows,
-folds the rest, pins its head, and says a sentence every row shares once.
+folds the rest, pins its head, and leaves each row to say its own reason.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`, `approve`,
 `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full; `assign` is `team`'s verb

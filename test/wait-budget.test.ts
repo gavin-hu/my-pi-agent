@@ -89,14 +89,14 @@ function hookOffence(path: string, line: number, budget: number | undefined): st
  *
  * A scan for the launcher cannot be trusted to be complete — a suite may import
  * `openBoardBrowser` under another name, or reach Chromium through a helper of its own — so
- * this is an exact set, the way `ROOT_TEST_FILES` is: a new browser suite is added here and
- * the rule below covers it, and a path that is no longer a test, or no longer boots a
- * browser, fails as stale.
+ * this is an exact set, the way `ROOT_TEST_FILES` is: a new browser suite is added here and the
+ * rule below covers it, and a path no longer a test, or no longer booting a browser, fails as stale.
  */
 const BROWSER_SUITES = [
 	"extensions/board/view/behaviour.test.ts",
 	"extensions/board/view/filter-behaviour.test.ts",
 	"extensions/board/view/queue-bands.test.ts",
+	"extensions/board/view/queue-row-facts.test.ts",
 	"extensions/board/view/repaint.test.ts",
 	"extensions/plan/web-behaviour.test.ts",
 	"extensions/plan/web-live.test.ts",

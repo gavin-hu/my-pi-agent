@@ -115,7 +115,10 @@ const teamTemplate = String.raw`(function () {
 
     var barren = view.total === 0 && fleet.count === 0 && feed.waiting.total === 0 && feed.recent.total === 0;
     shell.grid.hidden = barren;
-    var statement = shell.root.querySelector(".board-team__empty");
+    // The tab's own statement is the root's direct child. A column inside it draws its own
+    // "nothing matches" paragraph with the same class, and an unscoped lookup reached into the
+    // columns and removed the queue's filtered sentence on the next frame (#782).
+    var statement = shell.root.querySelector(":scope > .board-team__empty");
     if (barren) {
       if (statement === null) shell.root.appendChild(el("p", N.teamEmpty, emptySentence()));
       return;
