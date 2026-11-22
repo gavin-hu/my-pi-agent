@@ -244,10 +244,7 @@ describe.skipIf(!runSlowSuites)("entering a worktree", () => {
 				return entry.customType === "worktree" && entry.data?.active === true;
 			}),
 		).toBe(true);
-		// The registry is state, so it files with the rest of the repository's state rather than
-		// beside the checkout — and the record still names the checkout's own path.
-		const registry = loadRegistry(await registryFileFor(harness.pi, repo));
-		expect(registry.worktrees.map((record) => record.path)).toContain(dir);
+		expect(loadRegistry(await registryFileFor(harness.pi, repo)).worktrees.map((r) => r.path)).toContain(dir);
 	});
 
 	test("refuses a name or a path that leaves the managed directory", async () => {
