@@ -177,7 +177,10 @@ describe("recordedPlans", () => {
 		// the store-relative name one written after records. The sweep compares file names, so
 		// one answer covers both.
 		const boardDir = tempDir("board-recorded-");
-		writeCard(boardDir, "0004.json", { ...card({ planPath: "/home/me/.pi/agent/plans/abc123/webhook.md" }), v: CARD_VERSION });
+		writeCard(boardDir, "0004.json", {
+			...card({ planPath: "/home/me/.pi/agent/plans/abc123/webhook.md" }),
+			v: CARD_VERSION,
+		});
 		writeCard(boardDir, "0005.json", { ...card({ id: "5", planPath: "2026-11-22-2212-second.md" }), v: CARD_VERSION });
 		expect(await recordedPlans(boardDir)).toEqual(new Set(["webhook.md", "2026-11-22-2212-second.md"]));
 	});

@@ -169,9 +169,7 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 		// must not wait for a directory it may not need, and a sweep has nothing to say when it
 		// finds the store inside the bound — one `readdir` of the count, then nothing.
 		const cwd = ctx.cwd;
-		void import("./prune.ts")
-			.then((prune) => prune.sweepQuietly(pi, cwd))
-			.catch(() => undefined);
+		void import("./prune.ts").then((prune) => prune.sweepQuietly(pi, cwd)).catch(() => undefined);
 	});
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_shutdown", async (_event, ctx) => {

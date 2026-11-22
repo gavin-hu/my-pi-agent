@@ -26,6 +26,7 @@ refinement a midline dot in the margin marks each section that changed.
 | Review with a teammate | `w` for the browser page, then **Share** for a QR or link on this Wi-Fi |
 | Leave without approving | `Esc` sends it back for another round; `x` leaves plan mode — the plan file stays either way |
 | Read an older plan | `/plan list`, then `Enter` |
+| Keep the store small | `/plan prune`, or `/plan prune --dry-run` for the counts first |
 
 ## Try it
 
@@ -104,12 +105,23 @@ that changes. A delegated agent runs with writing forced off.
   while its link is shared. At 1180px and below the sections list folds above the document
   and starts shut, while the switch and its count stay in view; below 640 the four actions
   become two and a **More** menu.
-- The plans directory is the only index — nothing deletes a plan for you.
+- The store keeps what both bounds allow — a plan older than `plan.maxAgeDays` *and* outside
+  the newest `plan.keep` — and never a plan a card on the board records. A plan nothing keeps goes,
+  which is what a finished card's plan is: the artifact is history once the merge is named.
 
 ## Settings
 
-Plan mode has no `bytefly.json` keys — the mode is the extension. To switch it
-off, toggle `plan` in `/bytefly`; the tool, the command, and the mode go with it.
+**The store's bound** is `bytefly.json`'s `plan` section: `keep` (the newest 100 plans per
+repository), `maxAgeDays` (180), and `enabled`. A plan is removed only when it is both older than
+`maxAgeDays` and outside the newest `keep`, a plan any card records is never removed, and a board
+that cannot be read removes nothing; `enabled: false` makes the automatic passes no-ops and leaves
+`/plan prune` as the only door. The automatic passes run after a write and at session start, 200
+removals at a time; `/plan prune` walks every store on the machine, which is what reclaims the
+plans of repositories that are no longer here. Every key is in the
+[plan section of the configuration reference](../configuration-reference.md#plan--the-plan-stores-bound).
+
+Plan mode itself has no key — the mode is the extension. To switch it off, toggle
+`plan` in `/bytefly`; the tool, the command, and the mode go with it.
 
 ## Learn more
 

@@ -121,6 +121,8 @@ describe("pruneText", () => {
 		expect(pruneText(report, true)).toContain("3 protected by a card");
 		expect(pruneText(report, false)).toContain("removed 36912 plans from 146 stores");
 		expect(pruneText(report, false)).toContain("385 MB freed");
-		expect(pruneText({ stores: 1, removed: 1, kept: 0, protected: 0, bytes: 12 }, false)).toContain("removed 1 plan from 1 store");
+		expect(pruneText({ stores: 1, removed: 1, kept: 0, protected: 0, bytes: 12 }, false)).toContain(
+			"removed 1 plan from 1 store",
+		);
 	});
 });

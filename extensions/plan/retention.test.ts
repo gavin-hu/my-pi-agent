@@ -101,7 +101,12 @@ describe("planRemovals", () => {
 
 	test("sweeps from the oldest end and stops at the batch, and the next pass carries on", () => {
 		const entries = [1, 2, 3, 4].map((rank) => aged(`plan-${rank}.md`, 400 + rank));
-		const options = { entries, protectedNames: new Set<string>(), config: config({ keep: 1, maxAgeDays: 180 }), nowMs: NOW };
+		const options = {
+			entries,
+			protectedNames: new Set<string>(),
+			config: config({ keep: 1, maxAgeDays: 180 }),
+			nowMs: NOW,
+		};
 		const first = planRemovals({ ...options, batch: 2 });
 		expect(first.remove).toEqual(["plan-4.md", "plan-3.md"]);
 		const rest = entries.filter((entry) => !first.remove.includes(entry.name));
@@ -168,7 +173,11 @@ describe("sweepPlanStore", () => {
 			[".gone-r001.md", 400],
 			["recorded.md", 9_000],
 		]);
-		const options = { config: config({ keep: 1, maxAgeDays: 180 }), protectedNames: new Set(["recorded.md"]), nowMs: NOW };
+		const options = {
+			config: config({ keep: 1, maxAgeDays: 180 }),
+			protectedNames: new Set(["recorded.md"]),
+			nowMs: NOW,
+		};
 		const first = await sweepPlanStore(dir, options);
 		expect(first.remove).toEqual(["gone.md", ".gone-r001.md"]);
 		expect(first.bytes).toBeGreaterThan(0);

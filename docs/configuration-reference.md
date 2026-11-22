@@ -21,6 +21,7 @@ resolves, and how to change one, is in [Configuration](./configuration.md).
 - [`goal` — the goal widget](#goal--the-goal-widget)
 - [`job` — background jobs](#job--background-jobs)
 - [`watch` — file and command watchers](#watch--file-and-command-watchers)
+- [`plan` — the plan store's bound](#plan--the-plan-stores-bound)
 - [`memory` — durable notes](#memory--durable-notes)
 - [`rewind` — snapshots](#rewind--snapshots)
 - [`subagent` — delegated runs](#subagent--delegated-runs)
@@ -68,6 +69,7 @@ repository root rather than the active working directory.
 | [`goal`](extensions/goal.md) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
 | [`job`](extensions/job.md) | `job` | Log-tail size and other job limits. |
 | [`watch`](extensions/watch.md) | `watch` | Watch limits, wake behaviour, and poll interval. |
+| [`plan`](extensions/plan.md) | `plan` | The stored plans' bound: how many are kept, and for how long. |
 | [`memory`](extensions/memory.md) | `memory` | Note injection limits. |
 | [`rewind`](extensions/rewind.md) | `rewind` | Snapshot scope and retention. |
 | [`subagent`](extensions/subagent.md) | `subagent` | Run deadline, transcript retention. |
@@ -76,8 +78,7 @@ repository root rather than the active working directory.
 | [`wechat`](extensions/wechat.md) | `wechat` | Bridge, media, and peer-feedback settings. |
 | [`worktree`](extensions/worktree.md) | `worktree` | Worktree directory name and behaviour. |
 
-`context`, `file-open`, `plan`, `question`, and `session-bus` read no
-configuration.
+`context`, `file-open`, `question`, and `session-bus` read no configuration.
 
 ## Document metadata
 
@@ -286,6 +287,20 @@ The settings screen has no row for it; `wakeOnMatch` is a `bytefly.json` edit.
 | `matchLines` | integer | `50` | `1`–`2000` | Lines returned by `matches` and `logs` when the call omits a count. |
 | `matchChars` | integer | `16384` | `1024`–`262144` | Longest prefix of a line a pattern or exclude is run against; every surface prints at most 200 characters of a line. |
 | `pollMs` | integer | `500` | `100`–`60000` | File poll interval; watchers do not use `fs.watch`. |
+
+## `plan` — the plan store's bound
+
+The settings screen has no row for it; each key is a `bytefly.json` edit.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `enabled` | boolean | `true` | | Sweep the stored plans after a write and at session start. `false` makes both no-ops and leaves `/plan prune` the only door. |
+| `keep` | integer | `100` | `1`–`5000` | Newest plans kept per repository, whatever their age. |
+| `maxAgeDays` | integer | `180` | `0`–`3650` | Age at which a plan is old enough to sweep; `0` caps it at today, which leaves the count alone deciding. |
+
+A plan is removed only when both bounds agree — older than `maxAgeDays` *and* outside the newest
+`keep` of its repository — and never when a card on the board records it. A revision goes only with
+its plan, and a finished card's plan is history: `archive/` protects nothing.
 
 ## `memory` — durable notes
 

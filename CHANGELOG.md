@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the store keeps a bound instead of growing forever. `plan.keep` (the newest 100 plans per
+  repository) and `plan.maxAgeDays` (180) must *both* agree before a plan is removed, a plan any card
+  on the board records is never removed, and a board that cannot be read removes nothing; a revision
+  goes only with its plan, and `plan.enabled: false` leaves `/plan prune` as the only door. The pass
+  runs after a write and at session start, bounded at 200 removals, and `/plan prune [--dry-run]`
+  sweeps every store the machine holds — which is what reclaims the 38 k plans left by repositories
+  that are no longer here.
+
 - `file-browse`: in a repository with no commit, the changes tag and a changed file's **changes**
   action open the comparison that holds what they counted — the **staged** index when something is
   added, the **worktree** when files are only written — instead of a page refusing the commit it

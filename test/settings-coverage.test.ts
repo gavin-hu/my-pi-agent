@@ -52,6 +52,7 @@ import {
 	normalizeConfig as normalizeJobConfig,
 } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG, normalizeMemoryConfig } from "../extensions/memory/config.ts";
+import { DEFAULT_PLAN_CONFIG, normalizePlanConfig } from "../extensions/plan/config.ts";
 import { DEFAULT_SERVE_CONFIG, normalizeServeConfig } from "../lib/serve-config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG,
@@ -221,6 +222,18 @@ const SECTIONS: readonly SectionCase[] = [
 			matchLines: "a model-facing limit",
 			matchChars: "a matching budget, tuned once",
 			pollMs: "a poll interval, tuned once",
+		},
+	},
+	{
+		// The plan store's bound is a number a person sets once, and one of them deletes files, so
+		// the screen carries no row and the document is the only door.
+		section: "plan",
+		defaults: DEFAULT_PLAN_CONFIG,
+		normalize: (raw) => normalizePlanConfig(raw, DEFAULT_PLAN_CONFIG),
+		jsonOnly: {
+			enabled: "a switch for a pass that deletes, left to the document",
+			keep: "a store limit, tuned once",
+			maxAgeDays: "a store limit, tuned once",
 		},
 	},
 	{
