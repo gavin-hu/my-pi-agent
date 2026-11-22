@@ -175,7 +175,7 @@ describe("approve", () => {
 		);
 		// A fact proved for one path cannot open a card whose record names another, so a plan
 		// re-recorded between the read and the sign is a card to read again.
-		const other = { kind: "approve" as const, artifact: { path: "plans/other.md", recorded: "plans/other.md" } };
+		const other = { kind: "approve" as const, artifact: { record: "plans/other.md", recorded: "plans/other.md" } };
 		expect(refusal(applyOp(card, other, LEAD, NOW, boardOf(card)))).toBe(
 			"#4's plan changed while it was being read; record it with `contract`.",
 		);

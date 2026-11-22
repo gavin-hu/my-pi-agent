@@ -53,7 +53,7 @@ export async function seedWorkingBoard(store: BoardStore, now: number): Promise<
 		doing.id,
 		{
 			kind: "contract",
-			artifact: { path: WORKING_PLAN },
+			artifact: { record: WORKING_PLAN },
 			goal: "A webhook order is stored once",
 			acceptance: "A retried delivery leaves one order",
 			scopeOut: "No refunds",
@@ -65,10 +65,10 @@ export async function seedWorkingBoard(store: BoardStore, now: number): Promise<
 		now - 119_500,
 	);
 	await store.mutate(doing.id, { kind: "note", text: "no retries yet" }, CORE, now - 118_000);
-	await store.mutate(doing.id, { kind: "approve", artifact: { path: WORKING_PLAN } }, LEAD, now - 118_500);
+	await store.mutate(doing.id, { kind: "approve", artifact: { record: WORKING_PLAN } }, LEAD, now - 118_500);
 	await store.mutate(
 		doing.id,
-		{ kind: "move", lane: "execute", artifact: { path: WORKING_PLAN } },
+		{ kind: "move", lane: "execute", artifact: { record: WORKING_PLAN } },
 		CORE,
 		now - 118_000,
 	);

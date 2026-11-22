@@ -239,8 +239,18 @@ export function registerTools(
 						// The four answers live with the reads behind them, loaded on the call that asks for one.
 						// The roster is passed rather than read there: a rename is a fact about the bus, so the
 						// listing asks it once, and the rows carry the live name while the rollup folds the rest.
+						// The plan store goes the same way: only a listing that names one card stats a plan, and
+						// a card holds a name, so the store is what turns it back into a file.
 						const { read } = await import("./listing.ts");
-						return await read(store, action, me, args, now, () => runtime.roster(ctx.cwd));
+						return await read(
+							store,
+							action,
+							me,
+							args,
+							now,
+							() => runtime.roster(ctx.cwd),
+							() => runtime.planDir(ctx.cwd),
+						);
 					}
 					case "add":
 						return await add(store, me, args, now);

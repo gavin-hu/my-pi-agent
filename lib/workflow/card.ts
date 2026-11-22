@@ -49,11 +49,10 @@ export const MAX_PATHS = 12;
 export const MAX_PATH = 200;
 
 /**
- * Longest recorded plan path, in characters.
+ * Longest recorded plan, in characters.
  *
- * The board records the *resolved* absolute path (a `~/…` form is expanded before it is
- * stored), so this cap holds a machine path rather than a caller's shorthand: a deep agent
- * directory plus a stamped plan name, with room for a platform's own limit.
+ * A name is short, and what needs the room is the absolute path an older card stored: a deep
+ * agent directory plus a stamped plan name, under a platform's own limit.
  */
 export const MAX_PLAN = 1024;
 
@@ -172,7 +171,9 @@ export interface Card {
 	owner?: CardOwner;
 	/** Repository-relative hints, never claims. */
 	paths: string[];
-	/** The plan file the work is done against, once one is recorded. */
+	/**
+	 * The plan the work is done against, once one is recorded: its name in this repository's store.
+	 */
 	planPath?: string;
 	/** What the card promises before it may be executed, and who approved that wording. */
 	contract?: Contract;
@@ -389,12 +390,12 @@ export function normalizeNote(raw: unknown): { text: string } | FieldError {
 }
 
 /**
- * The recorded plan path: one line, and nothing more.
+ * The recorded plan: one line, and nothing more.
  *
  * The board never reads the plan: `artifact.ts` resolves the caller's path against this
- * repository's plan store and proves it is there, and `contract` stores what came back, so
- * what arrives here is already an absolute path. This only holds it to one line and
- * {@link MAX_PLAN}.
+ * repository's plan store and answers the plan's name, so what a card keeps is a name rather than
+ * this host's path. A card written before that holds an absolute path, and is read as one. This
+ * only holds the record to one line and {@link MAX_PLAN}.
  */
 export function normalizePlanPath(raw: unknown): { path: string } | FieldError {
 	if (typeof raw !== "string") return { error: "path is required." };

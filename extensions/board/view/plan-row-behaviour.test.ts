@@ -59,9 +59,9 @@ describe.skipIf(CHROME === undefined)("the card dialog's plan row", () => {
 		// so the two surfaces spell a plan one way.
 		const named = (path: string): string => path.split(/[\\/]/).pop() ?? "";
 		const outside = "/opt/elsewhere/2026-11-11-1500-written-outside-home.md";
-		const contract = (path: string) => ({
+		const contract = (record: string) => ({
 			kind: "contract" as const,
-			artifact: { path },
+			artifact: { record },
 			goal: "One goal",
 			acceptance: "One test",
 			scopeOut: "Nothing else",

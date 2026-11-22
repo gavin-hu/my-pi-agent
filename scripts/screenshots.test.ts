@@ -451,7 +451,7 @@ describe("board fixture plan paths", () => {
 			const name = spelled.slice(spelled.lastIndexOf("/") + 1);
 			expect(name.endsWith(".md"), spelled).toBe(true);
 			writeFileSync(join(dir, name), "# A fixture plan\n- [ ] one\n");
-			expect(planForContract(dir, spelled), spelled).toEqual({ path: join(dir, name) });
+			expect(planForContract(dir, spelled), spelled).toEqual({ record: name });
 		}
 	});
 

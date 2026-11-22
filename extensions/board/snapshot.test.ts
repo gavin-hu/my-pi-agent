@@ -54,6 +54,7 @@ async function page() {
 		actor: () => ME,
 		now: () => clock.at,
 		bus: async () => ({ roster: undefined, waiting: { messages: [], dropped: 0 } }),
+		planDir: () => board.runtime.planDir(board.cwd),
 	});
 	return { board, store, snapshot, reads, clock };
 }

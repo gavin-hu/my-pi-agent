@@ -58,7 +58,7 @@ const LINES = { goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY };
 
 /** The contract op a case writes for the plan `plan`. */
 function contractOp(plan: string) {
-	return { kind: "contract" as const, artifact: { path: plan }, ...LINES };
+	return { kind: "contract" as const, artifact: { record: plan }, ...LINES };
 }
 
 describe("/board approve and /board review", () => {
@@ -332,15 +332,15 @@ describe("/board review --override", () => {
 	/** A card this fixture finished through the gate, with its sign taken back off afterward. */
 	async function closedByHand(board: Awaited<ReturnType<typeof signingBoard>>, me: typeof board.me) {
 		await board.store.mutate(board.id, contractOp(board.plan), me, 1_000);
-		await board.store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, { label: LEAD }, 1_000);
-		await board.store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, me, 1_000);
+		await board.store.mutate(board.id, { kind: "approve", artifact: { record: board.plan } }, { label: LEAD }, 1_000);
+		await board.store.mutate(board.id, { kind: "move", lane: "execute", artifact: { record: board.plan } }, me, 1_000);
 		await board.store.mutate(
 			board.id,
 			{ kind: "review", verified: { cmd: "bun run check", exit: 0, at: 1_000 } },
 			{ label: LEAD },
 			1_000,
 		);
-		await board.store.mutate(board.id, { kind: "move", lane: "done", artifact: { path: board.plan } }, me, 1_000);
+		await board.store.mutate(board.id, { kind: "move", lane: "done", artifact: { record: board.plan } }, me, 1_000);
 		const file = cardFile(board.agentDir, board.id);
 		const card = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
 		delete card.review;

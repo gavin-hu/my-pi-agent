@@ -32,6 +32,13 @@ export interface SnapshotContext {
 	 * A machine with no bus answers `roster: undefined` and an empty queue.
 	 */
 	bus: () => Promise<TeamRead>;
+	/**
+	 * This host's plan store, for the cards whose recorded plan is asked about.
+	 *
+	 * A thunk because the store is resolved from the session — a git call the session memoizes per
+	 * working directory — and a name a card records means nothing until it is joined to it.
+	 */
+	planDir: () => Promise<string>;
 }
 
 /** A pile already read: the cards, the files the reader refused, and the bytes they take. */
@@ -57,8 +64,10 @@ export async function viewOf(context: SnapshotContext, pile?: Pile): Promise<Boa
 			bytes,
 			skipped,
 			// A stat per card in a lane a plan gate is asked from, and none for the rest: the face can
-			// only act on a card that still has a move left, and the reason line is where it says so.
-			gonePlans: gonePlans(cards),
+			// only act on a card that still has a move left, and the reason line is where it says so. A
+			// card keeps the plan's name, so the store is resolved to ask: the session memoizes it, and
+			// a name joined to the wrong store would badge every named plan gone.
+			gonePlans: gonePlans(await context.planDir(), cards),
 			repo: context.store.name(),
 			root: context.store.root(),
 			where: context.store.where(),
