@@ -23,10 +23,12 @@ import {
 	GitError,
 	type GitResult,
 	hasCommits,
+	remoteUrl,
 	repoRoot,
 	repoRootFor,
 	revParse,
 	revParseMany,
+	rootCommit,
 	runGitOrThrow,
 	type RunGit,
 	worktrees,
@@ -229,6 +231,35 @@ describe("gitDir and gitCommonDir", () => {
 
 		const missing = recordingRunner(new Map([[key, { code: 128 }]]));
 		expect(await gitCommonDir(missing.run, "/repo")).toBeUndefined();
+	});
+});
+
+describe("remoteUrl and rootCommit", () => {
+	test("the remote comes back in git's own spelling, and absence is undefined", async () => {
+		const found = recordingRunner(
+			new Map([["config --get remote.origin.url", { stdout: "git@github.com:me/x.git\n" }]]),
+		);
+		expect(await remoteUrl(found.run, "/repo")).toBe("git@github.com:me/x.git");
+
+		// A repository with no remote exits 1 and prints nothing: absence, not a failure.
+		const none = recordingRunner(new Map([["config --get remote.origin.url", { code: 1 }]]));
+		expect(await remoteUrl(none.run, "/repo")).toBeUndefined();
+
+		const blank = recordingRunner(new Map([["config --get remote.origin.url", { stdout: "\n" }]]));
+		expect(await remoteUrl(blank.run, "/repo")).toBeUndefined();
+	});
+
+	test("the root commit is the first root, and an unborn history is undefined", async () => {
+		const found = recordingRunner(new Map([["rev-list --max-parents=0 HEAD", { stdout: "abc123def456\n" }]]));
+		expect(await rootCommit(found.run, "/repo")).toBe("abc123def456");
+
+		// Two independent beginnings: one line of a stable order, not a claim to be the only root.
+		const several = recordingRunner(new Map([["rev-list --max-parents=0 HEAD", { stdout: "abc\ndef\n" }]]));
+		expect(await rootCommit(several.run, "/repo")).toBe("abc");
+
+		// No commits: git exits 128 and prints nothing.
+		const unborn = recordingRunner(new Map([["rev-list --max-parents=0 HEAD", { code: 128 }]]));
+		expect(await rootCommit(unborn.run, "/repo")).toBeUndefined();
 	});
 });
 
