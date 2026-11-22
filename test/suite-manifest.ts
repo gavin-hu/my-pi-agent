@@ -183,6 +183,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/memory-picker-notices",
 	],
 	plan: [
+		"config",
 		"plans",
 		"plan-store-write",
 		"plan-index",
