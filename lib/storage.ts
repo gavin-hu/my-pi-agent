@@ -86,7 +86,7 @@ export const RESERVED_PATHS: readonly ReservedPath[] = [
 		home: "project",
 		owner: "package",
 		name: "worktrees/",
-		holds: "managed checkouts, and `index.json` for their registry",
+		holds: "managed checkouts, each on its own branch",
 		written: ["worktree"],
 	},
 	{ home: "project", owner: "you", name: "agents/", holds: "project agents, read-only", written: [] },

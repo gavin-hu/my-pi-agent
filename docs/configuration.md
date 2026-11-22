@@ -231,7 +231,7 @@ writes, and whether it can be deleted:
 |---|---|---|---|
 | `settings.json` | Pi's project settings, resource paths, and package declarations | `pi install --local`, or the settings screen's **Startup screen** and **Theme** rows | no — the project's packages go with it |
 | `bytefly.json` | this project's overrides, one section per extension | `bytefly`'s settings screen (**Project** scope), `team`'s `/team join`, or a hand edit | no |
-| `worktrees/` | managed checkouts, and `index.json` for their registry | [`worktree`](./extensions/worktree.md) | not while one is live; it prunes its own |
+| `worktrees/` | managed checkouts, each on its own branch | [`worktree`](./extensions/worktree.md) | not while one is live; it prunes its own |
 | `agents/` | project agents, read-only | you | no |
 | `cache/` | the last red run's JUnit report | `bun run check` | yes — the next run rewrites it |
 
