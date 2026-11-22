@@ -150,7 +150,12 @@ describe.skipIf(!runSlowSuites)("the store of a real linked worktree", () => {
 
 			const runtime = createMemoryRuntime(realPi);
 			await runtime.load(worktree, true);
-			expect(runtime.paths()?.project).toBe(join(repo, ".pi", "memory.md"));
+			// The property, not the spelling: the store is outside the worktree — so removing the
+			// tree cannot take the notes with it — and inside the agent directory, where the other
+			// machine's copy of it belongs. Both were once one path inside the checkout.
+			const store = runtime.paths()?.project ?? "";
+			expect(store.includes(join(repo, ".pi"))).toBe(false);
+			expect(store).toContain(join("repos", ""));
 			await runtime.add("project", "written in a worktree");
 			runtime.reset();
 
