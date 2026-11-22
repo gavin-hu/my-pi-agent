@@ -24,6 +24,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sweeps every store the machine holds — which is what reclaims the 38 k plans left by repositories
   that are no longer here.
 
+- `lib/web`: a tag's tone is its word's colour again. The kit's `.bf-tag`, `.bf-live` and
+  `.bf-reload` defaults set a colour at the same single-class specificity as the tone set and sat
+  below it, so `bf-tone--warn` and `bf-tone--dim` both painted `--muted`; the set now sits after the
+  rules it must beat, and `lib/web/tone.test.ts` reads the painted colours in both themes so a later
+  rule cannot silently win again. The board's Needs you pills, the "N needs you" chip, the live
+  state, code-review's pending count and the file-browse changes tag gain the colour their table
+  names; a dim tag is now `--dim`, quieter than before, as the table intends.
+
 - `file-browse`: in a repository with no commit, the changes tag and a changed file's **changes**
   action open the comparison that holds what they counted — the **staged** index when something is
   added, the **worktree** when files are only written — instead of a page refusing the commit it
