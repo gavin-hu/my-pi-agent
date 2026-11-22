@@ -379,6 +379,7 @@ export const LIB_SUITES: readonly string[] = [
 	"workflow/seat",
 	"workflow/signs",
 	"workflow/session",
+	"workflow/sync-folder",
 	"workflow/wire",
 	"workflow/skipped",
 	"workflow/store",
