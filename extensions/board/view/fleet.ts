@@ -33,8 +33,15 @@ const fleetTemplate = String.raw`(function () {
 
 __HISTORY_LINE__
 
-  /** The word a session's state is read as; a colour never carries it alone. */
+  /**
+   * The word a session's state is read as; a colour never carries it alone.
+   *
+   * Published, because two columns say it: the Agents column prints it beside the dot, and the
+   * queue's owner cell reads it for its own dot. The roster's words are the page's words, so this
+   * is the one table — a second map is how the same state starts reading two ways.
+   */
   var STATE_WORD = { live: "free", quiet: "quiet", gone: "gone", absent: "no record", unknown: "\u2014" };
+  board.stateWord = STATE_WORD;
 
   /** How many missions one card prints before it counts the rest. */
   var MISSIONS = 3;
