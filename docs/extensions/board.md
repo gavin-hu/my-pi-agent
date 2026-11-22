@@ -63,7 +63,9 @@ folds the rest, pins its head, and says a sentence every row shares once.
 `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full; `assign` is `team`'s verb
 under that rule, and one session holds one card in flight by default (`board.wip.perOwner`). `reclaim` takes a card back: the
 person and the lead always, a peer only while its owner is quiet or gone. `move` into `execute` or `done` re-reads the plan, and
-one that is gone refuses it. An `execute` card holds its `paths`: `edit` claims added ones and releases removed ones, claiming
+one that is gone refuses it. A card records the plan's **name** inside this repository's plan store, not this host's path, so a
+store shared by two machines resolves the same plan on either, and one that was recorded before that by absolute path still
+executes. An `execute` card holds its `paths`: `edit` claims added ones and releases removed ones, claiming
 first so a conflict releases nothing; `release` alone is undone by the next crossing. A contract names a `verify` command — the
 card's own check, not the repository's whole gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs
 it in the tree `root` names. `done` refuses a sign with no result or one older than the card's state (a note is not a change) and

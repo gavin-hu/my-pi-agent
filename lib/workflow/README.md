@@ -140,19 +140,22 @@ The arithmetic only: where the numbers are read from is `config.ts`, which hands
 ### artifact.ts
 
 Whether a path is a plan of this repository, which is the one thing the board asks of the
-plan store. `PlanArtifact` is the resolved path that was proved and `ArtifactCheck` is that
-path or the sentence refusing it — one fact for the state machine to order. `planForContract`
-requires a `.md` this repository's store holds whose file is there; `planForExecute` requires
-the recorded plan to still be there, named with the card and `contractRoute` as the way out.
-The path rules come from [`../plans/paths.ts`](../plans/paths.ts), so the board and the plan
-tool cannot disagree about what a plan path is; the board still never reads a plan.
+plan store. `PlanArtifact` is the record the fact is about — the plan's name inside the store,
+so another host joins it to its own store — and `ArtifactCheck` is that record or the sentence
+refusing it: one fact for the state machine to order. `planForContract` requires a `.md` this
+repository's store holds whose file is there, and answers the name a card keeps;
+`planForExecute` requires the recorded plan to still be there, answers the record the card holds
+verbatim (a name, or the absolute path an older card stored), and names `contractRoute` as the
+way out. The path rules come from [`../plans/paths.ts`](../plans/paths.ts), so the board and the
+plan tool cannot disagree about what a plan path is; the board still never reads a plan.
 
 `ArtifactProof` is why the fact is a question as often as an answer: a door proves a plan before
 `store.mutate` takes the board's lock, so a fact taken there is a fact about a moment the write
 has left. `proved` takes the deferred answer where the rule asks for it — inside the locked pass —
 and a caller that already holds one may hand the fact itself. `planIsGone` and `gonePlans` are the
 same stat asked for the drawing side: the `plan` and `execute` lanes only, because those are the
-cards a reader can still rescue.
+cards a reader can still rescue. Both take the store, because a record is a name to resolve
+before it is a file to `stat` — the page passes the session's memoized `planDir`.
 
 ## The lifecycle
 
