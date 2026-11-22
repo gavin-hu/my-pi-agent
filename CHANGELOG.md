@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: an ask row's owner cell says how its owner is doing, in the words the Agents column
+  already prints — `billing-core, free` — as the cell's tooltip and its accessible name, while the
+  dot stays a decoration that agrees with the word. It was the one fact on that row carried by
+  colour alone: a colour-blind reader saw a hue, and a screen reader heard the name and nothing
+  about its state (WCAG 1.4.1). The words are published once as `board.stateWord` and both columns
+  read them, so one state cannot be said two ways.
+
 - `board`: a Needs you row spans its band at every width, lifting the 1024px measure #784 gave it.
   The cap bought a readable line, but on a 2K window, where the band is 1824px, it stopped every row
   800px short of the band's edge with nothing to its right, so the queue read as two right edges and
