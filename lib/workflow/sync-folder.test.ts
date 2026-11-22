@@ -159,4 +159,15 @@ describe("the write lock's home", () => {
 		expect(claimed.ok).toBe(true);
 		expect(readFileSync(replicated, "utf-8")).toContain("another-machine");
 	});
+	test("reports a client's conflicted copy as a file it cannot read, and leaves the card beside it", async () => {
+		const { dir, store } = scratch();
+		const card = await store.create({ title: "mine", paths: [] }, LEAD, NOW);
+		// What a sync client leaves when both machines wrote: a name that is not a card id, so it is
+		// never opened as one — the reason is the reader's, and the card beside it is untouched.
+		writeFileSync(join(dir, "cards", "0042 (conflicted copy).json"), JSON.stringify({ ...card, title: "theirs" }));
+		const skipped = await store.skipped();
+		expect(skipped.map((entry) => entry.file)).toContain("0042 (conflicted copy).json");
+		expect(skipped.find((entry) => entry.file.startsWith("0042"))?.why).toBe("not a card id");
+		expect((await store.read(card.id))?.title).toBe("mine");
+	});
 });
