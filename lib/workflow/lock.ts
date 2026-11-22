@@ -60,7 +60,7 @@ const TAKEOVERS = 2;
 /** A lock is a private record of a process: the user's eyes only, like a card. */
 const LOCK_MODE = 0o600;
 
-/** The lock's one name, beside the board's `cards/` and `archive/` piles. */
+/** The lock's one name, in whichever directory holds it. */
 export const BOARD_LOCK_NAME = ".lock-board";
 
 /** What one holder wrote: who, and the token that makes it theirs. */
@@ -75,7 +75,15 @@ export interface BoardLock {
 	release(): Promise<void>;
 }
 
-/** The lock file for one board: a dotfile at its root, so no pile lists it as a card. */
+/**
+ * The lock file for one board, in the directory a caller keeps it in.
+ *
+ * That directory is a board's own only when the store is built by hand over one. The product
+ * keeps it in the agent directory's `presence/`, because a lock *inside* the store is the one
+ * thing a sync client must not replicate: a live holder on another machine would be read as a
+ * local process and taken over after the age rule, while a replicated idle lock would block a
+ * writer here for that same window.
+ */
 export function lockPathFor(dir: string): string {
 	return join(dir, BOARD_LOCK_NAME);
 }
@@ -124,8 +132,9 @@ export async function lockBoard(dir: string, options: LockOptions = {}): Promise
 	const create = options.create ?? createLock;
 	const held: Held = { pid: process.pid, token: randomUUID() };
 	const text = JSON.stringify(held);
-	// The board directory is the one the cards live in, so it is there; the create is still
-	// asked to make it, because a missing directory would fail as an error, not as a taken name.
+	// The directory may be one the store does not otherwise use — `presence/` is created on the
+	// first write — so the create is asked to make it: a missing directory would fail as an
+	// error, not as a taken name.
 	await mkdir(dir, { recursive: true });
 	const deadline = now() + waitMs;
 	let takeovers = 0;
