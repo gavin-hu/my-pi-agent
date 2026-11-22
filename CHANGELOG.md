@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card records its plan by the name it holds in this repository's plan store
+  (`2026-10-26-1008-the-query.md`) rather than the absolute path `plan` action `write` returned, so a
+  store two machines share resolves the same plan on either and a card contracted on one host still
+  executes on the other. The card's `planPath` is that name now: `planForContract` answers it and
+  `planForExecute` answers the record the card already holds, so a card written before this — an
+  absolute path — still reads present and still executes, and the plan-gone badge resolves a name
+  through the store rather than against the working directory. A build from before this reads a new
+  card's name as a gone plan in the page until it reloads.
+
 - `file-browse`: in a repository with no commit, the changes tag and a changed file's **changes**
   action open the comparison that holds what they counted — the **staged** index when something is
   added, the **worktree** when files are only written — instead of a page refusing the commit it
