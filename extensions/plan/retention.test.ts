@@ -139,8 +139,8 @@ describe("sweepPlanStore", () => {
 		for (const [name, days] of names) {
 			const path = join(dir, name);
 			writeFileSync(path, `# ${name}`);
-			const at = new Date(NOW - days * DAY);
-			utimesSync(path, at, at);
+			// Seconds, not a `Date`: the age bound reads an mtime, so a timestamp is the whole need.
+			utimesSync(path, (NOW - days * DAY) / 1_000, (NOW - days * DAY) / 1_000);
 		}
 		return dir;
 	}

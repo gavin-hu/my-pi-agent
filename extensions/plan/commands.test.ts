@@ -265,7 +265,7 @@ describe("/plan list", () => {
 		const complete = (prefix: string): string[] =>
 			(pi.commands.get("plan").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
 
-		expect(complete("")).toEqual(["list"]);
+		expect(complete("")).toEqual(["list", "prune"]);
 		expect(complete("li")).toEqual(["list"]);
 		expect(complete("r")).toEqual([]);
 		expect(complete("s")).toEqual([]);

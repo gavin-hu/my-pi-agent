@@ -189,6 +189,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"plan-index",
 		"plan-files",
 		"retention",
+		"prune",
 		"steps",
 		"todos",
 		"feedback",

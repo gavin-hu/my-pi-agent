@@ -21,6 +21,7 @@ import type { PlanWebReview } from "./web.ts";
 const ENABLED_NOTICE = "Plan mode enabled — read-only until you approve or leave.";
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 const LIST_PREFIX = "list";
+const PRUNE_PREFIX = "prune";
 
 /** Notice text for the current mode; shared by `/plan` and the toggle request. */
 export function planModeNotice(enabled: boolean): string {
@@ -40,6 +41,22 @@ function ensurePlanMode(runtime: PlanRuntime, ctx: ExtensionContext): void {
  */
 function isListSubcommand(prompt: string): boolean {
 	return prompt.toLowerCase() === LIST_PREFIX;
+}
+
+/**
+ * What a `/plan prune` line asks for, or why it asks for something the verb does not take.
+ *
+ * `prune` is reserved as the first word, so an extra word is the subcommand's own refusal rather
+ * than a task: saying so is the difference between a typo and a turn that starts planning.
+ */
+function pruneArgs(prompt: string): { dryRun: boolean } | { refuse: string } | undefined {
+	const words = prompt.toLowerCase().split(/\s+/).filter(Boolean);
+	if (words[0] !== PRUNE_PREFIX) return undefined;
+	const rest = words.slice(1);
+	if (rest.some((word) => word !== "--dry-run")) {
+		return { refuse: `/plan ${PRUNE_PREFIX} takes \`--dry-run\` and nothing else.` };
+	}
+	return { dryRun: rest.includes("--dry-run") };
 }
 
 /**
@@ -155,11 +172,11 @@ export function registerCommands(
 ): void {
 	pi.registerCommand("plan", {
 		description:
-			"Toggle plan mode (read-only exploration), enter it with an optional task, or list saved plans to read one in the browser",
+			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans to read one in the browser, or prune the stored plans",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
-			const subcommands = [LIST_PREFIX].filter((name) => name.startsWith(text));
+			const subcommands = [LIST_PREFIX, PRUNE_PREFIX].filter((name) => name.startsWith(text));
 			return subcommands.length > 0 ? subcommands.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args, ctx) => {
@@ -169,6 +186,21 @@ export function registerCommands(
 			// included — is a task.
 			if (isListSubcommand(prompt)) {
 				await openPlanIndex(pi, runtime, web, ctx);
+				return;
+			}
+
+			// `/plan prune` reaps the store: every store on this machine, and `--dry-run` first if
+			// the person wants the report without the removal. It runs even when automatic pruning
+			// is off, because that switch governs the passes nobody asked for.
+			const prune = pruneArgs(prompt);
+			if (prune !== undefined) {
+				if ("refuse" in prune) {
+					ctx.ui.notify(prune.refuse, "warning");
+					return;
+				}
+				const { pruneAll, pruneText } = await import("./prune.ts");
+				const report = await pruneAll(pi, ctx.cwd, { dryRun: prune.dryRun });
+				ctx.ui.notify(pruneText(report, prune.dryRun), "info");
 				return;
 			}
 
