@@ -16,7 +16,7 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { type Card, signatureOf } from "./card.ts";
 import { type Actor, createCard } from "./rules.ts";
 import { advance, permissiveStore } from "../../test/helpers/board-flow.ts";
-import { BOARD_DIR_NAME, boardDirFor, createStore, NEXT_ID_FILE, openBoard } from "./store.ts";
+import { BOARD_DIR_NAME, boardDirFor, createStore, openBoard } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
