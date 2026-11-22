@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`, `session-bus`, `memory`, `wechat`, `job` and `plan`: every store this package creates is
+  owner-only now — `0700` with `0600` files — where `jobs/<key>/` and `plans/<key>/` were `0755`
+  with `0644` files. A job's log can carry what a command printed, a token included, and a plan is
+  the artifact a card is executed against. There is no migration: an older directory narrows on its
+  next write. A config document's project `.pi` keeps the mode it has, because that directory is not
+  a store. The names this package reserves are one table in `lib/storage.ts`, with the agent
+  directory documented beside the project one and both held to it by `test/drift.test.ts` — which is
+  also how the `.pi/agents` row stopped claiming `subagent` writes it.
+
 - `board-triage`: the triage reads a card's own fields before its prose. `priority` orders the
   rows inside a wave and `type: "refactor"` is what makes a card a refactor, where both were
   inferred from a title; a card already in flight — an owner in `plan` or `execute`, or one
