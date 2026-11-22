@@ -35,7 +35,7 @@ refinement a midline dot in the margin marks each section that changed.
 ```
 
 The model reads the code and the git history. When it is done it saves a plan under
-`~/.pi/agent/plans/<repo-key>/` and opens the review screen; `a` approves it, `r` sends it back.
+`~/.pi/agent/repos/<repo-id>/plans/` and opens the review screen; `a` approves it, `r` sends it back.
 
 ```text
 plan exit 2026-10-09-1809-add-rate-limiting
@@ -59,7 +59,7 @@ The `plan` tool has five actions; `/plan` is the command that drives it.
 | `steps` | tick a step in the file and in its todo item, in one call |
 | `cancel` | leave plan mode, keeping any saved plan |
 
-**The plan file.** `~/.pi/agent/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md` — one store per
+**The plan file.** `~/.pi/agent/repos/<repo-id>/plans/<YYYY-MM-DD-HHmm>-<slug>.md` — one store per
 repository, shared by its worktrees, with each refinement's replaced text kept beside it as a hidden
 file, five deep. The plan is what the model follows: approving it seeds its steps into your todo list
 and finalizes a session goal that was only drafted, from the plan's own `Goal`. Approving a refinement

@@ -12,6 +12,7 @@ import { dirname, join } from "node:path";
 import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { migrateStoreDir } from "./store-paths.ts";
+import { isInside, isInsideReal } from "./path.ts";
 
 const temps = makeTempTracker();
 
@@ -75,5 +76,22 @@ describe("migrateStoreDir", () => {
 		const to = join(blocker, "repos", "abc", "board");
 		expect(await migrateStoreDir(from, to)).toBe("failed");
 		expect(readFileSync(join(from, "0004.json"), "utf-8")).toBe("a card");
+	});
+});
+
+describe("the layout's promise", () => {
+	test("never resolves a repository's store inside the repository", async () => {
+		// The property this card exists for, as a case: a store a sync client may replicate cannot
+		// live in the checkout it belongs to, or the two machines' copies would be dirs apart. The
+		// case that first caught it was a job registry written into the worktree root by a caller
+		// that handed the repository root where a `repos/<id>` directory was expected.
+		const { repoStoreDir } = await import("./repo-key.ts");
+		const repo = temps.track(tempDir("pi-layout-repo-"));
+		const agentDir = temps.track(tempDir("pi-layout-agent-"));
+		const dir = repoStoreDir(agentDir, "5f3c8a1b2d4e", "board");
+		expect(isInside(repo, dir)).toBe(false);
+		expect(isInsideReal(repo, dir)).toBe(false);
+		// And it is inside the agent directory, where the other machine's copy of it belongs.
+		expect(isInside(agentDir, dir)).toBe(true);
 	});
 });

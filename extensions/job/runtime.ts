@@ -17,8 +17,7 @@
  * twice and listeners/waiters are removed on cleanup.
  */
 
-import { getAgentDir, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { join } from "node:path";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { KILL_GRACE_MS } from "../../lib/child.ts";
 import { abortableSleep } from "../../lib/timer.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
@@ -28,10 +27,8 @@ import { createExternalSweep, createRepaintClock } from "./clock.ts";
 import { DEFAULT_CONFIG, loadConfig, type JobsConfig } from "./config.ts";
 import { compareJobs } from "./format.ts";
 import {
-	JOBS_DIR_NAME,
 	loadRecords,
 	loadRegistries,
-	projectKey,
 	registryDirFor,
 	removeLegacyRegistry,
 	removeRegistry,
@@ -63,14 +60,6 @@ export interface RuntimeOptions {
 	isWindows?: () => boolean;
 	/** Fixed config, for tests; production loads it per cwd. */
 	config?: JobsConfig;
-	/**
-	 * The directory this session's repository files its jobs in, resolved by the factory.
-	 *
-	 * A seam rather than a `pi`: this runtime never shells out for identity, and the factory is the
-	 * one place that already holds an exec seam. Absent — every suite that never cared where the
-	 * directory is — the registry is filed the way it was before the layout move.
-	 */
-	repoDir?: (cwd: string) => Promise<string>;
 	/** How long to wait before a shutdown's SIGKILL; the grace, injectable so a test need not sleep. */
 	sleep?: (ms: number) => Promise<void>;
 }
@@ -449,17 +438,12 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		children.disposeAll();
 		waiters.resolveAll();
 
-		// The durable registry is filed with the rest of the repository's state, under the identity
-		// both machines compute — resolved once, here, because it costs two git calls and a job that
-		// is never started should not pay them at registration. Jobs still run in the effective root
-		// (`start` uses `effectiveCwd`).
+		// The durable registry is keyed by the session's own cwd, not the active
+		// worktree root: entering or leaving a worktree mid-session must not move it
+		// out from under the records already collected here. Jobs still run in the
+		// effective root (`start` uses `effectiveCwd`).
 		config = options.config ?? loadConfig(ctx.cwd);
-		const repoDir = options.repoDir === undefined ? undefined : await options.repoDir(ctx.cwd);
-		store().setDirectory(
-			repoDir === undefined
-				? registryDirFor(join(getAgentDir(), JOBS_DIR_NAME, projectKey(ctx.cwd)), config.registryDir)
-				: registryDirFor(repoDir, config.registryDir),
-		);
+		store().setDirectory(registryDirFor(ctx.cwd, config.registryDir));
 		sessionId = ctx.sessionManager.getSessionId();
 		store().setSession(sessionId);
 		ui.attach(ctx);

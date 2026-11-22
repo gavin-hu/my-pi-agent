@@ -221,7 +221,7 @@ interface StoreRow {
 /** The modules that own a location under the agent directory. */
 const STORES: readonly StoreRow[] = [
 	{
-		location: "<agent-dir>/plans/",
+		location: "<agent-dir>/repos/<repo-id>/plans/",
 		page: "plan.md",
 		module: "extensions/plan/plans.ts",
 		constantsIn: "lib/plans/paths.ts",
@@ -229,7 +229,7 @@ const STORES: readonly StoreRow[] = [
 	},
 	{ location: "<agent-dir>/memory.md", page: "memory.md", module: "extensions/memory/store.ts", names: "memory.md" },
 	{
-		location: "<agent-dir>/session-bus/<repo-key>/",
+		location: "<agent-dir>/repos/<repo-id>/session-bus/",
 		page: "session-bus.md",
 		module: "extensions/session-bus/runtime.ts",
 		constantsIn: "lib/session-roster.ts",
@@ -243,12 +243,18 @@ const STORES: readonly StoreRow[] = [
 	},
 	{ location: "<agent-dir>/jobs/<project>/", page: "job.md", module: "extensions/job/registry.ts", names: "jobs" },
 	{
+		location: "<agent-dir>/repos/<repo-id>/worktrees.json",
+		page: "worktree.md",
+		module: "extensions/worktree/registry.ts",
+		names: "worktrees.json",
+	},
+	{
 		location: "<agent-dir>/bytefly/update.json",
 		page: "bytefly.md",
 		module: "extensions/bytefly/update/cache.ts",
 		names: "update.json",
 	},
-	{ location: "<agent-dir>/board/<repo-key>/", page: "", module: "lib/workflow/store.ts", names: "board" },
+	{ location: "<agent-dir>/repos/<repo-id>/board/", page: "", module: "lib/workflow/store.ts", names: "board" },
 	{ location: "<agent-dir>/bytefly.json", page: "", module: "lib/config.ts", names: "bytefly.json" },
 ];
 

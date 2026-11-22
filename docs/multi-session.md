@@ -29,7 +29,7 @@ imports    board, team ───► lib/workflow/*
            session-bus ───► lib/session-mail.ts · session-roster.ts · session-label.ts
            session-bus ──╳► lib/workflow/*           the bus knows nothing of cards
 
-files      board's Team tab ───► ~/.pi/agent/session-bus/<repo-key>/   ◄── session-bus
+files      board's Team tab ───► ~/.pi/agent/repos/<repo-id>/session-bus/   ◄── session-bus
            read through lib/session-roster.ts and session-mail.ts, so the page draws
            the queue with the bus extension switched off
 
@@ -90,7 +90,7 @@ requests   board, team ───► lib/session-tool.ts
 ## What none of them promise
 
 - **No authentication.** The bus is files under
-  `~/.pi/agent/session-bus/<repo-key>/`, on this machine, under your OS user: any
+  `~/.pi/agent/repos/<repo-id>/session-bus/`, on this machine, under your OS user: any
   process with your file access can read and write it.
 - **No lock.** Ownership is a session id, so two sessions can still open one file; a
   path claim is what makes the collision visible before the edit.
