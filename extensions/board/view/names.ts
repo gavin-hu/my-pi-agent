@@ -109,9 +109,10 @@ export const BOARD_CLASS = {
 	queueRow: "board-queue__row",
 	queueRank: "board-queue__rank",
 	queueRef: "board-queue__ref",
-	// The row's one line: the kind it changes beside the title it changes, so the reason under it
-	// stays the sentence it is.
-	queueTitle: "board-queue__title",
+	// The two blocks a row is: the title's line, and the facts' — the pill, the kind, the sentence,
+	// the owner and the age, under the title they belong to.
+	queueHead: "board-queue__head",
+	queueFacts: "board-queue__facts",
 	queueWhy: "board-queue__why",
 	// The sentence a whole band repeats, said once in the band's head rather than sixty times.
 	queueSaid: "board-queue__said",

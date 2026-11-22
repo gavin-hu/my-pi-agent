@@ -298,13 +298,10 @@ ${DECISION_WHY_CSS}
    twice. An h4.bf-lane__head and a bf-lane__list are the kit's lane shapes one level down, and
    the queue's own indent is what says so: a band sits inside the queue, and the lane heads under
    it are the column's sections. */
-.board-queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr));align-items:start;column-gap:var(--space-4);row-gap:var(--space-3);min-width:0;padding-inline:var(--space-3)}
-/* A wide window takes a band per column rather than one row a metre wide: a row is a line of
-   facts read as one, and past about 32rem its title and its age are a screen apart. The track's
-   floor is what holds that — two of them plus the gap is where the grid splits — and a band never
-   caps, so the asks fill the pane instead of stopping 300px short of it while the swimlanes under
-   them run its whole width. A pane wide enough for only one band gives that band all of it, which
-   is the one place a row reads wider than two bands would: an empty pane is the worse trade. */
+/* One column, always: the bands are sections of one queue, not three lists side by side — a band
+   in a track of its own put one band's tally against the next band's name and read as two queues.
+   Every band is drawn, so the column's shape is the same on every board and at every width. */
+.board-queue{display:flex;flex-direction:column;gap:var(--space-3);min-width:0;padding-inline:var(--space-3)}
 .board-queue__band{display:flex;flex-direction:column;min-width:0}
 /* The control that carries a band's tail sits under the rows it left out, one step off them: it
    belongs to the list, not to the band's head. */
@@ -322,28 +319,28 @@ ${DECISION_WHY_CSS}
    which is right for a lane that fills its column; two bands side by side would then put one
    band's count against the next band's name. */
 .board-queue .bf-lane__head .bf-lane__count{margin-left:0}
-/* Nothing to say still says it across the whole pane, whatever the window is: the sentence is the
-   queue's own paragraph, not one band's row. */
-.board-queue > .board-team__empty{grid-column:1 / -1}
-/* One line, six cells, and the reason under the title: the grid is what makes two rows' facts
-   line up, so a column of ids and a column of ages are columns. The pill's track is a minimum
-   rather than a maximum so that every row's title starts at the same place — a row is its own
-   grid, so a track that followed its content would move the title row by row. */
-.board-queue__row{display:grid;grid-template-columns:2ch 4.5ch minmax(6rem,max-content) minmax(0,1fr) max-content 4.5ch;align-items:baseline;gap:var(--space-1) var(--space-2);min-width:0}
-.board-queue__row > .board-stamp{justify-self:end;margin-left:0}
-.board-queue__rank{color:var(--dim);font:var(--fs-xs) var(--font-mono);font-variant-numeric:tabular-nums}
-.board-queue__ref{color:var(--muted);font:var(--fs-xs) var(--font-mono)}
-/* The title is the row's one control, and one line of it: the whole of it is on the hover and in
-   the dialog, and a queue whose rows are two titles tall is a queue a reader scrolls. Its cell
-   carries the kind beside it — one line, so a tag cannot cost a line of its own — and takes the
-   grid's slack, which is what keeps the age at the row's edge. */
-.board-queue__title{display:flex;align-items:baseline;gap:var(--space-1);min-width:0}
-.board-queue__row .bf-row__title{display:block;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer}
-.board-queue__row .bf-row__title:hover{color:var(--accent)}
-/* The sentence is the row's foot, under the title it belongs to and running to the row's edge: the
-   id is a column of its own, and a sentence that stopped at the title's width would wrap where the
-   facts beside it have nothing to say. */
-.board-queue__why{grid-column:4 / -1;display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+/* Nothing to say still says it, under the three heads: the sentence is the queue's own paragraph. */
+.board-queue > .board-team__empty{margin:0}
+/* Two lines, two blocks: the title's, and the facts'. The six columns before this spent 330 px of
+   a 704 px row before the title could have a pixel, so every desktop title was elided; a title on
+   its own line reads whole, and the facts it was competing with — the id, the pill, the kind, the
+   reason, the owner, the age — have the line the reason already ran on. */
+.board-queue__row{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+/* The title's line: the rank and the id, then the row's one control, which is 24 px tall even
+   where its text is 21 because the row's only target was 18 — smaller than the kit's own fold. */
+.board-queue__head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+.board-queue__ref{display:inline-flex;align-items:baseline;gap:var(--space-1);flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+.board-queue__rank{color:var(--dim);font-variant-numeric:tabular-nums}
+.board-queue__head .bf-row__title{display:block;flex:1 1 auto;min-width:0;min-height:24px;line-height:24px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer}
+.board-queue__head .bf-row__title:hover{color:var(--accent)}
+/* The facts line: the pill, the kind, the sentence, the owner, the age. The age takes the row's
+   right edge, so a column of ages survives a one-line reason. */
+.board-queue__facts{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);min-width:0}
+.board-queue__facts > .board-stamp{margin-left:auto;font:var(--fs-xs) var(--font-ui)}
+/* The sentence is bounded to two lines: it is the row's reason, not its content, and one 400-char
+   chain of blockers drew five. The whole of it is on the hover and in the description the title
+   points at; a browser without the clamp prints it whole — height lost, never words. */
+.board-queue__why{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;flex:1 1 12ch;min-width:0;margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 /* MOVING — the board's own card, in a lane one column narrower: the shape, the paper and the
    order come from the lane rules above, so this column is the board at a glance. */
 .board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
@@ -452,26 +449,18 @@ ${DIALOG_TONE_CSS}
   .board-team__column[data-column="activity"]{grid-column:auto}
   /* A state can no longer sit on the row's line on a phone, so it wraps under the name. */
   .board-agent__head{flex-wrap:wrap}
-  /* A phone keeps the title's width, and the rank is the one fact a narrow row can spare: the
-     order is still the document's. */
-  .board-queue__row{grid-template-columns:4.5ch minmax(6rem,max-content) minmax(0,1fr) max-content 4.5ch}
+  /* The rank is the one fact a narrow row can spare: the order is still the document's, and the
+     number is only a reading aid. */
   .board-queue__rank{display:none}
-  .board-queue__why{grid-column:3 / -1}
 }
-/* A phone has no room for six columns and no use for an elided title, so the row stops being a
-   grid: the id, the pill and the age keep a line, the title and its kind take the whole of the
-   next one and wrap, and the reason follows it. The holder's dot is the one fact this width drops
-   — the Agents column above names who holds what, and a reason names the owner whenever the name
-   is the point ("bob is not running — the card is free"). */
+/* A phone has no use for an elided title, so the head wraps and the title takes the row's whole
+   width. The holder's dot is the one fact this width drops — the Agents column above names who
+   holds what, and a reason names the owner whenever the name is the point ("bob is not running —
+   the card is free"). */
 @media (max-width:560px){
-  .board-queue__row{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2)}
-  .board-queue__row .board-queue__ref{order:0}
-  .board-queue__row > .bf-tag{order:1}
-  .board-queue__row > .board-stamp{order:2;margin-left:auto}
-  .board-queue__title{order:3;flex:1 1 100%;flex-wrap:wrap}
-  .board-queue__row .board-queue__title .bf-row__title{flex:1 1 100%;white-space:normal}
-  .board-queue__row > .board-owner{display:none}
-  .board-queue__why{order:4;flex:1 1 100%}
+  .board-queue__head{flex-wrap:wrap;align-items:baseline}
+  .board-queue__head .bf-row__title{flex:1 1 100%;white-space:normal}
+  .board-queue__facts > .board-owner{display:none}
 }
 /* Five lane names do not fit a phone: the tab rail wraps rather than a horizontal scroller
    that can hide the lane a reader is on. */

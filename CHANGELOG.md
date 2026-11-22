@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the Needs you queue is one column of three bands — Your signature, Unclaimed and Stalled
+  are always drawn, a head with 0 included — and each ask is a title line with its facts under it.
+  The six-column row spent 330 px of a 704 px row before the title could have a pixel, so every
+  desktop title was elided; the title now reads whole, the pill, the kind, the reason, the owner and
+  the age sit on the line below, a reason is clamped to two lines with the whole sentence in the
+  hover and in the description, a waiting row no longer prints its last write as an age, and the
+  rank numbers the rows as drawn. A band-suppressed row grows from 24 to about 44 px, and a queue
+  with nothing asked shows its three heads at 0 instead of an empty pane.
+
 - `board`: a card records its plan by the name it holds in this repository's plan store
   (`2026-10-26-1008-the-query.md`) rather than the absolute path `plan` action `write` returned, so a
   store two machines share resolves the same plan on either and a card contracted on one host still

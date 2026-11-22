@@ -239,13 +239,18 @@ __LABEL_KEY__
   }
 
   /**
-   * One ask: the id, the pill it wears, its kind and title, who holds it, one age, and why it is
-   * here.
+   * One ask: a title line and a facts line.
    *
    * The title is the row's one control, as it is on the board's own face, so j/k and the
-   * dialog's walk find this row without knowing it exists. The reason is printed rather than
-   * hidden in a tooltip: it is the sentence the queue exists for — except for a row that says
-   * what its band already said, which is described by the head instead.
+   * dialog's walk find this row without knowing it exists — and it is the whole of the first
+   * line, because the six-column row spent 330 px of a 704 px row before the title could have a
+   * pixel and elided every one of them. The facts the row is read for — the pill it wears, the
+   * kind it changes, the sentence it is here for, who holds it and one age — sit under it, where
+   * the reason already ran.
+   *
+   * The reason is printed rather than hidden in a tooltip: it is the sentence the queue exists
+   * for — except for a row that says what its band already said, which is described by the head
+   * instead and keeps its facts line for the rest.
    */
   function decisionRow(entry, view, said) {
     var card = entry.card;
@@ -254,51 +259,61 @@ __LABEL_KEY__
     // ground, so an ask needs no paper and no glyph of its own.
     row.setAttribute("data-tone", decisionTone(entry.kind));
     row.setAttribute("data-card", card.id);
-    row.appendChild(el("span", N.queueRank, String(entry.rank)));
-    row.appendChild(el("span", N.queueRef, "#" + card.id));
-    row.appendChild(whyPill(entry));
-    // What the card is, in the label the face and the record wear, and on the row's own line: a
-    // tag on a line of its own was a second line for one word, and a breaking change is the one
-    // fact a decision must not hide.
-    var cell = el("span", N.queueTitle);
-    var kind = kindLabel(card);
-    if (kind !== undefined) cell.appendChild(kind);
+    var head = el("div", N.queueHead);
+    var ref = el("span", N.queueRef);
+    ref.appendChild(el("span", N.queueRank, String(entry.rank)));
+    ref.appendChild(document.createTextNode("#" + card.id));
+    head.appendChild(ref);
     var title = el("button", "bf-row__title", card.title);
     title.type = "button";
     title.setAttribute("aria-haspopup", "dialog");
     title.title = card.title;
     title.addEventListener("click", function () { board.openCard(card.id); });
-    cell.appendChild(title);
-    row.appendChild(cell);
-    // The holder keeps its cell when there is none: the age sits at the row's edge in every
-    // row, and a column of ages with gaps in it is not a column.
-    row.appendChild(card.owner ? ownerMeta(view, card.owner.label) : el("span", N.owner));
-    // A reason that names an age is stamped in the age's place rather than printed twice.
-    if (entry.at === undefined) row.appendChild(board.stamp(card.updatedAt, undefined, true));
-    // A row that says what its band already said keeps no line of its own: the band's head is
+    head.appendChild(title);
+    row.appendChild(head);
+    var facts = el("div", N.queueFacts);
+    facts.appendChild(whyPill(entry));
+    // What the card is, in the label the face and the record wear: it leaves the title's line,
+    // where it cost the room an 80-character title needs, and a breaking change keeps the word a
+    // decision must not hide.
+    var kind = kindLabel(card);
+    if (kind !== undefined) facts.appendChild(kind);
+    // A row that says what its band already said keeps no sentence of its own: the band's head is
     // the sentence for every row under it, and the title is described by that head.
     if (said !== undefined && entry.at === undefined && entry.why === said.text) {
       title.setAttribute("aria-describedby", said.id);
-      return row;
-    }
-    var meta = el("p", N.queueWhy);
-    if (entry.at === undefined) {
-      meta.appendChild(document.createTextNode(entry.why));
     } else {
-      meta.appendChild(board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording }));
+      var meta = el("p", N.queueWhy);
+      if (entry.at === undefined) {
+        meta.appendChild(document.createTextNode(entry.why));
+      } else {
+        meta.appendChild(board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording }));
+      }
+      meta.id = "team-why-" + card.id;
+      // The whole sentence on the hover: the line is clamped to two, and nothing is lost with the
+      // words the box hides.
+      meta.title = entry.why;
+      title.setAttribute("aria-describedby", meta.id);
+      facts.appendChild(meta);
     }
-    meta.id = "team-why-" + card.id;
-    title.setAttribute("aria-describedby", meta.id);
-    row.appendChild(meta);
+    facts.appendChild(card.owner ? ownerMeta(view, card.owner.label) : el("span", N.owner));
+    // A waiting row's stamp would be the card's last write, not the wait: the reason already
+    // names what it waits on, so the row keeps no age rather than the wrong one.
+    if (entry.kind !== "waiting") facts.appendChild(board.stamp(card.updatedAt, undefined, true));
+    row.appendChild(facts);
     return row;
   }
 
   /**
-   * The asks filed under each band, in the column's order, with the empty bands left out.
+   * The asks filed under each band, in the column's order.
    *
-   * The ranks survive the filing: a card keeps the place decisionsOf gave it, so the order
-   * inside a band is the one the terminal's rollup reads, and a heading over nothing is never
-   * drawn.
+   * Every band is drawn, a head with no rows included: the sections are the column's shape, so a
+   * board with nothing unclaimed still reads Unclaimed 0 rather than losing the section — and the
+   * column's shape stops depending on the data.
+   *
+   * The rank follows the filing rather than leading it: the caller numbers these rows in the
+   * order they are drawn, because the queue is one order the bands explain — not three lists whose
+   * numbers would run backwards.
    *
    * A band carries the sentence its rows share and whether it starts folded, because the frame
    * and the build have to agree about both: the signature is what says the pane must be rebuilt,
@@ -312,7 +327,6 @@ __LABEL_KEY__
       for (var i = 0; i < entries.length; i++) {
         if (BANDS.of[entries[i].kind] === key) rows.push(entries[i]);
       }
-      if (rows.length === 0) continue;
       bands.push({
         key: key,
         label: BANDS.label[key],
@@ -353,9 +367,11 @@ __LABEL_KEY__
     }
     head.setAttribute("aria-label", band.label + ", " + plural(band.rows.length, "row") + saidLabel);
     section.appendChild(head);
+    var shown = band.collapsed ? band.rows.slice(0, board.foldAt.queue) : band.rows;
+    // An empty band is its head and its count: a list under it would be a gap with nothing in it.
+    if (shown.length === 0) return section;
     var list = el("ol", N.laneList);
     list.id = rowsId(band.key);
-    var shown = band.collapsed ? band.rows.slice(0, board.foldAt.queue) : band.rows;
     for (var i = 0; i < shown.length; i++) list.appendChild(decisionRow(shown[i], view, said));
     section.appendChild(list);
     if (band.rows.length > board.foldAt.queue) {
@@ -432,14 +448,19 @@ __LABEL_KEY__
   board.activeColumn = function (view, decisions, query, filtering) {
     var keep = function (card) { return board.matches(card, query); };
     var shown = decisions.filter(function (entry) { return keep(entry.card); });
-    // A rank is the ask's place in the queue, not the place of the row that happened to be drawn:
-    // a folded band's tail keeps its numbers, so opening it changes no number above it.
-    for (var r = 0; r < shown.length; r++) shown[r].rank = r + 1;
     // The bands are read once, for the signature and for the build alike: whether a band is
-    // folded is one of the facts the frame prints, and a fold the signature missed would open
-    // and close without a repaint. Ranks run across the bands rather than restarting in each —
-    // the queue is one order that the filing explains, not three lists that sit together.
+    // folded is one of the facts the frame prints, and a fold the signature missed would open and
+    // close without a repaint.
     var bands = banded(shown);
+    // A rank is the row's place as drawn, running across the bands rather than restarting in
+    // each. The numbers were once assigned before the filing, so the queue read 1, 2, 4, 5, 6, 3;
+    // the terminal prints its round unnumbered and decisionRank is a kind's rank, not a row's,
+    // so the drawn order costs no surface a parity it had. A folded band's tail keeps its
+    // numbers, so opening it changes none above it.
+    var order = 0;
+    for (var br = 0; br < bands.length; br++) {
+      for (var rr = 0; rr < bands[br].rows.length; rr++) bands[br].rows[rr].rank = ++order;
+    }
     var lanes = [];
     for (var i = 0; i < LANES.length; i++) {
       var lane = board.laneOf(view, LANES[i]);
@@ -479,10 +500,12 @@ __LABEL_KEY__
         // a reader was left to add the rows under it to a number that did not include them.
         pane.appendChild(board.paneHead("Needs you", shown.length, decisions.length));
         var queue = el("div", N.queue);
-        if (bands.length === 0) {
+        for (var b = 0; b < bands.length; b++) queue.appendChild(bandSection(bands[b], view));
+        // Every band is drawn, so an empty queue is three 0-count heads: the sentence under them
+        // says why, and a filter says what it hid.
+        if (shown.length === 0) {
           queue.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "nothing needs you: nothing to sign, nothing unclaimed, nothing stalled"));
         }
-        for (var b = 0; b < bands.length; b++) queue.appendChild(bandSection(bands[b], view));
         pane.appendChild(queue);
         slot.appendChild(pane);
         var list = el("div", N.teamLanes);
