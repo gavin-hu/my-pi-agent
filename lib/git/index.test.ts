@@ -11,7 +11,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { scratchDir, withEnv } from "../../test/helpers/env.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
+import { makeTempTracker, recordingRunner } from "../../test/helpers/git.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import {
 	createExecRunner,
@@ -23,31 +23,19 @@ import {
 	GitError,
 	type GitResult,
 	hasCommits,
+	remoteUrl,
 	repoRoot,
 	repoRootFor,
 	revParse,
 	revParseMany,
+	rootCommit,
 	runGitOrThrow,
-	type RunGit,
-	worktrees,
 } from "./index.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 /** A temp directory, removed at teardown. */
-/** A runner that answers from a map or a function, and records every call. */
-function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: string[]) => Partial<GitResult>)) {
-	const calls: Array<{ args: string[]; options: { cwd: string; timeoutMs?: number; env?: Record<string, string> } }> =
-		[];
-	const run: RunGit = async (args, options) => {
-		calls.push({ args, options });
-		const partial = typeof responses === "function" ? responses(args) : (responses.get(args.join(" ")) ?? {});
-		return { stdout: "", stderr: "", code: 0, ...partial };
-	};
-	return { run, calls };
-}
-
 // --- The execution runner ---------------------------------------------------
 
 /**
@@ -232,40 +220,32 @@ describe("gitDir and gitCommonDir", () => {
 	});
 });
 
-describe("worktrees", () => {
-	const porcelain = [
-		"worktree /repo",
-		"HEAD 1234567890abcdef",
-		"branch refs/heads/main",
-		"",
-		"worktree /repo/.pi/worktrees/side",
-		"HEAD abcdef1234567890",
-		"branch refs/heads/worktree-side",
-		"locked pi:42:side",
-		"",
-		"worktree /repo/bare.git",
-		"bare",
-		"",
-	].join("\n");
+describe("remoteUrl and rootCommit", () => {
+	test("the remote comes back in git's own spelling, and absence is undefined", async () => {
+		const found = recordingRunner(
+			new Map([["config --get remote.origin.url", { stdout: "git@github.com:me/x.git\n" }]]),
+		);
+		expect(await remoteUrl(found.run, "/repo")).toBe("git@github.com:me/x.git");
 
-	test("lists every tree, the main checkout first, one entry per block", async () => {
-		const { run, calls } = recordingRunner(() => ({ stdout: porcelain }));
-		expect(await worktrees(run, "/repo")).toEqual([
-			{ path: "/repo", head: "12345678", branch: "main" },
-			{ path: "/repo/.pi/worktrees/side", head: "abcdef12", branch: "worktree-side", locked: "pi:42:side" },
-			{ path: "/repo/bare.git", bare: true },
-		]);
-		expect(calls[0]?.args).toEqual(["worktree", "list", "--porcelain"]);
+		// A repository with no remote exits 1 and prints nothing: absence, not a failure.
+		const none = recordingRunner(new Map([["config --get remote.origin.url", { code: 1 }]]));
+		expect(await remoteUrl(none.run, "/repo")).toBeUndefined();
+
+		const blank = recordingRunner(new Map([["config --get remote.origin.url", { stdout: "\n" }]]));
+		expect(await remoteUrl(blank.run, "/repo")).toBeUndefined();
 	});
 
-	test("reads a lock without a reason as the empty string, and a detached head as no branch", async () => {
-		const { run } = recordingRunner(() => ({ stdout: "worktree /repo\nHEAD abcdef1234567890\nlocked\n" }));
-		expect(await worktrees(run, "/repo")).toEqual([{ path: "/repo", head: "abcdef12", locked: "" }]);
-	});
+	test("the root commit is the first root, and an unborn history is undefined", async () => {
+		const found = recordingRunner(new Map([["rev-list --max-parents=0 HEAD", { stdout: "abc123def456\n" }]]));
+		expect(await rootCommit(found.run, "/repo")).toBe("abc123def456");
 
-	test("is no list when git refuses, the same answer as no repository", async () => {
-		const { run } = recordingRunner(() => ({ code: 128, stderr: "not a git repository" }));
-		expect(await worktrees(run, "/repo")).toEqual([]);
+		// Two independent beginnings: one line of a stable order, not a claim to be the only root.
+		const several = recordingRunner(new Map([["rev-list --max-parents=0 HEAD", { stdout: "abc\ndef\n" }]]));
+		expect(await rootCommit(several.run, "/repo")).toBe("abc");
+
+		// No commits: git exits 128 and prints nothing.
+		const unborn = recordingRunner(new Map([["rev-list --max-parents=0 HEAD", { code: 128 }]]));
+		expect(await rootCommit(unborn.run, "/repo")).toBeUndefined();
 	});
 });
 

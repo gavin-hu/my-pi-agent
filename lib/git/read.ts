@@ -278,6 +278,35 @@ export async function gitCommonDir(runGit: RunGit, cwd: string): Promise<string 
 	return dir || undefined;
 }
 
+/**
+ * The repository's configured remote URL, in git's own spelling.
+ *
+ * Whatever the remote names — an ssh shorthand, a URL, a path — is what comes back, because
+ * normalizing it is the caller's job and the one question here is whether there is a remote at
+ * all. `undefined` is "no answer", which a repository without a remote is rather than a failure.
+ */
+export async function remoteUrl(runGit: RunGit, cwd: string): Promise<string | undefined> {
+	const result = await runGit(["config", "--get", "remote.origin.url"], { cwd });
+	if (result.code !== 0) return undefined;
+	const url = result.stdout.trim();
+	return url || undefined;
+}
+
+/**
+ * The oldest commit reachable from `HEAD`: the repository's root commit.
+ *
+ * `--max-parents=0` lists the roots, so more than one line means a history with several
+ * beginnings (an independent tree merged in). The first is taken rather than the last: a
+ * caller sharing state across machines needs an id both of them compute, and one line of a
+ * stable order is one; "the only root" is a stronger claim than the answer supports.
+ */
+export async function rootCommit(runGit: RunGit, cwd: string): Promise<string | undefined> {
+	const result = await runGit(["rev-list", "--max-parents=0", "HEAD"], { cwd });
+	if (result.code !== 0) return undefined;
+	const [first] = result.stdout.trim().split("\n");
+	return first === undefined || first === "" ? undefined : first.trim();
+}
+
 /** Resolve a revision to a full object id, or undefined when it does not exist. */
 export async function revParse(runGit: RunGit, cwd: string, rev: string): Promise<string | undefined> {
 	const result = await runGit(["rev-parse", "--verify", "--quiet", rev], { cwd });
