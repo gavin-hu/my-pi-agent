@@ -31,7 +31,7 @@ import {
 } from "../../test/helpers/fixtures/worktree.ts";
 import { analyzeBashCommand, guardFileTool, guardPowershellTool, isUnverifiable, resolveUnder } from "./guard.ts";
 import worktreeExtension from "./index.ts";
-import { loadRegistry } from "./registry.ts";
+import { loadRegistry, registryFileFor } from "./registry.ts";
 import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "./runtime.ts";
 
@@ -244,7 +244,10 @@ describe.skipIf(!runSlowSuites)("entering a worktree", () => {
 				return entry.customType === "worktree" && entry.data?.active === true;
 			}),
 		).toBe(true);
-		expect(loadRegistry(repo, testConfig()).worktrees.map((record) => record.path)).toContain(dir);
+		// The registry is state, so it files with the rest of the repository's state rather than
+		// beside the checkout — and the record still names the checkout's own path.
+		const registry = loadRegistry(await registryFileFor(harness.pi, repo));
+		expect(registry.worktrees.map((record) => record.path)).toContain(dir);
 	});
 
 	test("refuses a name or a path that leaves the managed directory", async () => {

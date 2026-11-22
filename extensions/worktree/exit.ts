@@ -20,7 +20,7 @@ import {
 	worktreeRemove,
 } from "./git.ts";
 import { handoffLines, type Handoff } from "./handoff.ts";
-import { removeRecord, touchRecord } from "./registry.ts";
+import { removeRecord, touchRecord, registryFileFor } from "./registry.ts";
 import { applyWorktreeEnv, clearConfigCache, getActive, publishWorktree, setActive, setStatus } from "./runtime.ts";
 import { persistState, type WorktreeState } from "./state.ts";
 import { worktreeLabel } from "./status.ts";
@@ -184,6 +184,9 @@ export async function exitWorktree(
 		return `${standing.ahead} commit(s) not merged`;
 	};
 	let removed = false;
+	// Resolved once for this command: the registry is state, and it lives with the rest of the
+	// repository's state rather than beside the checkouts.
+	const registryFile = await registryFileFor(pi, state.repoRoot);
 
 	if (remove) {
 		const outcome = await worktreeRemove(pi, state.repoRoot, state.path, forceRemove);
@@ -191,10 +194,10 @@ export async function exitWorktree(
 			lines.push(`Kept the worktree: ${outcome.error}`);
 			// Re-lock so a concurrent prune cannot sweep a worktree we kept.
 			if (state.lockReason) await lockWorktree(pi, state.repoRoot, state.path, state.lockReason);
-			touchRecord(state.repoRoot, config, state.path);
+			touchRecord(registryFile, state.path);
 		} else {
 			removed = true;
-			removeRecord(state.repoRoot, config, state.path);
+			removeRecord(registryFile, state.path);
 			lines.push(`Removed worktree ${state.path}`);
 			if (state.branch) {
 				if (keepBranch) {
@@ -219,7 +222,7 @@ export async function exitWorktree(
 					: `Re-enter with \`worktree\` action \`enter\` (path: ${state.path}); /worktree enter only manages ${config.dir}`,
 			);
 		}
-		touchRecord(state.repoRoot, config, state.path);
+		touchRecord(registryFile, state.path);
 	}
 
 	const handoff = handoffFrom(state, standing, recorded);

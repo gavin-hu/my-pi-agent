@@ -48,7 +48,7 @@ import { copyIncludes, includePatterns, isIncluded } from "./include.ts";
 import {
 	loadRegistry,
 	reconcileRegistry,
-	registryPath,
+	REGISTRY_FILE_NAME,
 	removeRecord,
 	statusOf,
 	touchRecord,
@@ -77,6 +77,11 @@ function stubPi(route: (args: string[]) => { stdout?: string; stderr?: string; c
 }
 
 /** The managed worktree directory for a name, canonicalized the way git reports it. */
+/** The registry file these cases write: the store's own name, at a temp path. */
+function registryOf(repo: string): string {
+	return join(repo, REGISTRY_FILE_NAME);
+}
+
 describe("configuration", () => {
 	test("returns the defaults when no file exists", () => {
 		expect(loadConfig(tempDir("worktree-repo-"), tempDir("worktree-global-"))).toEqual(DEFAULT_CONFIG);
@@ -216,38 +221,38 @@ describe("managed registry store", () => {
 
 	test("loads empty when the file is missing or malformed", () => {
 		const repo = temps.track(tempDir("pi-wt-reg-"));
-		expect(loadRegistry(repo, testConfig())).toEqual({ version: 1, worktrees: [] });
+		expect(loadRegistry(registryOf(repo))).toEqual({ version: 1, worktrees: [] });
 
-		const file = registryPath(repo, testConfig());
+		const file = registryOf(repo);
 		mkdirSync(join(repo, ".pi", "worktrees"), { recursive: true });
 		writeFileSync(file, "{ not json");
-		expect(loadRegistry(repo, testConfig()).worktrees).toEqual([]);
+		expect(loadRegistry(registryOf(repo)).worktrees).toEqual([]);
 		writeFileSync(file, JSON.stringify({ worktrees: "nope" }));
-		expect(loadRegistry(repo, testConfig()).worktrees).toEqual([]);
+		expect(loadRegistry(registryOf(repo)).worktrees).toEqual([]);
 	});
 
 	test("upsert preserves createdAt, touch updates only lastUsedAt", () => {
 		const repo = temps.track(tempDir("pi-wt-reg-"));
 		const path = join(repo, "a");
-		upsertRecord(repo, testConfig(), record(path, { createdAt: 1000, lastUsedAt: 1000 }));
-		upsertRecord(repo, testConfig(), record(path, { createdAt: 9999, lastUsedAt: 5000 }));
+		upsertRecord(registryOf(repo), record(path, { createdAt: 1000, lastUsedAt: 1000 }));
+		upsertRecord(registryOf(repo), record(path, { createdAt: 9999, lastUsedAt: 5000 }));
 
-		const [stored] = loadRegistry(repo, testConfig()).worktrees;
+		const [stored] = loadRegistry(registryOf(repo)).worktrees;
 		expect(stored.createdAt).toBe(1000);
 		expect(stored.lastUsedAt).toBe(5000);
 
-		touchRecord(repo, testConfig(), path, 7777);
-		expect(loadRegistry(repo, testConfig()).worktrees[0].lastUsedAt).toBe(7777);
+		touchRecord(registryOf(repo), path, 7777);
+		expect(loadRegistry(registryOf(repo)).worktrees[0].lastUsedAt).toBe(7777);
 	});
 
 	test("remove drops a record and ignores unknown paths", () => {
 		const repo = temps.track(tempDir("pi-wt-reg-"));
 		const path = join(repo, "a");
-		upsertRecord(repo, testConfig(), record(path));
-		removeRecord(repo, testConfig(), join(repo, "other"));
-		expect(loadRegistry(repo, testConfig()).worktrees).toHaveLength(1);
-		removeRecord(repo, testConfig(), path);
-		expect(loadRegistry(repo, testConfig()).worktrees).toHaveLength(0);
+		upsertRecord(registryOf(repo), record(path));
+		removeRecord(registryOf(repo), join(repo, "other"));
+		expect(loadRegistry(registryOf(repo)).worktrees).toHaveLength(1);
+		removeRecord(registryOf(repo), path);
+		expect(loadRegistry(registryOf(repo)).worktrees).toHaveLength(0);
 	});
 
 	test("reconcile drops vanished records and synthesizes unknown ones", () => {
@@ -256,10 +261,10 @@ describe("managed registry store", () => {
 		const gone = join(repo, "gone");
 		const added = join(repo, "added");
 		mkdirSync(keep);
-		upsertRecord(repo, testConfig(), record(keep));
-		upsertRecord(repo, testConfig(), record(gone));
+		upsertRecord(registryOf(repo), record(keep));
+		upsertRecord(registryOf(repo), record(gone));
 
-		const { registry, changed } = reconcileRegistry(repo, testConfig(), [
+		const { registry, changed } = reconcileRegistry(registryOf(repo), repo, [
 			{ path: keep, branch: "worktree-keep" },
 			{ path: added, branch: "worktree-added" },
 		]);
@@ -282,9 +287,9 @@ describe("managed registry store", () => {
 		mkdirSync(managed, { recursive: true });
 		symlinkSync(real, join(repo, "link"));
 
-		upsertRecord(repo, testConfig(), record(join(repo, "link", ".pi", "worktrees", "wt")));
+		upsertRecord(registryOf(repo), record(join(repo, "link", ".pi", "worktrees", "wt")));
 
-		const { registry } = reconcileRegistry(repo, testConfig(), [{ path: managed, branch: "worktree-wt" }]);
+		const { registry } = reconcileRegistry(registryOf(repo), repo, [{ path: managed, branch: "worktree-wt" }]);
 		expect(registry.worktrees).toHaveLength(1);
 		expect(registry.worktrees[0].path).toBe(join(realpathSync.native(real), ".pi", "worktrees", "wt"));
 	});
@@ -808,7 +813,7 @@ describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
 	function age(repo: string, dir: string): void {
 		const seconds = AGED_MS / 1000;
 		utimesSync(dir, seconds, seconds);
-		touchRecord(repo, testConfig(), dir, AGED_MS);
+		touchRecord(registryOf(repo), dir, AGED_MS);
 	}
 
 	async function prune(repo: string): Promise<string> {

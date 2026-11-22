@@ -34,7 +34,7 @@ import {
 	worktreePath,
 } from "./git.ts";
 import { copyIncludes, includePatterns } from "./include.ts";
-import { upsertRecord } from "./registry.ts";
+import { upsertRecord, registryFileFor } from "./registry.ts";
 import {
 	applyWorktreeEnv,
 	clearConfigCache,
@@ -272,7 +272,7 @@ export async function enterWorktree(
 	persistState((customType, data) => pi.appendEntry(customType, data), state);
 	// Best-effort provenance for management (list/prune/switch); never blocks enter.
 	try {
-		upsertRecord(root, config, {
+		upsertRecord(await registryFileFor(pi, ctx.cwd), {
 			path: target,
 			name: state.name,
 			branch,

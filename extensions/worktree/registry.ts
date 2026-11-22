@@ -13,10 +13,10 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { writeJsonFile } from "../../lib/json.ts";
+import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
-import type { WorktreeConfig } from "./config.ts";
 import { commitsAhead, commitsBehind, isStaleLock, type ManagedWorktree, statusEntries } from "./git.ts";
 
 const REGISTRY_VERSION = 1;
@@ -64,10 +64,6 @@ export interface CheckoutStatus {
 	lastUsedAt?: number;
 }
 
-export function registryPath(repoRoot: string, config: WorktreeConfig): string {
-	return join(repoRoot, config.dir, "index.json");
-}
-
 function emptyRegistry(): WorktreeRegistry {
 	return { version: REGISTRY_VERSION, worktrees: [] };
 }
@@ -78,10 +74,30 @@ function isRecord(value: unknown): value is WorktreeRecord {
 	return typeof record.path === "string" && typeof record.repoRoot === "string";
 }
 
+/** The file a repository's worktree registry lives in, inside its own directory. */
+export const REGISTRY_FILE_NAME = "worktrees.json";
+
+/**
+ * Resolve this repository's registry file, taking an older one across on the first look.
+ *
+ * The registry is *state*: `WorktreeRecord.path` is a canonical absolute path per record, so the
+ * document is portable as a file and moves through the same mover as every other store. The
+ * checkouts are not moved — relocating a live `git worktree` is `git worktree move`, with its own
+ * failure cases — so `worktree.dir` keeps its meaning and its default.
+ */
+export async function registryFileFor(pi: ExtensionAPI, cwd: string): Promise<string> {
+	const agentDir = getAgentDir();
+	const { repoStoreDirFor } = await import("../../lib/store-paths.ts");
+	const { dir } = await repoStoreDirFor(pi, resolveEffectiveCwd(cwd), agentDir, REGISTRY_FILE_NAME, (repo) =>
+		join(repo.root, ".pi", "worktrees", "index.json"),
+	);
+	return dir;
+}
+
 /** Read the registry. Missing, unreadable, or malformed files load as empty. */
-export function loadRegistry(repoRoot: string, config: WorktreeConfig): WorktreeRegistry {
+export function loadRegistry(registryFile: string): WorktreeRegistry {
 	try {
-		const parsed = JSON.parse(readFileSync(registryPath(repoRoot, config), "utf-8")) as Partial<WorktreeRegistry>;
+		const parsed = JSON.parse(readFileSync(registryFile, "utf-8")) as Partial<WorktreeRegistry>;
 		if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.worktrees)) return emptyRegistry();
 		return { version: REGISTRY_VERSION, worktrees: parsed.worktrees.filter(isRecord) };
 	} catch {
@@ -90,17 +106,17 @@ export function loadRegistry(repoRoot: string, config: WorktreeConfig): Worktree
 }
 
 /** Atomically persist the registry. Failures are swallowed: it is a cache. */
-function saveRegistry(repoRoot: string, config: WorktreeConfig, registry: WorktreeRegistry): void {
+function saveRegistry(registryFile: string, registry: WorktreeRegistry): void {
 	try {
-		writeJsonFile(registryPath(repoRoot, config), registry);
+		writeJsonFile(registryFile, registry);
 	} catch {
 		// Losing the registry only loses provenance, never a worktree.
 	}
 }
 
 /** Insert or replace a record, preserving an existing `createdAt`. */
-export function upsertRecord(repoRoot: string, config: WorktreeConfig, record: WorktreeRecord): void {
-	const registry = loadRegistry(repoRoot, config);
+export function upsertRecord(registryFile: string, record: WorktreeRecord): void {
+	const registry = loadRegistry(registryFile);
 	const path = realPathOfNearest(record.path);
 	const existing = registry.worktrees.find((candidate) => candidate.path === path);
 	const next: WorktreeRecord = existing
@@ -109,26 +125,26 @@ export function upsertRecord(repoRoot: string, config: WorktreeConfig, record: W
 	registry.worktrees = registry.worktrees.filter((candidate) => candidate.path !== path);
 	registry.worktrees.push(next);
 	registry.worktrees.sort((a, b) => a.path.localeCompare(b.path));
-	saveRegistry(repoRoot, config, registry);
+	saveRegistry(registryFile, registry);
 }
 
 /** Mark a worktree as just used. No-op when it is not registered. */
-export function touchRecord(repoRoot: string, config: WorktreeConfig, path: string, at = Date.now()): void {
-	const registry = loadRegistry(repoRoot, config);
+export function touchRecord(registryFile: string, path: string, at = Date.now()): void {
+	const registry = loadRegistry(registryFile);
 	const wanted = realPathOfNearest(path);
 	const record = registry.worktrees.find((candidate) => candidate.path === wanted);
 	if (!record) return;
 	record.lastUsedAt = at;
-	saveRegistry(repoRoot, config, registry);
+	saveRegistry(registryFile, registry);
 }
 
-export function removeRecord(repoRoot: string, config: WorktreeConfig, path: string): void {
-	const registry = loadRegistry(repoRoot, config);
+export function removeRecord(registryFile: string, path: string): void {
+	const registry = loadRegistry(registryFile);
 	const wanted = realPathOfNearest(path);
 	const next = registry.worktrees.filter((candidate) => candidate.path !== wanted);
 	if (next.length === registry.worktrees.length) return;
 	registry.worktrees = next;
-	saveRegistry(repoRoot, config, registry);
+	saveRegistry(registryFile, registry);
 }
 
 /**
@@ -138,12 +154,12 @@ export function removeRecord(repoRoot: string, config: WorktreeConfig, path: str
  * `options.persist` is not `false` (the read-only status path passes `false`).
  */
 export function reconcileRegistry(
+	registryFile: string,
 	repoRoot: string,
-	config: WorktreeConfig,
 	managed: ManagedWorktree[],
 	options: { persist?: boolean } = {},
 ): { registry: WorktreeRegistry; changed: boolean } {
-	const registry = loadRegistry(repoRoot, config);
+	const registry = loadRegistry(registryFile);
 	// Resolve each entry once: the live set and the synthesized records both need it.
 	const resolved = managed.map((entry) => ({ entry, path: realPathOfNearest(entry.path) }));
 	const live = new Set(resolved.map((row) => row.path));
@@ -173,7 +189,7 @@ export function reconcileRegistry(
 	}
 
 	registry.worktrees = next.sort((a, b) => a.path.localeCompare(b.path));
-	if (changed && options.persist !== false) saveRegistry(repoRoot, config, registry);
+	if (changed && options.persist !== false) saveRegistry(registryFile, registry);
 	return { registry, changed };
 }
 
