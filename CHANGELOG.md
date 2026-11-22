@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the Needs you ask row's facts line is one type size. The kind and the owner were inheriting
+  the column's 15px/22.5 in a line whose pill, reason and age are 12px, so a row carried three things
+  at title size, its sentence was the smallest, and a one-line row was 43px without a kind or an
+  owner, 51 with a kind and 52 with one. `.board-queue__facts` sets 12px/16 itself now, so every
+  one-line row is 44px; the pill and the kind sit in a 13rem track so the reason starts at one x
+  instead of 138px apart on two rows; and at a phone the reason takes a full line rather than the
+  99px strip the labels left it.
+
 - `board`: the Needs you queue is one head over one column of asks, and every row says its own reason.
   The `ACTIVE WORK` caption and the pane's `NEEDS YOU` head were two counts of different things —
   four cards, six asks — so one caption counts the asks and carries the filtered `0 of 6`, while the

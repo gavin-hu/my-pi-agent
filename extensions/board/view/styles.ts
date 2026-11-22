@@ -339,12 +339,25 @@ ${DECISION_WHY_CSS}
 .board-queue__head .bf-row__title:hover{color:var(--accent)}
 /* The facts line: the pill, the kind, the sentence, the owner, the age. The age takes the row's
    right edge, so a column of ages survives a one-line reason. */
-.board-queue__facts{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);min-width:0}
+/* The facts line is one size: the pill, the kind, the reason, the owner and the age are all 12px,
+   because the kind and the owner used to inherit the column's 15px and put three things on one row
+   at title size — while the sentence the queue exists for was the smallest. 16px is the line, so a
+   one-line row is the same height whatever optional parts a card carries. */
+.board-queue__facts{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);min-width:0;font:var(--fs-xs) var(--font-ui);line-height:16px}
+/* The labels are the row's scan key and its left column: a track the width of the widest pair this
+   queue produces at 12px ("needs approval" + "feature · breaking" is about 191px), so the reason
+   starts at one x on every row instead of following whatever the pill and kind happen to measure. A
+   pair wider than the track shrinks it rather than being cut. */
+.board-queue__labels{display:flex;align-items:baseline;gap:var(--space-1) var(--space-2);flex:0 1 13rem;min-width:0}
+/* The pill and the reason set their own font shorthand, which resets line-height to normal; the
+   facts line's 16px has to reach them too, or a row with no owner is 15 instead of 16 and the
+   rhythm splits again. */
+.board-queue__facts .bf-tag,.board-queue__facts .board-queue__why{line-height:16px}
 .board-queue__facts > .board-stamp{margin-left:auto;font:var(--fs-xs) var(--font-ui)}
 /* The sentence is bounded to two lines: it is the row's reason, not its content, and one 400-char
    chain of blockers drew five. The whole of it is on the hover and in the description the title
    points at; a browser without the clamp prints it whole — height lost, never words. */
-.board-queue__why{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;flex:1 1 12ch;min-width:0;margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+.board-queue__why{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;flex:1 1 0;min-width:0;margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 /* MOVING — the board's own card, in a lane one column narrower: the shape, the paper and the
    order come from the lane rules above, so this column is the board at a glance. */
 .board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
@@ -465,6 +478,11 @@ ${DIALOG_TONE_CSS}
   /* The id keeps its line and the title keeps its whole text: the head does not wrap, so a short
      name sits beside the number and a long one wraps inside its own box. */
   .board-queue__head{align-items:baseline}
+  /* A phone has no room for a track: the labels and the age keep the first facts line, and the
+     reason takes the width beneath it — a 29-character sentence reads instead of clamping into the
+     strip the labels would leave it. */
+  .board-queue__labels{flex:1 1 auto}
+  .board-queue__why{flex:1 1 100%}
   .board-queue__head .bf-row__title{white-space:normal}
   .board-queue__facts > .board-owner{display:none}
 }

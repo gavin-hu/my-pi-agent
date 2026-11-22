@@ -110,6 +110,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/team",
 		"view/team-mail",
 		"view/queue-bands",
+		"view/queue-row-facts",
 	],
 	context: ["report", "view/context-report", "extension"],
 	"file-read": ["extract/extract", "tool"],
