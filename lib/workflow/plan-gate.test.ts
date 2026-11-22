@@ -27,7 +27,7 @@ describe("the plan gate", () => {
 
 	test("a fact bound to another record is refused as stale, not trusted", () => {
 		const card = approved();
-		const elsewhere = { path: card.planPath ?? "plans/webhook.md", recorded: "plans/another.md" };
+		const elsewhere = { record: "plans/another.md" };
 		expect(mayOp(card, { kind: "move", lane: "execute", artifact: elsewhere }, CORE, boardOf(card))).toContain(
 			"changed while it was being read",
 		);

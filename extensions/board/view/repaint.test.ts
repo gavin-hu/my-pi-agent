@@ -332,7 +332,7 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		// An empty cell under a heading reads as a value that went missing, not one nobody wrote.
 		const owed = await board.store.create({ title: "A line still owed", paths: [] }, LEAD, clock.now() + 20_000);
 		await board.store.mutate(owed.id, { kind: "claim" }, LEAD, clock.now() + 20_001);
-		const plan = { path: `${owed.id}.md` };
+		const plan = { record: `${owed.id}.md` };
 		const partial = await board.store.mutate(
 			owed.id,
 			{ kind: "contract", artifact: plan, goal: "G", scopeOut: "S" },

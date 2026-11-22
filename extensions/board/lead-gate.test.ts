@@ -24,7 +24,12 @@ function refused(word: string): string {
 describe("/board's lead gate", () => {
 	test("refuses an approval typed where the lead is not, and writes nothing", async () => {
 		const board = await signingBoard({ seat: "api-core" });
-		await board.store.mutate(board.id, { kind: "contract", artifact: { path: board.plan }, ...LINES }, board.me, 1_000);
+		await board.store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { record: board.plan }, ...LINES },
+			board.me,
+			1_000,
+		);
 		expect(await board.say("approve 1")).toBe(refused("approve"));
 		expect((await board.store.read(board.id))?.contract?.approved).toBeUndefined();
 		board.temps.flush();

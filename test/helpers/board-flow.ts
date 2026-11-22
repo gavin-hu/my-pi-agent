@@ -94,19 +94,19 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	if (planned.contract === undefined) {
 		// The artifact is the fact the tool proves; a seed records the path it names.
 		const asked = who.run === undefined ? {} : { verify: who.run.cmd };
-		await apply({ kind: "contract", artifact: { path: plan }, ...TEST_CONTRACT, ...asked });
+		await apply({ kind: "contract", artifact: { record: plan }, ...TEST_CONTRACT, ...asked });
 	}
 	const written = await read();
 	if (written.contract?.approved === undefined) {
 		// An approval covers the plan the card names, so the seed proves what the record holds —
 		// the same fact the tool would have proved from the file.
-		const proof = written.planPath === undefined ? {} : { artifact: { path: written.planPath } };
+		const proof = written.planPath === undefined ? {} : { artifact: { record: written.planPath } };
 		const result = await store.mutate(id, { kind: "approve", ...proof }, personActor(), now);
 		if (!result.ok) fail(result.error);
 	}
 	const contract = (await read()).planPath;
 	if ((await read()).lane === "plan") {
-		await apply({ kind: "move", lane: "execute", artifact: { path: contract ?? plan } });
+		await apply({ kind: "move", lane: "execute", artifact: { record: contract ?? plan } });
 	}
 	if (lane === "execute") return;
 	if ((await read()).review === undefined) {
@@ -127,7 +127,7 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	await apply({
 		kind: "move",
 		lane: "done",
-		artifact: { path: contract ?? plan },
+		artifact: { record: contract ?? plan },
 		landed: { landing: { sha: "9a7d2e00000000000000000000000000000000000" } },
 	});
 }

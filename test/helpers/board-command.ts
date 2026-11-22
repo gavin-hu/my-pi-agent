@@ -166,7 +166,7 @@ export const SIGNING_LEAD = "team-lead";
 export async function executableWith(board: Awaited<ReturnType<typeof signingBoard>>): Promise<void> {
 	const contract = {
 		kind: "contract" as const,
-		artifact: { path: board.plan },
+		artifact: { record: board.plan },
 		goal: "g",
 		acceptance: "a",
 		scopeOut: "s",
@@ -175,13 +175,13 @@ export async function executableWith(board: Awaited<ReturnType<typeof signingBoa
 	await board.store.mutate(board.id, contract, board.me, 1_000);
 	await board.store.mutate(
 		board.id,
-		{ kind: "approve", artifact: { path: board.plan } },
+		{ kind: "approve", artifact: { record: board.plan } },
 		{ label: SIGNING_LEAD },
 		1_000,
 	);
 	await board.store.mutate(
 		board.id,
-		{ kind: "move", lane: "execute", artifact: { path: board.plan } },
+		{ kind: "move", lane: "execute", artifact: { record: board.plan } },
 		board.me,
 		1_000,
 	);

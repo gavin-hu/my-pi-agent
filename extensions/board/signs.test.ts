@@ -10,6 +10,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { cardFile } from "../../test/helpers/board.ts";
 import {
 	signBus as bus,
@@ -56,8 +57,11 @@ describe("an approval covers the plan", () => {
 		const board = bench();
 		await claimedWithContract(board);
 		const listed = await board.lead.call({ action: "list", card: "1" });
-		const plan = listed.details.card?.planPath;
-		if (plan === undefined) throw new Error("the contract recorded no plan");
+		const recorded = listed.details.card?.planPath;
+		if (recorded === undefined) throw new Error("the contract recorded no plan");
+		// The card keeps the plan's name, so the file it is executed against is that name joined to
+		// this repository's store — which is what the deleted plan has to be removed from.
+		const plan = join(await board.lead.board.runtime.planDir(board.lead.board.ctx.cwd), recorded);
 		// The file the wording is executed against is deleted underneath the card: the approval is
 		// the first door that can say so, and it says what the move would have said later.
 		rmSync(plan);

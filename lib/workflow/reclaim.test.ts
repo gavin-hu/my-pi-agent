@@ -96,7 +96,7 @@ describe("what a missing record decides", () => {
 	test("a card nobody holds, and a finished one, are refused before the fact is read", () => {
 		const pool = created();
 		expect(refusal(applyOp(pool, { kind: "reclaim" }, OTHER, NOW, boardOf(pool)))).toBe("#4 has no owner to reclaim.");
-		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: { path: "plans/webhook.md" } }, CORE);
+		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: { record: "plans/webhook.md" } }, CORE);
 		expect(refusal(applyOp(done, { kind: "reclaim" }, LEAD, NOW, boardOf(done)))).toBe(
 			"#4 is done; there is nothing to reclaim.",
 		);

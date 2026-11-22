@@ -218,7 +218,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 				"2",
 				{
 					kind: "contract",
-					artifact: { path: "2.md" },
+					artifact: { record: "2.md" },
 					goal: "Totals round once at the boundary",
 					acceptance: "A test says so",
 					scopeOut: "No currency work",
@@ -243,7 +243,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 			// signature under the contract, so the line steps aside: one fact, said once.
 			await store.mutate(
 				"2",
-				{ kind: "approve", artifact: { path: (await store.read("2"))?.planPath ?? "" } },
+				{ kind: "approve", artifact: { record: (await store.read("2"))?.planPath ?? "" } },
 				LEAD,
 				now,
 			);

@@ -107,16 +107,15 @@ export const LEGACY_CONTRACT = {
  * The plan artifact a caller hands in once it has proved the file.
  *
  * The board's state machine decides; the tool is what touches the plan store, so a pure test
- * passes the fact the way the tool would and the path is only a string here.
+ * passes the fact the way the tool would: the record the card will hold.
  */
-export function proved(path = "plans/webhook.md") {
-	return { path };
+export function proved(record = "plans/webhook.md") {
+	return { record };
 }
 
 /** The proof a move carries: bound to the record it was computed for. */
 export function provedFor(card: Card) {
-	const recorded = card.planPath ?? "plans/webhook.md";
-	return { path: recorded, recorded };
+	return { record: card.planPath ?? "plans/webhook.md" };
 }
 
 /** A card whose contract is written, still in `plan`. */

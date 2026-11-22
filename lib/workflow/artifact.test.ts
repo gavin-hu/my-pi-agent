@@ -15,8 +15,10 @@ import { contractRoute } from "./lanes.ts";
 
 const ROOT = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-board-artifact-")));
 const STORE = join(ROOT, "plans", "abc123");
+const OTHER_STORE = join(ROOT, "plans", "def456");
 const OUTSIDE = join(ROOT, "elsewhere");
 mkdirSync(STORE, { recursive: true });
+mkdirSync(OTHER_STORE, { recursive: true });
 mkdirSync(OUTSIDE, { recursive: true });
 afterAll(() => {
 	rmSync(ROOT, { recursive: true, force: true });
@@ -30,21 +32,31 @@ function plan(name = "2026-10-29-1005-board-flow.md"): string {
 	writeFileSync(path, "# Board flow\n");
 	return path;
 }
-
 /** A card as the gate reads it: an id, a lane, and the plan path it recorded. */
 function card(lane: Card["lane"], planPath: string | undefined, id = "92"): Pick<Card, "id" | "lane" | "planPath"> {
 	return { id, lane, planPath };
 }
 
 describe("planForContract", () => {
-	test("accepts the markdown a store holds, at its absolute path", () => {
+	test("records the plan's name inside the store, not this host's path", () => {
 		const path = plan();
-		expect(planForContract(STORE, path)).toEqual({ path });
+		expect(planForContract(STORE, path)).toEqual({ record: "2026-10-29-1005-board-flow.md" });
 	});
 
-	test("accepts a bare name, which resolves inside the store", () => {
-		const path = plan();
-		expect(planForContract(STORE, "2026-10-29-1005-board-flow.md")).toEqual({ path });
+	test("accepts a bare name, and records the same one", () => {
+		plan();
+		expect(planForContract(STORE, "2026-10-29-1005-board-flow.md")).toEqual({
+			record: "2026-10-29-1005-board-flow.md",
+		});
+	});
+
+	test("keeps the subdirectory a recorded plan sits in", () => {
+		// The store writes one file directly in it, but a path it already holds stays where it is a
+		// name rather than flattening to its file name.
+		mkdirSync(join(STORE, "rounds"), { recursive: true });
+		const nested = join(STORE, "rounds", "2026-10-29-1005-second.md");
+		writeFileSync(nested, "# Second\n");
+		expect(planForContract(STORE, nested)).toEqual({ record: join("rounds", "2026-10-29-1005-second.md") });
 	});
 
 	test("refuses a path outside the store, naming the store", () => {
@@ -109,18 +121,36 @@ describe("planForContract", () => {
 });
 
 describe("planForExecute", () => {
-	test("accepts the plan the card recorded, and binds the fact to that record", () => {
+	test("accepts the plan an older card recorded by absolute path, and binds the fact to that record", () => {
+		// A card written before names were kept holds this host's path, and is read as one.
 		const path = plan("recorded.md");
-		expect(planForExecute(STORE, card("execute", path))).toEqual({ path, recorded: path });
+		expect(planForExecute(STORE, card("execute", path))).toEqual({ record: path });
+	});
+
+	test("resolves a recorded name on a host whose store holds the file, where a recorded path would not", () => {
+		// The record is the plan's name, so it is about the plan rather than about the machine that
+		// wrote it: the file is in another host's store, and this one's copy is gone.
+		const name = "2026-10-29-1005-shared.md";
+		const contract = planForContract(STORE, plan(name));
+		if ("error" in contract) throw new Error(contract.error);
+		writeFileSync(join(OTHER_STORE, name), "# Shared\n");
+		rmSync(join(STORE, name), { force: true });
+		expect(contract.record).toBe(name);
+		expect(planForExecute(OTHER_STORE, card("execute", contract.record))).toEqual({ record: name });
+		// The host that contracted it no longer holds a plan at that name: the fact is about the
+		// plan, and a store without one refuses it the way it refuses a deleted plan.
+		expect(planForExecute(STORE, card("execute", contract.record))).toEqual({
+			error: `the plan recorded for #92 is gone (${shortenPath(join(STORE, name))}); move it back to plan, then record it with \`contract\`.`,
+		});
 	});
 
 	test("admits a plan refined after it was recorded, because the check is presence, not bytes", () => {
 		// The sign covers the three lines and the path, and `plan` action `steps` rewrites the
 		// file after approval: an edit must not close the gate the approval opened.
 		const path = plan("refined.md");
-		expect(planForExecute(STORE, card("execute", path))).toEqual({ path, recorded: path });
+		expect(planForExecute(STORE, card("execute", path))).toEqual({ record: path });
 		writeFileSync(path, "# Refined\n\n- [x] one\n");
-		expect(planForExecute(STORE, card("execute", path))).toEqual({ path, recorded: path });
+		expect(planForExecute(STORE, card("execute", path))).toEqual({ record: path });
 	});
 
 	test("refuses a plan deleted while the card is still in plan, where contract works", () => {
@@ -171,7 +201,7 @@ describe("proved", () => {
 		// read where the write happens rather than where the door was.
 		const path = plan("vanishes.md");
 		const deferred = () => planForExecute(STORE, card("execute", path));
-		expect(proved(deferred)).toMatchObject({ recorded: path });
+		expect(proved(deferred)).toMatchObject({ record: path });
 		rmSync(path, { force: true });
 		expect(proved(deferred)).toMatchObject({ error: expect.stringContaining("is gone") });
 	});
@@ -181,24 +211,34 @@ describe("planIsGone", () => {
 	test("names a recorded plan that is no longer there, in the lanes a gate is asked from", () => {
 		const path = plan("lost.md");
 		rmSync(path, { force: true });
-		expect(planIsGone(card("execute", path))).toBe(true);
-		expect(planIsGone(card("plan", path))).toBe(true);
+		expect(planIsGone(STORE, card("execute", path))).toBe(true);
+		expect(planIsGone(STORE, card("plan", path))).toBe(true);
 		// A finished card on a dead plan is history, and a pool card re-plans on its next claim.
-		expect(planIsGone(card("done", path))).toBe(false);
-		expect(planIsGone(card("backlog", path))).toBe(false);
-		expect(planIsGone(card("execute", undefined))).toBe(false);
+		expect(planIsGone(STORE, card("done", path))).toBe(false);
+		expect(planIsGone(STORE, card("backlog", path))).toBe(false);
+		expect(planIsGone(STORE, card("execute", undefined))).toBe(false);
+	});
+
+	test("resolves a recorded name through the store, so a named plan is not called gone", () => {
+		// The badge is drawn from this answer, and a name stat'ed against the working directory would
+		// report every plan this build recorded as gone.
+		const kept = plan("named.md");
+		expect(planIsGone(STORE, card("execute", "named.md"))).toBe(false);
+		expect(planIsGone(STORE, card("execute", "never-written.md"))).toBe(true);
+		rmSync(kept, { force: true });
+		expect(planIsGone(STORE, card("execute", "named.md"))).toBe(true);
 	});
 
 	test("a surviving plan is not gone, and a set names only the cards that lost one", () => {
 		const kept = plan("kept.md");
 		const lost = plan("lost-again.md");
 		rmSync(lost, { force: true });
-		expect(planIsGone(card("execute", kept))).toBe(false);
+		expect(planIsGone(STORE, card("execute", kept))).toBe(false);
 		expect(
-			gonePlans([
+			gonePlans(STORE, [
 				{ id: "1", lane: "execute", planPath: kept },
-				{ id: "2", lane: "execute", planPath: lost },
-				{ id: "3", lane: "done", planPath: lost },
+				{ id: "2", lane: "execute", planPath: "lost-again.md" },
+				{ id: "3", lane: "done", planPath: "lost-again.md" },
 			]),
 		).toEqual(new Set(["2"]));
 	});
