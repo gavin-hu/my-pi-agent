@@ -188,6 +188,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"plan-store-write",
 		"plan-index",
 		"plan-files",
+		"retention",
 		"steps",
 		"todos",
 		"feedback",
