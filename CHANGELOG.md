@@ -102,6 +102,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the stray-field check rather than having it dropped in silence, and no alias is kept. The merge also took the
   board surface from 6,378 to 6,284 characters, the ceiling falling with it.
 
+- `board`: the note refusals name the parameter that rename left in place. `normalizeNote` answers
+  "note is required." and "note is N characters; the limit is M — trim K" rather than talking about `text`,
+  so a caller reading a refusal is sent to a field it can send. Nothing else moved: the stored field is still
+  `notes[].text`, no argument changed, and the two modules that keep "text is required." are right to —
+  `memory` and `session-bus` publish `text`, and a refusal names the parameter under it.
+
 - `tools`: every cap a tool enforces is now in its parameter schema, and no tool publishes `anyOf`/`const`.
   `board`'s five union fields (`action`, `lane`, `blocker`, `priority`, `type`) and `team`'s `action` became
   `StringEnum`, the plain `{ type: "string", enum: [...] }` form `lib/tool-schema.ts` documents for a provider that

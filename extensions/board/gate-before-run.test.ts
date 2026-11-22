@@ -105,7 +105,7 @@ describe("a review that will be refused", () => {
 		const refused = await who.lead.call({ action: "review", card: "1", note: "x".repeat(MAX_NOTE + 2) });
 		expect(refused.isError).toBe(true);
 		// The sentence is the trim, not the cap: the retry is one edit rather than a guess.
-		expect(resultText(refused)).toContain(`text is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`);
+		expect(resultText(refused)).toContain(`note is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`);
 		expect(run.ran).toEqual([]);
 	});
 

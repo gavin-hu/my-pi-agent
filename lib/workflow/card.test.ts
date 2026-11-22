@@ -105,9 +105,9 @@ describe("normalizePathHints", () => {
 describe("normalizeNote and normalizePlanPath", () => {
 	test("keep one line", () => {
 		expect(normalizeNote("routes wired;\ntests next")).toEqual({ text: "routes wired; tests next" });
-		expect(normalizeNote("   ")).toEqual({ error: "text is required." });
+		expect(normalizeNote("   ")).toEqual({ error: "note is required." });
 		expect(normalizeNote("x".repeat(MAX_NOTE + 2))).toEqual({
-			error: `text is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`,
+			error: `note is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`,
 		});
 	});
 

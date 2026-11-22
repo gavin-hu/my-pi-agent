@@ -55,7 +55,7 @@ describe("createInput", () => {
 		expect(createInput({ title: "One", priority: "urgent" })).toEqual({
 			error: "priority must be one of high, normal, low.",
 		});
-		expect(createInput({ title: "One", note: "   " })).toEqual({ error: "text is required." });
+		expect(createInput({ title: "One", note: "   " })).toEqual({ error: "note is required." });
 	});
 
 	test("reads a body as untrusted JSON, not as the tool's typed arguments", () => {
