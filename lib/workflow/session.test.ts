@@ -8,7 +8,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir } from "../../test/helpers/env.ts";
@@ -268,24 +268,23 @@ describe("store", () => {
 });
 
 describe("busDir", () => {
-	test("names the bus directory beside the board's, keyed by the same repository", async () => {
+	test("names the bus directory beside the board's, inside the repository's own directory", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
 		const runtime = runtimeFor(agentDir);
 		const store = await runtime.store(cwd);
-		// The bus keys on the same repository key the board used, so the two never drift.
-		expect(await runtime.busDir(cwd)).toBe(join(agentDir, "session-bus", store.key));
+		// Siblings under `repos/<id>/`: the bus is derived from the store's own directory, so the
+		// two cannot drift about which repository or which id they belong to.
+		expect(await runtime.busDir(cwd)).toBe(join(dirname(store.dir), "session-bus"));
 	});
 
-	test("follows the store's key, not the last segment of the board's own directory", async () => {
-		// The discriminating case: a board whose directory is called something else entirely.
-		// A key read back off the path — the old `basename(store.dir)` — would put the roster
-		// in `<agent-dir>/session-bus/<that directory's name>`, where no bus ever writes, and
-		// every peer would read as no record instead of the page failing where someone would
-		// notice.
+	test("derives the bus from the store's directory, not from a key read off its name", async () => {
+		// The discriminating case: a store whose directory name is nothing like its key. The bus
+		// follows the directory it sits beside, so a store filed under an id and a bus filed under
+		// that id agree whatever the key happens to be.
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const store = createStore(temps.track(tempDir("board-")), { key: "0123456789ab" });
-		expect(await busDirFor(agentDir, store)).toBe(join(agentDir, "session-bus", "0123456789ab"));
+		expect(await busDirFor(agentDir, store)).toBe(join(dirname(store.dir), "session-bus"));
 	});
 
 	test("resolves once per working directory", async () => {
@@ -309,10 +308,10 @@ describe("busDir", () => {
 			},
 		});
 		await expect(runtime.busDir("/repo/billing")).rejects.toThrow("the store could not be opened");
-		// The directory is the store's key, so the store's failure is this one's too — and the
+		// The directory is the store's own, so the store's failure is this one's too — and the
 		// retry has to reach both, or the roster stays a rejection for the whole session.
 		expect(await runtime.busDir("/repo/billing")).toBe(
-			join(agentDir, "session-bus", (await runtime.store("/repo/billing")).key),
+			join(dirname((await runtime.store("/repo/billing")).dir), "session-bus"),
 		);
 		expect(attempts).toBe(2);
 	});

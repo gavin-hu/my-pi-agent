@@ -145,9 +145,19 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const cwd = realPathOfNearest(context.cwd);
 			// Deferred with the one subprocess it spawns: the repository's identity is asked for
 			// once, here, and a session that never joins a bus pays nothing for git.
-			const { repoKeyFor } = await import("../../lib/repo-key.ts");
+			const { repoIdFor, repoKeyFor, repoStoreDir, storeIdOf } = await import("../../lib/repo-key.ts");
 			const repo = options.repo ?? (await repoKeyFor(pi, cwd));
-			const dir = options.dir ?? join(getAgentDir(), BUS_DIR_NAME, repo.key);
+			// Filed beside the board, under the identity two machines agree on: `repos/<id>/session-bus`,
+			// or `repos/local-<pathKey>/session-bus` where the directory has none.
+			const agentDir = getAgentDir();
+			const dir =
+				options.dir ??
+				repoStoreDir(agentDir, storeIdOf(await repoIdFor(pi, cwd), repo.key), BUS_DIR_NAME);
+			// A bus an older build wrote at the flat spelling is taken across once, on this first
+			// start; the mover loads here rather than at import, so a session that never joins a bus
+			// pays nothing for it.
+			const { migrateStoreDir } = await import("../../lib/store-paths.ts");
+			await migrateStoreDir(join(agentDir, BUS_DIR_NAME, repo.key), dir);
 			store = createBusStore({ dir });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
