@@ -94,6 +94,58 @@ describe("create", () => {
 	});
 });
 
+describe("the write guard", () => {
+	/** The one card file in a scratch store. */
+	function cardPath(dir: string): string {
+		const [name] = readdirSync(join(dir, "cards"));
+		if (name === undefined) throw new Error("no card file");
+		return join(dir, "cards", name);
+	}
+
+	test("replays the operation onto a card the client replaced after the rename", async () => {
+		let rivalLanded = false;
+		const { dir, store } = scratchStore({
+			afterWrite: () => {
+				if (rivalLanded) return;
+				rivalLanded = true;
+				// The other machine's copy, delivered after this pass wrote: one revision on, with a
+				// title only that machine has. Nothing about it is possible to infer from `rev` or `by`.
+				const file = cardPath(dir);
+				const written = JSON.parse(readFileSync(file, "utf-8")) as Card;
+				writeFileSync(file, `${JSON.stringify({ ...written, rev: written.rev + 1, title: "theirs" }, null, "\t")}\n`);
+			},
+		});
+		const card = await store.create({ title: "mine", paths: [] }, LEAD, NOW);
+		const claimed = await store.mutate(card.id, { kind: "claim" }, LEAD, NOW + 1);
+		expect(claimed.ok).toBe(true);
+		if (!claimed.ok) return;
+		// Neither write was lost: the op landed on the rival and the rival's own change survived.
+		expect(claimed.card.owner?.id).toBe(LEAD.id);
+		expect(claimed.card.title).toBe("theirs");
+		expect((await store.read(card.id))?.title).toBe("theirs");
+	});
+
+	test("refuses, naming both revisions, when the rival keeps coming back", async () => {
+		const { dir, store } = scratchStore({
+			afterWrite: () => {
+				const file = cardPath(dir);
+				const written = JSON.parse(readFileSync(file, "utf-8")) as Card;
+				writeFileSync(file, `${JSON.stringify({ ...written, rev: written.rev + 1 }, null, "\t")}\n`);
+			},
+		});
+		const card = await store.create({ title: "mine", paths: [] }, LEAD, NOW);
+		// A note always changes the card, so every attempt writes and every write is replaced: the
+		// loop can only end in the refusal.
+		const noted = await store.mutate(card.id, { kind: "note", text: "mine" }, LEAD, NOW + 1);
+		expect(noted.ok).toBe(false);
+		if (noted.ok) return;
+		expect(noted.error).toContain(`#${card.id}`);
+		expect(noted.error).toMatch(/wrote revision \d+ and found revision \d+/);
+		// The card is left as the rival last wrote it, so a reader sees the file that won.
+		expect((await store.read(card.id))?.rev).toBeGreaterThan(1);
+	});
+});
+
 describe("list and read", () => {
 	test("returns lane order, then the id as the tie-break", async () => {
 		const { store } = scratchStore();

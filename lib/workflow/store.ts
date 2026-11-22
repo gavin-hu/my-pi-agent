@@ -27,7 +27,7 @@
  * alone. The page shows the store's size, and `drop` is the only deletion.
  */
 
-import { link, mkdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../env.ts";
@@ -209,6 +209,16 @@ export function createStore(
 		 * mutation stays possible. The product supplies nothing.
 		 */
 		beforeWrite?: (id: string, kind: CardOp["kind"]) => Promise<void> | void;
+		/**
+		 * A suite's seam, run once the card has been written back and before the pass reads it to
+		 * prove the write landed.
+		 *
+		 * This is the window one process cannot produce: a sync client delivers another machine's
+		 * copy, which renames over the card *after* the write, so the revision this pass read is no
+		 * longer the one on disk. A case stands here and writes the rival; the pass must notice and
+		 * replay rather than return as if it had won. The product supplies nothing.
+		 */
+		afterWrite?: (id: string) => Promise<void> | void;
 	} = {},
 ): BoardStore {
 	// A store built over a directory by hand has no repository to ask, so it is keyed by
@@ -291,6 +301,10 @@ export function createStore(
 
 	const mutate = async (id: string, op: CardOp, actor: Actor, now: number): Promise<MutateResult> => {
 		let changedUnderneath = false;
+		// The two revisions the refusal names when the guard gives up: what this pass wrote, and
+		// what it found on disk instead.
+		let wroteRev: number | undefined;
+		let rivalRev: number | undefined;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
 			// The seam stands before the lock, so a suite can land a second write in the one window
 			// this pass cannot hold: the board is read, checked, and written under one lock, so a peer
@@ -347,6 +361,19 @@ export function createStore(
 				}
 				// Written back to the board and nowhere else: an archived record refuses every write.
 				await writeCardFile(cardsDir, id, result.card);
+				wroteRev = result.card.rev;
+				await options.afterWrite?.(id);
+				// The guard. A rival — another pane here, or a file a sync client delivered — can
+				// rename over this card after the write above, which is the one update a local lock
+				// cannot order. `rev` is not an identity (it is bumped for the readers' change signal)
+				// and `by` is a label two machines can both sign, so the bytes are the only answer to
+				// "is this the file this pass wrote"; a byte-identical rival is no loss.
+				const landed = await readFile(join(cardsDir, fileNameFor(id)), "utf-8").catch(() => undefined);
+				if (landed !== serialize(result.card)) {
+					rivalRev = await revisionOnDisk(cardsDir, id);
+					changedUnderneath = true;
+					continue;
+				}
 				return { ...result, dropped: false, archived: false, previous: card };
 			} finally {
 				await lock.release();
@@ -354,7 +381,10 @@ export function createStore(
 		}
 		return {
 			ok: false,
-			error: `${cardRef(id)} was being written by another session; read it again.`,
+			error:
+				wroteRev === undefined || rivalRev === undefined
+					? `${cardRef(id)} was being written by another session; read it again.`
+					: `${cardRef(id)} was written by another session: this pass wrote revision ${wroteRev} and found revision ${rivalRev} on disk, so the operation is refused rather than forced over it — read the card again.`,
 			card: await read(id),
 		};
 	};
@@ -376,6 +406,12 @@ export function createStore(
 		root: () => root,
 		name: () => basename(root),
 	};
+}
+
+/** The revision on disk, when the file the guard read is still a card this build understands. */
+async function revisionOnDisk(dir: string, id: string): Promise<number | undefined> {
+	const read = await readCardFile(dir, fileNameFor(id));
+	return "card" in read ? read.card.rev : undefined;
 }
 
 /** `<id>.json`, zero-padded to four digits so a directory lists in card order. */
