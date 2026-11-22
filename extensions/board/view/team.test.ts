@@ -43,12 +43,10 @@ describe("the Team tab's label maps", () => {
 });
 
 describe("the Team tab's one paper", () => {
-	test("names the empty sentence by the class the pane draws, and spans the queue with it", () => {
+	test("names the empty sentence by the class the pane draws, under its heads", () => {
 		// The queue's paragraph is `board-team__empty`; `board-team__none` is the Agents column's
-		// line for a label nothing answers to. The span is what a wrong name hides: with `auto-fit`
-		// a lone item already takes the row, because the tracks without one collapse — the day the
-		// queue holds a second item, or the template stops collapsing, it is one track wide.
-		expect(BOARD_CSS).toContain(".board-queue > .board-team__empty{grid-column:1 / -1}");
+		// sentence for a session holding nothing, and the two must not answer for each other.
+		expect(BOARD_CSS).toContain(".board-queue > .board-team__empty{margin:0}");
 		expect(BOARD_CSS).not.toContain(".board-queue > .board-team__none");
 	});
 
@@ -248,23 +246,6 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 	/** The unclaimed band, as drawn: its head's count, its rows, and its fold. */
 	const bandOf = async (page: Page) => (await bands(page)).find((band) => band.label === "Unclaimed");
 
-	/** How far a band's head sits below the pane head's box: the pin offset, read as drawn. */
-	const headGap = (page: Page) =>
-		page.evaluate(() => {
-			const document = (globalThis as unknown as { document: Doc }).document;
-			const pane = document.querySelector('[data-pane="needs-you"] .bf-section__cap');
-			const band = document.querySelector("#board-team .board-queue__band .bf-lane__head");
-			const box = (node: ElementLike | null) =>
-				(
-					node as unknown as { getBoundingClientRect(): { y: number; height: number } } | null
-				)?.getBoundingClientRect() ?? { y: 0, height: 0 };
-			return {
-				pane: Math.round(box(pane).y * 10) / 10,
-				band: Math.round(box(band).y * 10) / 10,
-				gap: Math.round((box(band).y - box(pane).y - box(pane).height) * 10) / 10,
-			};
-		});
-
 	test("folds a band at five rows, and says what all its rows share once", async () => {
 		const page = await board.reuse();
 		await page.click("#tab-team");
@@ -294,7 +275,7 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			const band = Array.from(document.querySelectorAll("#board-team .board-queue__band"))
 				.map((node) => node as unknown as Node)
 				.find((node) => (node.querySelector("span")?.textContent ?? "") === "Unclaimed");
-			const title = band?.querySelector(".board-queue__title .bf-row__title") ?? null;
+			const title = band?.querySelector(".board-queue__head .bf-row__title") ?? null;
 			const id = title?.getAttribute("aria-describedby") ?? "";
 			return { id, said: document.getElementById(id)?.textContent ?? "" };
 		});
@@ -309,26 +290,6 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		await page.click('#board-team [data-fold="team-band-claim"]');
 		await waitFor(async () => (await bandOf(page))?.rows === 5, PAINT_MS);
 		expect((await bandOf(page))?.rows).toBe(5);
-	});
-
-	test("pins a band's head under the pane's, and keeps it there while the rows go by", async () => {
-		const page = await board.reuse();
-		await page.click("#tab-team");
-		await page.waitForSelector("#board-team .board-queue__band .bf-lane__head", { timeout: PAINT_MS });
-		const before = await headGap(page);
-		await page.evaluate(() => {
-			const main = (globalThis as unknown as { document: Doc }).document.querySelector(".bf-app__main");
-			if (main !== null) (main as unknown as { scrollTop: number }).scrollTop = 400;
-		});
-		await drawn(page);
-		const after = await headGap(page);
-		// The band's head starts against the pane head's rule — the pane's own gap apart — and stays
-		// exactly there once the column has scrolled, so a reader three rows in still knows whose
-		// move it is: the head did not move, and the gap did not open.
-		expect(before.gap).toBeGreaterThanOrEqual(0);
-		expect(before.gap).toBeLessThanOrEqual(8);
-		expect(after.gap).toBe(before.gap);
-		expect(after.band).toBe(before.band);
 	});
 
 	test("separates its rows with space, and draws no rule on one", async () => {
@@ -428,41 +389,6 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		// The pill is what says why, in a word and a tone: the row has no paper left to say it.
 		expect(paint.pill.text).toBe("needs review");
 		expect(paint.pill.classes).toContain("bf-tone--warn");
-	});
-
-	test("takes a column per band on a wide window, and gives a phone the whole title", async () => {
-		const page = await board.reuse();
-		await page.click("#tab-team");
-		await page.waitForSelector("#board-team .board-queue__band", { timeout: PAINT_MS });
-		// How many different lines the bands start on: one is a row of columns, three is a stack.
-		const lines = () =>
-			page.$$eval("#board-team .board-queue__band", (nodes) => {
-				const tops = Array.from(nodes as ArrayLike<ElementLike & { getBoundingClientRect(): { top: number } }>).map(
-					(node) => Math.round(node.getBoundingClientRect().top / 100),
-				);
-				return [...new Set(tops)].length;
-			});
-		// A 2K window has the width for a column of asks per band, so the queue is three lines
-		// tall instead of nine and no row is a metre wide.
-		const bands = await page.$$eval("#board-team .board-queue__band", (nodes) => nodes.length);
-		expect(bands).toBeGreaterThan(1);
-		await page.setViewportSize({ width: 2560, height: 900 });
-		await drawn(page);
-		expect(await lines()).toBe(1);
-		// A phone stacks them, and the title stops being one elided line: it takes the row's whole
-		// width and wraps, which is the one thing a 375px row can still do for a long name.
-		await page.setViewportSize({ width: 420, height: 900 });
-		await drawn(page);
-		expect(await lines()).toBe(bands);
-		const cut = await page.$$eval(
-			"#board-team .board-queue__row .bf-row__title",
-			(nodes) =>
-				Array.from(nodes as ArrayLike<ElementLike & { scrollWidth: number; clientWidth: number }>).filter(
-					(node) => node.scrollWidth > node.clientWidth + 1,
-				).length,
-		);
-		expect(cut).toBe(0);
-		await page.setViewportSize({ width: 1280, height: 900 });
 	});
 
 	test("draws one row for a session that renamed after claiming a card", async () => {

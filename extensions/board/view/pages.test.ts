@@ -581,7 +581,7 @@ describe("the class contract", () => {
 		// A refusal or a loss colours its sentence too; a warn row keeps its colour on the pill. And
 		// the line every other row prints stays quiet, or the reasons read as loudly as the titles.
 		expect(BOARD_CSS).toContain('.board-queue__row[data-tone="danger"] .board-queue__why{color:var(--danger)}');
-		expect(BOARD_CSS).toContain(".board-queue__why{grid-column:4 / -1;");
+		expect(BOARD_CSS).toContain(".board-queue__facts{display:flex;");
 	});
 
 	test("tones a reason line by its tone, never by a class named after a kind", () => {
