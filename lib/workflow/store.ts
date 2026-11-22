@@ -27,7 +27,7 @@
  * alone. The page shows the store's size, and `drop` is the only deletion.
  */
 
-import { link, mkdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../env.ts";
@@ -189,7 +189,13 @@ export async function openBoard(
 	// The key is handed on, not left to be read off the directory it named: `session-bus`
 	// files this repository's records under the same key, so the two must not be able to
 	// disagree about it.
-	return createStore(boardDirFor(agentDir, repo.key), { root: repo.root, key: repo.key, config });
+	return createStore(boardDirFor(agentDir, repo.key), {
+		root: repo.root,
+		key: repo.key,
+		config,
+		// The lock is this machine's, so it sits outside the store a client may replicate.
+		lockDir: presenceDirFor(agentDir, repo.key),
+	});
 }
 
 /** Build a store over one directory. Exported for tests and for a second backend. */
@@ -209,12 +215,31 @@ export function createStore(
 		 * mutation stays possible. The product supplies nothing.
 		 */
 		beforeWrite?: (id: string, kind: CardOp["kind"]) => Promise<void> | void;
+		/**
+		 * A suite's seam, run once the card has been written back and before the pass reads it to
+		 * prove the write landed.
+		 *
+		 * This is the window one process cannot produce: a sync client delivers another machine's
+		 * copy, which renames over the card *after* the write, so the revision this pass read is no
+		 * longer the one on disk. A case stands here and writes the rival; the pass must notice and
+		 * replay rather than return as if it had won. The product supplies nothing.
+		 */
+		afterWrite?: (id: string) => Promise<void> | void;
+		/**
+		 * The directory the write lock lives in.
+		 *
+		 * Outside the store for a board a sync client may replicate: {@link presenceDirFor} is
+		 * where the product puts it. A store built by hand over a directory keeps its lock in that
+		 * directory, which is what the suites use.
+		 */
+		lockDir?: string;
 	} = {},
 ): BoardStore {
 	// A store built over a directory by hand has no repository to ask, so it is keyed by
 	// that directory's own name: the one place this fallback lives, and the one reason it
 	// is not a proof about `openBoard`'s boards.
 	const key = options.key ?? basename(dir);
+	const lockDir = options.lockDir ?? dir;
 	// A store built over a directory by hand has no repository to name, so it names its
 	// own directory: the page then says something true instead of something blank.
 	const root = options.root ?? dir;
@@ -270,7 +295,7 @@ export function createStore(
 		await ensure();
 		let lastError: unknown;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-			const id = await nextCardId(cardsDir, endedDir, archiveDir);
+			const id = await nextCardId(dir, cardsDir, endedDir, archiveDir);
 			const card = createCard(id, input, actor, now);
 			const temp = tempPath(cardsDir);
 			await writeFile(temp, serialize(card), { mode: FILE_MODE });
@@ -291,6 +316,10 @@ export function createStore(
 
 	const mutate = async (id: string, op: CardOp, actor: Actor, now: number): Promise<MutateResult> => {
 		let changedUnderneath = false;
+		// The two revisions the refusal names when the guard gives up: what this pass wrote, and
+		// what it found on disk instead.
+		let wroteRev: number | undefined;
+		let rivalRev: number | undefined;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
 			// The seam stands before the lock, so a suite can land a second write in the one window
 			// this pass cannot hold: the board is read, checked, and written under one lock, so a peer
@@ -299,7 +328,7 @@ export function createStore(
 			// against and the link it would close are the board's facts, not the card's. A lock a
 			// live writer held throughout the wait is one more pass.
 			await options.beforeWrite?.(id, op.kind);
-			const lock = await lockBoard(dir);
+			const lock = await lockBoard(lockDir);
 			if (lock === undefined) {
 				changedUnderneath = true;
 				continue;
@@ -347,6 +376,19 @@ export function createStore(
 				}
 				// Written back to the board and nowhere else: an archived record refuses every write.
 				await writeCardFile(cardsDir, id, result.card);
+				wroteRev = result.card.rev;
+				await options.afterWrite?.(id);
+				// The guard. A rival — another pane here, or a file a sync client delivered — can
+				// rename over this card after the write above, which is the one update a local lock
+				// cannot order. `rev` is not an identity (it is bumped for the readers' change signal)
+				// and `by` is a label two machines can both sign, so the bytes are the only answer to
+				// "is this the file this pass wrote"; a byte-identical rival is no loss.
+				const landed = await readFile(join(cardsDir, fileNameFor(id)), "utf-8").catch(() => undefined);
+				if (landed !== serialize(result.card)) {
+					rivalRev = await revisionOnDisk(cardsDir, id);
+					changedUnderneath = true;
+					continue;
+				}
 				return { ...result, dropped: false, archived: false, previous: card };
 			} finally {
 				await lock.release();
@@ -354,7 +396,10 @@ export function createStore(
 		}
 		return {
 			ok: false,
-			error: `${cardRef(id)} was being written by another session; read it again.`,
+			error:
+				wroteRev === undefined || rivalRev === undefined
+					? `${cardRef(id)} was being written by another session; read it again.`
+					: `${cardRef(id)} was written by another session: this pass wrote revision ${wroteRev} and found revision ${rivalRev} on disk, so the operation is refused rather than forced over it — read the card again.`,
 			card: await read(id),
 		};
 	};
@@ -378,6 +423,23 @@ export function createStore(
 	};
 }
 
+/**
+ * The directory a board's write lock lives in: this machine's, never the shared store's.
+ *
+ * Keyed like every other per-repository location, so a worktree and its checkout reach one
+ * lock — and outside anything a sync client replicates, so a holder on another machine is not
+ * mistaken for a local one.
+ */
+export function presenceDirFor(agentDir: string, key: string): string {
+	return join(agentDir, "presence", key);
+}
+
+/** The revision on disk, when the file the guard read is still a card this build understands. */
+async function revisionOnDisk(dir: string, id: string): Promise<number | undefined> {
+	const read = await readCardFile(dir, fileNameFor(id));
+	return "card" in read ? read.card.rev : undefined;
+}
+
 /** `<id>.json`, zero-padded to four digits so a directory lists in card order. */
 function fileNameFor(id: string): string {
 	return `${id.padStart(4, "0")}.json`;
@@ -394,15 +456,52 @@ async function highestId(dir: string): Promise<number> {
 	return highest;
 }
 
+/** The counter beside the piles: the highest id any machine has issued from this board. */
+export const NEXT_ID_FILE = "next-id.json";
+
 /**
  * `1`, `2`, `3` … as the highest id the board has ever used plus one.
  *
  * Ended and archived cards count: a dropped card's record keeps its id spent, and an
  * archived card's file is still named by it, so a note or a handoff that names `#29`
  * cannot come to mean a different feature tomorrow.
+ *
+ * The counter beside the piles is what gives two machines the same answer: a scan sees only
+ * what this host holds, so two hosts that scan the same directory both pick the id after it.
+ * The counter records the highest id any of them has issued, and every reader takes the
+ * **maximum** of it and the scan — which is why this needs no lock, and why a losing write of
+ * a smaller value costs nothing: it cannot lower what the next reader sees. The exclusive
+ * `link` in `create` stays the real guard; this only keeps the collision rare.
  */
-async function nextCardId(cardsDir: string, endedDir: string, archiveDir: string): Promise<string> {
-	return String(Math.max(await highestId(cardsDir), await highestId(endedDir), await highestId(archiveDir)) + 1);
+async function nextCardId(dir: string, cardsDir: string, endedDir: string, archiveDir: string): Promise<string> {
+	const scanned = Math.max(await highestId(cardsDir), await highestId(endedDir), await highestId(archiveDir));
+	const next = Math.max(scanned, await readIdCounter(dir)) + 1;
+	await writeIdCounter(dir, next);
+	return String(next);
+}
+
+/** The counter's value, or 0 when the file is absent, unreadable or not a counter. */
+async function readIdCounter(dir: string): Promise<number> {
+	const raw = await readFile(join(dir, NEXT_ID_FILE), "utf-8").catch(() => undefined);
+	if (raw === undefined) return 0;
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		const value = typeof parsed === "object" && parsed !== null ? (parsed as { value?: unknown }).value : undefined;
+		// A garbage counter is a fresh start rather than a failure: the scan has already answered.
+		return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+	} catch {
+		return 0;
+	}
+}
+
+/** Record the highest id issued. Best-effort: a counter that cannot be written only costs the guard. */
+async function writeIdCounter(dir: string, value: number): Promise<void> {
+	try {
+		await mkdir(dir, { recursive: true, mode: DIR_MODE });
+		await writeFile(join(dir, NEXT_ID_FILE), `${JSON.stringify({ value }, null, "\t")}\n`, { mode: FILE_MODE });
+	} catch {
+		// The scan still answers on this host; the counter is advice across hosts.
+	}
 }
 
 /**
