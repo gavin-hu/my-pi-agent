@@ -441,6 +441,7 @@ export const LIB_SUITES: readonly string[] = [
 	"web/palette",
 	"web/web",
 	"web/web-chrome",
+	"web/tone",
 	"web/live-stream",
 	"web/markdown-blocks",
 	"web/vocabulary",
