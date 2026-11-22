@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `file-browse`: in a repository with no commit, the changes tag and a changed file's **changes**
+  action open the comparison that holds what they counted — the **staged** index when something is
+  added, the **worktree** when files are only written — instead of a page refusing the commit it
+  compares. Those are the two comparisons `head` falls to before a commit exists, in that order, and
+  the fallback lives with the numbers: the tag names the comparison its totals came from, so the first
+  click after `git init` lands on the change rather than on "the commit it compares is missing". A case
+  pins the number and each rung's link together so neither moves without the other.
+
 - **Breaking** `file-browse`: `/files/diff[/<rel>]` is a `308` onto the review page, and the two keys
   only its removed diff pages read are gone from its section. `mode=` becomes the review's `scope=`
   (`head`, `staged`, `worktree`), `<rel>` becomes `?file=`, an unknown mode still answers `400`, and

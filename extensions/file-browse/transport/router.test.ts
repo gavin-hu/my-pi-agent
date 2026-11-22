@@ -12,12 +12,13 @@ import { createConnection } from "node:net";
 import { join } from "node:path";
 import { type RepeatTimer } from "../../../lib/timer.ts";
 import { DEFAULT_CONFIG, LIVE_MAX_CLIENTS, type ServeConfig } from "../config/config.ts";
-import type { DiffList, GitDiffProvider } from "../git/git.ts";
+import { createGitDiff, type DiffList, type GitDiffProvider } from "../git/git.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 import { type FileServer } from "./server.ts";
 import { FILES_BASE } from "../../../lib/http/prefixes.ts";
 import type { ServeResponse } from "../../../lib/http/index.ts";
+import { createFakePi } from "../../../test/helpers/fakes.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { useEnv } from "../../../test/helpers/env.ts";
 import { makeFixture, servePage, type Fixture } from "../../../test/helpers/fixtures/file-browse.ts";
@@ -407,6 +408,78 @@ describe("diff routes", () => {
 	test("marks a changed file in the listing and the tree", async () => {
 		const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/", {});
 		expect(text(response)).toContain('class="browse-change"');
+	});
+
+	test("names the comparison its numbers came from, in the chip and the action", async () => {
+		interface Reply {
+			stdout?: string;
+			code?: number;
+		}
+		/** A fake git answering by argv prefix, and the argv it was asked for, in order. */
+		const gitAsking = (replies: Array<[string, Reply]>) => {
+			const asked: string[] = [];
+			const exec = async (_command: string, args: string[]) => {
+				const key = args.join(" ");
+				asked.push(key);
+				for (const [prefix, reply] of replies) {
+					if (key.startsWith(prefix)) return { stdout: reply.stdout ?? "", stderr: "", code: reply.code ?? 0 };
+				}
+				return { stdout: "", stderr: "unexpected", code: 1 };
+			};
+			return { exec, asked };
+		};
+		const ROOT: [string, Reply] = ["rev-parse --show-toplevel", { stdout: "/repo\n" }];
+		const STAT: [string, Reply] = [
+			"diff --no-color --stat",
+			{ stdout: " a.txt | 1 +\n 1 file changed, 1 insertion(+)\n" },
+		];
+
+		/** The page a tree's provider draws, the chip's href, and the comparison asked for. */
+		const pageFor = async (status: string, commit: boolean) => {
+			const git = gitAsking([
+				ROOT,
+				...(commit ? ([["rev-parse --verify --quiet HEAD", { stdout: "abc1234\n" }]] as Array<[string, Reply]>) : []),
+				["status --porcelain=v1", { stdout: status }],
+				STAT,
+			]);
+			const diff = createGitDiff(createFakePi({ exec: git.exec }).pi, "/repo");
+			const listing = await handleRequest({ ...context(), diff }, "GET", "/", {});
+			const file = await handleRequest({ ...context(), diff }, "GET", "/view/a.txt", {});
+			return {
+				mode: (await diff.list("head"))?.mode,
+				chip: /id="browse-changes" href="([^"]+)"/.exec(text(listing))?.[1],
+				action: /<a class="bf-btn" href="([^"]+)" title="View this file's uncommitted changes">/.exec(text(file))?.[1],
+				diffs: git.asked.filter((line) => line.startsWith("diff ")),
+				mentionsHead: git.asked.filter((line) => line.includes("HEAD")),
+			};
+		};
+
+		// The ladder's three rungs, each with the comparison git was asked for beside its href.
+		// No commit, nothing staged: the working tree is the first comparison holding the change.
+		const written = await pageFor("?? a.txt\0", false);
+		expect(written.mode).toBe("worktree");
+		expect(written.chip).toBe("/review/new?scope=worktree");
+		expect(written.action).toBe("/review/new?scope=worktree&amp;file=a.txt");
+		expect(written.diffs.every((line) => !line.includes("--cached") && !line.includes("HEAD"))).toBe(true);
+
+		// No commit, one file added: the index.
+		const staged = await pageFor("A  a.txt\0", false);
+		expect(staged.mode).toBe("staged");
+		expect(staged.chip).toBe("/review/new?scope=staged");
+		expect(staged.action).toBe("/review/new?scope=staged&amp;file=a.txt");
+		expect(staged.diffs.every((line) => line.includes("--cached"))).toBe(true);
+
+		// A commit exists: the comparison asked for.
+		const committed = await pageFor(" M a.txt\0", true);
+		expect(committed.mode).toBe("head");
+		expect(committed.chip).toBe("/review/new?scope=head");
+		expect(committed.diffs.some((line) => line.includes("HEAD"))).toBe(true);
+
+		// An unborn branch never compares against the commit: the one question about `HEAD` is the
+		// probe that found it missing.
+		for (const unborn of [written, staged]) {
+			expect(unborn.mentionsHead).toEqual(["rev-parse --verify --quiet HEAD"]);
+		}
 	});
 
 	test("shows the changes chip with the change totals", async () => {

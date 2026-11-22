@@ -123,10 +123,26 @@ function liveOf(ctx: ServeContext, folder?: { dir: string; rev: string }): LiveP
 	return ctx.config.live && ctx.live ? { intervalMs: ctx.config.liveIntervalMs, ...folder } : undefined;
 }
 
-/** The `head` change summary, for the header chip, tree markers, and file action. */
-async function changed(ctx: ServeContext): Promise<ChangeSummary | undefined> {
+/** The change summary, and the comparison its numbers were taken in. */
+interface Changes {
+	summary: ChangeSummary;
+	/** The comparison the list was taken in: the index on a repository's first commit. */
+	scope: DiffMode;
+}
+
+/**
+ * The comparison a page's change chrome names: the one its list was taken in, or `head` for a page
+ * with no list — an error page, or a live shell drawn before the repository exists. The chip's number
+ * and the page its links open come from this one value.
+ */
+function scopeOf(changes: Changes | undefined): DiffMode {
+	return changes?.scope ?? "head";
+}
+
+/** The `head` change summary and comparison, for the header chip, tree markers, and file action. */
+async function changed(ctx: ServeContext): Promise<Changes | undefined> {
 	const list = await diffFor(ctx, "head");
-	return list ? summaryOf(list) : undefined;
+	return list ? { summary: summaryOf(list), scope: list.mode } : undefined;
 }
 
 /** The error page: the browse shell with the status, the reason, and a usable tree. */
@@ -157,6 +173,8 @@ async function errorPage(
 		message,
 		tree,
 		git: await gitFor(ctx),
+		// No list: the live shell names the comparison a list would be taken in.
+		scope: "head",
 		live: liveOf(ctx),
 	});
 	return htmlResponse(status, body, extra);
@@ -224,7 +242,8 @@ async function directoryResponse(ctx: ServeContext, rel: string): Promise<ServeR
 			thumbnails: ctx.config.thumbnails,
 			maxThumbBytes: ctx.config.maxThumbBytes,
 			git,
-			summary: changes,
+			summary: changes?.summary,
+			scope: scopeOf(changes),
 			live: liveOf(
 				ctx,
 				listing.truncated ? undefined : { dir: rel, rev: listingRevision(listing.entries.map((entry) => entry.name)) },
@@ -250,8 +269,9 @@ async function fileResponse(ctx: ServeContext, rel: string, raw: boolean): Promi
 			git,
 			markdownRaw: raw,
 			markdownHtml: ctx.config.markdownHtml,
-			changed: changes?.files.has(rel),
-			summary: changes,
+			changed: changes?.summary.files.has(rel),
+			summary: changes?.summary,
+			scope: scopeOf(changes),
 			live: liveOf(ctx),
 		}),
 	);

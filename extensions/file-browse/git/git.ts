@@ -92,6 +92,12 @@ export function createGitStatus(
 
 /** One comparison scope's change list. */
 export interface DiffList {
+	/**
+	 * The comparison the numbers were taken in, which is not always the one asked for: with no commit
+	 * yet, `head` falls to the index when anything is staged and to the working tree when nothing is
+	 * (`git diff HEAD` cannot run at all). A page that links to this list opens the comparison it
+	 * names.
+	 */
 	mode: DiffMode;
 	files: ChangedFile[];
 	/** `git diff --stat` output for the scope, or an empty string. */
@@ -153,20 +159,32 @@ export function createGitDiff(
 	/** The cached repository state, or `undefined` outside a repository. */
 	const state = ttlMemo(read, options.ttlMs ?? 2000, options.now ?? (() => Date.now()));
 
-	/** `head` needs a commit; before the first one, compare the index instead. */
-	const effectiveMode = (mode: DiffMode, has: boolean): DiffMode => (mode === "head" && !has ? "staged" : mode);
+	/**
+	 * The comparison a request is really taken in, one ladder and no second idea about a fresh
+	 * repository: `head` needs a commit, then the index when anything is staged, then the working
+	 * tree — the first of those that holds what the reader has. Its numbers and the page that links
+	 * to them come from the value this returns.
+	 */
+	const effectiveMode = (mode: DiffMode, current: RepoState): DiffMode => {
+		if (mode !== "head" || current.hasCommits) return mode;
+		return current.files.some((file) => inMode(file, "staged")) ? "staged" : "worktree";
+	};
 
 	return {
 		async list(mode) {
 			const current = await state();
 			if (!current) return undefined;
-			const args = diffArgs(effectiveMode(mode, current.hasCommits));
+			const taken = effectiveMode(mode, current);
+			const args = diffArgs(taken);
 			const stat = await run(["diff", "--no-color", "--stat", ...args, "--"], { cwd: root });
 			const output = stat.code === 0 ? stat.stdout : "";
 			const trimmed = output.trimEnd();
 			const summary = trimmed.slice(trimmed.lastIndexOf("\n") + 1);
 			return {
-				mode,
+				mode: taken,
+				// The paths are the ones the mode *asked for* names, not the comparison's: `head` is
+				// every changed path, and a marker must not vanish from an untracked file the reader
+				// can still change before the first commit.
 				files: current.files.filter((file) => inMode(file, mode)),
 				stat: output.trim(),
 				insertions: summaryCount(summary, INSERTIONS),

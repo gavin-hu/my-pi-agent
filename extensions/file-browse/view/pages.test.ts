@@ -104,6 +104,7 @@ function filePage(rel: string, file: FileView, overrides: Partial<FilePage> = {}
 		tree: TREE,
 		maxFileBytes: 1_000_000,
 		file,
+		scope: "head",
 		...overrides,
 	});
 }
@@ -471,6 +472,10 @@ describe("file page", () => {
 		const html = filePage("a.txt", textView(["x"]), { changed: true });
 		expect(html).toContain('href="/review/new?scope=head&amp;file=a.txt"');
 		expect(filePage("a.txt", textView(["x"]))).not.toContain('href="/review/new?scope=head');
+		// The comparison is the page's, not a constant: on a repository's first commit the same
+		// action names the index the numbers came from.
+		const fresh = filePage("a.txt", textView(["x"]), { changed: true, scope: "staged" });
+		expect(fresh).toContain('href="/review/new?scope=staged&amp;file=a.txt"');
 	});
 
 	test("drops the octet-stream metadata and escapes the footer path", () => {
@@ -490,6 +495,7 @@ describe("error page", () => {
 			status: 404,
 			message: "That page does not exist.",
 			tree: TREE,
+			scope: "head",
 		});
 		expect(html).toContain("browse · 404");
 		expect(html).toContain('<div class="bf-empty__code">404</div>');
@@ -504,6 +510,7 @@ describe("error page", () => {
 			status: 400,
 			message: '<script>alert("x")</script>',
 			tree: TREE,
+			scope: "head",
 		});
 		expect(html).not.toContain("<script>alert");
 		expect(html).toContain("&lt;script&gt;");
@@ -1175,14 +1182,29 @@ describe("a page served under a prefix", () => {
 		const changes = renderChanges(
 			{ count: 2, files: new Set(["a.ts"]), dirs: new Set(), insertions: 3, deletions: 1 },
 			undefined,
+			"head",
 		);
 		expect(changes).toContain('href="/review/new?scope=head"');
 		expect(changes).toContain("2 changes");
+		// The chip's link is the comparison its own list was taken in.
+		const fresh = renderChanges(
+			{ count: 1, files: new Set(["a.ts"]), dirs: new Set(), insertions: 1, deletions: 0 },
+			undefined,
+			"staged",
+		);
+		expect(fresh).toContain('href="/review/new?scope=staged"');
 	});
 
 	test("writes the error page's way back, and a Markdown link and raw-HTML tag under it", () => {
 		expect(
-			renderErrorPage({ base: "/files", rootLabel: ROOT_LABEL, status: 404, message: "gone", tree: TREE }),
+			renderErrorPage({
+				base: "/files",
+				rootLabel: ROOT_LABEL,
+				status: 404,
+				message: "gone",
+				tree: TREE,
+				scope: "head",
+			}),
 		).toContain('href="/files/browse/"');
 		expect(renderMarkdown("[x](docs/x.md)", "", { base: "/files" })).toContain('href="/files/view/docs/x.md"');
 		expect(renderMarkdown("![i](i.png)", "docs", { base: "/files" })).toContain('src="/files/raw/docs/i.png"');

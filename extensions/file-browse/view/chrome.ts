@@ -10,6 +10,7 @@
 
 import { escapeHtml } from "../../../lib/escape.ts";
 import { reviewHref } from "../../../lib/http/prefixes.ts";
+import type { DiffMode } from "../../../lib/diff/modes.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { chip, liveChip, reloadChip } from "../../../lib/web/index.ts";
 import type { GitStatus } from "../git/git.ts";
@@ -65,13 +66,14 @@ export function renderLiveChrome(live: LivePage | undefined): string {
 }
 
 /**
- * The header's changes chip, linking to the review page's uncommitted comparison — the same change
- * list this page counts, compared against `HEAD`. With live status on, a hidden shell is always
- * rendered so the chip can appear and disappear as the working tree changes, without the client
- * inserting elements into the header.
+ * The header's changes chip, linking to the comparison its own numbers came from: the review page's
+ * `head` — the tree against `HEAD` — or, on a repository's first commit, the index, because `HEAD`
+ * does not exist to compare against. With live status on, a hidden shell is always rendered so the
+ * chip can appear and disappear as the working tree changes, without the client inserting elements
+ * into the header.
  */
-export function renderChanges(summary: ChangeIndex | undefined, live: LivePage | undefined): string {
-	const href = reviewHref("head");
+export function renderChanges(summary: ChangeIndex | undefined, live: LivePage | undefined, scope: DiffMode): string {
+	const href = reviewHref(scope);
 	const count = summary?.count ?? 0;
 	if (count <= 0) {
 		return live
