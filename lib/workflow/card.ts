@@ -51,9 +51,8 @@ export const MAX_PATH = 200;
 /**
  * Longest recorded plan, in characters.
  *
- * The board records the *resolved* absolute path (a `~/…` form is expanded before it is
- * stored), so this cap holds a machine path rather than a caller's shorthand: a deep agent
- * directory plus a stamped plan name, with room for a platform's own limit.
+ * A name is short, and what needs the room is the absolute path an older card stored: a deep
+ * agent directory plus a stamped plan name, under a platform's own limit.
  */
 export const MAX_PLAN = 1024;
 
@@ -173,10 +172,7 @@ export interface Card {
 	/** Repository-relative hints, never claims. */
 	paths: string[];
 	/**
-	 * The plan the work is done against, once one is recorded.
-	 *
-	 * Its name inside this repository's plan store — what every host resolves against its own store —
-	 * or an absolute path on a card written before names were kept.
+	 * The plan the work is done against, once one is recorded: its name in this repository's store.
 	 */
 	planPath?: string;
 	/** What the card promises before it may be executed, and who approved that wording. */
@@ -397,10 +393,9 @@ export function normalizeNote(raw: unknown): { text: string } | FieldError {
  * The recorded plan: one line, and nothing more.
  *
  * The board never reads the plan: `artifact.ts` resolves the caller's path against this
- * repository's plan store, proves it is there, and answers the plan's name inside that store, so
- * what a card written here keeps is a name — `2026-10-26-1008-the-query.md` — rather than this
- * host's path, which is a fact about one machine. A card written before that is an absolute path
- * and is read as one. This only holds the record to one line and {@link MAX_PLAN}.
+ * repository's plan store and answers the plan's name, so what a card keeps is a name rather than
+ * this host's path. A card written before that holds an absolute path, and is read as one. This
+ * only holds the record to one line and {@link MAX_PLAN}.
  */
 export function normalizePlanPath(raw: unknown): { path: string } | FieldError {
 	if (typeof raw !== "string") return { error: "path is required." };

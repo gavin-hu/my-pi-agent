@@ -63,9 +63,7 @@ folds the rest, pins its head, and says a sentence every row shares once.
 `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full; `assign` is `team`'s verb
 under that rule, and one session holds one card in flight by default (`board.wip.perOwner`). `reclaim` takes a card back: the
 person and the lead always, a peer only while its owner is quiet or gone. `move` into `execute` or `done` re-reads the plan, and
-one that is gone refuses it. A card records the plan's **name** inside this repository's plan store, not this host's path, so a
-store shared by two machines resolves the same plan on either, and one that was recorded before that by absolute path still
-executes. An `execute` card holds its `paths`: `edit` claims added ones and releases removed ones, claiming
+one that is gone refuses it. An `execute` card holds its `paths`: `edit` claims added ones and releases removed ones, claiming
 first so a conflict releases nothing; `release` alone is undone by the next crossing. A contract names a `verify` command — the
 card's own check, not the repository's whole gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs
 it in the tree `root` names. `done` refuses a sign with no result or one older than the card's state (a note is not a change) and
@@ -83,7 +81,7 @@ it holds the card — a lead releases its own card first — and the `/board` wo
 sign as the serving session. The sign says who heard it — quiet, not listening, or not told — and an untold one
 is sent again; a completed contract is told the same way, and a failed send is a line that asks again.
 
-**Where it lives.** `~/.pi/agent/board/<repo-key>/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so a card set aside reads `done` like the rest and no file is ever rewritten.
+**Where it lives.** `~/.pi/agent/board/<repo-key>/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so a card set aside reads `done` like the rest and no file is ever rewritten. A card records its plan by the **name** it holds in this repository's plan store, not this host's path, so two machines sharing a store resolve it on either — and a card holding an older absolute path still executes.
 
 ## Limits
 

@@ -754,8 +754,7 @@ describe("note and plan", () => {
 		);
 		const plan = await writePlan(peer, "one.md");
 		const result = await peer.call({ action: "contract", card: "1", path: plan, ...LINES });
-		// The card keeps the plan's name inside this repository's store, not this host's path: a record
-		// another host can join to its own store is the point of the field.
+		// The card keeps the plan's name in this repository's store, so another host can join it to its own.
 		expect(result.details.card?.planPath).toBe("one.md");
 	});
 });
