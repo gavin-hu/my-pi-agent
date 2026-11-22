@@ -3,6 +3,7 @@ import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
+import { writeConfig } from "../../test/helpers/fixtures/footer.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { billingCard } from "../../test/helpers/fixtures/board.ts";
 import { pruneAll, pruneText, sweepQuietly } from "./prune.ts";
@@ -30,16 +31,15 @@ function writeCard(agentDir: string, key: string, plan: string): void {
 }
 
 /** A project document that states the bound a case is about. */
-function writeConfig(cwd: string, plan: Record<string, unknown>): void {
-	mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
-	writeFileSync(join(cwd, CONFIG_DIR_NAME, "bytefly.json"), JSON.stringify({ plan }));
+function writeBound(cwd: string, plan: Record<string, unknown>): void {
+	writeConfig(join(cwd, CONFIG_DIR_NAME), "bytefly.json", { plan });
 }
 
 describe("pruneAll", () => {
 	test("sweeps every keyed store, keeps a card's plan, and reports the counts", async () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-prune-cwd-");
-			writeConfig(cwd, { keep: 1, maxAgeDays: 180 });
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
 			const store = join(agentDir, "plans", "abc123");
 			writePlan(store, "newest.md", 1);
 			writePlan(store, "gone.md", 400);
@@ -54,7 +54,7 @@ describe("pruneAll", () => {
 	test("a dry run reports the same decision and removes nothing", async () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-prune-cwd-");
-			writeConfig(cwd, { keep: 1, maxAgeDays: 180 });
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
 			const store = join(agentDir, "plans", "abc123");
 			writePlan(store, "newest.md", 1);
 			writePlan(store, "gone.md", 400);
@@ -71,7 +71,7 @@ describe("pruneAll", () => {
 	test("runs even when the automatic passes are off, because that switch is not the person's", async () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-prune-cwd-");
-			writeConfig(cwd, { enabled: false, keep: 1, maxAgeDays: 180 });
+			writeBound(cwd, { enabled: false, keep: 1, maxAgeDays: 180 });
 			const store = join(agentDir, "plans", "abc123");
 			writePlan(store, "newest.md", 1);
 			writePlan(store, "gone.md", 400);
@@ -84,7 +84,7 @@ describe("sweepQuietly", () => {
 	test("leaves a store inside the bound alone, so a write pays a count rather than a stat per plan", async () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-quiet-cwd-");
-			writeConfig(cwd, { keep: 100, maxAgeDays: 180 });
+			writeBound(cwd, { keep: 100, maxAgeDays: 180 });
 			// Outside git the store is the plans directory itself, which is the key the sweep resolves
 			// to here; two plans are inside `keep: 100`, so no card is read and nothing is removed.
 			const store = join(agentDir, "plans");
@@ -102,12 +102,12 @@ describe("sweepQuietly", () => {
 			const { readPlanStore } = await import("./retention.ts");
 			writePlan(store, "newest.md", 1);
 			writePlan(store, "gone.md", 400);
-			writeConfig(cwd, { enabled: false, keep: 1, maxAgeDays: 180 });
+			writeBound(cwd, { enabled: false, keep: 1, maxAgeDays: 180 });
 			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
 			expect(await readPlanStore(store)).toHaveLength(2);
 			// The same two files and the same bounds, with the switch the other way: the plan that
 			// trips both bounds goes, which is what makes the first half the switch's doing.
-			writeConfig(cwd, { enabled: true, keep: 1, maxAgeDays: 180 });
+			writeBound(cwd, { enabled: true, keep: 1, maxAgeDays: 180 });
 			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
 			expect((await readPlanStore(store)).map((entry) => entry.name)).toEqual(["newest.md"]);
 		});
