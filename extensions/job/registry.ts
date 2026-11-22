@@ -19,10 +19,11 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { RosterState } from "../../lib/session-roster.ts";
+import { FILE_MODE, ensurePrivateDir } from "../../lib/json.ts";
 import { registryPathFor } from "./paths.ts";
 import { JOB_STATUSES, type JobRecord, type JobStatus, type RegistryFile } from "./types.ts";
 
@@ -145,10 +146,10 @@ export function removeLegacyRegistry(dir: string): void {
 
 /** Persist one session's registry atomically. Failures are non-fatal for the caller. */
 export function saveRegistry(dir: string, file: RegistryFile): void {
-	mkdirSync(dir, { recursive: true });
+	ensurePrivateDir(dir);
 	const path = registryPathFor(dir, file.sessionId);
 	const tmp = `${path}.tmp`;
-	writeFileSync(tmp, JSON.stringify(file, null, 2), "utf-8");
+	writeFileSync(tmp, JSON.stringify(file, null, 2), { encoding: "utf-8", mode: FILE_MODE });
 	renameSync(tmp, path);
 }
 

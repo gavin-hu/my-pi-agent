@@ -25,6 +25,7 @@ import {
 	type WriteStream,
 } from "node:fs";
 import { sanitizeUntrustedText } from "../../lib/format.ts";
+import { FILE_MODE } from "../../lib/json.ts";
 import type { LineSplitter } from "../../lib/lines.ts";
 import { tailLines } from "./format.ts";
 import type { Job, JobRecord } from "./types.ts";
@@ -196,7 +197,7 @@ export function createLogWriter(options: LogWriterOptions): LogWriter {
 		let fd: number | undefined;
 		let reopened: WriteStream | undefined;
 		try {
-			fd = openSync(logPath, "a");
+			fd = openSync(logPath, "a", FILE_MODE);
 			reopened = createWriteStream(logPath, { fd });
 			reopened.on("error", () => {});
 		} catch {
@@ -278,7 +279,7 @@ export function createLogWriter(options: LogWriterOptions): LogWriter {
 
 	return {
 		create(logPath) {
-			const stream = logPath === undefined ? undefined : createWriteStream(logPath, { flags: "a" });
+			const stream = logPath === undefined ? undefined : createWriteStream(logPath, { flags: "a", mode: FILE_MODE });
 			stream?.on("error", () => {});
 			return {
 				stream,

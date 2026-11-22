@@ -24,7 +24,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { walkFiles } from "./helpers/files.ts";
-import { relative } from "./helpers/scan.ts";
+import { RESERVED_PATHS, type StorageHome } from "../lib/storage.ts";
+import { dirsOf, extensionsDir, relative } from "./helpers/scan.ts";
 
 // `join` resolves the `..` on every platform, including Windows, where the
 // backslashed absolute path is one long name to `posix.join`.
@@ -214,5 +215,139 @@ describe("the contributor guide", () => {
 	test("CONTRIBUTING.md holds its word ceiling", () => {
 		const source = readFileSync(join(repo, "CONTRIBUTING.md"), "utf-8");
 		expect(documentWords(source), "move the detail into a guide and link it, then lower this ceiling").toBe(CEILING);
+	});
+});
+
+/** One Markdown table, read by its header row so a column added to either is a loud failure. */
+interface DocTable {
+	headers: string[];
+	rows: string[][];
+}
+
+/** A table row as cells: the pipes are the separators and the padding is not content. */
+function cells(line: string): string[] {
+	return line
+		.trim()
+		.replace(/^\|/, "")
+		.replace(/\|$/, "")
+		.split("|")
+		.map((cell) => cell.trim());
+}
+
+/** The one table in `markdown` whose header row is exactly `headers`. */
+function tableWith(markdown: string, headers: readonly string[]): DocTable | undefined {
+	const lines = markdown.split("\n");
+	for (let index = 0; index < lines.length; index += 1) {
+		const line = lines[index]?.trim() ?? "";
+		if (!line.startsWith("|")) continue;
+		const head = cells(line);
+		if (head.length !== headers.length || head.some((cell, at) => cell !== headers[at])) continue;
+		const rows: string[][] = [];
+		// The separator row is punctuation; the body runs until the table ends.
+		for (let next = index + 2; next < lines.length && (lines[next] ?? "").trim().startsWith("|"); next += 1) {
+			rows.push(cells(lines[next] ?? ""));
+		}
+		return { headers: head, rows };
+	}
+	return undefined;
+}
+
+/** The name a table row opens with: the code span in its first cell. */
+function nameOf(cell: string): string {
+	return /^`([^`]+)`$/.exec(cell)?.[1] ?? cell;
+}
+
+/** The extension names a cell mentions, which is how a `Written by` cell is read. */
+function extensionsIn(cell: string, known: ReadonlySet<string>): string[] {
+	return [...cell.matchAll(/`([^`]+)`/g)]
+		.map((match) => match[1] ?? "")
+		.filter((text) => known.has(text))
+		.sort();
+}
+
+/** A mode as a table spells it: `0700`, `0600`, or `—` for a path this package does not create. */
+function modeCell(mode: number | undefined): string {
+	return mode === undefined ? "—" : mode.toString(8).padStart(4, "0");
+}
+
+/**
+ * What one table says that the registry does not, and the reverse.
+ *
+ * Kept apart from the docs case so the writer half can be held with a table that is wrong on
+ * purpose: the real doc is right now, and a check that only ever sees a right table proves nothing.
+ */
+function registryDrift(table: DocTable, home: StorageHome, known: ReadonlySet<string>): string[] {
+	const problems: string[] = [];
+	const reserved = RESERVED_PATHS.filter((entry) => entry.home === home);
+	const seen = new Set<string>();
+	for (const row of table.rows) {
+		const name = nameOf(row[0] ?? "");
+		const entry = reserved.find((candidate) => candidate.name === name);
+		if (entry === undefined) {
+			problems.push(
+				`${home}: \`${name}\` is documented and no code reserves it; add it to RESERVED_PATHS or drop the row`,
+			);
+			continue;
+		}
+		seen.add(name);
+		const claimed = extensionsIn(row[2] ?? "", known).join(", ") || "nobody this package ships";
+		const writes = [...entry.written].sort().join(", ") || "nobody this package ships";
+		if (claimed !== writes) problems.push(`${home}: \`${name}\` is written by ${writes} and the row says ${claimed}`);
+		const at = table.headers.indexOf("Mode");
+		if (at >= 0) {
+			const spelled = (row[at] ?? "").replaceAll("`", "");
+			const wanted = modeCell(entry.mode);
+			if (spelled !== wanted) problems.push(`${home}: \`${name}\` is created ${wanted} and the row says ${spelled}`);
+		}
+	}
+	for (const entry of reserved) {
+		// Pi's own names are documented in prose, not in a table this package keeps: the reverse
+		// check is about the names a reader of OUR docs would take for ours.
+		if (entry.owner === "pi" || seen.has(entry.name)) continue;
+		problems.push(`${home}: \`${entry.name}\` is reserved and no row in the table names it`);
+	}
+	return problems;
+}
+
+describe("the reserved paths and the docs", () => {
+	const source = readFileSync(join(repo, "docs", "configuration.md"), "utf-8");
+	const known = new Set(dirsOf(extensionsDir));
+
+	test("the project `.pi` table names every path either side writes", () => {
+		const table = tableWith(source, ["Path", "Holds", "Written by", "Safe to delete"]);
+		expect(table).toBeDefined();
+		expect(registryDrift(table as DocTable, "project", known)).toEqual([]);
+	});
+
+	test("the agent-directory table names every store, its writer, and its mode", () => {
+		const table = tableWith(source, ["Path", "Holds", "Written by", "Mode"]);
+		expect(table).toBeDefined();
+		expect(registryDrift(table as DocTable, "agent", known)).toEqual([]);
+	});
+
+	test("a row naming an extension the code does not have fails, not only a missing row", () => {
+		// The defect this replaced: `.pi/agents` said `subagent` wrote it, while the subagent only
+		// reads a trusted directory. A table that only checked "is every reserved name documented"
+		// would have passed that row for the three years it was wrong.
+		const wrong: DocTable = {
+			headers: ["Path", "Holds", "Written by", "Mode"],
+			rows: [["`agents/`", "agent definitions", "[`subagent`](./extensions/subagent.md)", "—"]],
+		};
+		expect(registryDrift(wrong, "agent", known)).toContain(
+			"agent: `agents/` is written by nobody this package ships and the row says subagent",
+		);
+	});
+
+	test("a documented name the code reserves nothing for fails", () => {
+		const invented: DocTable = {
+			headers: ["Path", "Holds", "Written by", "Mode"],
+			rows: [
+				["`board/`", "", "`board`", "0700"],
+				["`theatre/`", "", "you", "—"],
+			],
+		};
+		expect(registryDrift(invented, "agent", known)).toContain(
+			"agent: `theatre/` is documented and no code reserves it; add it to RESERVED_PATHS or drop the row",
+		);
 	});
 });

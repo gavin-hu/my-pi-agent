@@ -17,7 +17,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 
 /** A finite number, or `NaN` when the value does not say one. */
@@ -130,6 +130,85 @@ export function readJson(path: string): Record<string, unknown> | undefined {
 export interface AtomicWriteOptions {
 	/** File mode for the published file, applied to the temp file the rename publishes. */
 	mode?: number;
+	/**
+	 * Directory mode for the parent this write may have to create, and for one already there.
+	 *
+	 * Absent is the ordinary case, and it leaves the parent exactly as this writer has always
+	 * made it: a config document's project `.pi`, a registry beside a checkout. A *store* passes
+	 * the policy from `storage.ts`, because a board, a mailbox or a plan store is state and the
+	 * shared writer is not the place to decide that.
+	 */
+	dirMode?: number;
+}
+
+/** The mode a directory a store owns is created with: owner only. */
+export const DIR_MODE = 0o700;
+
+/** The mode a file a store owns is created with: owner read and write. */
+export const FILE_MODE = 0o600;
+
+/** Where a reserved path is filed: the project's `.pi`, or Pi's agent directory. */
+export type StorageHome = "project" | "agent";
+
+/** Whose path it is: this package's, Pi's own, or a directory a person fills. */
+export type StorageOwner = "package" | "pi" | "you";
+
+/** One path this package reserves. */
+export interface ReservedPath {
+	/** Which directory it is filed under. */
+	home: StorageHome;
+	/** Who the name belongs to. */
+	owner: StorageOwner;
+	/** Its name there: `board`, `memory.md`, `jobs`. */
+	name: string;
+	/** One line on what it holds, for a reader of the table. */
+	holds: string;
+	/**
+	 * The extensions that write it.
+	 *
+	 * Empty for a path nobody in this package writes: Pi's own names, a directory a person fills
+	 * (`agents/`), and the ones a script writes. The drift case compares this against the docs'
+	 * `Written by` cell in both directions, which is what a row claiming a writer the code does
+	 * not have fails on.
+	 */
+	written: readonly string[];
+	/**
+	 * The mode this package creates it with, or absent for a path it does not create.
+	 *
+	 * A store is owner-only; a worktree checkout, a cache directory and `agents/` are not this
+	 * package's to narrow, and saying nothing is more honest than a mode that would be a guess.
+	 */
+	mode?: number;
+}
+
+/**
+ * Create a directory a store owns, and narrow one that is already there.
+ *
+ * `mkdir` applies the mode to what it creates and a umask can only narrow it, so a fresh store is
+ * owner-only either way. An install from before this policy has a 0755 directory, and the `chmod`
+ * is what makes the mode true of it: the mode is re-stated on every write rather than swept once,
+ * because a store nobody writes stays where it is and a store somebody writes is the moment the
+ * mode matters.
+ */
+export function ensurePrivateDir(dir: string): void {
+	mkdirSync(dir, { recursive: true, mode: DIR_MODE });
+	tightenMode(dir, DIR_MODE);
+}
+
+/**
+ * Narrow an existing path to `mode`, when it is not already there.
+ *
+ * The other half of {@link ensurePrivateDir}, and the whole answer for a file: an append keeps the
+ * mode the file was created with, so a note store written by hand and a log a child's shell opened
+ * are where a wider mode survives a policy that only states itself at creation.
+ */
+export function tightenMode(path: string, mode: number = FILE_MODE): void {
+	try {
+		if ((statSync(path).mode & 0o777) !== mode) chmodSync(path, mode);
+	} catch {
+		// Missing is the ordinary answer: a caller tightens after a write it just made, and a path
+		// that is not there has no mode to narrow.
+	}
 }
 
 /** How a temp name is spelled, for the one caller that writes into a directory a person lists. */
@@ -177,7 +256,11 @@ export function tempPathFor(path: string, options: TempNameOptions = {}): string
  * broken one's name and nothing is left beside the target.
  */
 export function writeTextAtomic(path: string, text: string, options: AtomicWriteOptions = {}): void {
-	mkdirSync(dirname(path), { recursive: true });
+	mkdirSync(
+		dirname(path),
+		options.dirMode === undefined ? { recursive: true } : { recursive: true, mode: options.dirMode },
+	);
+	if (options.dirMode !== undefined) tightenMode(dirname(path), options.dirMode);
 	const temp = tempPathFor(path);
 	try {
 		if (options.mode === undefined) writeFileSync(temp, text, "utf-8");
