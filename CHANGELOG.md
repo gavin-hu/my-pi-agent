@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a Needs you row spans its band at every width, lifting the 1024px measure #784 gave it.
+  The cap bought a readable line, but on a 2K window, where the band is 1824px, it stopped every row
+  800px short of the band's edge with nothing to its right, so the queue read as two right edges and
+  an age floated mid-air; the row now takes the band's width, the age reaches the edge, and the cost
+  is that same gap on a short ask, where the reason and its age sit far apart. The Team page's screen
+  capture is unchanged — its three columns leave the queue 560px wide at 1280, already under the cap
+  — and the 2K case now measures a row against its band's content width rather than a number.
+
 - `board`: the Needs you ask row's facts line is one type size. The kind and the owner were inheriting
   the column's 15px/22.5 in a line whose pill, reason and age are 12px, so a row carried three things
   at title size, its sentence was the smallest, and a one-line row was 43px without a kind or an

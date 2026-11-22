@@ -1,9 +1,10 @@
 /**
  * The Needs you queue's column and its rows, measured in the browser: one column of always-drawn
  * bands, one caption, a two-line ask whose title is the headline and whose reason is bounded, the
- * fold's words, the filtered sentence, the phone's wrap and the 2K measure. Both sides of every
- * comparison come off the page, so a case cannot pass while the layout drifts under a number
- * written here. It needs a browser; where the machine has none the suite skips, naming PI_CHROME.
+ * fold's words, the filtered sentence, the phone's wrap and the 2K row that spans its band. Both
+ * sides of every comparison come off the page, so a case cannot pass while the layout drifts
+ * under a number written here. It needs a browser; where the machine has none the suite skips,
+ * naming PI_CHROME.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -81,7 +82,7 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		await board?.close();
 	}, HOOK_MS);
 
-	test("stacks every band in one column, and gives each the whole of it", async () => {
+	test("stacks every band in one column, and gives each the whole of it, its rows included", async () => {
 		const page = await board.reuse();
 		await page.click("#tab-team");
 		await page.waitForSelector("#board-team .board-queue__band", { timeout: PAINT_MS });
@@ -93,28 +94,41 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 				const computed = (
 					globalThis as unknown as { getComputedStyle(node: unknown): { paddingLeft: string; paddingRight: string } }
 				).getComputedStyle;
+				// A box's content width, not its border box: a padded band would otherwise pass with its rows
+				// still short of the width a reader sees them fill.
+				const content = (node: Boxed & { clientWidth: number }) => {
+					const style = computed(node);
+					return node.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+				};
 				const queue = document.querySelector("#board-team .board-queue") as unknown as Boxed & {
 					clientWidth: number;
 				};
-				const style = computed(queue);
 				return {
-					content: queue.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight),
-					bands: Array.from(
-						document.querySelectorAll("#board-team .board-queue__band"),
-						(node) => node as unknown as Boxed,
-					).map((band) => ({
-						top: Math.round(band.getBoundingClientRect().top),
-						width: band.getBoundingClientRect().width,
-					})),
+					content: content(queue),
+					bands: Array.from(document.querySelectorAll("#board-team .board-queue__band"), (node) => {
+						const band = node as unknown as Boxed & { clientWidth: number };
+						return {
+							top: Math.round(band.getBoundingClientRect().top),
+							width: band.getBoundingClientRect().width,
+							content: content(band),
+							rows: Array.from(band.querySelectorAll(".board-queue__row"), (row) => row.getBoundingClientRect().width),
+						};
+					}),
 				};
 			});
 			// One band per line, at a 2K window as much as at 1280: the column is the queue's shape,
 			// not a function of the width.
 			expect(new Set(layout.bands.map((band) => band.top)).size, `width ${width}`).toBe(layout.bands.length);
+			expect(
+				layout.bands.reduce((count, band) => count + band.rows.length, 0),
+				`width ${width}`,
+			).toBeGreaterThan(0);
 			for (const band of layout.bands) {
-				// Each band fills the column to the browser's sub-pixel rounding — a band that kept a
-				// track of its own, or a cap, leaves the pane short of itself.
+				// A band and its rows each fill the column's whole content width to the browser's sub-pixel
+				// rounding: a band that kept a track of its own leaves the pane short of itself, and a row
+				// stopped at a readable measure — 800px short of its band at 2560 — leaves an age mid-air.
 				expect(Math.abs(band.width - layout.content), `width ${width}`).toBeLessThanOrEqual(1);
+				for (const row of band.rows) expect(Math.abs(row - band.content), `width ${width}`).toBeLessThanOrEqual(1);
 			}
 		}
 		// One head for the column: the caption counts asks, and the lanes keep their own count under
@@ -367,19 +381,6 @@ describe.skipIf(CHROME === undefined)("the Needs you rows", () => {
 		await page.press("#board-filter", "Enter");
 		await drawn(page);
 		expect(await sentence()).toBe('nothing matches "no card answers to this"');
-	});
-
-	test("caps the row's measure on a 2K window", async () => {
-		const page = await rowsBoard.reuse();
-		await page.click("#tab-team");
-		await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
-		await page.setViewportSize({ width: 2560, height: 900 });
-		await drawn(page);
-		const widths = await page.$$eval("#board-team .board-queue__row", (nodes) =>
-			Array.from(nodes as ArrayLike<Boxed>, (row) => row.getBoundingClientRect().width),
-		);
-		expect(widths.length).toBeGreaterThan(0);
-		for (const row of widths) expect(row).toBeLessThanOrEqual(1025);
 	});
 
 	test("gives a phone the whole title, wrapped rather than elided", async () => {
