@@ -27,6 +27,7 @@ import {
 	openBoardBrowser,
 } from "../../../test/helpers/board-browser.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
+import { waitFor } from "../../../test/helpers/process.ts";
 
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
 const clock = makeClock(1_760_000_000_000);
@@ -37,22 +38,14 @@ const HOOK_MS = 30_000;
 /** A sliver of the elements a case measures; this project's TypeScript has no DOM lib. */
 interface Boxed {
 	getBoundingClientRect(): { top: number; width: number; height: number };
+	querySelector(selector: string): Boxed | null;
+	querySelectorAll(selector: string): ArrayLike<Boxed>;
 	textContent: string | null;
 	scrollWidth?: number;
 	clientWidth?: number;
 	clientHeight: number;
 	getAttribute?(name: string): string | null;
 	title?: string;
-}
-
-/** Poll until `ready` holds, so a case waits on the page rather than on a fixed sleep. */
-async function waitFor(ready: () => Promise<boolean>, timeout: number): Promise<void> {
-	const until = Date.now() + timeout;
-	while (Date.now() < until) {
-		if (await ready()) return;
-		await Bun.sleep(50);
-	}
-	throw new Error("the page did not reach the state the case waits for");
 }
 
 /** Each band as drawn: its label, the count in its head, the rows it drew, and its fold. */
@@ -75,7 +68,7 @@ const headGap = (page: Page, label: string) =>
 		const band = Array.from(document.querySelectorAll("#board-team .board-queue__band"))
 			.map((node) => node as unknown as Boxed)
 			.find((node) => (node.querySelector("span")?.textContent ?? "") === name);
-		const head = band?.querySelector(".bf-lane__head") as unknown as Boxed | null;
+		const head = band?.querySelector(".bf-lane__head") ?? null;
 		if (pane === null || head === null) throw new Error(`${name}'s head is not on the page`);
 		const box = pane.getBoundingClientRect();
 		return Math.round((head.getBoundingClientRect().top - box.top - box.height) * 10) / 10;
@@ -113,9 +106,13 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 				const style = computed(queue);
 				return {
 					content: queue.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight),
-					bands: Array.from(document.querySelectorAll("#board-team .board-queue__band"), (node) => node as unknown as Boxed).map(
-						(band) => ({ top: Math.round(band.getBoundingClientRect().top), width: band.getBoundingClientRect().width }),
-					),
+					bands: Array.from(
+						document.querySelectorAll("#board-team .board-queue__band"),
+						(node) => node as unknown as Boxed,
+					).map((band) => ({
+						top: Math.round(band.getBoundingClientRect().top),
+						width: band.getBoundingClientRect().width,
+					})),
 				};
 			});
 			// One band per line, at a 2K window as much as at 1280: the column is the queue's shape,
@@ -147,9 +144,16 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		const page = await board.reuse();
 		await page.click("#tab-team");
 		for (let index = 0; index < 10; index++) {
-			await board.store.create({ title: `Pin item ${index + 1}`, paths: ["src/pin"] }, LEAD, clock.now() - index * 1_000);
+			await board.store.create(
+				{ title: `Pin item ${index + 1}`, paths: ["src/pin"] },
+				LEAD,
+				clock.now() - index * 1_000,
+			);
 		}
-		await waitFor(async () => (await bands(page)).some((band) => band.label === "Unclaimed" && band.count === 12), PAINT_MS);
+		await waitFor(
+			async () => (await bands(page)).some((band) => band.label === "Unclaimed" && band.count === 12),
+			PAINT_MS,
+		);
 		// A short window gives the column room to scroll past the pane's head: at the suite's own
 		// height the page cannot scroll far enough for any band to pin.
 		await page.setViewportSize({ width: 1280, height: 420 });
@@ -220,7 +224,7 @@ describe.skipIf(CHROME === undefined)("the Needs you rows", () => {
 
 	/** Open the claim band's fold, so every seeded row is drawn: a folded band draws five. */
 	async function openClaim(page: Page): Promise<void> {
-		const fold = "#board-team [data-fold=\"team-band-claim\"]";
+		const fold = '#board-team [data-fold="team-band-claim"]';
 		if ((await page.$(fold)) !== null) {
 			await page.click(fold);
 			await waitFor(async () => (await bands(page))[1]?.fold === "show fewer", PAINT_MS);
@@ -244,17 +248,18 @@ describe.skipIf(CHROME === undefined)("the Needs you rows", () => {
 	const rowShape = (page: Page, card: string) =>
 		page.evaluate((id: string) => {
 			const document = (globalThis as unknown as { document: Doc }).document;
-			const row = document.querySelector(`#board-team .board-queue__row[data-card="${id}"]`);
+			const row = document.querySelector(`#board-team .board-queue__row[data-card="${id}"]`) as unknown as Boxed | null;
 			if (row === null) throw new Error(`card ${id} is not in the queue`);
-			const title = row.querySelector(".bf-row__title") as unknown as Boxed;
-			const why = row.querySelector(".board-queue__why") as unknown as Boxed | null;
+			const title = row.querySelector(".bf-row__title");
+			if (title === null) throw new Error(`card ${id} has no title`);
+			const why = row.querySelector(".board-queue__why");
 			return {
 				row: row.getBoundingClientRect().height,
 				titleCut: (title.scrollWidth ?? 0) > (title.clientWidth ?? 0) + 1,
 				titleWrapped: title.getBoundingClientRect().height,
 				why: why === null ? null : why.getBoundingClientRect().height,
 				whyTitle: why === null ? "" : (why as unknown as { title: string }).title,
-				describedBy: title.getAttribute("aria-describedby") ?? "",
+				describedBy: title.getAttribute?.("aria-describedby") ?? "",
 				stamped: row.querySelector(".board-stamp") !== null,
 				rank: (row.querySelector(".board-queue__rank")?.textContent ?? "").trim(),
 			};
