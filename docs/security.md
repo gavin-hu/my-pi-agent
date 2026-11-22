@@ -150,6 +150,12 @@ So the boundary is the OS account, not the pack: run it under an account you wou
 trust with those files, and do not treat a message, a card, or a note as authenticated
 because it arrived in a file you own. Nothing in the pack checks who wrote one.
 
+A store a sync client replicates is another machine's input on the same terms. A card file
+may arrive from the other host at any moment, which is why the store reads back what it wrote
+and replays its operation instead of overwriting a rival revision, and why a file whose name
+is not a card id is reported with its reason rather than parsed. That is damage control, not
+authentication: the store can say a file changed under it, never who changed it.
+
 ### Model- and file-authored text
 
 Any text that reaches a widget or the terminal passes through `sanitizeLine`

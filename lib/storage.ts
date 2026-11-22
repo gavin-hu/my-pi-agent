@@ -118,6 +118,14 @@ export const RESERVED_PATHS: readonly ReservedPath[] = [
 	{
 		home: "agent",
 		owner: "package",
+		name: "presence/",
+		holds: "one board's write lock, per repository",
+		written: ["board"],
+		mode: DIR_MODE,
+	},
+	{
+		home: "agent",
+		owner: "package",
 		name: "board/",
 		holds: "the board, one card per file",
 		written: ["board"],

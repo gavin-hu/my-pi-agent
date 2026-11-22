@@ -14,6 +14,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a store. The names this package reserves are one table in `lib/storage.ts`, with the agent
   directory documented beside the project one and both held to it by `test/drift.test.ts` — which is
   also how the `.pi/agents` row stopped claiming `subagent` writes it.
+- `board`: the store survives a folder a sync client replicates. A write is now verified — the card
+  is read back and compared byte for byte with what was written, a rival revision is replayed onto
+  rather than overwritten, and one that keeps coming back is refused by number with both revisions
+  named — so the board converges across two machines and is not linearizable. Ids come from
+  `next-id.json` beside the cards, merged by `max`, so a stale copy cannot unspend one; the write
+  lock moved to `~/.pi/agent/presence/<repo-key>/`, outside the store, and a `.lock-board` inside it
+  is ignored; a client's `0042 (conflicted copy).json` is reported as a file this build cannot read,
+  with the reason, instead of being parsed. This is also what #768 landed silently: a repository has
+  an identity both machines compute from its remote, which is what makes a store shareable at all.
+
+- `board`: the Needs you queue is one column of three bands — Your signature, Unclaimed and Stalled
+  are always drawn, a head with 0 included — and each ask is a title line with its facts under it.
+  The six-column row spent 330 px of a 704 px row before the title could have a pixel, so every
+  desktop title was elided; the title now reads whole, the pill, the kind, the reason, the owner and
+  the age sit on the line below, a reason is clamped to two lines with the whole sentence in the
+  hover and in the description, a waiting row no longer prints its last write as an age, and the
+  rank numbers the rows as drawn. A band-suppressed row grows from 24 to about 44 px, and a queue
+  with nothing asked shows its three heads at 0 instead of an empty pane.
 
 - `board-triage`: the triage reads a card's own fields before its prose. `priority` orders the
   rows inside a wave and `type: "refactor"` is what makes a card a refactor, where both were

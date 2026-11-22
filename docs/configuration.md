@@ -205,6 +205,7 @@ store narrows on its next write.
 | `bytefly.json` | the global document, one section per extension | `bytefly`'s settings screen, or `team`'s `/team join` | `—` |
 | `memory.md` | global notes, injected into every run | [`memory`](./extensions/memory.md) | `0600` |
 | `agents/` | agent definitions a subagent may run | you | `—` |
+| `presence/` | one board's write lock, per repository | [`board`](./extensions/board.md) | `0700` |
 | `board/` | the board, one card per file | [`board`](./extensions/board.md) | `0700` |
 | `session-bus/` | sessions, mail, and path claims | [`session-bus`](./extensions/session-bus.md) | `0700` |
 | `plans/` | one plan store per repository, a file per plan | [`plan`](./extensions/plan.md) | `0700` |

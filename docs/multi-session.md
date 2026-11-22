@@ -99,6 +99,27 @@ requests   board, team ───► lib/session-tool.ts
 - **No forced takeover.** Reclaiming a card takes it back to `backlog`; nobody
   takes a path claim from a session that is still running.
 
+## Two machines, one store
+
+A board directory can live in a folder a sync client replicates, and then two sessions are not
+the only writers: the other machine's copy can land at any moment. The store is built for that
+rather than around it.
+
+**A write is verified, not assumed.** After writing a card the store reads it back and compares
+the bytes, because the file can be replaced in that window; a file that is not the one this pass
+wrote is a rival revision, so the operation is replayed onto what is there. A card that keeps
+being replaced is refused by number with both revisions named, never forced over. That is what
+makes the board **converge** — no operation is lost silently — and it is not linearizability: a
+copy the client delivers after the read-back is caught by the next write on either machine.
+
+**Ids** come from `next-id.json` beside the cards, read as the maximum of the counter and the
+piles, so a stale copy cannot unspend one; the exclusive create still decides when two machines
+pick the same number. **The write lock** lives in `~/.pi/agent/presence/<repo-key>/`, outside the
+store, because a lock a client replicated would name a process that is not on this machine — a
+`.lock-board` inside the board directory is ignored. And a name that is not a card id, such as a
+client's `0042 (conflicted copy).json`, is reported as a file this build cannot read, with the
+reason, rather than parsed.
+
 ## Turning it on, and off
 
 `/board` joins the leading session, and `session status` reads the bus without
