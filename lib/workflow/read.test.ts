@@ -7,8 +7,11 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tempDir } from "../../test/helpers/env.ts";
 import { CARD_VERSION } from "./card.ts";
-import { readCard } from "./read.ts";
+import { readCard, recordedPlans } from "./read.ts";
 import { billingCard as card } from "../../test/helpers/fixtures/board.ts";
 
 describe("readCard", () => {
@@ -158,5 +161,42 @@ describe("readCard", () => {
 		expect(readCard({ ...card(), v: 3 })).toBeUndefined();
 		expect(readCard("not a card")).toBeUndefined();
 		expect(readCard(undefined)).toBeUndefined();
+	});
+});
+
+/** Write one card file, or any file, into a board's `cards/`. */
+function writeCard(boardDir: string, file: string, value: unknown): void {
+	const pile = join(boardDir, "cards");
+	mkdirSync(pile, { recursive: true });
+	writeFileSync(join(pile, file), typeof value === "string" ? value : JSON.stringify(value));
+}
+
+describe("recordedPlans", () => {
+	test("answers the last segment of every plan a card records, absolute or store-relative", async () => {
+		// Two spellings of one store: the absolute path a card written before #769 records, and
+		// the store-relative name one written after records. The sweep compares file names, so
+		// one answer covers both.
+		const boardDir = tempDir("board-recorded-");
+		writeCard(boardDir, "0004.json", { ...card({ planPath: "/home/me/.pi/agent/plans/abc123/webhook.md" }), v: CARD_VERSION });
+		writeCard(boardDir, "0005.json", { ...card({ id: "5", planPath: "2026-11-22-2212-second.md" }), v: CARD_VERSION });
+		expect(await recordedPlans(boardDir)).toEqual(new Set(["webhook.md", "2026-11-22-2212-second.md"]));
+	});
+
+	test("protects nothing when the board has no cards, which is the ordinary case outside a repository", async () => {
+		expect(await recordedPlans(tempDir("board-empty-"))).toEqual(new Set());
+	});
+
+	test("answers nothing when one card cannot be read, because a shrunken set deletes a live plan", async () => {
+		const boardDir = tempDir("board-broken-");
+		writeCard(boardDir, "0004.json", { ...card({ planPath: "/plans/webhook.md" }), v: CARD_VERSION });
+		writeCard(boardDir, "0005.json", "{ not json");
+		expect(await recordedPlans(boardDir)).toBeUndefined();
+	});
+
+	test("skips a file that is not a card and a card that records no plan", async () => {
+		const boardDir = tempDir("board-mixed-");
+		writeCard(boardDir, "0004.json", { ...card(), v: CARD_VERSION });
+		writeCard(boardDir, "notes.md", "a hand-written note beside the cards");
+		expect(await recordedPlans(boardDir)).toEqual(new Set());
 	});
 });

@@ -18,7 +18,7 @@
 
 import { isLanding } from "./card.ts";
 import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
 import { mapConcurrent } from "../pool.ts";
 import {
@@ -210,6 +210,41 @@ export async function readdirSafe(dir: string): Promise<string[]> {
 		if (hasErrorCode(error, "ENOENT")) return [];
 		throw error;
 	});
+}
+
+/**
+ * The plan files a board's open cards record, by file name.
+ *
+ * A plan is swept by age and count, and a card's plan is the artifact it is executed against,
+ * so a sweep must never take one. `cards/` is the whole answer: `archive/` holds finished
+ * cards whose plans are history, and `planIsGone` draws for `plan` and `execute` alone, so an
+ * archived card owes its plan to nothing.
+ *
+ * The answer is the last segment of what a card recorded, because that is what a card and its
+ * plan can agree on across a store move: a card written today records an absolute path, and
+ * one written after #769 records a store-relative name, while both end in the file the sweep
+ * is looking at. A caller compares it against its own directory rather than trusting a path.
+ *
+ * `undefined` is "cannot tell", and it must remove nothing: one unreadable card, and a
+ * protection set that quietly shrank would delete a plan a live card needs. A board with no
+ * `cards/` at all protects nothing, which is the ordinary case outside a repository.
+ */
+export async function recordedPlans(boardDir: string): Promise<Set<string> | undefined> {
+	const pile = join(boardDir, "cards");
+	try {
+		const entries = await readdirSafe(pile);
+		const names = new Set<string>();
+		for (const entry of entries) {
+			if (!CARD_FILE.test(entry)) continue;
+			const read = await readCardFile(pile, entry);
+			if ("skip" in read) return undefined;
+			const recorded = read.card.planPath;
+			if (recorded !== undefined) names.add(basename(recorded));
+		}
+		return names;
+	} catch {
+		return undefined;
+	}
 }
 
 /**
