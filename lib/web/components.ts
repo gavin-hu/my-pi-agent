@@ -40,14 +40,6 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
    end of a path — the folder a reader is in — over its head, which names only the machine. */
 .bf-context--subject{flex:1 1 auto;direction:rtl;text-align:left;color:var(--dim);line-height:18px}
 .bf-spacer{flex:1 1 auto}
-/* One tone set, worn by a tag, a row's reason, or a lane's mark: a glyph carries the state and
-   the colour only agrees with it, so nothing is encoded by hue alone. */
-.bf-tone--accent{color:var(--accent)}
-.bf-tone--success{color:var(--success)}
-.bf-tone--warn{color:var(--warn)}
-.bf-tone--danger{color:var(--danger)}
-.bf-tone--dim{color:var(--dim)}
-.bf-tone--muted{color:var(--muted)}
 /* A tag is a glyph and a word: the glyph is a mark before the word, the tone is the word's
    colour. No rail, no box and no radius, because a box in this kit is a container or an action. */
 .bf-tag{display:inline-flex;align-items:center;gap:5px;font:var(--fs-xs) var(--font-ui);color:var(--muted);white-space:nowrap}
@@ -61,6 +53,18 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-live__text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bf-reload{appearance:none;color:var(--warn);cursor:pointer}
 .bf-reload:hover{color:var(--warn);text-decoration:underline}
+/* One tone set, worn by a tag, a row's reason, or a lane's mark: a glyph carries the state and
+   the colour only agrees with it, so nothing is encoded by hue alone. It sits below the three
+   rules above on purpose: a tag, a live state and the reload each set a default colour at this
+   same specificity, so a tone declared before them lost to them — every tone painted its
+   element's default — and a colour declared below this block wins again. The tone suite reads the
+   painted colours and refuses both. */
+.bf-tone--accent{color:var(--accent)}
+.bf-tone--success{color:var(--success)}
+.bf-tone--warn{color:var(--warn)}
+.bf-tone--danger{color:var(--danger)}
+.bf-tone--dim{color:var(--dim)}
+.bf-tone--muted{color:var(--muted)}
 /* A button is the only boxed element on a page: its 2px bottom edge is the click, so a label can
    never be mistaken for a tag. The face is the UI's, and the label is a word — not a terminal key. */
 .bf-btn{appearance:none;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-md);background:var(--surface);color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);padding:4px 10px;cursor:pointer;transition:transform var(--motion-fast) var(--motion-ease),border-color var(--motion-fast) var(--motion-ease),background var(--motion-fast) var(--motion-ease)}
