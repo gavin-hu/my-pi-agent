@@ -192,6 +192,26 @@ two machines can compute alike from the remote URL or, failing that, the history
 repository with neither is filed by its path, and that key means this machine only. Nothing reads
 across the two yet: which stores are shared is a decision each one makes.
 
+### The agent directory
+
+`lib/storage.ts` reserves these names and `test/drift.test.ts` holds this table to it, in both
+directions: a row here the code does not reserve fails, and so does a row whose `Written by` names an
+extension the code does not. A store is state, so it is created `0700` with `0600` files; a directory
+in this table with mode `—` is not this package's to narrow. There is no migration: an older `0755`
+store narrows on its next write.
+
+| Path | Holds | Written by | Mode |
+|---|---|---|---|
+| `bytefly.json` | the global document, one section per extension | `bytefly`'s settings screen, or `team`'s `/team join` | `—` |
+| `memory.md` | global notes, injected into every run | [`memory`](./extensions/memory.md) | `0600` |
+| `agents/` | agent definitions a subagent may run | you | `—` |
+| `board/` | the board, one card per file | [`board`](./extensions/board.md) | `0700` |
+| `session-bus/` | sessions, mail, and path claims | [`session-bus`](./extensions/session-bus.md) | `0700` |
+| `plans/` | one plan store per repository, a file per plan | [`plan`](./extensions/plan.md) | `0700` |
+| `jobs/` | a job's registry and its log | [`job`](./extensions/job.md) | `0700` |
+| `wechat/` | the bridge's credentials, cursor and media | [`wechat`](./extensions/wechat.md) | `0700` |
+| `bytefly/` | the update check's cached answer | [`bytefly`](./extensions/bytefly.md) | `—` |
+
 The `wechat` extension keeps runtime state under `<agent-dir>/wechat/`:
 `credentials.json` (mode `0600`, the one stored account this bridge runs),
 `state.json` (the poll cursor, the one conversation's reply token and last
@@ -211,10 +231,10 @@ writes, and whether it can be deleted:
 | Path | Holds | Written by | Safe to delete |
 |---|---|---|---|
 | `settings.json` | Pi's project settings, resource paths, and package declarations | `pi install --local`, or the settings screen's **Startup screen** and **Theme** rows | no — the project's packages go with it |
-| `bytefly.json` | this project's overrides, one section per extension | the settings screen's **Project** scope, `/team join <name>` for the roster, or a hand edit | no |
+| `bytefly.json` | this project's overrides, one section per extension | `bytefly`'s settings screen (**Project** scope), `team`'s `/team join`, or a hand edit | no |
 | `memory.md` | the project memory store, mode `0600` | [`memory`](./extensions/memory.md) | no — a note is the owner's |
 | `worktrees/` | managed checkouts, and `index.json` for their registry | [`worktree`](./extensions/worktree.md) | not while one is live; it prunes its own |
-| `agents/` | project agents, read-only | you, or [`subagent`](./extensions/subagent.md) | no |
+| `agents/` | project agents, read-only | you | no |
 | `cache/` | the last red run's JUnit report | `bun run check` | yes — the next run rewrites it |
 
 An extension that needs state adds a directory named for its concept and creates it on first
