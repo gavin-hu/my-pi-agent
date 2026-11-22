@@ -26,6 +26,7 @@ refinement a midline dot in the margin marks each section that changed.
 | Review with a teammate | `w` for the browser page, then **Share** for a QR or link on this Wi-Fi |
 | Leave without approving | `Esc` sends it back for another round; `x` leaves plan mode — the plan file stays either way |
 | Read an older plan | `/plan list`, then `Enter` |
+| Keep the store small | `/plan prune`, or `/plan prune --dry-run` for the counts first |
 
 ## Try it
 
@@ -33,9 +34,8 @@ refinement a midline dot in the margin marks each section that changed.
 /plan add rate limiting to the public API
 ```
 
-The model reads the code and the git history, never the write path. When it is
-done it saves a plan under `~/.pi/agent/plans/<repo-key>/` and opens the review
-screen; `a` approves it, `r` sends it back for a change.
+The model reads the code and the git history. When it is done it saves a plan under
+`~/.pi/agent/plans/<repo-key>/` and opens the review screen; `a` approves it, `r` sends it back.
 
 ```text
 plan exit 2026-10-09-1809-add-rate-limiting
@@ -59,13 +59,12 @@ The `plan` tool has five actions; `/plan` is the command that drives it.
 | `steps` | tick a step in the file and in its todo item, in one call |
 | `cancel` | leave plan mode, keeping any saved plan |
 
-**The plan file.** `~/.pi/agent/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md` — one
-store per repository, shared by its worktrees. Each refinement keeps the previous
-text beside it as a hidden file, five deep, so two rounds can be compared. The
-plan is what the model follows: approving it seeds its steps into your todo list,
-and finalizes a session goal that was only drafted, from the plan's own `Goal`.
-Approving a refined plan again replaces the items the earlier approval added that
-nobody has started, so the list matches the plan you last read.
+**The plan file.** `~/.pi/agent/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md` — one store per
+repository, shared by its worktrees, with each refinement's replaced text kept beside it as a hidden
+file, five deep. The plan is what the model follows: approving it seeds its steps into your todo list
+and finalizes a session goal that was only drafted, from the plan's own `Goal`. Approving a refinement
+again replaces the items the earlier approval added that nobody has started, so the list matches the
+plan you last read.
 
 **Ticking a step.** `steps` matches each entry's `expected` with inline markdown,
 case, and spacing ignored, so the plan's own line works as written; a refusal names
@@ -100,16 +99,18 @@ that changes. A delegated agent runs with writing forced off.
   permissions.
 - A plan holds at most 50 steps and 256 KiB; a bigger one is refused, not trimmed.
 - Plan mode has no PowerShell on Windows: Git Bash is the shell, and it must be installed.
-- The browser review needs `serve` and a local browser; a reviewer's page is only reachable
-  while its link is shared. At 1180px and below the sections list folds above the document
-  and starts shut, while the switch and its count stay in view; below 640 the four actions
-  become two and a **More** menu.
-- The plans directory is the only index — nothing deletes a plan for you.
+- The browser review needs `serve` and a local browser; a reviewer's page is only reachable while
+  its link is shared. At 1180px and below the sections list folds above the document and starts
+  shut; below 640 the four actions become two and a **More** menu.
 
 ## Settings
 
-Plan mode has no `bytefly.json` keys — the mode is the extension. To switch it
-off, toggle `plan` in `/bytefly`; the tool, the command, and the mode go with it.
+**The store's bound** is `bytefly.json`'s `plan` section: `keep` (the newest 100 per repository)
+and `maxAgeDays` (180). A plan goes when it is outside the newest `keep` **or** older than `maxAgeDays`
+— either alone, so a small store still loses a stale plan; the count bound and the card exemption are
+the protections, and `enabled: false` leaves `/plan prune` as the only door. The keys are in the
+[reference](../configuration-reference.md#plan--the-plan-stores-bound). Plan mode has no key: toggle
+`plan` in `/bytefly`.
 
 ## Learn more
 

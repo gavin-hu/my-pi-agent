@@ -271,6 +271,7 @@ const READS_AGENT_DIR = new Map<string, string>([
 	["extensions/subagent/agents.ts", "reads the agent definitions Pi ships"],
 	["extensions/wechat/commands/commands.ts", "opens the bridge's own directory for its report"],
 	["extensions/wechat/index.ts", "hands the agent directory to the bridge"],
+	["extensions/plan/prune.ts", "derives the plans directory a sweep reads and the board that protects it"],
 	["extensions/worktree/config.ts", "owns a location in the checkout, not one under the agent directory"],
 	[
 		"lib/workflow/session.ts",

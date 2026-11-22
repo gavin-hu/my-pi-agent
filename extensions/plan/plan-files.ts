@@ -134,6 +134,18 @@ function revisionNumber(name: string): number {
 	return digits === undefined ? 0 : Number.parseInt(digits, 10);
 }
 
+/**
+ * The plan a revision belongs to, read off the revision's own name.
+ *
+ * `.‹plan›-r007.md` belongs to `‹plan›.md`. The rule is the inverse of {@link revisionPattern} and
+ * lives beside it, so a sweep that removes a plan can name the chain that has to follow it
+ * without deriving the naming a second time.
+ */
+export function revisionBaseOf(name: string): string | undefined {
+	const matched = /^\.(.+)-r\d+\.md$/i.exec(name)?.[1];
+	return matched === undefined ? undefined : `${matched}.md`;
+}
+
 /** Keep `previous` as `path`'s next revision, and drop all but the newest few. */
 export function keepRevision(path: string, previous: string): string {
 	const dir = dirname(path);

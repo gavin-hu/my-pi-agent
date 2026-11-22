@@ -5,7 +5,7 @@
  * step it cannot track; the store owns naming, containment, and atomicity.
  */
 
-import type { AgentToolResult, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
+import type { AgentToolResult, ExtensionAPI, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { textResult } from "../../../lib/tool-result.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
@@ -25,6 +25,7 @@ export interface WritePlanArgs {
 }
 
 export async function executeWrite(
+	pi: ExtensionAPI,
 	runtime: PlanRuntime,
 	args: WritePlanArgs,
 	ctx: ExtensionToolContext,
@@ -56,6 +57,9 @@ export async function executeWrite(
 		// write; say so once, where the user is looking.
 		const moved = runtime.plans.takeNotice();
 		if (moved) ctx.ui.notify(moved, "info");
+		// The store's bound is kept here, not in `plans.ts`: a saved plan must not fail because a
+		// sweep did, so the pass is best-effort, bounded, and silent about itself.
+		await (await import("../prune.ts")).sweepQuietly(pi, ctx.cwd).catch(() => undefined);
 		// A refinement says where the text it replaced went: a reviewer's comment that was
 		// carried to a block that moved can be checked against what she actually read.
 		const kept =

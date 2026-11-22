@@ -15,6 +15,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   through the store rather than against the working directory. A build from before this reads a new
   card's name as a gone plan in the page until it reloads.
 
+- `plan`: the store keeps a bound instead of growing forever. A plan is removed when it is outside
+  the newest `plan.keep` (100 per repository) **or** older than `plan.maxAgeDays` (180) — two deletion
+  triggers, either one alone, so a busy store loses its oldest and a small store still loses a stale
+  plan. The protections are the count bound and the card exemption: a plan any card on the board
+  records is never removed, and a board that cannot be read removes nothing. A revision goes only with
+  its plan, `plan.enabled: false` leaves `/plan prune` as the only door, and `/plan prune [--dry-run]`
+  sweeps every store the machine holds — which is what reclaims the 38 k plans left by repositories
+  that are no longer here.
+
 - `lib/web`: a tag's tone is its word's colour again. The kit's `.bf-tag`, `.bf-live` and
   `.bf-reload` defaults set a colour at the same single-class specificity as the tone set and sat
   below it, so `bf-tone--warn` and `bf-tone--dim` both painted `--muted`; the set now sits after the

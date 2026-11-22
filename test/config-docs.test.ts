@@ -27,6 +27,7 @@ import { DEFAULT_REVIEW_CONFIG } from "../extensions/code-review/config/config.t
 import { DEFAULT_GOAL_CONFIG } from "../extensions/goal/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_JOB_CONFIG } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG } from "../extensions/memory/config.ts";
+import { DEFAULT_PLAN_CONFIG } from "../extensions/plan/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG } from "../extensions/rewind/config/config.ts";
 import { DEFAULT_SUBAGENT_CONFIG } from "../extensions/subagent/config.ts";
 import { DEFAULT_TODO_CONFIG } from "../extensions/todo/config.ts";
@@ -70,6 +71,7 @@ const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
 	job: DEFAULT_JOB_CONFIG,
 	watch: DEFAULT_WATCH_CONFIG,
 	memory: DEFAULT_MEMORY_CONFIG,
+	plan: DEFAULT_PLAN_CONFIG,
 	rewind: DEFAULT_REWIND_CONFIG,
 	subagent: DEFAULT_SUBAGENT_CONFIG,
 	todo: DEFAULT_TODO_CONFIG,
@@ -209,6 +211,6 @@ describe("configuration reference", () => {
 
 	test("leaves no section unchecked", () => {
 		// A board section means a new entry here and its page in configuration-reference.md.
-		expect(Object.keys(SECTIONS)).toHaveLength(20);
+		expect(Object.keys(SECTIONS)).toHaveLength(21);
 	});
 });

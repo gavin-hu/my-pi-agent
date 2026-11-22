@@ -136,7 +136,7 @@ export function registerTools(
 				case "enter":
 					return await executeEnter(runtime, ctx);
 				case "write":
-					return await executeWrite(runtime, params, ctx);
+					return await executeWrite(pi, runtime, params, ctx);
 				case "exit":
 					return await executeExit(pi, runtime, web, params, ctx, signal);
 				case "steps":
