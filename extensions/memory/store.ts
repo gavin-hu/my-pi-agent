@@ -18,7 +18,7 @@ import {
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { FILE_MODE, ensurePrivateDir, tightenMode } from "../../lib/storage.ts";
+import { FILE_MODE, ensurePrivateDir, tightenMode } from "../../lib/json.ts";
 import { writeTextAtomic } from "../../lib/json.ts";
 import { bytes } from "./format.ts";
 import { noteLabel, type MemoryNote, type NoteStamp } from "./types.ts";

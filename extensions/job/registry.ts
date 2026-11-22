@@ -23,7 +23,7 @@ import { existsSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFil
 import { join, resolve } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { RosterState } from "../../lib/session-roster.ts";
-import { FILE_MODE, ensurePrivateDir } from "../../lib/storage.ts";
+import { FILE_MODE, ensurePrivateDir } from "../../lib/json.ts";
 import { registryPathFor } from "./paths.ts";
 import { JOB_STATUSES, type JobRecord, type JobStatus, type RegistryFile } from "./types.ts";
 

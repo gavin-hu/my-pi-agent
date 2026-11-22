@@ -35,7 +35,7 @@ import { randomUUID } from "node:crypto";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
-import { FILE_MODE, ensurePrivateDir } from "../storage.ts";
+import { FILE_MODE, ensurePrivateDir } from "../json.ts";
 
 /**
  * The proven removal, loaded with the first one that happens.

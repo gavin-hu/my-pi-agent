@@ -16,7 +16,7 @@
 import { createCipheriv, createDecipheriv } from "node:crypto";
 import { readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { FILE_MODE, ensurePrivateDir } from "../../../lib/storage.ts";
+import { FILE_MODE, ensurePrivateDir } from "../../../lib/json.ts";
 import { stripControlChars } from "../../../lib/format.ts";
 import type { CDNMedia } from "../types.ts";
 

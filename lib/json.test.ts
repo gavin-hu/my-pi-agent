@@ -11,7 +11,7 @@ import { tempDir } from "../test/helpers/env.ts";
 import { tempPathFor, writeJsonFile, writeTextAtomic, memberOf } from "./json.ts";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { writeConfigFile } from "./config.ts";
-import { DIR_MODE, FILE_MODE } from "./storage.ts";
+import { DIR_MODE, FILE_MODE } from "./json.ts";
 
 describe("writeTextAtomic", () => {
 	function newPath(): string {

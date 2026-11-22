@@ -1,29 +1,22 @@
 /**
- * The paths this package reserves, and the mode every store it owns is created with.
+ * Every path this package reserves, in both homes, and the mode each one is made with.
  *
- * Two questions, one module, because they are answered about the same paths: *is this name ours?*
- * (the registry) and *how is a directory a store owns made?* (the policy). A store is state — a
- * board, a mailbox, a plan, a job log — so it is owner-only, and a file in it is owner-read-write;
- * a path this package only reads (`agents/`), or one a config document creates in a project
- * (`.pi/bytefly.json`), is not a store and keeps whatever mode the writer it came from has.
+ * One table, because the question it answers is one question: *is this name ours, and if so who
+ * writes it?* The docs have always listed the project's `.pi` names — this package's and Pi's
+ * together — and the agent directory had no such list at all, which is how `.pi/agents` came to
+ * claim `subagent` wrote it while the subagent only reads a trusted directory.
  *
- * The split matters because the writer is shared: `lib/json.ts` publishes config documents and
- * project registries as well as store files, so its parent directory mode defaults to the umask's
- * and a *store* asks for the policy explicitly. That is why {@link ensurePrivateDir} exists rather
- * than a default on every mkdir in the package.
+ * The mode is here rather than at each store so a reader can see the policy in one place; the
+ * helpers that *apply* it live in `lib/json.ts`, beside the writer that creates the directories,
+ * because every entry already pays for that module and a second one would be one more module
+ * evaluated at every start (`test/dependencies.test.ts`).
  *
- * Data only: no module-level state, and no I/O beyond the two helpers. `test/boundaries.test.ts`
- * holds the first half and the drift case in `test/drift.test.ts` holds the table against the docs
- * in both directions, so a path named in either table and written by neither cannot ship.
+ * Data only: no module-level state, and no I/O. `test/boundaries.test.ts` holds the first half and
+ * the drift case in `test/drift.test.ts` holds this table against the docs in both directions, so a
+ * path named in one and not the other cannot ship.
  */
 
-import { chmodSync, mkdirSync, statSync } from "node:fs";
-
-/** The mode a directory a store owns is created with: owner only. */
-export const DIR_MODE = 0o700;
-
-/** The mode a file a store owns is created with: owner read and write. */
-export const FILE_MODE = 0o600;
+import { DIR_MODE, FILE_MODE } from "./json.ts";
 
 /** Where a reserved path is filed: the project's `.pi`, or Pi's agent directory. */
 export type StorageHome = "project" | "agent";
@@ -31,7 +24,7 @@ export type StorageHome = "project" | "agent";
 /** Whose path it is: this package's, Pi's own, or a directory a person fills. */
 export type StorageOwner = "package" | "pi" | "you";
 
-/** One path this package reserves. */
+/** One path this package reserves, and how it is made. */
 export interface ReservedPath {
 	/** Which directory it is filed under. */
 	home: StorageHome;
@@ -170,33 +163,3 @@ export const RESERVED_PATHS: readonly ReservedPath[] = [
 		written: ["bytefly"],
 	},
 ];
-
-/**
- * Create a directory a store owns, and narrow one that is already there.
- *
- * `mkdir` applies the mode to what it creates and a umask can only narrow it, so a fresh store is
- * owner-only either way. An install from before this policy has a 0755 directory, and the `chmod`
- * is what makes the mode true of it: the mode is re-stated on every write rather than swept once,
- * because a store nobody writes stays where it is and a store somebody writes is the moment the
- * mode matters.
- */
-export function ensurePrivateDir(dir: string): void {
-	mkdirSync(dir, { recursive: true, mode: DIR_MODE });
-	tightenMode(dir, DIR_MODE);
-}
-
-/**
- * Narrow an existing path to `mode`, when it is not already there.
- *
- * The other half of {@link ensurePrivateDir}, and the whole answer for a file: an append keeps the
- * mode the file was created with, so a note store written by hand and a log a child's shell opened
- * are where a wider mode survives a policy that only states itself at creation.
- */
-export function tightenMode(path: string, mode: number = FILE_MODE): void {
-	try {
-		if ((statSync(path).mode & 0o777) !== mode) chmodSync(path, mode);
-	} catch {
-		// Missing is the ordinary answer: a caller tightens after a write it just made, and a path
-		// that is not there has no mode to narrow.
-	}
-}

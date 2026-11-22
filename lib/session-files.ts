@@ -20,7 +20,7 @@ import { createHash } from "node:crypto";
 import { link, mkdir, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { readJson, tempPathFor } from "./json.ts";
-import { DIR_MODE, FILE_MODE, ensurePrivateDir } from "./storage.ts";
+import { DIR_MODE, FILE_MODE, ensurePrivateDir } from "./json.ts";
 
 /** The bus directory under the agent dir, `session-bus`. */
 export const BUS_DIR_NAME = "session-bus";

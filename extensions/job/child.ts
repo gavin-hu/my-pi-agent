@@ -16,7 +16,7 @@
 import { existsSync, unlinkSync, type WriteStream, writeFileSync } from "node:fs";
 import { type ChildOutcome, type ChildSlot, type ChildSupervisor, createChildSupervisor } from "../../lib/child.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
-import { FILE_MODE, ensurePrivateDir, tightenMode } from "../../lib/storage.ts";
+import { FILE_MODE, ensurePrivateDir, tightenMode } from "../../lib/json.ts";
 import type { LineSplitter } from "../../lib/lines.ts";
 import type { KillTreeFn, SpawnFn, StartTokenFn, StdinSink } from "../../lib/spawn.ts";
 import { clipLabel } from "../../lib/tui/columns.ts";

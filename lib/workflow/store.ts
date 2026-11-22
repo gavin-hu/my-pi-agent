@@ -34,7 +34,7 @@ import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import { FILE_MODE, ensurePrivateDir } from "../storage.ts";
+import { FILE_MODE, ensurePrivateDir } from "../json.ts";
 import { type Card, cardRef, type Priority } from "./card.ts";
 import type { EndedCard } from "./ended.ts";
 import type { NoticeKind } from "./notice.ts";

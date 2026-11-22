@@ -9,7 +9,7 @@
 
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { FILE_MODE, ensurePrivateDir } from "../../../lib/storage.ts";
+import { FILE_MODE, ensurePrivateDir } from "../../../lib/json.ts";
 import { hasErrorCode } from "../../../lib/errors.ts";
 import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
 import { wechatDir } from "./credentials.ts";

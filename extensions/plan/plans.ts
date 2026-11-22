@@ -21,17 +21,7 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import {
-	existsSync,
-	lstatSync,
-	readFileSync,
-	readdirSync,
-	renameSync,
-	rmdirSync,
-	statSync,
-	unlinkSync,
-	writeFileSync,
-} from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, rmdirSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
 	CONFIG_DIR_NAME,
@@ -42,7 +32,6 @@ import {
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isContainedPlan, isPlanFileName, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
-import { FILE_MODE, ensurePrivateDir } from "../../lib/storage.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
 import { pageRevision } from "./plan-text.ts";
 import { extractSections } from "./sections.ts";
@@ -214,8 +203,9 @@ const MAX_MIGRATED_PLANS = 200;
  * landed, a file that cannot move is left where it is, and the old directory
  * goes only when what remains is the ignore file this package used to write.
  */
-function migrateLegacyStore(dir: string, legacy: string): number {
+async function migrateLegacyStore(dir: string, legacy: string): Promise<number> {
 	if (!existsSync(legacy)) return 0;
+	const { ensurePlanDir, movePlanFile } = await import("./plan-files.ts");
 	let names: string[];
 	try {
 		names = readdirSync(legacy);
@@ -228,14 +218,9 @@ function migrateLegacyStore(dir: string, legacy: string): number {
 		const from = join(legacy, name);
 		try {
 			if (!statSync(from).isFile()) continue;
-			ensurePrivateDir(dir);
+			ensurePlanDir(dir);
 			const to = uniquePath(dir, name.replace(/\.md$/i, ""));
-			try {
-				renameSync(from, to);
-			} catch {
-				writeFileSync(to, readFileSync(from), { flag: "wx", mode: FILE_MODE });
-				unlinkSync(from);
-			}
+			movePlanFile(from, to);
 			moved += 1;
 		} catch {
 			// A plan that cannot move stays where it is, and the directory stays with it.
@@ -289,7 +274,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		if (repo.fromGit) {
 			// The keyed directory is the store; a store an older version left in the
 			// checkout moves in once, so an upgrade does not strand its plans.
-			const moved = migrateLegacyStore(dir, join(base, CONFIG_DIR_NAME, "plans"));
+			const moved = await migrateLegacyStore(dir, join(base, CONFIG_DIR_NAME, "plans"));
 			if (moved > 0) notice = `Moved ${moved} plan${moved === 1 ? "" : "s"} to ${shortenPath(dir)}.`;
 		}
 		return { dir, root: repo.fromGit ? repo.root : undefined };
@@ -298,7 +283,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	const dirFor = async (cwd: string): Promise<string> => (await resolve(cwd)).dir;
 
 	const write = async (cwd: string, input: WritePlanInput): Promise<WrittenPlan> => {
-		const { createAtomic, keepRevision, writeAtomic } = await import("./plan-files.ts");
+		const { createAtomic, ensurePlanDir, keepRevision, writeAtomic } = await import("./plan-files.ts");
 		const base = baseOf(cwd);
 		const title = input.title.trim();
 		if (!title) throw new Error("A plan title is required.");
@@ -308,7 +293,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 
 		const dir = await dirFor(base);
-		ensurePrivateDir(dir);
+		ensurePlanDir(dir);
 
 		// A new plan has nobody to read: the name is *claimed* with the finished text, so two
 		// sessions writing one title in the same minute land on two files instead of the second

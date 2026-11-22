@@ -28,7 +28,7 @@
 import { existsSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type RosterSeams, type RosterState, rosterStateOf } from "../../lib/session-roster.ts";
-import { FILE_MODE, ensurePrivateDir } from "../../lib/storage.ts";
+import { FILE_MODE, ensurePrivateDir } from "../../lib/json.ts";
 import { sessionMarkerPath } from "./paths.ts";
 
 /** Prefix shared by every marker file, so log/registry files are never parsed. */

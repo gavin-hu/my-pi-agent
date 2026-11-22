@@ -25,7 +25,7 @@ import {
 	type WriteStream,
 } from "node:fs";
 import { sanitizeUntrustedText } from "../../lib/format.ts";
-import { FILE_MODE } from "../../lib/storage.ts";
+import { FILE_MODE } from "../../lib/json.ts";
 import type { LineSplitter } from "../../lib/lines.ts";
 import { tailLines } from "./format.ts";
 import type { Job, JobRecord } from "./types.ts";
