@@ -47,10 +47,11 @@ copied file line still matches, but the cap belongs to the note being written �
 longer than it, hand-written into the file, still reads, updates and forgets.
 
 **The stores.** The global file is `~/.pi/agent/memory.md`. The project store is
-anchored at the checkout that holds the repository — from a worktree, the main
-checkout — so a subdirectory and every worktree read the same file; it is read and
-written only while the project is trusted. Either store is written owner-only
-(`0600`), because a note is instruction the next session trusts.
+`~/.pi/agent/repos/<repo-id>/memory.md` — with the rest of the repository's state, under
+the identity both machines compute — so a subdirectory, every worktree and a second
+machine read the same file; it is read and written only while the project is trusted.
+Either store is written owner-only (`0600`), because a note is instruction the next
+session trusts.
 
 **Who wrote it.** A note written from a session carries its label and the moment after
 the text, as `<!-- by: jack @ 2026-11-18T05:12:00.000Z -->`; the text before it is the
@@ -85,9 +86,9 @@ and move are in place, `s`/Tab filters by scope, `r` reloads.
   shrinks it always lands — so `forget`, `/memory clear` and a shorter `/memory edit` are the
   way back — while a store that reached the ceiling is still listed, read and injected.
   `/memory doctor` names it with the byte count; Pi never writes one that large.
-- A worktree written by an older build may hold its own `.pi/memory.md`. It is not read
-  now — one store per repository — and it goes with the worktree, so copy it into the
-  checkout if it holds notes.
+- A checkout written by an older build may hold a `.pi/memory.md`; it is taken across to the
+  repository's directory once, on the first read that misses the new one, and that older file
+  is not read again. A worktree's own copy is debris from before this rule: it is not read.
 - Two sessions adding a note at the same instant both land: an `add` appends one line
   rather than rewriting the store. An `update`, `forget`, `merge` or `clear` racing an add can
   still lose the other's line — those rewrite — and closing that window would take a lock the

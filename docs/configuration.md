@@ -205,11 +205,9 @@ store narrows on its next write.
 | `bytefly.json` | the global document, one section per extension | `bytefly`'s settings screen, or `team`'s `/team join` | `—` |
 | `memory.md` | global notes, injected into every run | [`memory`](./extensions/memory.md) | `0600` |
 | `agents/` | agent definitions a subagent may run | you | `—` |
-| `presence/` | one board's write lock, per repository | [`board`](./extensions/board.md) | `0700` |
-| `board/` | the board, one card per file | [`board`](./extensions/board.md) | `0700` |
-| `session-bus/` | sessions, mail, and path claims | [`session-bus`](./extensions/session-bus.md) | `0700` |
-| `plans/` | one plan store per repository, a file per plan | [`plan`](./extensions/plan.md) | `0700` |
-| `jobs/` | a job's registry and its log | [`job`](./extensions/job.md) | `0700` |
+| `presence/` | one board's write lock, per repository identity | [`board`](./extensions/board.md) | `0700` |
+| `repos/` | one directory per repository: its board, plans, session-bus, memory store and worktree registry | [`board`](./extensions/board.md), [`plan`](./extensions/plan.md), [`session-bus`](./extensions/session-bus.md), [`memory`](./extensions/memory.md), [`worktree`](./extensions/worktree.md) | `0700` |
+| `jobs/` | a job's registry and its log, until that store follows | [`job`](./extensions/job.md) | `0700` |
 | `wechat/` | the bridge's credentials, cursor and media | [`wechat`](./extensions/wechat.md) | `0700` |
 | `bytefly/` | the update check's cached answer | [`bytefly`](./extensions/bytefly.md) | `—` |
 
@@ -233,8 +231,7 @@ writes, and whether it can be deleted:
 |---|---|---|---|
 | `settings.json` | Pi's project settings, resource paths, and package declarations | `pi install --local`, or the settings screen's **Startup screen** and **Theme** rows | no — the project's packages go with it |
 | `bytefly.json` | this project's overrides, one section per extension | `bytefly`'s settings screen (**Project** scope), `team`'s `/team join`, or a hand edit | no |
-| `memory.md` | the project memory store, mode `0600` | [`memory`](./extensions/memory.md) | no — a note is the owner's |
-| `worktrees/` | managed checkouts, and `index.json` for their registry | [`worktree`](./extensions/worktree.md) | not while one is live; it prunes its own |
+| `worktrees/` | managed checkouts, each on its own branch | [`worktree`](./extensions/worktree.md) | not while one is live; it prunes its own |
 | `agents/` | project agents, read-only | you | no |
 | `cache/` | the last red run's JUnit report | `bun run check` | yes — the next run rewrites it |
 

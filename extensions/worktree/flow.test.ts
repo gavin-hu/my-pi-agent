@@ -31,7 +31,7 @@ import {
 } from "../../test/helpers/fixtures/worktree.ts";
 import { analyzeBashCommand, guardFileTool, guardPowershellTool, isUnverifiable, resolveUnder } from "./guard.ts";
 import worktreeExtension from "./index.ts";
-import { loadRegistry } from "./registry.ts";
+import { loadRegistry, registryFileFor } from "./registry.ts";
 import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "./runtime.ts";
 
@@ -244,7 +244,7 @@ describe.skipIf(!runSlowSuites)("entering a worktree", () => {
 				return entry.customType === "worktree" && entry.data?.active === true;
 			}),
 		).toBe(true);
-		expect(loadRegistry(repo, testConfig()).worktrees.map((record) => record.path)).toContain(dir);
+		expect(loadRegistry(await registryFileFor(harness.pi, repo)).worktrees.map((r) => r.path)).toContain(dir);
 	});
 
 	test("refuses a name or a path that leaves the managed directory", async () => {

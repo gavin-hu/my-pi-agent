@@ -15,7 +15,7 @@
 
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { basename, dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "./env.ts";
 import { createExecRunner, gitCommonDir, remoteUrl, repoRoot, rootCommit } from "./git/index.ts";
@@ -202,4 +202,39 @@ export async function repoIdFor(pi: Pick<ExtensionAPI, "exec">, cwd: string): Pr
 		// A git that cannot start is the same answer as a repository with neither.
 	}
 	return { source: "none" };
+}
+
+// --- Where a repository's state lives ---------------------------------------
+
+/**
+ * The one directory a sync client is pointed at: `<agent-dir>/repos`.
+ *
+ * The layout lives here rather than in a module of its own because identity and location are one
+ * question — which repository is this, and where does its state go — and because a new module is
+ * one more evaluation for every entry that already pays for this one, while
+ * `test/dependencies.test.ts` holds each entry's count to a row that may only fall.
+ */
+export function reposRoot(agentDir: string): string {
+	return join(agentDir, "repos");
+}
+
+/** One store of one repository: `<agent-dir>/repos/<id>/<name>`. */
+export function repoStoreDir(agentDir: string, id: string, name: string): string {
+	return join(reposRoot(agentDir), id, name);
+}
+
+/**
+ * The directory name a store is filed under.
+ *
+ * A directory with no remote and no commit has no identity another machine can compute, so it is
+ * filed as `local-<pathKey>`: it still moves once, into the one layout, and the prefix keeps it
+ * out of any real id's space — no other host computes that key, so the directory is inert there.
+ */
+export function storeIdOf(identity: Pick<RepoIdentity, "id">, pathKey: string): string {
+	return identity.id ?? `local-${pathKey}`;
+}
+
+/** `<agent-dir>/worktrees/<id>`: where this machine keeps a repository's checkouts. */
+export function worktreeRootFor(agentDir: string, id: string): string {
+	return join(agentDir, "worktrees", id);
 }

@@ -21,7 +21,6 @@ import { lstatSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { isInside, isInsideReal } from "../path.ts";
-import type { RepoKey } from "../repo-key.ts";
 
 /** The agent-directory entry plans are filed under. */
 export const PLANS_DIR_NAME = "plans";
@@ -37,7 +36,7 @@ export function plansDir(agentDir: string, key?: string): string {
  * The `fromGit` branch lives here and nowhere else — that is the line a copy gets wrong,
  * and both the plan tool and the board reach it through this one function.
  */
-export function plansDirFor(agentDir: string, repo: Pick<RepoKey, "key" | "fromGit">): string {
+export function plansDirFor(agentDir: string, repo: { key: string; fromGit?: boolean }): string {
 	return plansDir(agentDir, repo.fromGit ? repo.key : undefined);
 }
 

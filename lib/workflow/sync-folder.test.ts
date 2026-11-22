@@ -18,7 +18,8 @@ import { permissiveStore } from "../../test/helpers/board-flow.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import type { Card } from "./card.ts";
 import { type Actor } from "./rules.ts";
-import { createStore, NEXT_ID_FILE } from "./store.ts";
+import { NEXT_ID_FILE } from "./ids.ts";
+import { createStore } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

@@ -30,10 +30,11 @@
 import { link, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { repoKeyFor } from "../repo-key.ts";
 import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
-import { repoKeyFor } from "../repo-key.ts";
+
 import { FILE_MODE, ensurePrivateDir } from "../json.ts";
 import { type Card, cardRef, type Priority } from "./card.ts";
 import type { EndedCard } from "./ended.ts";
@@ -175,7 +176,21 @@ export async function openBoard(
 	// A tool receives the session's cwd, not the worktree the user entered; the
 	// environment carries the active root, so the two are reconciled before the
 	// repository lookup — the same path `plan` and `session-bus` take.
-	const repo = await repoKeyFor(pi, resolveEffectiveCwd(cwd));
+	// The identity two machines agree on, the directory the store is filed in, and the store an
+	// older build left at the flat spelling taken across once — one body, shared with every other
+	// owner (`lib/store-paths.ts`), so the five cannot disagree about what "filed under the
+	// repository" means.
+	const base = resolveEffectiveCwd(cwd);
+	const repo = await repoKeyFor(pi, base);
+	const { repoStoreDirFor } = await import("../store-paths.ts");
+	const { dir, id } = await repoStoreDirFor(
+		pi,
+		base,
+		agentDir,
+		BOARD_DIR_NAME,
+		(found) => boardDirFor(agentDir, found.key),
+		{ repo },
+	);
 	// Read once per store: the settings are a setting, not a card, and a board that re-read
 	// a file on every write would spend a stat to answer a question nobody changed. The read is
 	// rooted at the repository's *checkout*, not at the working tree: in a worktree `.pi/` is
@@ -184,12 +199,13 @@ export async function openBoard(
 	// The key is handed on, not left to be read off the directory it named: `session-bus`
 	// files this repository's records under the same key, so the two must not be able to
 	// disagree about it.
-	return createStore(boardDirFor(agentDir, repo.key), {
+	return createStore(dir, {
 		root: repo.root,
 		key: repo.key,
 		config,
-		// The lock is this machine's, so it sits outside the store a client may replicate.
-		lockDir: presenceDirFor(agentDir, repo.key),
+		// The lock is this machine's, so it sits outside the store a client may replicate, and it
+		// is filed by the same identity the store is.
+		lockDir: presenceDirFor(agentDir, id),
 	});
 }
 
@@ -288,6 +304,9 @@ export function createStore(
 
 	const create = async (input: CreateInput, actor: Actor, now: number): Promise<Card> => {
 		await ensure();
+		// The counter's module loads with the first add rather than with the extension: the entry
+		// budgets in `test/dependencies.test.ts` may only fall, so a board that never adds pays nothing.
+		const { nextCardId } = await import("./ids.ts");
 		let lastError: unknown;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
 			const id = await nextCardId(dir, cardsDir, endedDir, archiveDir);
@@ -438,65 +457,6 @@ async function revisionOnDisk(dir: string, id: string): Promise<number | undefin
 /** `<id>.json`, zero-padded to four digits so a directory lists in card order. */
 function fileNameFor(id: string): string {
 	return `${id.padStart(4, "0")}.json`;
-}
-
-/** The highest id a directory holds, or 0 when it holds none. */
-async function highestId(dir: string): Promise<number> {
-	const entries = await readdirSafe(dir);
-	let highest = 0;
-	for (const entry of entries) {
-		const match = CARD_FILE.exec(entry);
-		if (match) highest = Math.max(highest, Number(match[1]));
-	}
-	return highest;
-}
-
-/** The counter beside the piles: the highest id any machine has issued from this board. */
-export const NEXT_ID_FILE = "next-id.json";
-
-/**
- * `1`, `2`, `3` … as the highest id the board has ever used plus one.
- *
- * Ended and archived cards count: a dropped card's record keeps its id spent, and an
- * archived card's file is still named by it, so a note or a handoff that names `#29`
- * cannot come to mean a different feature tomorrow.
- *
- * The counter beside the piles is what gives two machines the same answer: a scan sees only
- * what this host holds, so two hosts that scan the same directory both pick the id after it.
- * The counter records the highest id any of them has issued, and every reader takes the
- * **maximum** of it and the scan — which is why this needs no lock, and why a losing write of
- * a smaller value costs nothing: it cannot lower what the next reader sees. The exclusive
- * `link` in `create` stays the real guard; this only keeps the collision rare.
- */
-async function nextCardId(dir: string, cardsDir: string, endedDir: string, archiveDir: string): Promise<string> {
-	const scanned = Math.max(await highestId(cardsDir), await highestId(endedDir), await highestId(archiveDir));
-	const next = Math.max(scanned, await readIdCounter(dir)) + 1;
-	await writeIdCounter(dir, next);
-	return String(next);
-}
-
-/** The counter's value, or 0 when the file is absent, unreadable or not a counter. */
-async function readIdCounter(dir: string): Promise<number> {
-	const raw = await readFile(join(dir, NEXT_ID_FILE), "utf-8").catch(() => undefined);
-	if (raw === undefined) return 0;
-	try {
-		const parsed: unknown = JSON.parse(raw);
-		const value = typeof parsed === "object" && parsed !== null ? (parsed as { value?: unknown }).value : undefined;
-		// A garbage counter is a fresh start rather than a failure: the scan has already answered.
-		return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
-	} catch {
-		return 0;
-	}
-}
-
-/** Record the highest id issued. Best-effort: a counter that cannot be written only costs the guard. */
-async function writeIdCounter(dir: string, value: number): Promise<void> {
-	try {
-		ensurePrivateDir(dir);
-		await writeFile(join(dir, NEXT_ID_FILE), `${JSON.stringify({ value }, null, "\t")}\n`, { mode: FILE_MODE });
-	} catch {
-		// The scan still answers on this host; the counter is advice across hosts.
-	}
 }
 
 /**

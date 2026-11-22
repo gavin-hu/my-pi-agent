@@ -18,7 +18,7 @@ import {
 	unlockWorktree,
 	worktreeRemove,
 } from "./git.ts";
-import { reconcileRegistry, removeRecord, type WorktreeRecord } from "./registry.ts";
+import { reconcileRegistry, removeRecord, type WorktreeRecord, registryFileFor } from "./registry.ts";
 import { getActive } from "./runtime.ts";
 
 /**
@@ -57,7 +57,8 @@ export async function pruneWorktreesResult(pi: ExtensionAPI, ctx: ExtensionConte
 	if (!root) return { output: "Not a git repository.", removed: [], kept: [] };
 	const config = loadConfig(root);
 	const managed = await listManagedWorktrees(pi, root, config);
-	const { registry } = reconcileRegistry(root, config, managed);
+	const registryFile = await registryFileFor(pi, root);
+	const { registry } = reconcileRegistry(registryFile, root, managed);
 	const byPath = new Map<string, WorktreeRecord>(registry.worktrees.map((record) => [record.path, record]));
 	const branch = await defaultBranch(createExecRunner(pi), root);
 	const current = getActive();
@@ -103,7 +104,7 @@ export async function pruneWorktreesResult(pi: ExtensionAPI, ctx: ExtensionConte
 			continue;
 		}
 		removed.push(entry.path);
-		removeRecord(root, config, entry.path);
+		removeRecord(registryFile, entry.path);
 		if (entry.branch) {
 			const deleted = await deleteBranch(pi, root, entry.branch, false);
 			if (!deleted.ok) kept.push(`branch ${entry.branch} (unmerged, kept)`);

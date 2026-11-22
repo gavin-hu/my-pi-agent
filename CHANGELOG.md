@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`, `plan`, `session-bus`, `memory` and `worktree`: a repository's own state now lives in one
+  directory — `~/.pi/agent/repos/<repo-id>/`, keyed by the identity its remote gives it — so pointing a
+  sync client at `~/.pi/agent/repos/` is enough for this machine and another one to read the same board,
+  plans, mail, notes and worktree registry. A store an older build left at the flat spelling is taken
+  across once, on the first read that misses it, and an older build keeps working for one release; a
+  directory with no remote and no commit is filed as `local-<pathKey>`, which no other machine computes.
+  `job` follows in #788, and a managed checkout stays where `worktree.dir` says — relocating a live
+  worktree is `git worktree move`, which is its own card.
+
 - `board`: an ask row's owner cell says how its owner is doing, in the words the Agents column
   already prints — `billing-core, free` — as the cell's tooltip and its accessible name, while the
   dot stays a decoration that agrees with the word. It was the one fact on that row carried by

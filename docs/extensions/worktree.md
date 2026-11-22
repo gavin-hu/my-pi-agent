@@ -6,7 +6,8 @@ relative paths; only the root they resolve against changes.
 
 <img src="../../assets/screens/worktree.png" alt="The /worktree screen: a Worktrees title rule with a count summary, a current row carrying its ahead count, a dirty row, a merged row and a stale-locked row, the focused row's path and base with the Not isolated gap under it, and the key hints" width="1680" height="576">
 
-- **One task, one checkout.** `<repo>/.pi/worktrees/<name>` on `worktree-<name>`.
+- **One task, one checkout.** `<repo>/.pi/worktrees/<name>` on `worktree-<name>`. The registry that
+  records where each came from is state, and lives at `~/.pi/agent/repos/<repo-id>/worktrees.json`.
 - **The built-ins follow.** `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`.
 - **Writes may not leave the checkout**, through a symlink or a redirect; reads stay
   put only with `guard.blockReadEscapes` in

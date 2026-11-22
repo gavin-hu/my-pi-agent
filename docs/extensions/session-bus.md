@@ -87,7 +87,7 @@ keeps, the smaller session id decides a tie in one tick, and the loser gives its
 told who holds the path. Paths resolve against your working directory and are stored relative to the
 repository root; the repository itself cannot be claimed, and there is no forced takeover.
 
-**Where it lives.** `~/.pi/agent/session-bus/<repo-key>/`, under the agent directory, so never committed.
+**Where it lives.** `~/.pi/agent/repos/<repo-id>/session-bus/`, beside the board, so never committed.
 
 ## Limits
 

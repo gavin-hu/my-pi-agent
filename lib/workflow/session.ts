@@ -19,7 +19,7 @@
  * per extension and none of them the same one.
  */
 
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../env.ts";
@@ -176,9 +176,12 @@ export interface BoardSessionOptions {
  * whole file layer in both their graphs. Every caller already awaits this — `session.busDir` is a
  * promise — so the `import()` costs the first call and nothing else, and Node caches the module.
  */
-export async function busDirFor(agentDir: string, store: Pick<BoardStore, "key">): Promise<string> {
+export async function busDirFor(_agentDir: string, store: Pick<BoardStore, "dir">): Promise<string> {
 	const { BUS_DIR_NAME } = await import("../session-files.ts");
-	return join(agentDir, BUS_DIR_NAME, store.key);
+	// Beside the board rather than beside the agent directory: one repository's state is one
+	// directory now, so the bus is a sibling of `board/` under `repos/<id>/` and cannot drift from
+	// the store it belongs to. The argument stays for its callers, which pass the agent directory.
+	return join(dirname(store.dir), BUS_DIR_NAME);
 }
 
 /**

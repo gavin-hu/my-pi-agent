@@ -41,7 +41,9 @@ describe("plan store — write", () => {
 		const store = createPlanStore(planRepoPi(root), { now: () => FIXED });
 		const file = await store.write(root, { title: "Add rate limiting", content: "# Plan\n1. Do it" });
 
-		expect(file.path).toBe(join(AGENT, "plans", repoKeyOf(join(root, ".git")), "2026-10-08-1530-add-rate-limiting.md"));
+		expect(file.path).toBe(
+			join(AGENT, "repos", `local-${repoKeyOf(join(root, ".git"))}`, "plans", "2026-10-08-1530-add-rate-limiting.md"),
+		);
 		expect(readFileSync(file.path, "utf-8")).toContain("1. Do it");
 		expect(file.relativePath).toBe(shortenPath(file.path));
 		expect(file.bytes).toBeGreaterThan(0);

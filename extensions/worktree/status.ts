@@ -15,7 +15,7 @@ import { createExecRunner, defaultBranch } from "../../lib/git/index.ts";
 import { loadConfig } from "./config.ts";
 import { gapLines, type IsolationGap, isolationGaps } from "./gaps.ts";
 import { type CheckoutRefusal, listManagedWorktrees, type ManagedWorktree, repoRoot } from "./git.ts";
-import { reconcileRegistry, statusOf, type CheckoutStatus } from "./registry.ts";
+import { reconcileRegistry, statusOf, type CheckoutStatus, registryFileFor } from "./registry.ts";
 import { configFor, getActive, getInactiveOverrides, getUnverifiableCommands } from "./runtime.ts";
 import type { WorktreeState } from "./state.ts";
 
@@ -159,7 +159,7 @@ export async function worktreeSnapshot(pi: ExtensionAPI, ctx: ExtensionContext):
 	if (root) {
 		const config = loadConfig(root);
 		const entries = await listManagedWorktrees(pi, root, config);
-		const { registry } = reconcileRegistry(root, config, entries, { persist: false });
+		const { registry } = reconcileRegistry(await registryFileFor(pi, root), root, entries, { persist: false });
 		baseBranch = await defaultBranch(createExecRunner(pi), root);
 		const baseRef = baseBranch ? `origin/${baseBranch}` : undefined;
 		// Keyed by the canonical path the registry stores, so a row's record is one

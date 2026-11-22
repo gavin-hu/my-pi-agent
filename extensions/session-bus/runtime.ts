@@ -143,11 +143,21 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// Canonical once, here: the root git reports is a real path, so an unresolved
 			// cwd does not contain the paths a caller resolves against it.
 			const cwd = realPathOfNearest(context.cwd);
-			// Deferred with the one subprocess it spawns: the repository's identity is asked for
-			// once, here, and a session that never joins a bus pays nothing for git.
-			const { repoKeyFor } = await import("../../lib/repo-key.ts");
-			const repo = options.repo ?? (await repoKeyFor(pi, cwd));
-			const dir = options.dir ?? join(getAgentDir(), BUS_DIR_NAME, repo.key);
+			// Filed beside the board, under the identity two machines agree on, with a bus an older
+			// build wrote at the flat spelling taken across once. One body for every owner: the
+			// module is loaded here, so a session that never joins a bus pays nothing for it.
+			const agentDir = getAgentDir();
+			const { repoStoreDirFor } = await import("../../lib/store-paths.ts");
+			const located =
+				options.dir === undefined
+					? await repoStoreDirFor(pi, cwd, agentDir, BUS_DIR_NAME, (found) => join(agentDir, BUS_DIR_NAME, found.key), {
+							repo: options.repo,
+						})
+					: undefined;
+			const dir = options.dir ?? located?.dir;
+			// One of the two always answered: a caller supplies the directory, or the resolver did.
+			if (dir === undefined) throw new Error("the session bus could not resolve its directory");
+			const repo = options.repo ?? located?.repo;
 			store = createBusStore({ dir });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
@@ -159,13 +169,13 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// Deferred with the ask it makes: a factory registers, and the label settles at the
 			// first addressable action instead.
 			const { automaticLabel } = await import("./label.ts");
-			const label = await automaticLabel(pi, { context, cwd, id, fromGit: repo.fromGit === true });
+			const label = await automaticLabel(pi, { context, cwd, id, fromGit: repo?.fromGit === true });
 			record = {
 				id,
 				label,
 				pid,
 				cwd,
-				repoRoot: repo.root,
+				repoRoot: repo?.root ?? cwd,
 				mode,
 				startedAt: now(),
 				lastSeen: now(),

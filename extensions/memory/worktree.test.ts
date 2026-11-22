@@ -10,9 +10,10 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { ENV_ROOT } from "../../lib/env.ts";
+import { repoKeyOf } from "../../lib/repo-key.ts";
 import { useEnv, withAgentDir } from "../../test/helpers/env.ts";
 import { memorySuite, type MemorySuite } from "../../test/helpers/fixtures/memory.ts";
 import { cleanup, execP, makeRepo } from "../../test/helpers/git.ts";
@@ -113,7 +114,9 @@ describe("a working directory outside a repository", () => {
 
 			const paths = await resolveMemoryPaths(noGit, nowhere);
 
-			expect(paths.project).toBe(join(nowhere, ".pi", "memory.md"));
+			// No checkout to share, and no identity either: the store is still inside the one layout,
+			// under a `local-<pathKey>` name rather than in a `.pi/` of its own.
+			expect(paths.project).toBe(join(dirname(paths.global), "repos", `local-${repoKeyOf(nowhere)}`, "memory.md"));
 		} finally {
 			env.restore();
 		}
@@ -147,7 +150,12 @@ describe.skipIf(!runSlowSuites)("the store of a real linked worktree", () => {
 
 			const runtime = createMemoryRuntime(realPi);
 			await runtime.load(worktree, true);
-			expect(runtime.paths()?.project).toBe(join(repo, ".pi", "memory.md"));
+			// The property, not the spelling: the store is outside the worktree — so removing the
+			// tree cannot take the notes with it — and inside the agent directory, where the other
+			// machine's copy of it belongs. Both were once one path inside the checkout.
+			const store = runtime.paths()?.project ?? "";
+			expect(store.includes(join(repo, ".pi"))).toBe(false);
+			expect(store).toContain(join("repos", ""));
 			await runtime.add("project", "written in a worktree");
 			runtime.reset();
 
