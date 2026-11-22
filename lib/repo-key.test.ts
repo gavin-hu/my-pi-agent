@@ -14,7 +14,16 @@ import { join } from "node:path";
 import { tempDir, withEnv } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { ENV_ROOT } from "./env.ts";
-import { REPO_KEY_LENGTH, repoKeyFor, repoKeyOf, settingsRootFor } from "./repo-key.ts";
+import {
+	normalizeRemoteUrl,
+	REPO_KEY_LENGTH,
+	repoIdOf,
+	repoIdFor,
+	repoKeyFor,
+	repoKeyOf,
+	rootCommitIdOf,
+	settingsRootFor,
+} from "./repo-key.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -35,6 +44,23 @@ function failingSeam() {
 	};
 }
 
+/** An `exec` seam answering the two identity questions, and refusing anything else. */
+function identitySeam(answers: { remote?: string; root?: string }, calls: string[][] = []) {
+	return async (_command: string, args: string[]) => {
+		calls.push(args);
+		const argv = args.join(" ");
+		if (argv === "config --get remote.origin.url") {
+			const found = answers.remote !== undefined;
+			return { stdout: found ? `${answers.remote}\n` : "", stderr: "", code: found ? 0 : 1 };
+		}
+		if (argv === "rev-list --max-parents=0 HEAD") {
+			const found = answers.root !== undefined;
+			return { stdout: found ? `${answers.root}\n` : "", stderr: "", code: found ? 0 : 128 };
+		}
+		return { stdout: "", stderr: "", code: 128 };
+	};
+}
+
 describe("repoKeyOf", () => {
 	test("is a short hex digest", () => {
 		const key = repoKeyOf("/repo/.git");
@@ -45,6 +71,98 @@ describe("repoKeyOf", () => {
 	test("is stable for one identity and distinct across identities", () => {
 		expect(repoKeyOf("/repo/.git")).toBe(repoKeyOf("/repo/.git"));
 		expect(repoKeyOf("/repo/.git")).not.toBe(repoKeyOf("/other/.git"));
+	});
+
+	test("is pinned for a fixed path, so no refactor can move every store by accident", () => {
+		// Every store on every machine is filed under this digest's siblings: a change here is a
+		// migration (#771), never a tidy-up, and this line is what makes that unavoidable.
+		expect(repoKeyOf("/repo/.git")).toBe("6b4ca2db35cf");
+		expect(repoKeyOf("/home/me/repo/.git")).toBe("03ba1b3195ff");
+	});
+});
+
+describe("normalizeRemoteUrl", () => {
+	test("answers one string for every spelling of one remote", () => {
+		for (const url of [
+			"git@github.com:gavin-hu/my-pi-agent.git",
+			"ssh://git@github.com/gavin-hu/my-pi-agent",
+			"https://github.com/gavin-hu/my-pi-agent/",
+			"https://user:token@github.com/gavin-hu/my-pi-agent.git",
+			"https://GitHub.com/gavin-hu/my-pi-agent",
+		]) {
+			expect(normalizeRemoteUrl(url)).toBe("github.com/gavin-hu/my-pi-agent");
+		}
+	});
+
+	test("lowers the host and keeps the path's case, because a host is case-insensitive and a path is not", () => {
+		expect(normalizeRemoteUrl("ssh://git@GitHub.com:2222/Gavin-Hu/MyPi")).toBe("github.com/Gavin-Hu/MyPi");
+	});
+
+	test("has no answer for a remote that names no host", () => {
+		expect(normalizeRemoteUrl("/srv/git/x.git")).toBeUndefined();
+		expect(normalizeRemoteUrl("file:///srv/git/x.git")).toBeUndefined();
+		expect(normalizeRemoteUrl("https://github.com")).toBeUndefined();
+		expect(normalizeRemoteUrl("   ")).toBeUndefined();
+	});
+});
+
+describe("repoIdOf", () => {
+	test("is one id for one repository and two for two", () => {
+		expect(repoIdOf("git@github.com:me/x.git")).toBe(repoIdOf("https://github.com/me/x"));
+		expect(repoIdOf("https://github.com/me/x")).not.toBe(repoIdOf("https://github.com/me/y"));
+		expect(repoIdOf("https://github.com/me/x")).toMatch(new RegExp(`^[0-9a-f]{${REPO_KEY_LENGTH}}$`));
+	});
+
+	test("is undefined when the remote names no host, so the chain falls to the history", () => {
+		expect(repoIdOf("/srv/git/x.git")).toBeUndefined();
+	});
+
+	test("never equals the path key of the same string, which is what keeps the two spaces apart", () => {
+		// The one input that could collide in principle: the same characters hashed by both spaces.
+		expect(repoIdOf("https://host/owner/repo")).not.toBe(repoKeyOf("host/owner/repo"));
+		expect(rootCommitIdOf("abc123")).not.toBe(repoKeyOf("abc123"));
+	});
+});
+
+describe("rootCommitIdOf", () => {
+	test("is one id whatever case a sha is spelled in, and one per history", () => {
+		expect(rootCommitIdOf("ABC123")).toBe(rootCommitIdOf("abc123"));
+		expect(rootCommitIdOf("abc123")).not.toBe(rootCommitIdOf("abc124"));
+	});
+});
+
+describe("repoIdFor", () => {
+	test("answers the remote's id, and asks the history nothing once it has", async () => {
+		const calls: string[][] = [];
+		const seam = identitySeam({ remote: "git@github.com:me/x.git", root: "abc123" }, calls);
+		const identity = await repoIdFor({ exec: seam } as never, "/repo");
+		expect(identity).toEqual({
+			id: repoIdOf("git@github.com:me/x.git"),
+			source: "remote",
+			remote: "git@github.com:me/x.git",
+		});
+		expect(calls.map((args) => args.join(" "))).toEqual(["config --get remote.origin.url"]);
+	});
+
+	test("falls to the root commit when there is no remote", async () => {
+		const identity = await repoIdFor({ exec: identitySeam({ root: "abc123" }) } as never, "/repo");
+		expect(identity).toEqual({ id: rootCommitIdOf("abc123"), source: "root-commit" });
+	});
+
+	test("falls to the history when the remote names no host, because a local path is one machine's", async () => {
+		const identity = await repoIdFor(
+			{ exec: identitySeam({ remote: "/srv/git/x.git", root: "abc123" }) } as never,
+			"/repo",
+		);
+		expect(identity).toEqual({ id: rootCommitIdOf("abc123"), source: "root-commit" });
+	});
+
+	test("answers none, with no id, when there is neither a remote nor a commit", async () => {
+		expect(await repoIdFor({ exec: identitySeam({}) } as never, "/repo")).toEqual({ source: "none" });
+	});
+
+	test("never throws: a git that cannot start is the same answer as neither", async () => {
+		expect(await repoIdFor({ exec: failingSeam() } as never, "/repo")).toEqual({ source: "none" });
 	});
 });
 
