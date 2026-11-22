@@ -404,6 +404,7 @@ export const LIB_SUITES: readonly string[] = [
 	"report-load",
 	"repo-key",
 	"serve-config",
+	"store-paths",
 	"session-files",
 	"session-peer",
 	"session-roster",
