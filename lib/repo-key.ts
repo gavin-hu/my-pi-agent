@@ -18,7 +18,7 @@ import { realpathSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "./env.ts";
-import { createExecRunner, gitCommonDir, repoRoot } from "./git/index.ts";
+import { createExecRunner, gitCommonDir, remoteUrl, repoRoot, rootCommit } from "./git/index.ts";
 
 /** Hex characters kept from the digest: collision-free in practice and short enough for a path. */
 export const REPO_KEY_LENGTH = 12;
@@ -107,4 +107,99 @@ export async function repoKeyFor(pi: Pick<ExtensionAPI, "exec">, cwd: string): P
 		// Fall through: no git, or a git call that failed, is the same answer here.
 	}
 	return { root: cwd, key: repoKeyOf(cwd), settingsRoot: cwd, fromGit: false };
+}
+
+// --- The identity two machines share -----------------------------------------
+
+/**
+ * The prefixes the two key spaces hash, so a digest from one can never be read as the other.
+ *
+ * `repoKeyOf` hashes a bare path and keeps doing so — prefixing it would move every store on
+ * every machine, and moving stores is #771's job. The sharing ids carry their own prefix instead.
+ */
+const REMOTE_PREFIX = "remote:";
+const ROOT_COMMIT_PREFIX = "root:";
+
+/** The digest both spaces share: a short, hex, filename-safe key. */
+function digestOf(value: string): string {
+	return createHash("sha256").update(value).digest("hex").slice(0, REPO_KEY_LENGTH);
+}
+
+/**
+ * A remote URL reduced to the one string two machines can agree on.
+ *
+ * `git@host:owner/repo.git`, `ssh://git@host/owner/repo` and `https://host/owner/repo/` name one
+ * repository, so the scheme, any credentials, a port, a trailing `.git` and the surrounding
+ * slashes go, and the host's case is lowered because a host is case-insensitive. The path's case
+ * is kept, because a path is not. A remote that names no host — a local path, `file:///srv/x` —
+ * has no answer: it is one machine's, and `undefined` says so rather than inventing an id.
+ */
+export function normalizeRemoteUrl(url: string): string | undefined {
+	const text = url.trim();
+	if (text === "") return undefined;
+	// git's scp-like shorthand: `[user@]host:owner/repo`, with no scheme and no slashes.
+	const scp = /^(?:[^@/]+@)?([^:/]+):(?!\/\/)(.+)$/.exec(text);
+	if (scp?.[1] !== undefined && scp[2] !== undefined) return hostAndPath(scp[1], scp[2]);
+	// `scheme://[user@]host[:port][/owner/repo]`, any scheme git accepts.
+	const scheme = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?([^/]+)(\/.*)?$/i.exec(text);
+	if (scheme?.[1] !== undefined) return hostAndPath(scheme[1], scheme[2] ?? "");
+	return undefined;
+}
+
+/** `host/owner/repo`: a lowered host without its port, and a path without slashes or `.git`. */
+function hostAndPath(host: string, rest: string): string | undefined {
+	const hostname = host.toLowerCase().split(":")[0] ?? "";
+	const path = rest
+		.replace(/^\/+/, "")
+		.replace(/\/+$/, "")
+		.replace(/\.git$/i, "");
+	if (hostname === "" || path === "") return undefined;
+	return `${hostname}/${path}`;
+}
+
+/** The id a remote names, or `undefined` when it names no host to agree on. */
+export function repoIdOf(url: string): string | undefined {
+	const normalized = normalizeRemoteUrl(url);
+	return normalized === undefined ? undefined : digestOf(`${REMOTE_PREFIX}${normalized}`);
+}
+
+/** The id a root commit names: the fallback for a repository with no remote. */
+export function rootCommitIdOf(sha: string): string {
+	return digestOf(`${ROOT_COMMIT_PREFIX}${sha.trim().toLowerCase()}`);
+}
+
+/** Which rung of the chain answered. */
+export type RepoIdentitySource = "remote" | "root-commit" | "none";
+
+/** A repository's cross-machine identity. */
+export interface RepoIdentity {
+	/** The id both machines compute; absent when this repository has neither a remote nor a commit. */
+	id?: string;
+	source: RepoIdentitySource;
+	/** The remote as git spelled it, when one answered. */
+	remote?: string;
+}
+
+/**
+ * Resolve the identity a store may be shared under: the remote, else the first root commit, else
+ * nothing.
+ *
+ * Kept out of `repoKeyFor` on purpose: that answers every caller on the start path, and two more
+ * git calls per resolution is what a store that is already local must not pay. A git that cannot
+ * start, a repository with no remote and an unborn history all answer the same way — `none` —
+ * which is the one state #770 and #771 have to branch on rather than invent an id for.
+ */
+export async function repoIdFor(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<RepoIdentity> {
+	try {
+		const run = createExecRunner(pi);
+		const remote = await remoteUrl(run, cwd);
+		const fromRemote = remote === undefined ? undefined : repoIdOf(remote);
+		// A remote that names no host (a local path) is not an identity: fall to the history.
+		if (fromRemote !== undefined) return { id: fromRemote, source: "remote", remote };
+		const root = await rootCommit(run, cwd);
+		if (root !== undefined) return { id: rootCommitIdOf(root), source: "root-commit" };
+	} catch {
+		// A git that cannot start is the same answer as a repository with neither.
+	}
+	return { source: "none" };
 }

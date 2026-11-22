@@ -14,7 +14,15 @@ import { join } from "node:path";
 import { tempDir, withEnv } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { ENV_ROOT } from "./env.ts";
-import { REPO_KEY_LENGTH, repoKeyFor, repoKeyOf, settingsRootFor } from "./repo-key.ts";
+import {
+	normalizeRemoteUrl,
+	REPO_KEY_LENGTH,
+	repoIdOf,
+	repoKeyFor,
+	repoKeyOf,
+	rootCommitIdOf,
+	settingsRootFor,
+} from "./repo-key.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -45,6 +53,56 @@ describe("repoKeyOf", () => {
 	test("is stable for one identity and distinct across identities", () => {
 		expect(repoKeyOf("/repo/.git")).toBe(repoKeyOf("/repo/.git"));
 		expect(repoKeyOf("/repo/.git")).not.toBe(repoKeyOf("/other/.git"));
+	});
+});
+
+describe("normalizeRemoteUrl", () => {
+	test("answers one string for every spelling of one remote", () => {
+		for (const url of [
+			"git@github.com:gavin-hu/my-pi-agent.git",
+			"ssh://git@github.com/gavin-hu/my-pi-agent",
+			"https://github.com/gavin-hu/my-pi-agent/",
+			"https://user:token@github.com/gavin-hu/my-pi-agent.git",
+			"https://GitHub.com/gavin-hu/my-pi-agent",
+		]) {
+			expect(normalizeRemoteUrl(url)).toBe("github.com/gavin-hu/my-pi-agent");
+		}
+	});
+
+	test("lowers the host and keeps the path's case, because a host is case-insensitive and a path is not", () => {
+		expect(normalizeRemoteUrl("ssh://git@GitHub.com:2222/Gavin-Hu/MyPi")).toBe("github.com/Gavin-Hu/MyPi");
+	});
+
+	test("has no answer for a remote that names no host", () => {
+		expect(normalizeRemoteUrl("/srv/git/x.git")).toBeUndefined();
+		expect(normalizeRemoteUrl("file:///srv/git/x.git")).toBeUndefined();
+		expect(normalizeRemoteUrl("https://github.com")).toBeUndefined();
+		expect(normalizeRemoteUrl("   ")).toBeUndefined();
+	});
+});
+
+describe("repoIdOf", () => {
+	test("is one id for one repository and two for two", () => {
+		expect(repoIdOf("git@github.com:me/x.git")).toBe(repoIdOf("https://github.com/me/x"));
+		expect(repoIdOf("https://github.com/me/x")).not.toBe(repoIdOf("https://github.com/me/y"));
+		expect(repoIdOf("https://github.com/me/x")).toMatch(new RegExp(`^[0-9a-f]{${REPO_KEY_LENGTH}}$`));
+	});
+
+	test("is undefined when the remote names no host, so the chain falls to the history", () => {
+		expect(repoIdOf("/srv/git/x.git")).toBeUndefined();
+	});
+
+	test("never equals the path key of the same string, which is what keeps the two spaces apart", () => {
+		// The one input that could collide in principle: the same characters hashed by both spaces.
+		expect(repoIdOf("https://host/owner/repo")).not.toBe(repoKeyOf("host/owner/repo"));
+		expect(rootCommitIdOf("abc123")).not.toBe(repoKeyOf("abc123"));
+	});
+});
+
+describe("rootCommitIdOf", () => {
+	test("is one id whatever case a sha is spelled in, and one per history", () => {
+		expect(rootCommitIdOf("ABC123")).toBe(rootCommitIdOf("abc123"));
+		expect(rootCommitIdOf("abc123")).not.toBe(rootCommitIdOf("abc124"));
 	});
 });
 
