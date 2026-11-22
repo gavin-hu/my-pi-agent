@@ -163,9 +163,9 @@ describe("a plan that goes while a write waits", () => {
 		await store.ensure();
 		const card = await store.create({ title: "Planned", paths: [] }, ALICE, NOW);
 		await store.mutate(card.id, { kind: "claim" }, ALICE, NOW);
-		await store.mutate(card.id, { kind: "contract", artifact: { path }, ...TEST_CONTRACT }, ALICE, NOW);
+		await store.mutate(card.id, { kind: "contract", artifact: { record: path }, ...TEST_CONTRACT }, ALICE, NOW);
 		// The person signs, because the seed is not the board's configured lead.
-		const approved = await store.mutate(card.id, { kind: "approve", artifact: { path } }, personActor(), NOW);
+		const approved = await store.mutate(card.id, { kind: "approve", artifact: { record: path } }, personActor(), NOW);
 		if (!approved.ok) throw new Error(approved.error);
 		const ready = approved.card;
 

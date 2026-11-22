@@ -296,9 +296,10 @@ export function unmet(
 			if ("error" in check) return check.error;
 			// The proof is bound to the record it was computed for: a fact about one path cannot
 			// open a card whose path is another, and a plan re-recorded between the read and the
-			// write is a card to read again rather than one to force. A fact that names no
-			// record is bound by its own path, which is what a caller holding one file means.
-			return (check.recorded ?? check.path) === card.planPath ? undefined : stalePlan(card);
+			// write is a card to read again rather than one to force. The record is the card's own
+			// string, a store-relative name for a card this build wrote and an absolute path for
+			// one written before names were kept, so the two spellings of one plan cannot match.
+			return check.record === card.planPath ? undefined : stalePlan(card);
 		}
 		case "landing":
 			return landing !== undefined && "refusal" in landing ? landing.refusal : undefined;
@@ -383,7 +384,7 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 	// Taken where it is asked, as the gate does: a contract lands inside the locked pass.
 	const artifact = proved(op.artifact);
 	if ("error" in artifact) return { error: artifact.error };
-	const parsedPlan = normalizePlanPath(artifact.path);
+	const parsedPlan = normalizePlanPath(artifact.record);
 	if ("error" in parsedPlan) return { error: parsedPlan.error };
 	const rePointed = parsedPlan.path !== card.planPath;
 	if (rePointed) fields.planPath = parsedPlan.path;

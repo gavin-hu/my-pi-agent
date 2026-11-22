@@ -137,12 +137,12 @@ describe("the person's door", () => {
 		const at = 1_000;
 		await next.store.mutate(
 			next.id,
-			{ kind: "contract", artifact: { path: next.plan }, goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY },
+			{ kind: "contract", artifact: { record: next.plan }, goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY },
 			next.me,
 			at,
 		);
-		await next.store.mutate(next.id, { kind: "approve", artifact: { path: next.plan } }, person, at);
-		await next.store.mutate(next.id, { kind: "move", lane: "execute", artifact: { path: next.plan } }, next.me, at);
+		await next.store.mutate(next.id, { kind: "approve", artifact: { record: next.plan } }, person, at);
+		await next.store.mutate(next.id, { kind: "move", lane: "execute", artifact: { record: next.plan } }, next.me, at);
 		// The run is the fixture's: this suite is about the door starting none, not about the seam.
 		await next.store.mutate(
 			next.id,
@@ -150,7 +150,7 @@ describe("the person's door", () => {
 			person,
 			at,
 		);
-		await next.store.mutate(next.id, { kind: "move", lane: "done", artifact: { path: next.plan } }, next.me, at + 1);
+		await next.store.mutate(next.id, { kind: "move", lane: "done", artifact: { record: next.plan } }, next.me, at + 1);
 		const file = cardFile(next.agentDir, next.id);
 		const card = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
 		delete card.review;
@@ -162,7 +162,7 @@ describe("the person's door", () => {
 		const next = await signingBoard({ verify: run });
 		await next.store.mutate(
 			next.id,
-			{ kind: "contract", artifact: { path: next.plan }, goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY },
+			{ kind: "contract", artifact: { record: next.plan }, goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY },
 			next.me,
 			1_000,
 		);

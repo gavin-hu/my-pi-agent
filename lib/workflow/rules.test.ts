@@ -281,7 +281,7 @@ describe("move", () => {
 
 	test("execute refuses a proof that belongs to another recorded path", () => {
 		const card = approved();
-		const elsewhere = { path: "plans/other.md", recorded: "plans/other.md" };
+		const elsewhere = { record: "plans/other.md" };
 		expect(
 			refusal(applyOp(card, { kind: "move", lane: "execute", artifact: elsewhere }, CORE, NOW, boardOf(card))),
 		).toBe("#4's plan changed while it was being read; record it with `contract`.");

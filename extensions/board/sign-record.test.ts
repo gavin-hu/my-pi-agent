@@ -61,7 +61,7 @@ describe("a record that could not be written", () => {
 			next.id,
 			{
 				kind: "contract",
-				artifact: { path: next.plan },
+				artifact: { record: next.plan },
 				goal: "g",
 				acceptance: "a",
 				scopeOut: "s",

@@ -39,7 +39,7 @@ describe("a board that names no lead", () => {
 			board.id,
 			{
 				kind: "contract",
-				artifact: { path: board.plan },
+				artifact: { record: board.plan },
 				goal: "g",
 				acceptance: "a",
 				scopeOut: "s",
@@ -55,7 +55,7 @@ describe("a board that names no lead", () => {
 			(
 				await board.store.mutate(
 					board.id,
-					{ kind: "move", lane: "execute", artifact: { path: board.plan } },
+					{ kind: "move", lane: "execute", artifact: { record: board.plan } },
 					board.me,
 					1_000,
 				)

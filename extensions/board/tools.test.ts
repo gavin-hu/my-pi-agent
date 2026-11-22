@@ -23,7 +23,6 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import { MAX_NOTES } from "../../lib/workflow/card.ts";
 import { MAX_CONTRACT } from "../../lib/workflow/contract.ts";
-import { shortenPath } from "../../lib/format.ts";
 import { buildRound } from "../../lib/workflow/round.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import type { TeamJoin } from "./join.ts";
@@ -314,7 +313,7 @@ describe("list", () => {
 		// has to be elided: it is the same plan whoever reads the board, and the prefix is
 		// not the part that says which one.
 		const plan = join(homedir(), "plans", "one.md");
-		await store.mutate("1", { kind: "contract", artifact: { path: plan }, ...TEST_CONTRACT }, me, NOW);
+		await store.mutate("1", { kind: "contract", artifact: { record: plan }, ...TEST_CONTRACT }, me, NOW);
 		const result = await call({ action: "list", card: "1" });
 		expect(resultText(result)).toContain("plan: ~/plans/one.md");
 		// Shortened on the line, absolute in the details: only the transcript elides.
@@ -755,7 +754,9 @@ describe("note and plan", () => {
 		);
 		const plan = await writePlan(peer, "one.md");
 		const result = await peer.call({ action: "contract", card: "1", path: plan, ...LINES });
-		expect(result.details.card?.planPath).toBe(plan);
+		// The card keeps the plan's name inside this repository's store, not this host's path: a record
+		// another host can join to its own store is the point of the field.
+		expect(result.details.card?.planPath).toBe("one.md");
 	});
 });
 
@@ -780,9 +781,9 @@ describe("the flow: contract, approval, spot-check", () => {
 			acceptance: "A retry leaves one order",
 			scopeOut: "No refunds",
 		});
-		// The card prints the plan the way `plan` action `write` shows it — shortened, with `/` — so the
-		// expectation is the display form rather than the native spelling the card stores.
-		expect(resultText(result)).toContain(`plan: ${shortenPath(plan)}`);
+		// The card prints the plan by the name it records, so the store's key and the plans prefix — the
+		// host-specific half — are not on the line at all.
+		expect(resultText(result)).toContain("plan: one.md");
 		expect(resultText(result)).toContain("approved: nobody yet");
 	});
 
@@ -915,7 +916,7 @@ describe("the flow: contract, approval, spot-check", () => {
 		// The same three lines, a different file: what the peer read is not what would run.
 		const second = await writePlan(peer, "second.md");
 		const recontracted = await peer.call({ action: "contract", card: "1", path: second });
-		expect(recontracted.details.card?.planPath).toBe(second);
+		expect(recontracted.details.card?.planPath).toBe("second.md");
 		expect(recontracted.details.card?.contract?.approved).toBeUndefined();
 		expect(resultText(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain(
 			"is not approved yet",
@@ -971,7 +972,7 @@ describe("the whole flow, two sessions", () => {
 			scopeOut: "No refunds",
 			verify: "bun run check",
 		});
-		expect(contracted.details.card?.planPath).toBe(plan);
+		expect(contracted.details.card?.planPath).toBe("the-plan.md");
 		expect(resultText(contracted)).toContain("approved: nobody yet");
 
 		// The holder's own signature is refused; the lead's opens the gate.

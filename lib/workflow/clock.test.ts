@@ -80,7 +80,7 @@ describe("a card's clock", () => {
 		expect(signed.ok && signed.card?.review?.at).toBe(NOW + 5_000);
 		const done = await store.mutate(
 			card.id,
-			{ kind: "move", lane: "done", artifact: { path: `${card.id}.md` } },
+			{ kind: "move", lane: "done", artifact: { record: `${card.id}.md` } },
 			LEAD,
 			NOW,
 		);

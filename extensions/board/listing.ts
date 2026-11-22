@@ -47,6 +47,7 @@ export async function read(
 	args: BoardArgs,
 	now: number,
 	roster: () => Promise<readonly RosterSession[] | undefined>,
+	planDir: () => Promise<string>,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	// The roster is read for every listing, not only a rollup: a card shows its owner by the name the
 	// session answers to now, and a rename moves the record rather than the card. No bus (`undefined`)
@@ -83,8 +84,13 @@ export async function read(
 			);
 		}
 		// The one stat a read can afford, and the only card it can afford it on: a listing's rows carry
-		// no plan line, so this is where a reader learns the file it would move on is already gone.
-		return textResult(formatCard(card, indexOf(cards), now, planIsGone(card)), { action, me, card });
+		// no plan line, so this is where a reader learns the file it would move on is already gone. The
+		// store is resolved for it alone, because a card keeps the plan's name rather than a path.
+		return textResult(formatCard(card, indexOf(cards), now, planIsGone(await planDir(), card)), {
+			action,
+			me,
+			card,
+		});
 	}
 	const listed = cards.filter(
 		(card) =>

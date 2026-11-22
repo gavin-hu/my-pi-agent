@@ -1,7 +1,7 @@
 /**
  * Whether a path is a plan of this repository: the board's half of the plan store.
  *
- * The board records the file a card is executed against, and that record is only worth
+ * The board records the plan a card is executed against, and that record is only worth
  * something if the file is the one `plan` wrote. The board does not parse a plan — it
  * resolves the path the model passed, requires it to be inside this repository's plan
  * store, and requires it to be there. So a contract cannot name a path to nothing, and a
@@ -18,9 +18,14 @@
  *
  * The board still never reads a plan. A `stat` is the whole check, which is why this module
  * is the only place the board touches the plan store.
+ *
+ * What the card keeps is the plan's name inside the store, not the path this host resolved it
+ * to: a store lives under this host's agent directory, so a path is a fact about one machine,
+ * while a name is the half another host can join to its own store.
  */
 
 import { statSync } from "node:fs";
+import { relative } from "node:path";
 import { sanitizeLine, shortenPath } from "../format.ts";
 import { isInside } from "../path.ts";
 import { isContainedPlan, isPlanFileName, resolvePlanArg } from "../plans/paths.ts";
@@ -28,18 +33,19 @@ import type { Card } from "./card.ts";
 import { cardRef } from "./card.ts";
 import { contractRoute } from "./lanes.ts";
 
-/** The plan a card is executed against, resolved and proved to exist. */
+/** The plan a card is executed against, proved to exist in this host's store. */
 export interface PlanArtifact {
-	/** The absolute path that was proved. */
-	path: string;
 	/**
-	 * The stored plan path the proof was computed for.
+	 * What the card records for this plan: the fact's own subject, and the one thing the gate compares.
 	 *
-	 * Only a re-check of a record carries it, and the gate compares it: a fact proved for
-	 * one path cannot open a card whose recorded path is another, and a card whose path
-	 * changed between the read and the write is refused rather than forced.
+	 * A contract carries the plan's name inside the store — `2026-10-26-1008-the-query.md`, not
+	 * `~/.pi/agent/plans/<key>/…` — which is what makes the record portable, because every host
+	 * joins a name to its own store. A re-check carries the record the card already holds, verbatim,
+	 * so a fact proved for one record cannot open a card whose record is another, and a card whose
+	 * plan changed between the read and the write is refused rather than forced. A record written
+	 * before names were kept is an absolute path, and comes back as it was read.
 	 */
-	recorded?: string;
+	record: string;
 }
 
 /**
@@ -65,6 +71,15 @@ export type ArtifactProof = ArtifactCheck | (() => ArtifactCheck);
 /** The fact itself, taking the question now. */
 export function proved(proof: ArtifactProof): ArtifactCheck {
 	return typeof proof === "function" ? proof() : proof;
+}
+
+/**
+ * The plan's name inside the store: the store-relative half a card keeps.
+ *
+ * `relative` and not the basename, so a plan recorded in a subdirectory of the store stays there.
+ */
+function storeName(planDir: string, path: string): string {
+	return relative(planDir, path);
 }
 
 /** What is inside the store at a resolved path. */
@@ -115,14 +130,16 @@ export function planForContract(planDir: string, rawPath: string): ArtifactCheck
 	}
 	if (!found.file)
 		return { error: `${at(found.path)} is not a file; record the markdown file \`plan\` action \`write\` saves.` };
-	return { path: found.path };
+	return { record: storeName(planDir, found.path) };
 }
 
 /**
  * What a card may enter `execute` or `done` on: the plan it recorded, still in the store.
  *
- * The recorded path may predate this rule — a card written when any string was accepted —
- * which is why an outside path refuses here with the same route out as a missing file.
+ * The record may predate this rule — a card written when any string was accepted — which is
+ * why an outside path refuses here with the same route out as a missing file, and why what
+ * comes back is the record as the card spelled it: a name on a card that kept one, an absolute
+ * path on a card written before names were kept.
  */
 export function planForExecute(planDir: string, card: Pick<Card, "id" | "lane" | "planPath">): ArtifactCheck {
 	const rawPath = card.planPath ?? "";
@@ -140,7 +157,7 @@ export function planForExecute(planDir: string, card: Pick<Card, "id" | "lane" |
 	if (!found.file) {
 		return { error: `the plan recorded for ${cardRef(card.id)} is not a file (${at(found.path)});${route}` };
 	}
-	return { path: found.path, recorded: rawPath };
+	return { record: rawPath };
 }
 
 /**
@@ -150,23 +167,28 @@ export function planForExecute(planDir: string, card: Pick<Card, "id" | "lane" |
  * asks, so a card there can still be rescued by recording its plan again. The pool's cards re-plan
  * on the next claim, and a finished card is history — so neither is stat'ed for a face that could
  * not act on the answer.
+ *
+ * The record is resolved through the store before the stat, the way the gate resolves it: a name
+ * means nothing on its own, and a badge drawn by stat'ing one against the working directory would
+ * call every named plan gone.
  */
-export function planIsGone(card: Pick<Card, "id" | "lane" | "planPath">): boolean {
+export function planIsGone(planDir: string, card: Pick<Card, "id" | "lane" | "planPath">): boolean {
 	if (card.planPath === undefined) return false;
 	if (card.lane !== "plan" && card.lane !== "execute") return false;
-	return !isFile(card.planPath);
+	return !isFile(resolvePlanArg(planDir, card.planPath));
 }
 
 /**
  * The ids of the cards whose recorded plan is gone: one pass, for the snapshot that draws them.
  *
  * Pure per card and silent about what it means — the reason line and the card block say that —
- * so a caller with one card may ask {@link planIsGone} and reach the same answer.
+ * so a caller with one card may ask {@link planIsGone} and reach the same answer. The store is a
+ * parameter for the same reason it is one there: the answer is a stat on a name it resolves.
  */
-export function gonePlans(cards: readonly Pick<Card, "id" | "lane" | "planPath">[]): Set<string> {
+export function gonePlans(planDir: string, cards: readonly Pick<Card, "id" | "lane" | "planPath">[]): Set<string> {
 	const gone = new Set<string>();
 	for (const card of cards) {
-		if (planIsGone(card)) gone.add(card.id);
+		if (planIsGone(planDir, card)) gone.add(card.id);
 	}
 	return gone;
 }
