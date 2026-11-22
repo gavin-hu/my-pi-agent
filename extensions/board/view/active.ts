@@ -245,12 +245,14 @@ __LABEL_KEY__
     head.appendChild(title);
     row.appendChild(head);
     var facts = el("div", N.queueFacts);
-    facts.appendChild(whyPill(entry));
+    var labels = el("div", N.queueLabels);
+    labels.appendChild(whyPill(entry));
     // What the card is, in the label the face and the record wear: it leaves the title's line,
     // where it cost the room an 80-character title needs, and a breaking change keeps the word a
     // decision must not hide.
     var kind = kindLabel(card);
-    if (kind !== undefined) facts.appendChild(kind);
+    if (kind !== undefined) labels.appendChild(kind);
+    facts.appendChild(labels);
     // The row's own sentence, always: the head names the move, the row says why it is here, and
     // the title is described by the line under it.
     var meta = el("p", N.queueWhy);

@@ -7,7 +7,7 @@ listening with `wake` is woken for it ([`session-bus`](session-bus.md) owns that
 A card's own state — `claim`, `reclaim`, the moves, the contract, the two signs — is
 [`board`](board.md)'s. What outlives the round is the project's [`memory`](memory.md) store.
 
-<img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; NEEDS YOU as one column of three bands — YOUR SIGNATURE, UNCLAIMED and STALLED — where each ask is a title line with its pill, kind, reason, owner and age under it, over a Moving label and the BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="1245">
+<img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; NEEDS YOU as one column of three bands — YOUR SIGNATURE, UNCLAIMED and STALLED — where each ask is a title line with its pill, kind, reason, owner and age under it, over a Moving label and the BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="1220">
 
 The board's Team tab is the same round as a page, in three columns that each count themselves and
 scroll as one. **AGENTS** holds a card per session, the lead pinned first: a monogram, its state
