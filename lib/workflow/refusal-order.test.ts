@@ -34,7 +34,7 @@ describe("a review's note", () => {
 
 	test("is asked before the run, so a note the card cannot keep refuses", () => {
 		expect(reviewGate(card, LEAD, LEAD.label, undefined, "x".repeat(MAX_NOTE + 2))).toEqual({
-			error: `text is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`,
+			error: `note is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`,
 		});
 	});
 

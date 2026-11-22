@@ -517,7 +517,7 @@ describe("add", () => {
 		const { call } = harness();
 		expect(resultText(await call({ action: "add", title: "  " }))).toContain("title is required.");
 		expect(resultText(await call({ action: "add", title: "T", paths: ["/etc/passwd"] }))).toContain("is absolute");
-		expect(resultText(await call({ action: "add", title: "T", note: "" }))).toContain("text is required.");
+		expect(resultText(await call({ action: "add", title: "T", note: "" }))).toContain("note is required.");
 	});
 
 	test("takes a priority, which orders its lane", async () => {

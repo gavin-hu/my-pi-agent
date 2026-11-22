@@ -220,12 +220,12 @@ describe("approve", () => {
 	test("refuses a note it cannot record, and signs nothing", () => {
 		const blank = written();
 		expect(refusal(applyOp(blank, { ...approveOf(blank), text: "   " }, LEAD, NOW, boardOf(blank)))).toBe(
-			"text is required.",
+			"note is required.",
 		);
 		const long = written();
 		expect(
 			refusal(applyOp(long, { ...approveOf(long), text: "x".repeat(MAX_NOTE + 1) }, LEAD, NOW, boardOf(long))),
-		).toBe(`text is ${MAX_NOTE + 1} characters; the limit is ${MAX_NOTE} — trim 1.`);
+		).toBe(`note is ${MAX_NOTE + 1} characters; the limit is ${MAX_NOTE} — trim 1.`);
 		// The gate's sentence is the one worth reading first, so it answers before the note does.
 		const moving = executing();
 		expect(refusal(applyOp(moving, { ...approveOf(moving), text: "" }, LEAD, NOW, boardOf(moving)))).toBe(

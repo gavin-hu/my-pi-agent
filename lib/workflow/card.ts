@@ -379,12 +379,12 @@ export function matchesQuery(card: Card, query: string): boolean {
 /** The same body, as the browser receives it: one rule for the tool and the filter box. */
 export const MATCHES_QUERY_JS = pageSource(matchesQuery);
 
-/** One note's text: a single sanitized line, or the reason it cannot be one. */
+/** One note's text: a single sanitized line, or why it cannot be one — the refusal names the tool's `note`. */
 export function normalizeNote(raw: unknown): { text: string } | FieldError {
-	if (typeof raw !== "string") return { error: "text is required." };
+	if (typeof raw !== "string") return { error: "note is required." };
 	const text = sanitizeLine(raw).trim();
-	if (text === "") return { error: "text is required." };
-	if (text.length > MAX_NOTE) return { error: overLimit("text", text.length, MAX_NOTE) };
+	if (text === "") return { error: "note is required." };
+	if (text.length > MAX_NOTE) return { error: overLimit("note", text.length, MAX_NOTE) };
 	return { text };
 }
 
