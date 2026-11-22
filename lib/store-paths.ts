@@ -15,6 +15,8 @@
 
 import { access, cp, mkdir, rename, rm } from "node:fs/promises";
 import { dirname } from "node:path";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { type RepoKey, repoIdFor, repoKeyFor, repoStoreDir, storeIdOf } from "./repo-key.ts";
 
 /** What one attempt did, which is also what a caller may report. */
 export type MigrationOutcome =
@@ -69,4 +71,38 @@ export async function migrateStoreDir(from: string, to: string): Promise<Migrati
 		await rm(to, { recursive: true, force: true }).catch(() => undefined);
 		return "failed";
 	}
+}
+
+/** Where one concept's store lives for a working directory, once it is resolved. */
+export interface StoreLocation {
+	/** The directory the store is filed in: `<agent-dir>/repos/<id>/<concept>`. */
+	dir: string;
+	/** The identity it is filed under — a shared id, or `local-<pathKey>`. */
+	id: string;
+	/** The repository the directory resolved to. */
+	repo: RepoKey;
+}
+
+/**
+ * Resolve a concept's store directory, and take any store an older build left at the flat
+ * spelling across, once.
+ *
+ * The one body every owner needs: identity is asked once per session (two git calls), the name
+ * comes from {@link storeIdOf}, and the old directory is the caller's to name because each concept
+ * spelled it differently (`plans/<key>`, `session-bus/<key>`, `jobs/<project>`). Deferred by every
+ * caller with `import()`, so a session that never touches a store pays nothing for the identity or
+ * the mover.
+ */
+export async function repoStoreDirFor(
+	pi: Pick<ExtensionAPI, "exec">,
+	cwd: string,
+	agentDir: string,
+	concept: string,
+	legacy: (repo: RepoKey) => string,
+): Promise<StoreLocation> {
+	const repo = await repoKeyFor(pi, cwd);
+	const id = storeIdOf(await repoIdFor(pi, cwd), repo.key);
+	const dir = repoStoreDir(agentDir, id, concept);
+	await migrateStoreDir(legacy(repo), dir);
+	return { dir, id, repo };
 }

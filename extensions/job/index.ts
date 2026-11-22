@@ -11,6 +11,7 @@
  * Load with:  pi --extension ./extensions/job
  */
 
+import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL, type JobFinishedEvent } from "../../lib/events.ts";
@@ -70,7 +71,19 @@ export interface JobsDeps {
 
 export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 	if (!isExtensionEnabled("job")) return;
-	const runtime = deps.runtime ?? createJobsRuntime();
+	const runtime =
+		deps.runtime ??
+		createJobsRuntime({
+			// The registry is filed with the rest of the repository's state, under the identity both
+			// machines compute; the factory holds the exec seam, so the ask is made here.
+			repoDir: async (cwd) => {
+				const { repoStoreDirFor } = await import("../../lib/store-paths.ts");
+				const { JOBS_DIR_NAME, projectKey } = await import("./registry.ts");
+				const { getAgentDir } = await import("@earendil-works/pi-coding-agent");
+				const legacy = join(getAgentDir(), JOBS_DIR_NAME, projectKey(cwd));
+				return (await repoStoreDirFor(pi, cwd, getAgentDir(), JOBS_DIR_NAME, () => legacy)).dir;
+			},
+		});
 
 	// Opt-in wake: a `wake` job finished. The reporter reports *all* pending
 	// completions, not just the waking one, so a job that finished earlier is not

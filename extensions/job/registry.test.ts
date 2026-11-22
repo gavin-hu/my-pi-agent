@@ -34,9 +34,13 @@ describe("job registry", () => {
 		expect(registryDirFor("/a/repo", "/custom/dir")).toBe(resolve("/custom/dir"));
 	});
 
-	test("registryDirFor defaults under the agent dir so PI_CODING_AGENT_DIR isolates it", async () => {
-		await withAgentDir((dir) => {
-			expect(registryDirFor("/a/repo")).toBe(join(dir, "jobs", projectKey("/a/repo")));
+	test("registryDirFor files the registry inside the repository's own directory", async () => {
+		// The caller resolves that directory once per session — `repos/<id>`, or
+		// `repos/local-<pathKey>` for one with no identity — so a job sits with the rest of its
+		// repository's state and two machines that share it see each other's registries.
+		await withAgentDir((agentDir) => {
+			const repoDir = join(agentDir, "repos", "5f3c8a1b2d4e");
+			expect(registryDirFor(repoDir)).toBe(join(repoDir, "jobs"));
 		});
 	});
 

@@ -21,7 +21,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { RosterState } from "../../lib/session-roster.ts";
 import { FILE_MODE, ensurePrivateDir } from "../../lib/json.ts";
 import { registryPathFor } from "./paths.ts";
@@ -29,18 +28,31 @@ import { JOB_STATUSES, type JobRecord, type JobStatus, type RegistryFile } from 
 
 export const REGISTRY_VERSION = 1;
 
-/** Stable per-directory key so each project gets its own registry. */
+/**
+ * Stable per-directory key, kept for the migration: it is the name a registry written before the
+ * layout move is filed under, and nothing new is filed there.
+ */
 export function projectKey(cwd: string): string {
 	const hash = createHash("sha1").update(resolve(cwd)).digest("hex").slice(0, 12);
 	const base = resolve(cwd).split(/[\\/]/).filter(Boolean).pop() ?? "root";
 	return `${base.replace(/[^\w.-]+/g, "_")}-${hash}`;
 }
 
-/** Directory holding the registry and log files for a working directory. */
-export function registryDirFor(cwd: string, override?: string): string {
+/**
+ * Directory holding the registry and log files, inside a repository's own directory.
+ *
+ * The caller resolves that directory once per session — `repos/<id>` for a repository, or
+ * `repos/local-<pathKey>` for one with no identity — so a job is filed with the rest of its
+ * repository's state, and two machines that share the directory see each other's registries.
+ * `override` stays as it was: `registryDir` names a directory outright.
+ */
+export function registryDirFor(repoDir: string, override?: string): string {
 	if (override) return resolve(override);
-	return join(getAgentDir(), "jobs", projectKey(cwd));
+	return join(repoDir, JOBS_DIR_NAME);
 }
+
+/** The directory a job's registry and logs are filed under, inside a repository's directory. */
+export const JOBS_DIR_NAME = "jobs";
 
 function isJobRecord(value: unknown): value is JobRecord {
 	if (!value || typeof value !== "object") return false;
