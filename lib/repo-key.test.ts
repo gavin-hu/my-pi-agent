@@ -18,6 +18,7 @@ import {
 	normalizeRemoteUrl,
 	REPO_KEY_LENGTH,
 	repoIdOf,
+	repoIdFor,
 	repoKeyFor,
 	repoKeyOf,
 	rootCommitIdOf,
@@ -40,6 +41,23 @@ function gitSeam(common: string, root: string | undefined, calls: string[][] = [
 function failingSeam() {
 	return async () => {
 		throw new Error("git is not installed");
+	};
+}
+
+/** An `exec` seam answering the two identity questions, and refusing anything else. */
+function identitySeam(answers: { remote?: string; root?: string }, calls: string[][] = []) {
+	return async (_command: string, args: string[]) => {
+		calls.push(args);
+		const argv = args.join(" ");
+		if (argv === "config --get remote.origin.url") {
+			const found = answers.remote !== undefined;
+			return { stdout: found ? `${answers.remote}\n` : "", stderr: "", code: found ? 0 : 1 };
+		}
+		if (argv === "rev-list --max-parents=0 HEAD") {
+			const found = answers.root !== undefined;
+			return { stdout: found ? `${answers.root}\n` : "", stderr: "", code: found ? 0 : 128 };
+		}
+		return { stdout: "", stderr: "", code: 128 };
 	};
 }
 
@@ -103,6 +121,41 @@ describe("rootCommitIdOf", () => {
 	test("is one id whatever case a sha is spelled in, and one per history", () => {
 		expect(rootCommitIdOf("ABC123")).toBe(rootCommitIdOf("abc123"));
 		expect(rootCommitIdOf("abc123")).not.toBe(rootCommitIdOf("abc124"));
+	});
+});
+
+describe("repoIdFor", () => {
+	test("answers the remote's id, and asks the history nothing once it has", async () => {
+		const calls: string[][] = [];
+		const seam = identitySeam({ remote: "git@github.com:me/x.git", root: "abc123" }, calls);
+		const identity = await repoIdFor({ exec: seam } as never, "/repo");
+		expect(identity).toEqual({
+			id: repoIdOf("git@github.com:me/x.git"),
+			source: "remote",
+			remote: "git@github.com:me/x.git",
+		});
+		expect(calls.map((args) => args.join(" "))).toEqual(["config --get remote.origin.url"]);
+	});
+
+	test("falls to the root commit when there is no remote", async () => {
+		const identity = await repoIdFor({ exec: identitySeam({ root: "abc123" }) } as never, "/repo");
+		expect(identity).toEqual({ id: rootCommitIdOf("abc123"), source: "root-commit" });
+	});
+
+	test("falls to the history when the remote names no host, because a local path is one machine's", async () => {
+		const identity = await repoIdFor(
+			{ exec: identitySeam({ remote: "/srv/git/x.git", root: "abc123" }) } as never,
+			"/repo",
+		);
+		expect(identity).toEqual({ id: rootCommitIdOf("abc123"), source: "root-commit" });
+	});
+
+	test("answers none, with no id, when there is neither a remote nor a commit", async () => {
+		expect(await repoIdFor({ exec: identitySeam({}) } as never, "/repo")).toEqual({ source: "none" });
+	});
+
+	test("never throws: a git that cannot start is the same answer as neither", async () => {
+		expect(await repoIdFor({ exec: failingSeam() } as never, "/repo")).toEqual({ source: "none" });
 	});
 });
 
