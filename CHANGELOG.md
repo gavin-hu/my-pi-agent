@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board-triage`: the triage reads a card's own fields before its prose. `priority` orders the
+  rows inside a wave and `type: "refactor"` is what makes a card a refactor, where both were
+  inferred from a title; a card already in flight — an owner in `plan` or `execute`, or one
+  awaiting its review or its approval — is its own class, reported with the gate it waits on and
+  proposed for no write at all, because the slot it holds is what the first wave fits behind. The
+  read ban is now the card store and the full check, rather than "`board list` is the one read
+  this skill needs", which forbade the tree read a duplicate's root cause or a stale card's fix
+  owes; that read is bounded per candidate to the two cards and the one symbol, error string or
+  test they name. The limits are named where they live — `board.wip` in `bytefly.json` (`plan`,
+  `execute`, `perOwner`, clamped 1..20, the project's file under `.pi/` over the global one) —
+  and a board with every slot taken has a stop: the next move is a review or a landing, not a
+  wave. The read-only fence is unchanged; no class lost its meaning.
+
 - `board`: a card records its plan by the name it holds in this repository's plan store
   (`2026-10-26-1008-the-query.md`) rather than the absolute path `plan` action `write` returned, so a
   store two machines share resolves the same plan on either and a card contracted on one host still
