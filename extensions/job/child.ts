@@ -13,9 +13,10 @@
  * one it started, and asks the runtime to settle one — it never holds the table.
  */
 
-import { existsSync, mkdirSync, unlinkSync, type WriteStream, writeFileSync } from "node:fs";
+import { existsSync, unlinkSync, type WriteStream, writeFileSync } from "node:fs";
 import { type ChildOutcome, type ChildSlot, type ChildSupervisor, createChildSupervisor } from "../../lib/child.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
+import { FILE_MODE, ensurePrivateDir, tightenMode } from "../../lib/json.ts";
 import type { LineSplitter } from "../../lib/lines.ts";
 import type { KillTreeFn, SpawnFn, StartTokenFn, StdinSink } from "../../lib/spawn.ts";
 import { clipLabel } from "../../lib/tui/columns.ts";
@@ -240,7 +241,7 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 		// created leaves the job running in-process, with the store and the reservation
 		// degrading to a read-only allocation.
 		try {
-			mkdirSync(store.directory(), { recursive: true });
+			ensurePrivateDir(store.directory());
 		} catch {
 			// Nothing to reserve in and nothing to persist to; the job still starts.
 		}
@@ -287,7 +288,10 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 		// Create the file eagerly so `logs` works before the first write, then append
 		// through the stream. A detached job's shell writes the file directly.
 		try {
-			writeFileSync(logPath, "", { flag: "a" });
+			writeFileSync(logPath, "", { flag: "a", mode: FILE_MODE });
+			// A detached job's shell opens this file itself, so the mode is stated again after the
+			// appends that made it: a log can carry what a command printed, a token included.
+			tightenMode(logPath);
 		} catch {
 			// An unwritable log leaves `logs` empty; the job still runs.
 		}

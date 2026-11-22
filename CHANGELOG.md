@@ -21,6 +21,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   scoped to the root. The Team page said the queue was one line per ask, none behind a fold, a column
   per band on a 2K window — false since the last release — and now says what the page draws.
 
+- `board`, `session-bus`, `memory`, `wechat`, `job` and `plan`: every store this package creates is
+  owner-only now — `0700` with `0600` files — where `jobs/<key>/` and `plans/<key>/` were `0755`
+  with `0644` files. A job's log can carry what a command printed, a token included, and a plan is
+  the artifact a card is executed against. There is no migration: an older directory narrows on its
+  next write. A config document's project `.pi` keeps the mode it has, because that directory is not
+  a store. The names this package reserves are one table in `lib/storage.ts`, with the agent
+  directory documented beside the project one and both held to it by `test/drift.test.ts` — which is
+  also how the `.pi/agents` row stopped claiming `subagent` writes it.
 - `board`: the store survives a folder a sync client replicates. A write is now verified — the card
   is read back and compared byte for byte with what was written, a rival revision is replayed onto
   rather than overwritten, and one that keeps coming back is refused by number with both revisions

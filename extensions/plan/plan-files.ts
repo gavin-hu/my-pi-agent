@@ -14,9 +14,10 @@
  * Value-only, as a store helper must be: the paths and the text are the caller's.
  */
 
-import { linkSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { linkSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { tempPathFor } from "../../lib/json.ts";
+import { FILE_MODE, ensurePrivateDir } from "../../lib/json.ts";
 import { hasErrorCode } from "../../lib/errors.ts";
 
 /**
@@ -40,7 +41,7 @@ const MAX_REVISIONS = 5;
 export function writeAtomic(path: string, content: string): void {
 	const temp = tempPathFor(path, { hidden: true });
 	try {
-		writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
+		writeFileSync(temp, content, { encoding: "utf-8", flag: "wx", mode: FILE_MODE });
 		renameSync(temp, path);
 	} catch (error) {
 		try {
@@ -82,7 +83,7 @@ export interface CreateSeams {
  */
 export function createAtomic(dir: string, base: string, content: string, seams: CreateSeams = {}): string {
 	const temp = tempPathFor(join(dir, base), { hidden: true });
-	writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
+	writeFileSync(temp, content, { encoding: "utf-8", flag: "wx", mode: FILE_MODE });
 	try {
 		for (let attempt = 1; attempt <= MAX_CREATE_ATTEMPTS; attempt += 1) {
 			const candidate = join(dir, attempt === 1 ? `${base}.md` : `${base}-${attempt}.md`);
@@ -108,6 +109,35 @@ export function createAtomic(dir: string, base: string, content: string, seams: 
 			// The link moved it onto the plan, which is the only other thing that happens to it.
 		}
 	}
+}
+
+/**
+ * Make the store directory this module writes into, owner-only.
+ *
+ * Here rather than in `plans.ts` because that module is in the entry's registration graph and
+ * `lib/json.ts` is not: the helpers are reached through this module's deferred import, the same
+ * trade the temp name already makes.
+ */
+export function ensurePlanDir(dir: string): void {
+	ensurePrivateDir(dir);
+}
+
+/**
+ * Move one plan file the store inherited from an older layout, with the mode a plan is kept at.
+ *
+ * A rename when both sides are one filesystem — the ordinary case — and a copy when they are not,
+ * which is why the copy carries the mode: a plan is the artifact a card is executed against.
+ */
+export function movePlanFile(from: string, to: string): void {
+	try {
+		renameSync(from, to);
+		return;
+	} catch {
+		// Across a volume boundary the rename cannot cross: copy the bytes, then remove the original,
+		// so nothing is deleted before its plan has landed.
+	}
+	writeFileSync(to, readFileSync(from), { flag: "wx", mode: FILE_MODE });
+	unlinkSync(from);
 }
 
 /** The prefix a plan's revisions share: `.‹slug›-r`, then the number. */

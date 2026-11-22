@@ -20,6 +20,7 @@ import { createHash } from "node:crypto";
 import { link, mkdir, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { readJson, tempPathFor } from "./json.ts";
+import { DIR_MODE, FILE_MODE, ensurePrivateDir } from "./json.ts";
 
 /** The bus directory under the agent dir, `session-bus`. */
 export const BUS_DIR_NAME = "session-bus";
@@ -31,9 +32,6 @@ export const INBOX_DIR_NAME = "inbox";
 export const CLAIMS_DIR_NAME = "claims";
 /** What every document the bus writes ends with: a reader lists these and nothing else. */
 export const JSON_SUFFIX = ".json";
-
-const DIR_MODE = 0o700;
-const FILE_MODE = 0o600;
 
 /** Hex characters the bus keeps from the digest: short on every filesystem, unique in practice. */
 const STORED_NAME_LENGTH = 32;
@@ -164,9 +162,9 @@ export async function publishNew(path: string, value: unknown): Promise<boolean>
 	}
 }
 
-/** Create a directory the bus writes into. */
+/** Create a directory the bus writes into, owner-only, narrowing one that is already there. */
 export async function ensureDir(dir: string): Promise<void> {
-	await mkdir(dir, { recursive: true, mode: DIR_MODE });
+	ensurePrivateDir(dir);
 }
 
 /**
