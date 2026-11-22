@@ -187,6 +187,11 @@ Do not set those by hand: they describe the session to its child processes.
 
 ## State
 
+A per-repository store under the agent directory is filed by the repository's identity, which
+two machines can compute alike from the remote URL or, failing that, the history's first commit; a
+repository with neither is filed by its path, and that key means this machine only. Nothing reads
+across the two yet: which stores are shared is a decision each one makes.
+
 The `wechat` extension keeps runtime state under `<agent-dir>/wechat/`:
 `credentials.json` (mode `0600`, the one stored account this bridge runs),
 `state.json` (the poll cursor, the one conversation's reply token and last

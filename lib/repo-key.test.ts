@@ -72,6 +72,13 @@ describe("repoKeyOf", () => {
 		expect(repoKeyOf("/repo/.git")).toBe(repoKeyOf("/repo/.git"));
 		expect(repoKeyOf("/repo/.git")).not.toBe(repoKeyOf("/other/.git"));
 	});
+
+	test("is pinned for a fixed path, so no refactor can move every store by accident", () => {
+		// Every store on every machine is filed under this digest's siblings: a change here is a
+		// migration (#771), never a tidy-up, and this line is what makes that unavoidable.
+		expect(repoKeyOf("/repo/.git")).toBe("6b4ca2db35cf");
+		expect(repoKeyOf("/home/me/repo/.git")).toBe("03ba1b3195ff");
+	});
 });
 
 describe("normalizeRemoteUrl", () => {

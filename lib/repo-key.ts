@@ -120,11 +120,6 @@ export async function repoKeyFor(pi: Pick<ExtensionAPI, "exec">, cwd: string): P
 const REMOTE_PREFIX = "remote:";
 const ROOT_COMMIT_PREFIX = "root:";
 
-/** The digest both spaces share: a short, hex, filename-safe key. */
-function digestOf(value: string): string {
-	return createHash("sha256").update(value).digest("hex").slice(0, REPO_KEY_LENGTH);
-}
-
 /**
  * A remote URL reduced to the one string two machines can agree on.
  *
@@ -157,15 +152,20 @@ function hostAndPath(host: string, rest: string): string | undefined {
 	return `${hostname}/${path}`;
 }
 
-/** The id a remote names, or `undefined` when it names no host to agree on. */
+/**
+ * The id a remote names, or `undefined` when it names no host to agree on.
+ *
+ * The digest is {@link repoKeyOf}'s — one body for "hash an identity string" — with the remote
+ * prefix in the preimage, which is what keeps this id out of the path key's space.
+ */
 export function repoIdOf(url: string): string | undefined {
 	const normalized = normalizeRemoteUrl(url);
-	return normalized === undefined ? undefined : digestOf(`${REMOTE_PREFIX}${normalized}`);
+	return normalized === undefined ? undefined : repoKeyOf(`${REMOTE_PREFIX}${normalized}`);
 }
 
-/** The id a root commit names: the fallback for a repository with no remote. */
+/** The id a root commit names: the fallback for a repository with no remote, prefixed the same way. */
 export function rootCommitIdOf(sha: string): string {
-	return digestOf(`${ROOT_COMMIT_PREFIX}${sha.trim().toLowerCase()}`);
+	return repoKeyOf(`${ROOT_COMMIT_PREFIX}${sha.trim().toLowerCase()}`);
 }
 
 /** Which rung of the chain answered. */

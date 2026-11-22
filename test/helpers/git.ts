@@ -14,6 +14,7 @@ import { execFile } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { GitResult, RunGit } from "../../lib/git/index.ts";
 import { SPAWN_WATCHDOG_MS } from "./budget.ts";
 import { CONTENTION_HINT } from "./wait-site.ts";
 
@@ -151,4 +152,22 @@ export function makeTempTracker(): TempTracker {
 		},
 		flush: () => cleanup(...dirs.splice(0)),
 	};
+}
+
+/**
+ * A `RunGit` that answers from a map or a function, and records every call.
+ *
+ * The read helpers start no process, so a suite names the argv it expects and reads back what
+ * was asked; two suites need the same double, which is why it lives here rather than in one of
+ * them.
+ */
+export function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: string[]) => Partial<GitResult>)) {
+	const calls: Array<{ args: string[]; options: { cwd: string; timeoutMs?: number; env?: Record<string, string> } }> =
+		[];
+	const run: RunGit = async (args, options) => {
+		calls.push({ args, options });
+		const partial = typeof responses === "function" ? responses(args) : (responses.get(args.join(" ")) ?? {});
+		return { stdout: "", stderr: "", code: 0, ...partial };
+	};
+	return { run, calls };
 }

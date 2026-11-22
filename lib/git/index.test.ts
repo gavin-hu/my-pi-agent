@@ -11,7 +11,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { scratchDir, withEnv } from "../../test/helpers/env.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
+import { makeTempTracker, recordingRunner } from "../../test/helpers/git.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import {
 	createExecRunner,
@@ -30,26 +30,12 @@ import {
 	revParseMany,
 	rootCommit,
 	runGitOrThrow,
-	type RunGit,
-	worktrees,
 } from "./index.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 /** A temp directory, removed at teardown. */
-/** A runner that answers from a map or a function, and records every call. */
-function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: string[]) => Partial<GitResult>)) {
-	const calls: Array<{ args: string[]; options: { cwd: string; timeoutMs?: number; env?: Record<string, string> } }> =
-		[];
-	const run: RunGit = async (args, options) => {
-		calls.push({ args, options });
-		const partial = typeof responses === "function" ? responses(args) : (responses.get(args.join(" ")) ?? {});
-		return { stdout: "", stderr: "", code: 0, ...partial };
-	};
-	return { run, calls };
-}
-
 // --- The execution runner ---------------------------------------------------
 
 /**
@@ -260,43 +246,6 @@ describe("remoteUrl and rootCommit", () => {
 		// No commits: git exits 128 and prints nothing.
 		const unborn = recordingRunner(new Map([["rev-list --max-parents=0 HEAD", { code: 128 }]]));
 		expect(await rootCommit(unborn.run, "/repo")).toBeUndefined();
-	});
-});
-
-describe("worktrees", () => {
-	const porcelain = [
-		"worktree /repo",
-		"HEAD 1234567890abcdef",
-		"branch refs/heads/main",
-		"",
-		"worktree /repo/.pi/worktrees/side",
-		"HEAD abcdef1234567890",
-		"branch refs/heads/worktree-side",
-		"locked pi:42:side",
-		"",
-		"worktree /repo/bare.git",
-		"bare",
-		"",
-	].join("\n");
-
-	test("lists every tree, the main checkout first, one entry per block", async () => {
-		const { run, calls } = recordingRunner(() => ({ stdout: porcelain }));
-		expect(await worktrees(run, "/repo")).toEqual([
-			{ path: "/repo", head: "12345678", branch: "main" },
-			{ path: "/repo/.pi/worktrees/side", head: "abcdef12", branch: "worktree-side", locked: "pi:42:side" },
-			{ path: "/repo/bare.git", bare: true },
-		]);
-		expect(calls[0]?.args).toEqual(["worktree", "list", "--porcelain"]);
-	});
-
-	test("reads a lock without a reason as the empty string, and a detached head as no branch", async () => {
-		const { run } = recordingRunner(() => ({ stdout: "worktree /repo\nHEAD abcdef1234567890\nlocked\n" }));
-		expect(await worktrees(run, "/repo")).toEqual([{ path: "/repo", head: "abcdef12", locked: "" }]);
-	});
-
-	test("is no list when git refuses, the same answer as no repository", async () => {
-		const { run } = recordingRunner(() => ({ code: 128, stderr: "not a git repository" }));
-		expect(await worktrees(run, "/repo")).toEqual([]);
 	});
 });
 

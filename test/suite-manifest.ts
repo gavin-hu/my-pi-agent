@@ -416,6 +416,7 @@ export const LIB_SUITES: readonly string[] = [
 	"diff/render",
 	"diff/status",
 	"git/index",
+	"git/worktrees",
 	"http/compress",
 	"http/http",
 	"http/mount",
