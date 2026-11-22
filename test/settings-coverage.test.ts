@@ -1,25 +1,17 @@
 /**
  * Contract guard between the Settings catalogue and the config loaders it shows.
  *
- * The screen cannot import another extension's normalizer (AGENTS.md), so a row
- * states the loader's default and its own rule, and nothing at runtime proves the
- * two agree. This test does: it reads the same defaults the loaders export, and
- * fails when a loader key is neither a row nor declared JSON-only, when a
- * declaration names a key the loader does not have, or when a row's default or
- * numeric rule disagrees with the loader's clamp.
- *
- * A key the screen leaves out is declared here with a reason — a tuning number,
- * a label, or a whole section with no row — so leaving one out is a reviewed
- * decision rather than an oversight. A new section means a new entry in
- * `SECTIONS`, and adding a row means removing its declaration.
- *
- * The loaders stay the source of truth: bounds are derived by probing each
- * normalizer with an extreme value, not by exporting the limits for the test.
- *
- * The same catalogue is the source of truth for the prose that counts the
- * screen: the two entry READMEs, the extension page, and the configuration
- * reference state how many rows it holds, and every count below is built from
- * `SETTING_ROWS`, so a fourteenth row fails here until the prose follows.
+ * The screen cannot import another extension's normalizer (AGENTS.md), so a row states the
+ * loader's default and its own rule, and only this test proves the two agree: it fails when a
+ * loader key is neither a row nor declared JSON-only, when a declaration names a key the loader
+ * does not have, or when a row's default or numeric rule disagrees with the loader's clamp. A
+ * key the screen leaves out is declared here with a reason — a tuning number, a label, or a
+ * whole section with no row — so leaving one out is reviewed rather than an oversight; a new
+ * section means a new entry in `SECTIONS`, and adding a row means removing its declaration.
+ * The loaders stay the source of truth: bounds are derived by probing each normalizer with an
+ * extreme value, not by exporting the limits. The same catalogue is the source of truth for the
+ * prose that counts the screen — both entry READMEs, the extension page and the configuration
+ * reference state how many rows it holds, and every count below is built from `SETTING_ROWS`.
  */
 
 import { readFileSync } from "node:fs";
@@ -225,16 +217,11 @@ const SECTIONS: readonly SectionCase[] = [
 		},
 	},
 	{
-		// The plan store's bound is a number a person sets once, and one of them deletes files, so
-		// the screen carries no row and the document is the only door.
+		// A store bound set once, and one of its keys deletes: the document is the only door.
 		section: "plan",
 		defaults: DEFAULT_PLAN_CONFIG,
 		normalize: (raw) => normalizePlanConfig(raw, DEFAULT_PLAN_CONFIG),
-		jsonOnly: {
-			enabled: "a switch for a pass that deletes, left to the document",
-			keep: "a store limit, tuned once",
-			maxAgeDays: "a store limit, tuned once",
-		},
+		jsonOnly: { enabled: "a switch for a pass that deletes", keep: "a store limit", maxAgeDays: "a store limit" },
 	},
 	{
 		section: "memory",
