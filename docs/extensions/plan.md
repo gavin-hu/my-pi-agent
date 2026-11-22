@@ -60,13 +60,12 @@ The `plan` tool has five actions; `/plan` is the command that drives it.
 | `steps` | tick a step in the file and in its todo item, in one call |
 | `cancel` | leave plan mode, keeping any saved plan |
 
-**The plan file.** `~/.pi/agent/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md` — one
-store per repository, shared by its worktrees. Each refinement keeps the previous
-text beside it as a hidden file, five deep, so two rounds can be compared. The
-plan is what the model follows: approving it seeds its steps into your todo list,
-and finalizes a session goal that was only drafted, from the plan's own `Goal`.
-Approving a refined plan again replaces the items the earlier approval added that
-nobody has started, so the list matches the plan you last read.
+**The plan file.** `~/.pi/agent/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md` — one store per
+repository, shared by its worktrees, with each refinement's replaced text kept beside it as a hidden
+file, five deep. The plan is what the model follows: approving it seeds its steps into your todo list
+and finalizes a session goal that was only drafted, from the plan's own `Goal`. Approving a refinement
+again replaces the items the earlier approval added that nobody has started, so the list matches the
+plan you last read.
 
 **Ticking a step.** `steps` matches each entry's `expected` with inline markdown,
 case, and spacing ignored, so the plan's own line works as written; a refusal names
@@ -101,27 +100,17 @@ that changes. A delegated agent runs with writing forced off.
   permissions.
 - A plan holds at most 50 steps and 256 KiB; a bigger one is refused, not trimmed.
 - Plan mode has no PowerShell on Windows: Git Bash is the shell, and it must be installed.
-- The browser review needs `serve` and a local browser; a reviewer's page is only reachable
-  while its link is shared. At 1180px and below the sections list folds above the document
-  and starts shut, while the switch and its count stay in view; below 640 the four actions
-  become two and a **More** menu.
-- The store keeps what both bounds allow — a plan older than `plan.maxAgeDays` *and* outside
-  the newest `plan.keep` — and never a plan a card on the board records. A plan nothing keeps goes,
-  which is what a finished card's plan is: the artifact is history once the merge is named.
+- The browser review needs `serve` and a local browser; a reviewer's page is only reachable while
+  its link is shared. At 1180px and below the sections list folds above the document and starts
+  shut; below 640 the four actions become two and a **More** menu.
 
 ## Settings
 
-**The store's bound** is `bytefly.json`'s `plan` section: `keep` (the newest 100 plans per
-repository), `maxAgeDays` (180), and `enabled`. A plan is removed only when it is both older than
-`maxAgeDays` and outside the newest `keep`, a plan any card records is never removed, and a board
-that cannot be read removes nothing; `enabled: false` makes the automatic passes no-ops and leaves
-`/plan prune` as the only door. The automatic passes run after a write and at session start, 200
-removals at a time; `/plan prune` walks every store on the machine, which is what reclaims the
-plans of repositories that are no longer here. Every key is in the
-[plan section of the configuration reference](../configuration-reference.md#plan--the-plan-stores-bound).
-
-Plan mode itself has no key — the mode is the extension. To switch it off, toggle
-`plan` in `/bytefly`; the tool, the command, and the mode go with it.
+**The store's bound** is `bytefly.json`'s `plan` section: `keep` (the newest 100 per repository) and
+`maxAgeDays` (180), and both must agree before a plan goes — a plan any card records never goes, and
+`enabled: false` leaves `/plan prune` as the only door. The keys are in the
+[reference](../configuration-reference.md#plan--the-plan-stores-bound). Plan mode has no key itself:
+to switch the mode off, toggle `plan` in `/bytefly`; the tool, the command and the mode go with it.
 
 ## Learn more
 
