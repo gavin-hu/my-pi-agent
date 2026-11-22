@@ -30,10 +30,11 @@
 import { link, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { repoKeyFor } from "../repo-key.ts";
 import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
-import { repoIdFor, repoKeyFor, repoStoreDir, storeIdOf } from "../repo-key.ts";
+
 import { FILE_MODE, ensurePrivateDir } from "../json.ts";
 import { type Card, cardRef, type Priority } from "./card.ts";
 import type { EndedCard } from "./ended.ts";
@@ -175,16 +176,21 @@ export async function openBoard(
 	// A tool receives the session's cwd, not the worktree the user entered; the
 	// environment carries the active root, so the two are reconciled before the
 	// repository lookup — the same path `plan` and `session-bus` take.
+	// The identity two machines agree on, the directory the store is filed in, and the store an
+	// older build left at the flat spelling taken across once — one body, shared with every other
+	// owner (`lib/store-paths.ts`), so the five cannot disagree about what "filed under the
+	// repository" means.
 	const base = resolveEffectiveCwd(cwd);
 	const repo = await repoKeyFor(pi, base);
-	// The identity two machines can agree on, and the name this store is filed under: the shared
-	// id, or `local-<pathKey>` where the directory has no remote and no commit to compare.
-	const storeId = storeIdOf(await repoIdFor(pi, base), repo.key);
-	const dir = repoStoreDir(agentDir, storeId, BOARD_DIR_NAME);
-	// A store written before this build is at the flat spelling: it is taken across on the first
-	// open that misses, once, and never before its contents have landed.
-	const { migrateStoreDir } = await import("../store-paths.ts");
-	await migrateStoreDir(boardDirFor(agentDir, repo.key), dir);
+	const { repoStoreDirFor } = await import("../store-paths.ts");
+	const { dir, id } = await repoStoreDirFor(
+		pi,
+		base,
+		agentDir,
+		BOARD_DIR_NAME,
+		(found) => boardDirFor(agentDir, found.key),
+		{ repo },
+	);
 	// Read once per store: the settings are a setting, not a card, and a board that re-read
 	// a file on every write would spend a stat to answer a question nobody changed. The read is
 	// rooted at the repository's *checkout*, not at the working tree: in a worktree `.pi/` is
@@ -199,7 +205,7 @@ export async function openBoard(
 		config,
 		// The lock is this machine's, so it sits outside the store a client may replicate, and it
 		// is filed by the same identity the store is.
-		lockDir: presenceDirFor(agentDir, storeId),
+		lockDir: presenceDirFor(agentDir, id),
 	});
 }
 

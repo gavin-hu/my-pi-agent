@@ -18,6 +18,14 @@ import { dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type RepoKey, repoIdFor, repoKeyFor, repoStoreDir, storeIdOf } from "./repo-key.ts";
 
+/**
+ * The repository shape a store needs: where it is, its key, and whether git answered.
+ *
+ * `fromGit` is optional because one caller passes a seam (`session-bus`'s `options.repo`) that a
+ * suite builds by hand and never asks that question of.
+ */
+export type StoreRepo = Pick<RepoKey, "root" | "key"> & { fromGit?: boolean };
+
 /** What one attempt did, which is also what a caller may report. */
 export type MigrationOutcome =
 	/** The state was old-only and is now at its new home. */
@@ -80,7 +88,7 @@ export interface StoreLocation {
 	/** The identity it is filed under — a shared id, or `local-<pathKey>`. */
 	id: string;
 	/** The repository the directory resolved to. */
-	repo: RepoKey;
+	repo: StoreRepo;
 }
 
 /**
@@ -98,9 +106,17 @@ export async function repoStoreDirFor(
 	cwd: string,
 	agentDir: string,
 	concept: string,
-	legacy: (repo: RepoKey) => string,
+	legacy: (repo: StoreRepo) => string,
+	options: {
+		/**
+		 * A repository a caller has already resolved, for the one place that takes one as a seam
+		 * (`session-bus`'s `options.repo`, which a suite supplies instead of a git double). Absent is
+		 * the ordinary case: the identity is asked for here, once.
+		 */
+		repo?: StoreRepo;
+	} = {},
 ): Promise<StoreLocation> {
-	const repo = await repoKeyFor(pi, cwd);
+	const repo = options.repo ?? (await repoKeyFor(pi, cwd));
 	const id = storeIdOf(await repoIdFor(pi, cwd), repo.key);
 	const dir = repoStoreDir(agentDir, id, concept);
 	await migrateStoreDir(legacy(repo), dir);
