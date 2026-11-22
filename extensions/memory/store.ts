@@ -120,14 +120,19 @@ export async function busLabelFor(
 }
 
 export interface MemoryPaths {
-	/** Project store path (the repository root's `.pi/memory.md`). */
+	/** Project store path: `<agent-dir>/repos/<id>/memory.md`, with the rest of the repository's state. */
 	project: string;
 	/** Global store path (the agent directory's `memory.md`). */
 	global: string;
 }
 
-/** Project store path for a repository root, or for `cwd` outside a repository. */
-export function projectMemoryPath(cwd: string, repoRoot?: string): string {
+/**
+ * The project store as an older build left it: `<checkout>/.pi/memory.md`.
+ *
+ * Kept for the migration and nothing else. A note is private, but it is still this repository's,
+ * and `.pi/` is the repository's to state rather than this package's to fill.
+ */
+export function legacyProjectMemoryPath(cwd: string, repoRoot?: string): string {
 	return join(repoRoot ?? cwd, CONFIG_DIR_NAME, FILE_NAME);
 }
 
@@ -149,8 +154,13 @@ export async function resolveMemoryPaths(pi: Pick<ExtensionAPI, "exec">, cwd: st
 	// Loaded where it is used: the store read is the first thing a session asks for, and the
 	// registration path pays nothing for a resolver that reaches `node:crypto`.
 	const { settingsRootFor } = await import("../../lib/repo-key.ts");
+	const { repoStoreDirFor } = await import("../../lib/store-paths.ts");
+	const agentDir = getAgentDir();
 	const root = await settingsRootFor(pi, cwd);
-	return { project: projectMemoryPath(cwd, root), global: globalMemoryPath() };
+	// The extension owns which file and the mover owns how it moves: the store an older build kept
+	// in the checkout is taken across once, and `rename` is what keeps its `0600` on the way.
+	const { dir } = await repoStoreDirFor(pi, cwd, agentDir, FILE_NAME, () => legacyProjectMemoryPath(cwd, root));
+	return { project: dir, global: globalMemoryPath() };
 }
 
 function isSymlink(path: string): boolean {

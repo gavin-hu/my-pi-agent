@@ -18,7 +18,7 @@ import {
 	memoryFileStamp,
 	mutateMemoryFile,
 	parseEntries,
-	projectMemoryPath,
+	legacyProjectMemoryPath,
 	readMemoryFile,
 	sameStamp,
 } from "./store.ts";
@@ -104,9 +104,9 @@ describe("store files", () => {
 		expect(readFileSync(path, "utf-8")).toContain("- one");
 	});
 
-	test("projectMemoryPath anchors at the repository root when given one", () => {
-		expect(projectMemoryPath("/work/tree", "/work/repo")).toBe(join("/work/repo", ".pi", "memory.md"));
-		expect(projectMemoryPath("/work/tree")).toBe(join("/work/tree", ".pi", "memory.md"));
+	test("legacyProjectMemoryPath names the store an older build left in the checkout", () => {
+		expect(legacyProjectMemoryPath("/work/tree", "/work/repo")).toBe(join("/work/repo", ".pi", "memory.md"));
+		expect(legacyProjectMemoryPath("/work/tree")).toBe(join("/work/tree", ".pi", "memory.md"));
 	});
 });
 

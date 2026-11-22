@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { migrateStoreDir } from "./store-paths.ts";
@@ -53,6 +53,17 @@ describe("migrateStoreDir", () => {
 		expect(await migrateStoreDir(from, to)).toBe("moved");
 		expect(await migrateStoreDir(from, to)).toBe("already-moved");
 		expect(readFileSync(join(to, "0004.json"), "utf-8")).toBe("a card");
+	});
+
+	test.skipIf(process.platform === "win32")("keeps a file's 0600 through the move", async () => {
+		// The memory store is one file with the user's eyes only, and a move is the one moment it
+		// could widen: `rename` keeps the mode, and this is the case that says so.
+		const from = join(temps.track(tempDir("pi-migrate-old-")), "memory.md");
+		mkdirSync(dirname(from), { recursive: true });
+		writeFileSync(from, "- a note\n", { mode: 0o600 });
+		const to = join(temps.track(tempDir("pi-migrate-new-")), "repos", "abc", "memory.md");
+		expect(await migrateStoreDir(from, to)).toBe("moved");
+		expect(statSync(to).mode & 0o777).toBe(0o600);
 	});
 
 	test("answers failed and leaves the old store readable when the target cannot be made", async () => {

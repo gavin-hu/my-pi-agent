@@ -16,6 +16,7 @@ import { type MemoryEntries } from "../../../extensions/memory/format.ts";
 import memory from "../../../extensions/memory/index.ts";
 import type { MemoryNote } from "../../../extensions/memory/types.ts";
 import { ENV_ROOT } from "../../../lib/env.ts";
+import { repoKeyOf } from "../../../lib/repo-key.ts";
 import { fakeCtx } from "../context.ts";
 import { useEnv } from "../env.ts";
 import { createFakePi, emitCollect, fakeTheme } from "../fakes.ts";
@@ -183,7 +184,10 @@ export function memorySuite(options: MemorySuiteOptions = {}): MemorySuite {
 	let trusted = true;
 	const context = fakeCtx({ cwd: realCwd, extra: { isProjectTrusted: () => trusted } });
 
-	const projectPath = join(realRepo, ".pi", "memory.md");
+	// The store files with the rest of the repository's state, under the identity this double
+	// resolves: it answers no remote and no root commit, so the directory is `local-<pathKey>`.
+	const projectPath = join(realAgentDir, "repos", `local-${repoKeyOf(join(realRepo, ".git"))}`, "memory.md");
+	mkdirSync(dirname(projectPath), { recursive: true, mode: 0o700 });
 	const globalPath = join(realAgentDir, "memory.md");
 	const pathFor = (scope: Scope): string => (scope === "global" ? globalPath : projectPath);
 
