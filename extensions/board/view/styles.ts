@@ -328,8 +328,11 @@ ${DECISION_WHY_CSS}
 /* Two lines, two blocks: the title's, and the facts'. The six columns before this spent 330 px of
    a 704 px row before the title could have a pixel, so every desktop title was elided; a title on
    its own line reads whole, and the facts it was competing with — the id, the pill, the kind, the
-   reason, the owner, the age — have the line the reason already ran on. */
-.board-queue__row{display:flex;flex-direction:column;gap:var(--space-1);min-width:0;max-width:64rem}
+   reason, the owner, the age — have the line the reason already ran on. The row spans its band:
+   card 784 capped it at a readable measure at 2K, which left the age 800 px from the band's edge
+   on a short ask, and gavin lifted the cap — the band is the queue's measure, and the row is the
+   band's. */
+.board-queue__row{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
 /* The title's line: the rank and the id, then the row's one control, which is 24 px tall even
    where its text is 21 because the row's only target was 18 — smaller than the kit's own fold. */
 .board-queue__head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
