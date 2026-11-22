@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the Needs you queue is one head over one column of asks, and every row says its own reason.
+  The `ACTIVE WORK` caption and the pane's `NEEDS YOU` head were two counts of different things —
+  four cards, six asks — so one caption counts the asks and carries the filtered `0 of 6`, while the
+  swimlanes keep their own count under a `Moving` label. The pane loses its warn tone: the kit mutes
+  a title inside a toned section, so every ask's title was painted `--muted` at weight 400 while its
+  pill was amber; the title is the row's headline again and colour is spent on the pill and a danger
+  sentence. A band's head is its name and count — the shared `2 say: …` sentence and the suppression
+  it drove are gone, reversing #550's choice (a reader of the last release was told the opposite), so
+  every row prints its own reason, which closes the row whose facts line spanned ~400 px of nothing.
+  The fold reads `Show N more` / `Show fewer`, a phone keeps the id beside the title, a 2K row stops
+  at a readable measure, and the filter's `nothing matches` sentence survives Enter: the tab's own
+  empty statement matched a class inside the queue and removed it on the next frame, and it is now
+  scoped to the root. The Team page said the queue was one line per ask, none behind a fold, a column
+  per band on a 2K window — false since the last release — and now says what the page draws.
+
 - `board`: the store survives a folder a sync client replicates. A write is now verified — the card
   is read back and compared byte for byte with what was written, a rival revision is replayed onto
   rather than overwritten, and one that keeps coming back is refused by number with both revisions

@@ -7,15 +7,15 @@ listening with `wake` is woken for it ([`session-bus`](session-bus.md) owns that
 A card's own state — `claim`, `reclaim`, the moves, the contract, the two signs — is
 [`board`](board.md)'s. What outlives the round is the project's [`memory`](memory.md) store.
 
-<img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; ACTIVE WORK with a NEEDS YOU queue in one column of three bands — YOUR SIGNATURE, UNCLAIMED and STALLED — each ask a title line with its pill, kind, reason, owner and age under it, over BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="1256">
+<img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; NEEDS YOU as one column of three bands — YOUR SIGNATURE, UNCLAIMED and STALLED — where each ask is a title line with its pill, kind, reason, owner and age under it, over a Moving label and the BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="1245">
 
 The board's Team tab is the same round as a page, in three columns that each count themselves and
 scroll as one. **AGENTS** holds a card per session, the lead pinned first: a monogram, its state
 and age at the edge, `lead` and `you` chips with the mail and needs-you counts, and a mission line
-per card. **ACTIVE WORK** is the lead's queue over the `blocked`, `execute` and `plan` swimlanes:
-one line per ask, the reason printed rather than hovered, filed by whose move it is into `YOUR
-SIGNATURE`, `UNCLAIMED` and `STALLED`, none behind a fold — a column per band on a 2K window, and a
-phone gives the title the whole line to wrap. **ACTIVITY** draws unread mail as a block — a fill
+per card. **NEEDS YOU** is the lead's queue over the `blocked`, `execute` and `plan` swimlanes: one head counts the asks,
+filed by whose move it is into `YOUR SIGNATURE`, `UNCLAIMED` and `STALLED` — every band drawn, a zero included,
+each a two-line ask whose row says its own reason. A band folds at five; a phone wraps the whole title.
+**ACTIVITY** draws unread mail as a block — a fill
 and an accent edge — above a flat recent history; reading consumes nothing. `WAITING` counts sends,
 one row each however many inboxes it reached; a card's chip counts its own inbox's files, not a sum.
 

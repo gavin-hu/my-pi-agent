@@ -291,13 +291,13 @@ ${DECISION_WHY_CSS}
 /* A lane dot is a glyph in the lane's role, not a filled square. */
 .board-dot[data-lane]{background:none;color:var(--lane-role,var(--muted))}
 
-/* NEEDS YOU — the lead's queue as one column of asks: a band per addressee, a line per card, its
-   reason printed underneath. An ask is not a card and no longer wears one: the row sits on the
-   column's own ground and space is what separates it from the next, so the tone is left to the
-   pill and a danger row's sentence, and a card drawn in the queue cannot read as a card drawn
-   twice. An h4.bf-lane__head and a bf-lane__list are the kit's lane shapes one level down, and
-   the queue's own indent is what says so: a band sits inside the queue, and the lane heads under
-   it are the column's sections. */
+/* NEEDS YOU — the lead's queue as one column of asks: a band per addressee, and every row two
+   lines — the id and the title, then the facts the queue exists for: the ask's pill, the kind, the
+   reason printed rather than hovered, the owner and one age. An ask is not a card and wears none:
+   the row sits on the column's own ground, space is what separates it from the next, and the tone
+   is left to the pill and a danger row's sentence. A band's head is its name and count and
+   nothing else — the name is the shared word, the sentence belongs to the row. The column has
+   one head; the swimlanes under it keep their own count under a plain label. */
 /* One column, always: the bands are sections of one queue, not three lists side by side — a band
    in a track of its own put one band's tally against the next band's name and read as two queues.
    Every band is drawn, so the column's shape is the same on every board and at every width. */
@@ -306,15 +306,19 @@ ${DECISION_WHY_CSS}
 /* The control that carries a band's tail sits under the rows it left out, one step off them: it
    belongs to the list, not to the band's head. */
 .board-queue__band > .board-fold{margin-top:var(--space-1)}
+/* The disclosure draws its own mark, so the control's text stays its words (and the state the
+   tests read). An open band points down; a folded one points right at what it hides. */
+.board-queue__band > .board-fold::before{content:"▸";font-size:9px}
+.board-queue__band > .board-fold[aria-expanded="true"]::before{content:"▾"}
 .board-queue__band .bf-lane__list{gap:var(--space-2)}
 /* A band's head pins under the pane's, which is already pinned: a reader three rows into a list
    still knows whose move it is without scrolling back to find out. The offset is the pane head's
    own height — its minimum, its bottom padding and its rule — plus the step the caption gives its
    body, so the pin and the rest are one place and the two cannot drift apart. */
 .board-queue__band > .bf-lane__head{position:sticky;top:calc(30px + var(--space-2));z-index:2;background:var(--canvas);padding-bottom:var(--space-1)}
-/* The sentence a whole band repeats: a fact about every row under it, so it is set in the head's
-   line at the weight of the words around it rather than as one more row. */
-.board-queue__said{margin-left:var(--space-1);color:var(--muted);font-weight:var(--fw-normal)}
+/* A label over the swimlanes: the column's second group — cards that are moving rather than
+   asks — so its count is not read as another head for the queue. */
+.board-queue__moving{margin:var(--space-3) 0 0;color:var(--muted);font:var(--fw-semibold) var(--fs-xs) var(--font-ui)}
 /* A band's tally sits beside the word it counts. A lane head pushes its count to the far edge,
    which is right for a lane that fills its column; two bands side by side would then put one
    band's count against the next band's name. */
@@ -325,13 +329,13 @@ ${DECISION_WHY_CSS}
    a 704 px row before the title could have a pixel, so every desktop title was elided; a title on
    its own line reads whole, and the facts it was competing with — the id, the pill, the kind, the
    reason, the owner, the age — have the line the reason already ran on. */
-.board-queue__row{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+.board-queue__row{display:flex;flex-direction:column;gap:var(--space-1);min-width:0;max-width:64rem}
 /* The title's line: the rank and the id, then the row's one control, which is 24 px tall even
    where its text is 21 because the row's only target was 18 — smaller than the kit's own fold. */
 .board-queue__head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
 .board-queue__ref{display:inline-flex;align-items:baseline;gap:var(--space-1);flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
 .board-queue__rank{color:var(--dim);font-variant-numeric:tabular-nums}
-.board-queue__head .bf-row__title{display:block;flex:1 1 auto;min-width:0;min-height:24px;line-height:24px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer}
+.board-queue__head .bf-row__title{display:block;flex:1 1 auto;min-width:0;min-height:24px;line-height:24px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer;color:var(--text);font-weight:var(--fw-medium)}
 .board-queue__head .bf-row__title:hover{color:var(--accent)}
 /* The facts line: the pill, the kind, the sentence, the owner, the age. The age takes the row's
    right edge, so a column of ages survives a one-line reason. */
@@ -458,8 +462,10 @@ ${DIALOG_TONE_CSS}
    holds what, and a reason names the owner whenever the name is the point ("bob is not running —
    the card is free"). */
 @media (max-width:560px){
-  .board-queue__head{flex-wrap:wrap;align-items:baseline}
-  .board-queue__head .bf-row__title{flex:1 1 100%;white-space:normal}
+  /* The id keeps its line and the title keeps its whole text: the head does not wrap, so a short
+     name sits beside the number and a long one wraps inside its own box. */
+  .board-queue__head{align-items:baseline}
+  .board-queue__head .bf-row__title{white-space:normal}
   .board-queue__facts > .board-owner{display:none}
 }
 /* Five lane names do not fit a phone: the tab rail wraps rather than a horizontal scroller

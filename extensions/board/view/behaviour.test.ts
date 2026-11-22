@@ -262,7 +262,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// The team page carries more sections than it once did (a needs-you queue and a waiting queue sit beside the three columns), so each caption
 		// is found by its name.
 		expect(captions.some((caption) => /^Agents, \d+ agents?$/.test(caption))).toBe(true);
-		expect(captions.some((caption) => /^Active work, \d+ cards?$/.test(caption))).toBe(true);
+		expect(captions.some((caption) => /^Needs you, \d+ asks?$/.test(caption))).toBe(true);
 		expect(captions.some((caption) => /^Activity, \d+ rows?$/.test(caption))).toBe(true);
 	});
 

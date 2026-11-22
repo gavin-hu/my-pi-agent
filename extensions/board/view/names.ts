@@ -114,8 +114,8 @@ export const BOARD_CLASS = {
 	queueHead: "board-queue__head",
 	queueFacts: "board-queue__facts",
 	queueWhy: "board-queue__why",
-	// The sentence a whole band repeats, said once in the band's head rather than sixty times.
-	queueSaid: "board-queue__said",
+	// The label over the swimlanes, which count moving cards rather than asks.
+	queueMoving: "board-queue__moving",
 	teamLanes: "board-team__lanes",
 	// A person's lines: the cards one session holds, one line each.
 

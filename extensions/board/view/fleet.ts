@@ -224,12 +224,20 @@ __HISTORY_LINE__
     head.appendChild(dot);
   };
 
-  board.captionOf = function (text, count, noun) {
+  /**
+   * A column's caption: the mark, the name and the count.
+   *
+   * A caption is a count, not a share — but a filter narrows one column, and then the count alone
+   * would hide what it hid. The optional total is the one case it carries: 0/6 on the head, and
+   * "0 of 6 asks" for a reader who hears it. The queue's caption is the only caller today.
+   */
+  board.captionOf = function (text, count, noun, total) {
     var head = el("h2", "bf-section__cap");
     board.headDot(head);
     head.appendChild(document.createTextNode(text));
-    head.appendChild(el("span", "bf-section__count", String(count)));
-    head.setAttribute("aria-label", text + ", " + plural(count, noun));
+    var filtered = total !== undefined && total !== count;
+    head.appendChild(el("span", "bf-section__count", filtered ? count + "/" + total : String(count)));
+    head.setAttribute("aria-label", text + ", " + (filtered ? count + " of " + plural(total, noun) : plural(count, noun)));
     return head;
   };
 
