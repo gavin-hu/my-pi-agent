@@ -19,34 +19,44 @@ function config(overrides: Partial<PlanConfig> = {}): PlanConfig {
 }
 
 describe("planRemovals", () => {
-	test("removes a plan only when it is old enough and past the count, never one of the two alone", () => {
+	test("removes a plan outside the newest keep, or past the age: either trigger alone", () => {
 		const entries = [aged("newest.md", 1), aged("middle.md", 400), aged("oldest.md", 500)];
-		const twoKept = planRemovals({
+		// The count bound removes past its end whatever the age, and the age bound removes past its
+		// own whatever the count.
+		const answer = planRemovals({
 			entries,
 			protectedNames: new Set(),
 			config: config({ keep: 2, maxAgeDays: 180 }),
 			nowMs: NOW,
 		});
-		// The newest two are kept whatever their age, so only the plan that trips both bounds goes.
-		expect(twoKept.remove).toEqual(["oldest.md"]);
-		expect(twoKept.removedPlans).toBe(1);
-		expect(twoKept.kept).toBe(2);
-		const oneKept = planRemovals({
+		// Oldest first, so a batched pass makes progress from the far end.
+		expect(answer.remove).toEqual(["oldest.md", "middle.md"]);
+		expect(answer.removedPlans).toBe(2);
+		expect(answer.kept).toBe(1);
+	});
+
+	test("removes a stale plan from a small store, where the count bound would never fire", () => {
+		// Five plans inside `keep: 10`, one of them 200 days old: the age trigger alone takes it.
+		const entries = [aged("a.md", 1), aged("b.md", 2), aged("c.md", 3), aged("d.md", 4), aged("stale.md", 200)];
+		const answer = planRemovals({
+			entries,
+			protectedNames: new Set(),
+			config: config({ keep: 10, maxAgeDays: 180 }),
+			nowMs: NOW,
+		});
+		expect(answer.remove).toEqual(["stale.md"]);
+		expect(answer.kept).toBe(4);
+	});
+
+	test("removes a young plan the count bound puts past its end", () => {
+		const entries = [aged("today.md", 1), aged("yesterday.md", 2)];
+		const answer = planRemovals({
 			entries,
 			protectedNames: new Set(),
 			config: config({ keep: 1, maxAgeDays: 180 }),
 			nowMs: NOW,
 		});
-		// Oldest first, so a batched pass would make progress from the far end.
-		expect(oneKept.remove).toEqual(["oldest.md", "middle.md"]);
-		// And a young plan past the count is kept: the age bound is not a ceiling of its own.
-		const young = planRemovals({
-			entries: [aged("today.md", 1), aged("yesterday.md", 2)],
-			protectedNames: new Set(),
-			config: config({ keep: 1, maxAgeDays: 180 }),
-			nowMs: NOW,
-		});
-		expect(young.remove).toEqual([]);
+		expect(answer.remove).toEqual(["yesterday.md"]);
 	});
 
 	test("keeps a plan a card records, however old and however many", () => {
@@ -111,28 +121,29 @@ describe("planRemovals", () => {
 		expect(first.remove).toEqual(["plan-4.md", "plan-3.md"]);
 		const rest = entries.filter((entry) => !first.remove.includes(entry.name));
 		const second = planRemovals({ ...options, entries: rest, batch: 2 });
-		expect(second.remove).toEqual(["plan-2.md"]);
+		expect(second.remove).toEqual(["plan-2.md", "plan-1.md"]);
 		const third = planRemovals({ ...options, entries: rest.filter((entry) => !second.remove.includes(entry.name)) });
-		// `keep` 1 means one plan always survives, which is what makes the sweep terminate.
+		// Every plan was past the age trigger too, so the store empties and the pass terminates.
 		expect(third.remove).toEqual([]);
-		expect(third.kept).toBe(1);
+		expect(third.kept).toBe(0);
 	});
 
-	test("with maxAgeDays 0 the count alone decides, and a plan younger than the bound is kept", () => {
-		const countOnly = planRemovals({
-			entries: [aged("a.md", 1), aged("b.md", 2)],
+	test("with maxAgeDays 0 every plan older than today is old enough, and one written now is not", () => {
+		const answer = planRemovals({
+			entries: [aged("today.md", 1), { name: "just-written.md", mtimeMs: NOW }],
 			protectedNames: new Set(),
-			config: config({ keep: 1, maxAgeDays: 0 }),
+			config: config({ keep: 100, maxAgeDays: 0 }),
 			nowMs: NOW,
 		});
-		expect(countOnly.remove).toEqual(["b.md"]);
-		const justWritten = planRemovals({
-			entries: [{ name: "today.md", mtimeMs: NOW }],
+		expect(answer.remove).toEqual(["today.md"]);
+		// A large `maxAgeDays` is how the age trigger is made inert: 100 days is not old against it.
+		const inert = planRemovals({
+			entries: [aged("settled.md", 100)],
 			protectedNames: new Set(),
-			config: config({ keep: 1, maxAgeDays: 180 }),
+			config: config({ keep: 100, maxAgeDays: 3_650 }),
 			nowMs: NOW,
 		});
-		expect(justWritten.remove).toEqual([]);
+		expect(inert.remove).toEqual([]);
 	});
 });
 

@@ -18,15 +18,15 @@ export interface PlanConfig {
 	 * `plan` tool or plan mode off: this is retention, not the feature.
 	 */
 	enabled: boolean;
-	/** Newest plans kept per repository, whatever their age. */
+	/** Newest plans kept per repository: the count bound, which removes past its end whatever the age. */
 	keep: number;
 	/**
-	 * Age at which a plan is old enough to sweep.
+	 * Age past which a plan is removed even inside the count bound.
 	 *
-	 * Not an expiry on its own: both bounds must agree before anything is
-	 * removed, so a plan younger than this is kept however many there are, and
-	 * only a plan also past `keep` goes. `0` caps the age at today, which leaves
-	 * the count alone deciding.
+	 * A second deletion trigger, not a protection: a small store whose oldest plan
+	 * is past this loses that plan, which is what keeps a stale store from living
+	 * forever under `keep`. `0` makes every plan older than today old enough; a
+	 * large value is how the age trigger is made inert.
 	 */
 	maxAgeDays: number;
 }

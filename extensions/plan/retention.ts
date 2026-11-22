@@ -1,11 +1,12 @@
 /**
  * How long a plan store keeps what it holds (one job).
  *
- * A plan is a card's artifact and also a file that outlives its card, so the bound is a
- * decision rather than an expiry: **both bounds must agree before anything is removed** — a plan
- * older than `maxAgeDays` *and* outside the newest `keep` of its repository. A young plan is
- * kept however many there are, the newest hundred are kept however old they are, and a plan a
- * card on the board records is kept by neither bound at all.
+ * A plan is a card's artifact and also a file that outlives its card, so the bound is two
+ * deletion triggers rather than one expiry: a plan is removed when it is **outside the newest
+ * `keep` of its repository, or older than `maxAgeDays`** — either alone. `keep` is the protection
+ * a normal store lives inside; `maxAgeDays` is the second trigger that catches a store which is
+ * small and stale, where the count bound would never fire. The one real protection is the card
+ * exemption: a plan any card on the board records is kept by neither trigger.
  *
  * The decision is pure — the caller lists the directory and hands the entries with their
  * mtimes — so a suite pins every rule with three names and a clock instead of 38,000 files.
@@ -93,7 +94,8 @@ export function planRemovals(input: RetentionInput): RetentionAnswer {
 			protectedCount += 1;
 			return;
 		}
-		if (entry.mtimeMs < oldestAllowedMs && rank >= input.config.keep) gone.add(entry.name);
+		// Either trigger alone is enough: outside the count, or past the age.
+		if (rank >= input.config.keep || entry.mtimeMs < oldestAllowedMs) gone.add(entry.name);
 	});
 
 	// Oldest first, so a batched pass makes progress from the far end of the store.

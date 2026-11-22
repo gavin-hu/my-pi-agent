@@ -6,11 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- `plan`: the store keeps a bound instead of growing forever. `plan.keep` (the newest 100 plans per
-  repository) and `plan.maxAgeDays` (180) must *both* agree before a plan is removed, a plan any card
-  on the board records is never removed, and a board that cannot be read removes nothing; a revision
-  goes only with its plan, and `plan.enabled: false` leaves `/plan prune` as the only door. The pass
-  runs after a write and at session start, bounded at 200 removals, and `/plan prune [--dry-run]`
+- `plan`: the store keeps a bound instead of growing forever. A plan is removed when it is outside
+  the newest `plan.keep` (100 per repository) **or** older than `plan.maxAgeDays` (180) — two deletion
+  triggers, either one alone, so a busy store loses its oldest and a small store still loses a stale
+  plan. The protections are the count bound and the card exemption: a plan any card on the board
+  records is never removed, and a board that cannot be read removes nothing. A revision goes only with
+  its plan, `plan.enabled: false` leaves `/plan prune` as the only door, and `/plan prune [--dry-run]`
   sweeps every store the machine holds — which is what reclaims the 38 k plans left by repositories
   that are no longer here.
 

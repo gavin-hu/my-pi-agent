@@ -56,9 +56,8 @@ export async function sweepQuietly(pi: ExtensionAPI, cwd: string, options: { now
 	]);
 	const repo = await repoKeyFor(pi, resolveEffectiveCwd(cwd));
 	const dir = plansDirFor(getAgentDir(), repo);
-	// A store inside the bound is not read: the count is one `readdir`, and a stat per plan is
-	// what a write must not pay.
-	if ((await planCount(dir)) <= config.keep) return;
+	// The store is read even when the count is small: `maxAgeDays` is a deletion trigger of its
+	// own, so skipping a short store would leave a stale one to the command alone.
 	const protectedNames = await protectionFor(repo.key);
 	if (protectedNames === undefined) return;
 	await sweepPlanStore(dir, { config, protectedNames, nowMs: options.nowMs ?? Date.now(), batch: QUIET_BATCH });

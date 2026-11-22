@@ -296,11 +296,13 @@ The settings screen has no row for it; each key is a `bytefly.json` edit.
 |---|---|---|---|---|
 | `enabled` | boolean | `true` | | Sweep the stored plans after a write and at session start. `false` makes both no-ops and leaves `/plan prune` the only door. |
 | `keep` | integer | `100` | `1`–`5000` | Newest plans kept per repository, whatever their age. |
-| `maxAgeDays` | integer | `180` | `0`–`3650` | Age at which a plan is old enough to sweep; `0` caps it at today, which leaves the count alone deciding. |
+| `maxAgeDays` | integer | `180` | `0`–`3650` | Age past which a plan is removed even inside the count bound — a second deletion trigger, not a protection; `0` makes every plan older than today old enough, a large value makes the trigger inert. |
 
-A plan is removed only when both bounds agree — older than `maxAgeDays` *and* outside the newest
-`keep` of its repository — and never when a card on the board records it. A revision goes only with
-its plan, and a finished card's plan is history: `archive/` protects nothing.
+A plan is removed when it is outside the newest `keep` of its repository **or** older than
+`maxAgeDays` — either trigger alone, so a busy store loses its oldest and a small one still loses a
+stale plan. The protections are the count bound and the card exemption: a plan any card on the board
+records is never removed. A revision goes only with its plan, and a finished card's plan is history:
+`archive/` protects nothing.
 
 ## `memory` — durable notes
 

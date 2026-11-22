@@ -81,17 +81,32 @@ describe("pruneAll", () => {
 });
 
 describe("sweepQuietly", () => {
-	test("leaves a store inside the bound alone, so a write pays a count rather than a stat per plan", async () => {
+	test("leaves a store alone when every plan is young and inside the count", async () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-quiet-cwd-");
 			writeBound(cwd, { keep: 100, maxAgeDays: 180 });
-			// Outside git the store is the plans directory itself, which is the key the sweep resolves
-			// to here; two plans are inside `keep: 100`, so no card is read and nothing is removed.
+			// Outside git the store is the plans directory itself, which is the key the sweep
+			// resolves to here; both plans are young and inside `keep: 100`, so neither trigger fires.
 			const store = join(agentDir, "plans");
-			writePlan(store, "one.md", 9_000);
-			writePlan(store, "two.md", 9_000);
+			writePlan(store, "one.md", 1);
+			writePlan(store, "two.md", 2);
 			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
 			expect(await (await import("./retention.ts")).readPlanStore(store)).toHaveLength(2);
+		});
+	});
+
+	test("removes a stale plan from a store the count bound would have spared", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = tempDir("plan-quiet-cwd-");
+			writeBound(cwd, { keep: 100, maxAgeDays: 180 });
+			const store = join(agentDir, "plans");
+			writePlan(store, "fresh.md", 1);
+			writePlan(store, "stale.md", 400);
+			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
+			// The automatic pass reads a short store too, because the age trigger is its own reason.
+			expect((await (await import("./retention.ts")).readPlanStore(store)).map((entry) => entry.name)).toEqual([
+				"fresh.md",
+			]);
 		});
 	});
 

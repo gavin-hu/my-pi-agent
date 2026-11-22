@@ -34,9 +34,8 @@ refinement a midline dot in the margin marks each section that changed.
 /plan add rate limiting to the public API
 ```
 
-The model reads the code and the git history, never the write path. When it is
-done it saves a plan under `~/.pi/agent/plans/<repo-key>/` and opens the review
-screen; `a` approves it, `r` sends it back for a change.
+The model reads the code and the git history. When it is done it saves a plan under
+`~/.pi/agent/plans/<repo-key>/` and opens the review screen; `a` approves it, `r` sends it back.
 
 ```text
 plan exit 2026-10-09-1809-add-rate-limiting
@@ -106,11 +105,12 @@ that changes. A delegated agent runs with writing forced off.
 
 ## Settings
 
-**The store's bound** is `bytefly.json`'s `plan` section: `keep` (the newest 100 per repository) and
-`maxAgeDays` (180), and both must agree before a plan goes — a plan any card records never goes, and
-`enabled: false` leaves `/plan prune` as the only door. The keys are in the
-[reference](../configuration-reference.md#plan--the-plan-stores-bound). Plan mode has no key itself:
-to switch the mode off, toggle `plan` in `/bytefly`; the tool, the command and the mode go with it.
+**The store's bound** is `bytefly.json`'s `plan` section: `keep` (the newest 100 per repository)
+and `maxAgeDays` (180). A plan goes when it is outside the newest `keep` **or** older than `maxAgeDays`
+— either alone, so a small store still loses a stale plan; the count bound and the card exemption are
+the protections, and `enabled: false` leaves `/plan prune` as the only door. The keys are in the
+[reference](../configuration-reference.md#plan--the-plan-stores-bound). Plan mode has no key: toggle
+`plan` in `/bytefly`.
 
 ## Learn more
 
