@@ -33,7 +33,7 @@ import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent"
 import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
-import { repoKeyFor } from "../repo-key.ts";
+import { repoIdFor, repoKeyFor, repoStoreDir, storeIdOf } from "../repo-key.ts";
 import { FILE_MODE, ensurePrivateDir } from "../json.ts";
 import { type Card, cardRef, type Priority } from "./card.ts";
 import type { EndedCard } from "./ended.ts";
@@ -175,7 +175,16 @@ export async function openBoard(
 	// A tool receives the session's cwd, not the worktree the user entered; the
 	// environment carries the active root, so the two are reconciled before the
 	// repository lookup — the same path `plan` and `session-bus` take.
-	const repo = await repoKeyFor(pi, resolveEffectiveCwd(cwd));
+	const base = resolveEffectiveCwd(cwd);
+	const repo = await repoKeyFor(pi, base);
+	// The identity two machines can agree on, and the name this store is filed under: the shared
+	// id, or `local-<pathKey>` where the directory has no remote and no commit to compare.
+	const storeId = storeIdOf(await repoIdFor(pi, base), repo.key);
+	const dir = repoStoreDir(agentDir, storeId, BOARD_DIR_NAME);
+	// A store written before this build is at the flat spelling: it is taken across on the first
+	// open that misses, once, and never before its contents have landed.
+	const { migrateStoreDir } = await import("../store-paths.ts");
+	await migrateStoreDir(boardDirFor(agentDir, repo.key), dir);
 	// Read once per store: the settings are a setting, not a card, and a board that re-read
 	// a file on every write would spend a stat to answer a question nobody changed. The read is
 	// rooted at the repository's *checkout*, not at the working tree: in a worktree `.pi/` is
@@ -184,12 +193,13 @@ export async function openBoard(
 	// The key is handed on, not left to be read off the directory it named: `session-bus`
 	// files this repository's records under the same key, so the two must not be able to
 	// disagree about it.
-	return createStore(boardDirFor(agentDir, repo.key), {
+	return createStore(dir, {
 		root: repo.root,
 		key: repo.key,
 		config,
-		// The lock is this machine's, so it sits outside the store a client may replicate.
-		lockDir: presenceDirFor(agentDir, repo.key),
+		// The lock is this machine's, so it sits outside the store a client may replicate, and it
+		// is filed by the same identity the store is.
+		lockDir: presenceDirFor(agentDir, storeId),
 	});
 }
 

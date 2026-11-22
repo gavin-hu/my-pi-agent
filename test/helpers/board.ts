@@ -19,7 +19,6 @@ import { agentLabel } from "../../lib/session-label.ts";
 import { openBoardSession, type BoardSession } from "../../lib/workflow/session.ts";
 import type { Claims } from "../../lib/workflow/claims.ts";
 import { MAX_WIP } from "../../lib/workflow/limits.ts";
-import { BOARD_DIR_NAME } from "../../lib/workflow/store.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
 import type { BoardDetails } from "../../extensions/board/types.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
@@ -174,10 +173,12 @@ const passingRun: VerifyRun = async () => ({ exit: 0, output: "", killed: false 
  * keep passing on the day the naming changed under it.
  *
  * A suite that needs a record the gates never write — a card closed outside them — is
- * pointed at its file by this.
+ * pointed at its file by this. The pile is found rather than spelled: a board is filed under
+ * `repos/<id>/board/` now and was `<agent-dir>/board/<key>/` before, and a suite that pinned
+ * either spelling would fail on the day the store moved — which is exactly this card.
  */
 export function cardFile(agentDir: string, id: string): string {
-	const pile = join(agentDir, BOARD_DIR_NAME);
+	const pile = join(agentDir, "repos");
 	const found = readdirSync(pile, { recursive: true, encoding: "utf8" })
 		.filter((name) => name.endsWith(".json"))
 		.find((name) => (JSON.parse(readFileSync(join(pile, name), "utf8")) as { id?: string }).id === id);

@@ -230,11 +230,11 @@ describe("the page this repository already serves", () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const main = temps.track(tempDir("pi-repo-"));
 		const worktree = temps.track(tempDir("pi-wt-"));
-		// One repository, two checkouts: both resolve the same common git directory, which is
-		// what files them under one board and one note.
+		// One repository, two checkouts: the same common git dir and the same identity, so one board.
 		const common = join(main, ".git");
 		const exec: FakePiOptions["exec"] = async (_command, args, options) => {
 			if (args.includes("--git-common-dir")) return { stdout: `${common}\n`, stderr: "", code: 0 };
+			if (args[0] === "config") return { stdout: "git@example.com:acme/tools.git\n", stderr: "", code: 0 };
 			const cwd = options?.cwd ?? main;
 			return { stdout: `${cwd}\n`, stderr: "", code: 0 };
 		};

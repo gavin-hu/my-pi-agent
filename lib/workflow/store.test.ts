@@ -16,7 +16,7 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { type Card, signatureOf } from "./card.ts";
 import { type Actor, createCard } from "./rules.ts";
 import { advance, permissiveStore } from "../../test/helpers/board-flow.ts";
-import { BOARD_DIR_NAME, boardDirFor, createStore, openBoard } from "./store.ts";
+import { createStore, openBoard } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -579,22 +579,22 @@ describe("ensure", () => {
 });
 
 describe("openBoard", () => {
-	test("files a repository-less directory under its own key", async () => {
+	test("files a repository-less directory under a local- name in the one layout", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
-		// No git answers, so the directory keys on itself: the fallback every
-		// non-repository session takes.
+		// No git answers, so there is no identity another machine could compute: `local-<pathKey>`
+		// keeps it out of a real id's space and out of a second layout of its own.
 		const pi = { exec: async () => ({ stdout: "", stderr: "", code: 1 }) } as unknown as Parameters<
 			typeof openBoard
 		>[0];
 		const store = await openBoard(pi, cwd, { agentDir });
-		expect(store.dir.startsWith(boardDirFor(agentDir, ""))).toBe(true);
-		expect(store.dir).toContain(join(agentDir, BOARD_DIR_NAME));
+		expect(store.dir.startsWith(join(agentDir, "repos", "local-"))).toBe(true);
+		expect(store.dir.endsWith(join("board"))).toBe(true);
 		// Outside git the working directory is the identity, so it is also the name.
 		expect(store.root()).toBe(cwd);
 		expect(store.name()).toBe(basename(cwd));
-		// Filed under a repository key, so the roster's directory and this board's agree.
-		expect(store.key).toBe(basename(store.dir));
+		// The directory names the identity; `key` stays the path key, which only one host has.
+		expect(store.dir.split("/").slice(-2, -1)[0]).toBe(`local-${store.key}`);
 		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
 		expect(await store.read(card.id)).toEqual(card);
 	});

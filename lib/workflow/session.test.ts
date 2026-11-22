@@ -250,12 +250,12 @@ describe("store", () => {
 		expect(attempts).toBe(2);
 	});
 
-	test("files a repository-less directory under the agent directory", async () => {
+	test("files a repository-less directory under a local- name in the agent directory", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
 		const runtime = runtimeFor(agentDir);
 		const store = await runtime.store(cwd);
-		expect(store.dir.startsWith(join(agentDir, "board"))).toBe(true);
+		expect(store.dir.startsWith(join(agentDir, "repos", "local-"))).toBe(true);
 	});
 
 	test("files two directories separately", async () => {
