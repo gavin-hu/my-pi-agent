@@ -9,6 +9,9 @@ import { basename, dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../test/helpers/env.ts";
 import { tempPathFor, writeJsonFile, writeTextAtomic, memberOf } from "./json.ts";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
+import { writeConfigFile } from "./config.ts";
+import { DIR_MODE, FILE_MODE } from "./storage.ts";
 
 describe("writeTextAtomic", () => {
 	function newPath(): string {
@@ -62,6 +65,47 @@ describe("writeTextAtomic", () => {
 		writeTextAtomic(path, "- closed\n", { mode: 0o600 });
 
 		expect(statSync(path).mode & 0o777).toBe(0o600);
+	});
+
+	test.skipIf(process.platform === "win32")(
+		"creates a store's parent owner-only, and narrows one already there",
+		() => {
+			const dir = join(tempDir("atomic-store-"), "board");
+			// The install from before the policy: a directory a umask made group- and world-readable.
+			mkdirSync(dir, { recursive: true, mode: 0o755 });
+			expect(statSync(dir).mode & 0o777).toBe(0o755);
+
+			writeTextAtomic(join(dir, "card.json"), "{}\n", { mode: FILE_MODE, dirMode: DIR_MODE });
+
+			// No sweep and no upgrade step: the mode is re-stated by the write that needed the store.
+			expect(statSync(dir).mode & 0o777).toBe(DIR_MODE);
+			expect(statSync(join(dir, "card.json")).mode & 0o777).toBe(FILE_MODE);
+		},
+	);
+
+	test.skipIf(process.platform === "win32")("leaves a parent it was not asked to narrow as the umask made it", () => {
+		// A config document's project `.pi` is not a store: the shared writer must not decide that
+		// for it, which is why the directory mode is an option and not the default.
+		const root = tempDir("atomic-open-");
+		const control = join(root, "control");
+		mkdirSync(control);
+		writeTextAtomic(join(root, ".pi", "bytefly.json"), "{}");
+
+		expect(statSync(join(root, ".pi")).mode & 0o777).toBe(statSync(control).mode & 0o777);
+	});
+
+	test.skipIf(process.platform === "win32")("keeps a config document's project directory as wide as it was", () => {
+		// The regression guard for the leak this closed: `writeConfigFile` is the shared writer's
+		// other caller — `scripts/migrate-config.ts` and the worktree registry go through it — and a
+		// project `.pi` is a directory in a repository, not a store, so the private policy must not
+		// reach it by default.
+		const root = tempDir("config-parent-");
+		const control = join(root, "control");
+		mkdirSync(control);
+
+		writeConfigFile(join(root, CONFIG_DIR_NAME, "bytefly.json"), { version: 1 });
+
+		expect(statSync(join(root, CONFIG_DIR_NAME)).mode & 0o777).toBe(statSync(control).mode & 0o777);
 	});
 
 	test("takes its temp with it when the rename fails", () => {

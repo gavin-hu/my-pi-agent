@@ -19,6 +19,7 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { tightenMode } from "./storage.ts";
 
 /** A finite number, or `NaN` when the value does not say one. */
 function coerceNumber(value: unknown): number {
@@ -130,6 +131,15 @@ export function readJson(path: string): Record<string, unknown> | undefined {
 export interface AtomicWriteOptions {
 	/** File mode for the published file, applied to the temp file the rename publishes. */
 	mode?: number;
+	/**
+	 * Directory mode for the parent this write may have to create, and for one already there.
+	 *
+	 * Absent is the ordinary case, and it leaves the parent exactly as this writer has always
+	 * made it: a config document's project `.pi`, a registry beside a checkout. A *store* passes
+	 * the policy from `storage.ts`, because a board, a mailbox or a plan store is state and the
+	 * shared writer is not the place to decide that.
+	 */
+	dirMode?: number;
 }
 
 /** How a temp name is spelled, for the one caller that writes into a directory a person lists. */
@@ -177,7 +187,11 @@ export function tempPathFor(path: string, options: TempNameOptions = {}): string
  * broken one's name and nothing is left beside the target.
  */
 export function writeTextAtomic(path: string, text: string, options: AtomicWriteOptions = {}): void {
-	mkdirSync(dirname(path), { recursive: true });
+	mkdirSync(
+		dirname(path),
+		options.dirMode === undefined ? { recursive: true } : { recursive: true, mode: options.dirMode },
+	);
+	if (options.dirMode !== undefined) tightenMode(dirname(path), options.dirMode);
 	const temp = tempPathFor(path);
 	try {
 		if (options.mode === undefined) writeFileSync(temp, text, "utf-8");

@@ -17,6 +17,7 @@
 import { linkSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { tempPathFor } from "../../lib/json.ts";
+import { FILE_MODE } from "../../lib/storage.ts";
 import { hasErrorCode } from "../../lib/errors.ts";
 
 /**
@@ -40,7 +41,7 @@ const MAX_REVISIONS = 5;
 export function writeAtomic(path: string, content: string): void {
 	const temp = tempPathFor(path, { hidden: true });
 	try {
-		writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
+		writeFileSync(temp, content, { encoding: "utf-8", flag: "wx", mode: FILE_MODE });
 		renameSync(temp, path);
 	} catch (error) {
 		try {
@@ -82,7 +83,7 @@ export interface CreateSeams {
  */
 export function createAtomic(dir: string, base: string, content: string, seams: CreateSeams = {}): string {
 	const temp = tempPathFor(join(dir, base), { hidden: true });
-	writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
+	writeFileSync(temp, content, { encoding: "utf-8", flag: "wx", mode: FILE_MODE });
 	try {
 		for (let attempt = 1; attempt <= MAX_CREATE_ATTEMPTS; attempt += 1) {
 			const candidate = join(dir, attempt === 1 ? `${base}.md` : `${base}-${attempt}.md`);

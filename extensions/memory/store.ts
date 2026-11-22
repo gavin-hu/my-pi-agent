@@ -9,7 +9,7 @@
  * atomic write in `lib/json.ts`, whose temp name is per process and per write.
  */
 
-import { appendFileSync, chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
 	CONFIG_DIR_NAME,
@@ -18,6 +18,7 @@ import {
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
+import { FILE_MODE, ensurePrivateDir, tightenMode } from "../../lib/storage.ts";
 import { writeTextAtomic } from "../../lib/json.ts";
 import { bytes } from "./format.ts";
 import { noteLabel, type MemoryNote, type NoteStamp } from "./types.ts";
@@ -39,7 +40,6 @@ export const MAX_STORE_BYTES = 256 * 1024;
 export const MAX_READ_BYTES = 4 * 1024 * 1024;
 
 /** A note is instruction the session trusts, so the store is the owner's alone. */
-const FILE_MODE = 0o600;
 
 const FILE_NAME = "memory.md";
 const HEADER = "<!-- Pi memory: one note per bullet; written by the memory tool and /memory -->";
@@ -344,10 +344,6 @@ export function applyClear(content: string): FileChange {
 }
 
 /** Owner-only: a store written before the mode was set is still wider than it claims. */
-function tightenMode(path: string): void {
-	if (existsSync(path) && (statSync(path).mode & 0o777) !== FILE_MODE) chmodSync(path, FILE_MODE);
-}
-
 interface MutationResult {
 	entries: MemoryNote[];
 	changed: boolean;
@@ -398,7 +394,7 @@ export async function appendMemoryNote(path: string, entry: string, stamp: NoteS
 		// What lands, not what the rewrite would have collapsed: trailing blank lines stay.
 		const after = bytes(content) + bytes(suffix);
 		if (after > MAX_STORE_BYTES) throw overCapError(path, after);
-		mkdirSync(dirname(path), { recursive: true });
+		ensurePrivateDir(dirname(path));
 		appendFileSync(path, suffix, { encoding: "utf-8", mode: FILE_MODE });
 		tightenMode(path);
 		return { entries: view(), changed: true };

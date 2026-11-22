@@ -32,9 +32,10 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
+import { FILE_MODE, ensurePrivateDir } from "../storage.ts";
 
 /**
  * The proven removal, loaded with the first one that happens.
@@ -56,9 +57,6 @@ const POLL_MS = 2;
 
 /** How many abandoned locks one acquisition clears before it stops trying. */
 const TAKEOVERS = 2;
-
-/** A lock is a private record of a process: the user's eyes only, like a card. */
-const LOCK_MODE = 0o600;
 
 /** The lock's one name, beside the board's `cards/` and `archive/` piles. */
 export const BOARD_LOCK_NAME = ".lock-board";
@@ -108,7 +106,7 @@ type CreateLock = (path: string, text: string) => Promise<void>;
 
 /** The product's create: the file appears only if nobody else's did. */
 const createLock: CreateLock = (path, text) =>
-	writeFile(path, text, { encoding: "utf-8", flag: "wx", mode: LOCK_MODE });
+	writeFile(path, text, { encoding: "utf-8", flag: "wx", mode: FILE_MODE });
 
 /**
  * Take the board's write lock, or answer nothing when a live writer held it for the whole wait.
@@ -126,7 +124,7 @@ export async function lockBoard(dir: string, options: LockOptions = {}): Promise
 	const text = JSON.stringify(held);
 	// The board directory is the one the cards live in, so it is there; the create is still
 	// asked to make it, because a missing directory would fail as an error, not as a taken name.
-	await mkdir(dir, { recursive: true });
+	ensurePrivateDir(dir);
 	const deadline = now() + waitMs;
 	let takeovers = 0;
 	for (;;) {

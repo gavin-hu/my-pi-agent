@@ -25,9 +25,10 @@
  * marker, and the pruning of the markers that are left.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type RosterSeams, type RosterState, rosterStateOf } from "../../lib/session-roster.ts";
+import { FILE_MODE, ensurePrivateDir } from "../../lib/storage.ts";
 import { sessionMarkerPath } from "./paths.ts";
 
 /** Prefix shared by every marker file, so log/registry files are never parsed. */
@@ -76,7 +77,7 @@ export function touchSessionMarker(
 	startToken?: string,
 ): void {
 	try {
-		mkdirSync(dir, { recursive: true });
+		ensurePrivateDir(dir);
 		const path = sessionMarkerPath(dir, sessionId);
 		const tmp = `${path}.tmp`;
 		const marker: SessionMarker = {
@@ -85,7 +86,7 @@ export function touchSessionMarker(
 			...(startToken === undefined ? {} : { startToken }),
 			updatedAt: now,
 		};
-		writeFileSync(tmp, JSON.stringify(marker), "utf-8");
+		writeFileSync(tmp, JSON.stringify(marker), { encoding: "utf-8", mode: FILE_MODE });
 		renameSync(tmp, path);
 	} catch {
 		// A marker is best-effort; a missing one reads as a dead owner.

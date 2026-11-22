@@ -27,13 +27,14 @@
  * alone. The page shows the store's size, and `drop` is the only deletion.
  */
 
-import { link, mkdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { link, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
+import { FILE_MODE, ensurePrivateDir } from "../storage.ts";
 import { type Card, cardRef, type Priority } from "./card.ts";
 import type { EndedCard } from "./ended.ts";
 import type { NoticeKind } from "./notice.ts";
@@ -60,12 +61,6 @@ const ENDED_DIR_NAME = "ended";
  * stay readable, and the board's own reads stop opening it.
  */
 const ARCHIVE_DIR_NAME = "archive";
-
-/** Card files are the user's work; only their owner reads them. */
-const FILE_MODE = 0o600;
-
-/** A board directory is one session's private state. */
-const DIR_MODE = 0o700;
 
 /** An in-flight temp file older than this was left by a process that died. */
 const TEMP_STALE_MS = 60 * 60 * 1_000;
@@ -224,7 +219,7 @@ export function createStore(
 	const archiveDir = join(dir, ARCHIVE_DIR_NAME);
 
 	const ensure = async (): Promise<void> => {
-		await mkdir(cardsDir, { recursive: true, mode: DIR_MODE });
+		ensurePrivateDir(cardsDir);
 		await sweepTemps(cardsDir);
 		// An archived card that was edited leaves a temp file in its own pile, and a process
 		// that died mid-write there is the same mess as one on the board.
@@ -412,7 +407,7 @@ async function nextCardId(cardsDir: string, endedDir: string, archiveDir: string
  * there is the same end, not a second one.
  */
 async function writeEnded(endedDir: string, card: Card, actor: Actor, now: number): Promise<void> {
-	await mkdir(endedDir, { recursive: true, mode: DIR_MODE });
+	ensurePrivateDir(endedDir);
 	// The tombstone's own module loads with the drop that writes one: a board that never drops a card
 	// pays nothing for it, and the record's version is not a second literal here to drift.
 	const { ENDED_VERSION } = await import("./ended.ts");
@@ -444,7 +439,7 @@ async function writeEnded(endedDir: string, card: Card, actor: Actor, now: numbe
  * of what an archive means.
  */
 async function moveCard(from: string, to: string, id: string): Promise<void> {
-	await mkdir(to, { recursive: true, mode: DIR_MODE });
+	ensurePrivateDir(to);
 	await renameInto(join(from, fileNameFor(id)), join(to, fileNameFor(id)));
 }
 

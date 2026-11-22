@@ -7,8 +7,9 @@
  * beating, or whose pid is gone — is taken over.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { FILE_MODE, ensurePrivateDir } from "../../../lib/storage.ts";
 import { hasErrorCode } from "../../../lib/errors.ts";
 import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
 import { wechatDir } from "./credentials.ts";
@@ -113,10 +114,10 @@ function stamp(deps: LockDeps): string {
  * takeover of an abandoned lock still works — and the next create still decides.
  */
 export function acquireLock(path: string, deps: LockDeps): boolean {
-	mkdirSync(dirname(path), { recursive: true });
+	ensurePrivateDir(dirname(path));
 	for (let attempt = 0; attempt < ACQUIRE_ATTEMPTS; attempt += 1) {
 		try {
-			writeFileSync(path, stamp(deps), { encoding: "utf-8", flag: "wx" });
+			writeFileSync(path, stamp(deps), { encoding: "utf-8", flag: "wx", mode: FILE_MODE });
 			return true;
 		} catch (error) {
 			if (!hasErrorCode(error, "EEXIST")) throw error;

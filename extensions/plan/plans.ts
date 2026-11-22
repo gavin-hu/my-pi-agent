@@ -24,7 +24,6 @@
 import {
 	existsSync,
 	lstatSync,
-	mkdirSync,
 	readFileSync,
 	readdirSync,
 	renameSync,
@@ -43,6 +42,7 @@ import {
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isContainedPlan, isPlanFileName, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
+import { FILE_MODE, ensurePrivateDir } from "../../lib/storage.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
 import { pageRevision } from "./plan-text.ts";
 import { extractSections } from "./sections.ts";
@@ -228,12 +228,12 @@ function migrateLegacyStore(dir: string, legacy: string): number {
 		const from = join(legacy, name);
 		try {
 			if (!statSync(from).isFile()) continue;
-			mkdirSync(dir, { recursive: true });
+			ensurePrivateDir(dir);
 			const to = uniquePath(dir, name.replace(/\.md$/i, ""));
 			try {
 				renameSync(from, to);
 			} catch {
-				writeFileSync(to, readFileSync(from), { flag: "wx" });
+				writeFileSync(to, readFileSync(from), { flag: "wx", mode: FILE_MODE });
 				unlinkSync(from);
 			}
 			moved += 1;
@@ -308,7 +308,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 
 		const dir = await dirFor(base);
-		mkdirSync(dir, { recursive: true });
+		ensurePrivateDir(dir);
 
 		// A new plan has nobody to read: the name is *claimed* with the finished text, so two
 		// sessions writing one title in the same minute land on two files instead of the second
