@@ -43,7 +43,7 @@ narrows the reply to that one item with its evidence and starting command.
 **Evidence read, never produced.** `git status`, `git diff --stat`, commits since
 the last tag, unmerged branches and worktrees, the changelog's unreleased section,
 the roadmap or issue tracker, the plan files the `plan` tool records under
-`~/.pi/agent/plans/<repo-key>`, and the session's todo, goal, job, and subagent
+`~/.pi/agent/repos/<repo-id>/plans/`, and the session's todo, goal, job, and subagent
 results. The project's check command is quoted with the session's last result, not
 run.
 
