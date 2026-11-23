@@ -11,6 +11,7 @@
  */
 
 import { ageWords, clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
+import { peerMark } from "../../lib/session-roster.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { unreadableText } from "../../lib/session-mail.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
@@ -77,7 +78,11 @@ export function formatStatus(status: SessionStatus, now: number): string {
 		const unread = session.unread > 0 ? ` · ${session.unread} unread` : "";
 		const label = sanitizeLine(session.label);
 		const cwd = sanitizeLine(session.cwd);
-		return `- ${label} (${shortId(session.id)}) · ${cwd} · ${sanitizeLine(session.mode)}${unread}`;
+		// What the next call acts on rides the row it describes: a peer whose process is gone is refused,
+		// and one that is not listening reads the mail at its next turn. The words are `peerMark`'s.
+		const mark = peerMark({ state: session.state, listening: session.watching?.armed });
+		const where = `${sanitizeLine(session.mode)}${mark === undefined ? "" : ` · ${mark}`}`;
+		return `- ${label} (${shortId(session.id)}) · ${cwd} · ${where}${unread}`;
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
 	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];

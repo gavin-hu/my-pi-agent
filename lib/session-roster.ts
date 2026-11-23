@@ -316,6 +316,24 @@ export const ALARM_REASON: Readonly<Record<PeerAlarm, string>> = {
 	"not-listening": "it reads this at its next turn",
 };
 
+/** What a listing marks on a peer's row: the facts a call acts on, and nothing else. */
+export type PeerMark = "gone" | "not listening";
+
+/**
+ * The mark a listing prints on a peer's row, when its record says something the next call will act on.
+ *
+ * The other half of {@link peerAlarm}, from the same fields by the same rule: a listing cannot say
+ * what a send result says, because it names the peer *before* anyone writes to it. `gone` comes
+ * first and alone — a stopped session is refused rather than delivered to, so its watch is not a
+ * second fact — and `quiet` is deliberately unmarked: it changes no outcome, every idle peer is
+ * quiet, and a mark on every row would say nothing. The words are the ones the alarm and the refusal
+ * print, so no surface spells a peer's state its own way.
+ */
+export function peerMark(peer: Pick<PeerRow, "state" | "listening">): PeerMark | undefined {
+	if (peer.state === "gone") return "gone";
+	return peerAlarm(peer) === "not-listening" ? "not listening" : undefined;
+}
+
 /**
  * What a reader knows about one session, where a label the bus never recorded is also an answer.
  *

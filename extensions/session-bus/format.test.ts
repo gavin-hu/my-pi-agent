@@ -25,6 +25,7 @@ import {
 	unaccountedLines,
 } from "./format.ts";
 import { mailNotice } from "./notice.ts";
+import { resolveRecipients } from "./protocol.ts";
 import { busMessage } from "../../test/helpers/bus.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, UnaccountedMessage, UnaccountedPage } from "./types.ts";
@@ -91,6 +92,48 @@ describe("status", () => {
 		expect(out).toContain("Claims (1)");
 		expect(out).toContain("- src/api · frontend");
 		expect(out).toContain("You: frontend (123456)");
+	});
+
+	test("marks what the next call acts on: a stopped process and a peer not reading mail", () => {
+		// The whole line, not the presence of a word: the risk in a listing change is a row everyone reads
+		// growing a trailing space or moving its unread chunk, and only the line holds that.
+		const gone = session({ id: "fedcba654321", label: "backend", state: "gone", unread: 2 });
+		const unarmed = session({ id: "123456abcdef", label: "reviewer", watching: { armed: false, wake: false } });
+		const lines = statusAt(busStatus([session(), gone, unarmed])).split("\n");
+		expect(lines).toContain("- backend (654321) · /repo · tui · gone · 2 unread");
+		expect(lines).toContain("- reviewer (abcdef) · /repo · tui · not listening");
+		expect(lines).toContain("- frontend (123456) · /repo · tui");
+	});
+
+	test("leaves quiet and an absent watch unmarked", () => {
+		// Quiet changes no outcome — the mail still delivers — and every idle peer is quiet, so marking it
+		// would make the mark mean nothing. A record written before the field existed is not an accusation.
+		const quiet = session({ id: "fedcba654321", label: "backend", state: "quiet" });
+		const old = session({ id: "123456abcdef", label: "reviewer" });
+		const lines = statusAt(busStatus([quiet, old])).split("\n");
+		expect(lines).toContain("- backend (654321) · /repo · tui");
+		expect(lines).toContain("- reviewer (abcdef) · /repo · tui");
+	});
+
+	test("marks a row gone exactly when mail to it would be refused", () => {
+		// The two surfaces one test, because the defect was that they disagreed: the listing named a peer
+		// plainly and the very next `send` refused it with a sentence the listing had the facts to pre-empt.
+		const stopped = session({ id: "fedcba654321", label: "backend", state: "gone" });
+		const row = { id: stopped.id, label: stopped.label, state: stopped.state, listening: true };
+		const marked = statusAt(busStatus([stopped]));
+		const refused = resolveRecipients([row], "backend", session().id);
+		const rowLine = marked.split("\n").find((line) => line.includes("backend"));
+		expect(rowLine).toContain("· gone");
+		expect(refused).toEqual({ error: 'no active session "backend" — its process is gone.' });
+		// And the one it does reach carries no mark, so the pair cannot pass by both ends saying no.
+		const live = { id: "abcdef123456", label: "frontend", state: "live" as const, listening: true };
+		const reached = resolveRecipients([live], "frontend", "s-x");
+		expect(reached).toEqual({ recipients: [live] });
+		expect(
+			statusAt(busStatus([session()]))
+				.split("\n")
+				.find((line) => line.includes("frontend")),
+		).not.toContain("· gone");
 	});
 
 	test("says none for an empty bus on both lists", () => {

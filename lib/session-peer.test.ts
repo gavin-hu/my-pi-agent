@@ -22,6 +22,7 @@ import {
 	peerAlarm,
 	peerNamed,
 	peerOf,
+	peerMark,
 	peerRowOf,
 } from "./session-roster.ts";
 
@@ -197,5 +198,27 @@ describe("peerAlarm", () => {
 	test("every alarm has its one sentence", () => {
 		expect(ALARM_REASON.quiet).toBe("nothing says it is still there");
 		expect(ALARM_REASON["not-listening"]).toBe("it reads this at its next turn");
+	});
+});
+
+describe("peerMark", () => {
+	test("a stopped record is the mark, and its watch is not a second one", () => {
+		// A listing marks what the next call acts on: mail to a gone peer is refused, so the mark says
+		// that and stops. A second `not listening` beside it would name a fact nobody reaches.
+		expect(peerMark({ state: "gone" })).toBe("gone");
+		expect(peerMark({ state: "gone", listening: false })).toBe("gone");
+	});
+
+	test("a live record that is not reading mail says so", () => {
+		expect(peerMark({ state: "live", listening: false })).toBe("not listening");
+	});
+
+	test("says nothing for a peer the next call would reach, and nothing for one it cannot tell", () => {
+		// Quiet is not marked: mail still delivers, and every idle peer is quiet — the send result keeps
+		// the word. An absent field is not an accusation, for the reason the alarm gives.
+		expect(peerMark({ state: "live" })).toBeUndefined();
+		expect(peerMark({ state: "live", listening: true })).toBeUndefined();
+		expect(peerMark({ state: "quiet" })).toBeUndefined();
+		expect(peerMark({ state: "quiet", listening: false })).toBeUndefined();
 	});
 });
