@@ -17,79 +17,36 @@ import {
 	NOW,
 } from "../../test/helpers/fixtures/board-rules.ts";
 import {
-	type LandingCommit,
-	type LandingProof,
 	landingFor,
 	landingGate,
 	movedTree,
+	beforeExecute,
 	resolveLanding,
 	landedWithoutMerge,
 	absentFromBranch,
 	unprovedLanding,
 } from "./landing.ts";
 import { workStartedAt } from "./lanes.ts";
+import {
+	BASE,
+	BASE_AT,
+	CARRIED,
+	CARRIED_AT,
+	ID,
+	LANE,
+	LATER,
+	LATER_AT,
+	PLAIN,
+	REVIEWED,
+	REVIEWED_AT,
+	ROOT,
+	commit,
+	proof,
+} from "../../test/helpers/fixtures/landing-chain.ts";
 
 /**
  * The shas a landing case reads: a base commit, the merge that carried a review, and one on top.
  */
-/** The card every sentence names. */
-const ID = "12";
-
-const REVIEWED = "4c1f9ab0000000000000000000000000000000000";
-const CARRIED = "9a7d2e00000000000000000000000000000000000";
-const LATER = "b31c5a0000000000000000000000000000000000";
-const BASE = "0f00d00000000000000000000000000000000000";
-const PLAIN = "e0a1c0000000000000000000000000000000000";
-
-/** The moments those commits were made at, and the moment the card's work began between two of them. */
-const DAY = 86_400_000;
-const T0 = 1_700_000_000_000;
-const BASE_AT = T0;
-const REVIEWED_AT = T0 + 2 * DAY;
-const CARRIED_AT = T0 + 3 * DAY;
-const LATER_AT = T0 + 4 * DAY;
-/** The card entered `execute` after the base commit and before the merge that carried its work. */
-const SINCE = T0 + DAY;
-
-/**
- * A chain of one base commit, the merge that carried `REVIEWED`, and a later merge on top.
- *
- * `carries` reads the fixture's own parents: a merge carries the review when its second parent is
- * it, which is the one-level answer a plain merge gives and the case a re-merge has to override.
- */
-const proof = (
-	chain: readonly LandingCommit[],
-	reviewed = REVIEWED,
-	overrides: Partial<LandingProof> = {},
-): LandingProof => ({
-	branch: "main",
-	chain,
-	since: SINCE,
-	carries: (commit) => commit.parents.slice(1).includes(reviewed),
-	...overrides,
-});
-
-/** One commit of a case chain: its sha, moment, parents, and the subject the rule reads. */
-const commit = (sha: string, at: number, parents: readonly string[], subject: string): LandingCommit => ({
-	sha,
-	at,
-	parents,
-	subject,
-});
-
-const ROOT = "0000000000000000000000000000000000000001";
-
-const LANE = proof([
-	commit(BASE, BASE_AT, [ROOT], "chore(repo): the base the branch was cut from"),
-	commit(CARRIED, CARRIED_AT, [BASE, REVIEWED], "merge(work): the review's own work"),
-	commit(
-		LATER,
-		LATER_AT,
-		[CARRIED, "7ee0d10000000000000000000000000000000000"],
-		"merge(work): a later card's merge on top",
-	),
-]);
-
 describe("resolveLanding", () => {
 	test("answers the merge that carried the review, though a later merge landed on top", () => {
 		// The case the tip rule got wrong: `A` merges at CARRIED, `B` merges at LATER, and `A` is
@@ -101,10 +58,13 @@ describe("resolveLanding", () => {
 		// #641: the reviewer ran the gate in the root checkout on `main`, whose head was a merge made
 		// before this card existed; `done` then named that merge as the landing. A merge older than
 		// the card's own `execute` cannot be its landing, however the chain reads.
+		//
+		// #475 changed the sentence, not the guard: the refusal now says the commit predates `execute`
+		// instead of speaking of a merge that a squashing repository never made.
 		const late = proof(LANE.chain, CARRIED, { since: CARRIED_AT + 1 });
 		expect(resolveLanding(late, CARRIED, ID)).toEqual({
-			error: landedWithoutMerge("main", CARRIED, ID),
-			shape: "ancestor",
+			error: beforeExecute("main", CARRIED, ID),
+			shape: "before-execute",
 		});
 	});
 
@@ -213,8 +173,20 @@ describe("resolveLanding", () => {
 	test("refuses a plain commit that is on the chain but is not a landing", () => {
 		// The #594/#593 shape: a sign taken in the checkout names main's head, a plain commit the
 		// merge did not carry. Accepting any ancestor wrote a landing that carried nothing.
-		expect(resolveLanding(proof(LANE.chain, BASE), BASE, ID)).toEqual({
-			error: landedWithoutMerge("main", BASE, ID),
+		//
+		// The commit sits **after** `since` here on purpose (#475): one before it is the other shape,
+		// `before-execute`, which says the sign predates the card's own work.
+		const OTHER = "7ee0d10000000000000000000000000000000000";
+		const unnamed = proof(
+			[
+				commit(BASE, BASE_AT, [ROOT], "chore(repo): the base the branch was cut from"),
+				commit(PLAIN, REVIEWED_AT, [BASE], "feat(repo): a plain commit nobody carried"),
+				commit(CARRIED, LATER_AT, [PLAIN, OTHER], "merge(work): another branch's work"),
+			],
+			PLAIN,
+		);
+		expect(resolveLanding(unnamed, PLAIN, ID)).toEqual({
+			error: landedWithoutMerge("main", PLAIN, ID),
 			shape: "ancestor",
 		});
 	});
@@ -260,11 +232,19 @@ describe("resolveLanding", () => {
 		// The two shapes an instruction is offered or refused for, asked at the gate rather than through
 		// a card: a commit on the branch that no merge carried can be closed by a person's reason, while
 		// a commit the branch has never seen cannot — and the sentence says which is which.
-		const onBranch = proof(LANE.chain, CARRIED, { since: CARRIED_AT + 1 });
-		expect(landingGate(ID, CARRIED, onBranch, "landed with no merge to point at")).toBeUndefined();
+		const OTHER = "7ee0d10000000000000000000000000000000000";
+		const onBranch = proof(
+			[
+				commit(BASE, BASE_AT, [ROOT], "chore(repo): the base the branch was cut from"),
+				commit(PLAIN, REVIEWED_AT, [BASE], "feat(repo): a plain commit nobody carried"),
+				commit(CARRIED, LATER_AT, [PLAIN, OTHER], "merge(work): another branch's work"),
+			],
+			PLAIN,
+		);
+		expect(landingGate(ID, PLAIN, onBranch, "landed with no merge to point at")).toBeUndefined();
 		// The words say which shape it is: a commit the branch holds, carried by nothing.
-		expect(landingGate(ID, CARRIED, onBranch)).toContain("which is on `main`");
-		expect(landingGate(ID, CARRIED, onBranch)).toContain("may close the card by instruction");
+		expect(landingGate(ID, PLAIN, onBranch)).toContain("which is on `main`");
+		expect(landingGate(ID, PLAIN, onBranch)).toContain("may close the card by instruction");
 		const nowhere = "5d0dd00000000000000000000000000000000000";
 		const absent = proof(LANE.chain, nowhere);
 		// And this one says the opposite, because it is the opposite: the commit is nowhere on the branch.
