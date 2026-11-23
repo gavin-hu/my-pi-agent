@@ -422,6 +422,7 @@ export const LIB_SUITES: readonly string[] = [
 	"screen-session",
 	"timer",
 	"tool-schema",
+	"tool-set",
 	"diff/modes",
 	"diff/parse",
 	"diff/render",
