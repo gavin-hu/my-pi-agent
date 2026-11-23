@@ -25,6 +25,7 @@ import {
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	REVIEW_PAGE,
+	retryLine,
 	warmReviewBrowser,
 } from "../../test/helpers/plan-browser.ts";
 import type { ReviewPageData } from "./web-payload.ts";
@@ -72,6 +73,27 @@ const CASE_MS = 30_000;
  * never makes a passing case faster.
  */
 const STALL_MS = 1_000;
+
+/**
+ * The two budgets a retry can print, told apart from the line alone and without a browser.
+ *
+ * The gate's form is the one a flake leaves behind, and no case here can produce a real cold-paint
+ * miss to read it from — that is the unproducible bit #805 chased — so the assertion is on the line
+ * its builder makes. What matters is the pair rather than either sentence: a reader of the log has
+ * to tell the gate's miss from a case's forced retry without opening this file.
+ */
+test("names whose budget the retry ran under, and reads apart from a case's", () => {
+	const missed = retryLine(2, REVIEW_PAINT_MS, [
+		'attempt 1 waited 10004ms and saw readyState "complete", 0 "#plan .bf-block[id]", outline-list present',
+	]);
+	const forced = retryLine(2, STALL_MS, [
+		'attempt 1 waited 1019ms and saw readyState "complete", 0 "#plan .bf-block[id]", outline-list absent',
+	]);
+	expect(missed).toContain("drew on attempt 2");
+	expect(missed).toContain(`under the gate's ${REVIEW_PAINT_MS}ms budget`);
+	expect(forced).toContain(`under a ${STALL_MS}ms budget this case passed`);
+	expect(missed).not.toBe(forced);
+});
 
 /**
  * How far one step scrolls, in px.
@@ -288,8 +310,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 
 	/**
 	 * The retry, and the line that makes it visible: a first paint that misses its state and a
-	 * reload that draws prints what the first attempt saw, so a degrading paint shows up as lines
-	 * before it shows up as a failure.
+	 * reload that draws prints what the first attempt saw under the budget this case passed, so a
+	 * degrading paint shows up as lines before it shows up as a failure — and a reader can tell that
+	 * line from the gate's, which is the half #805's own watch could not do.
 	 */
 	test(
 		"reports the retry when the first paint misses its state",
@@ -305,7 +328,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 				await page.goto(local.url, { waitUntil: "load" });
 				await drawnReview(page, STALL_MS);
 				expect(warn).toHaveBeenCalled();
-				expect(String(warn.mock.calls[0]?.[0])).toContain("drew on attempt 2");
+				const line = String(warn.mock.calls[0]?.[0]);
+				expect(line).toContain("drew on attempt 2");
+				expect(line).toContain(`under a ${STALL_MS}ms budget this case passed`);
 			} finally {
 				warn.mockRestore();
 				await page.close();

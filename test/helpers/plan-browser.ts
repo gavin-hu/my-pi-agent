@@ -227,6 +227,21 @@ function describeState(state: DrawnState): string {
 }
 
 /**
+ * The line a retry prints: which attempt drew, the budget it waited under, and what the other saw.
+ *
+ * The budget is named with its owner because this path is forced on purpose: a case that hands
+ * `drawnReview` its own budget retries without any flake, so a reader of the log has to tell the two
+ * apart without opening the suite. `REVIEW_PAINT_MS` reads as the gate's, any other number as the
+ * case's. The convention that keeps it meaningful — **a case that forces a retry passes its own
+ * budget** — is the part no case can enforce, which is why it is stated rather than relied on.
+ */
+export function retryLine(attempt: number, budgetMs: number, seen: readonly string[]): string {
+	const budget =
+		budgetMs === REVIEW_PAINT_MS ? `the gate's ${budgetMs}ms budget` : `a ${budgetMs}ms budget this case passed`;
+	return `the plan review drew on attempt ${attempt} under ${budget}: ${seen.join("; ")}`;
+}
+
+/**
  * Wait until the page has drawn the rail, and say what it saw when it has not.
  *
  * The gate this replaces was `waitForSelector("#plan .bf-block")` on the same ten seconds, which
@@ -236,9 +251,11 @@ function describeState(state: DrawnState): string {
  * answer, and one retry absorbs the cold first navigation behind that red.
  *
  * The retry is reported, because a flake that is absorbed silently is indistinguishable from a paint
- * that is getting worse: a second attempt prints a line naming what the first one saw, so the suite
- * shows the event before it shows a failure. The budget stays `REVIEW_PAINT_MS` for both attempts —
- * the number was never the subject — and a page that never draws fails naming the state it kept.
+ * that is getting worse: a second attempt prints `retryLine`, which names what the first one saw and
+ * which budget it waited under, so the suite shows the event before it shows a failure and the log
+ * tells the gate's miss apart from a case's forced one. The budget stays `REVIEW_PAINT_MS` for both
+ * attempts — the number was never the subject — and a page that never draws fails naming the state
+ * it kept.
  */
 export async function drawnReview(page: Page, budgetMs: number = REVIEW_PAINT_MS): Promise<void> {
 	const seen: string[] = [];
@@ -246,7 +263,7 @@ export async function drawnReview(page: Page, budgetMs: number = REVIEW_PAINT_MS
 		const started = Date.now();
 		try {
 			await page.waitForFunction(drawnState, undefined, { timeout: budgetMs });
-			if (attempt > 1) console.warn(`the plan review drew on attempt ${attempt}: ${seen.join("; ")}`);
+			if (attempt > 1) console.warn(retryLine(attempt, budgetMs, seen));
 			return;
 		} catch {
 			seen.push(`attempt ${attempt} waited ${Date.now() - started}ms and saw ${describeState(await readState(page))}`);
