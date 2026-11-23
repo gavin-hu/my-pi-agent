@@ -6,694 +6,458 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- `session-bus`: the status listing names what the next call acts on — `· gone` on a record whose process
-  stopped, `· not listening` on one that reads its mail at its next turn — where both used to be drawn as an
-  ordinary row while `send` refused the first with `no active session`. The refusal says `— its process is
-  gone.` now for a name only a stopped record holds, by id or by label, and a name no record holds keeps its
-  sentence; `quiet` is deliberately unmarked, because it changes no outcome and every idle peer is quiet.
+### Added
 
-- `bytefly`: the `/bytefly` control center opens on **Project** scope in a trusted project — the layer the
-  session actually runs, and the file the repository keeps — so `Space` writes `<cwd>/.pi/` and the screen
-  shows the merged view without a mode to set first; an untrusted project still opens on Global, the only
-  scope it can write. Settings lists all seventeen rows in both scopes: the two app rows (Startup screen,
-  Theme) are Pi's `settings.json`, so under Project they are drawn disabled with a `· Global` tag and `Space`
-  answers `… is a Global setting.` instead of writing the wrong file — where before the scope hid them and a
-  reader had to know the rows existed. The Settings hint row names `s scope` at last, `x inherit` is offered
-  only for a row that carries an override rather than for every row in Project, and the text listing names the
-  scope it read. A trusted repository with no `.pi/` still creates the file on the first write: that is what
-  "write to the project" means, and the screen says `writes Project` before the key is pressed.
+- `code-review`: a branch, the index, or the working tree served as a review page at `/review/`, with a
+  `code_review` tool (`open`, `status`, `comments`, `close`) and a `/review` command. A comment anchors to
+  a path, a side and a line; the page mints its review id on the first write and posts the snapshot it
+  rendered with every write, so a tree that moved refuses the write instead of landing a note on a line
+  nobody read. **Send feedback** marks the drafts sent and the session reads one `[CODE REVIEW]` notice at
+  its next turn — nothing is written to the tree and nothing wakes a turn. The page is loopback-only with
+  a 128-bit token, one page per session, and it reads the `code-review` section of `bytefly.json` (`base`,
+  `diffContext`, `maxDiffLines`, `maxFiles`); `serve`'s prefix table names it. It is the page `/files/diff`
+  redirects to, and the one that draws a diff in this release.
 
-- `board`: the store is opened per root rather than per session, so a close after `worktree exit remove:true`
-  resolves its landing in the checkout instead of throwing `spawn git ENOENT` for a directory that is gone. That
-  retires the workaround of re-creating the worktree path, moving the card and removing it again: the key follows
-  `PI_WORKTREE_ROOT`, which stops answering once the path is gone, so no event and no eviction is involved.
-  `busDirs` and `planDirs` keep the cwd key, because both are repository identity rather than a root.
+- `code-review`: a review can be read one file at a time — `?file=<path>` on the page's address, which is
+  what the changes tag on a `file-browse` page opens — and the page compares five things rather than four.
+  The new `head` scope (shown as *uncommitted*) is the tree against `HEAD`, the index and the working tree
+  together with untracked files, so the three modes `file-browse` publishes map onto the review's scopes
+  one to one. A focused page draws that one file with **view file** and **download** pairing it with the
+  browse page's own routes, `n`/`p` stepping its hunks beside the review's `[`/`]`, and a copied line
+  reference in `path:12-30`. The snapshot behind both pages is the whole scope, so a focused page and the
+  full one accept each other's writes and a comment on a hidden file is still counted and still sent.
 
-- `job`: a job's registry and logs live in `~/.pi/agent/repos/<repo-id>/jobs/` now, beside the board, so one
-  repository's state is one directory a sync client replicates; a store an older build left at
-  `~/.pi/agent/jobs/<project>/` is taken across once, on the first read. Two consequences worth knowing: a
-  session in a worktree shares its repository's store rather than keeping a per-checkout one, and a session
-  in a directory with no repository identity files under `repos/local-<pathKey>/jobs/` rather than at the
-  flat spelling — there is no git to ask there, so that key is the directory's rather than the
-  repository's, which is the one difference between the two ways to the same layout. `job.registryDir`
-  still wins where a person sets it.
-
-- `board`: a card moving into `execute` claims the paths nobody else holds and names the ones a peer has, where one held path
-  used to void the whole batch — so a card ran in `execute` with every other file unprotected, and the only record was a
-  "nothing claimed" line on that write. `edit` and the re-claim after a restart now take what they can the same way; an edit
-  whose added path is refused still releases nothing, because a half-applied edit would free a file the card names.
-
-- `plan`: `/plan prune`'s report names what a sweep can never remove — the files in a plan store that are
-  not plans, by kind with count and bytes, beside the store's real size, so a bound on plans stops reading
-  as a bound on bytes. A store the pass could not read is counted and named with its reason in the same
-  line, rather than left out of a total that would then read as the store's own size.
+- `plan`: the store keeps a bound instead of growing forever. A plan is removed when it is outside the
+  newest `plan.keep` (100 per repository) **or** older than `plan.maxAgeDays` (180) — two triggers, either
+  one alone, so a busy store loses its oldest and a small store still loses a stale plan. A plan any card
+  on the board records is never removed, and a board that cannot be read removes nothing; a revision goes
+  only with its plan, and `plan.enabled: false` leaves the prune as the only door.
+  `/plan prune [--dry-run]` sweeps every store the machine holds — which is what reclaims the 38k plans
+  left by repositories that are no longer here — and its report names what a sweep can never remove: the
+  files that are not plans, by kind with count and bytes, and a store the pass could not read, with its
+  reason.
 
 - `team`: `/team list` prints who is here as a listing rather than a paragraph — one row per session under
   `live (n)`, `quiet (n)`, `not on the bus (n)` and `gone (n)`, each with the card it holds, and nothing
-  elided — where `/team`'s notify folds the same fact into one line and caps the round. Both build it from
+  elided, where `/team`'s notify folds the same fact into one line and caps the round. Both build it from
   one grouping (`whoIsHere`), so the paragraph and the listing cannot disagree; an empty group is drawn as
   `- none`, a session on the bus that is not armed carries `· not listening` on its own row, and a
   repository with no `session-bus` directory says so in a sentence instead of printing an empty team.
 
-- `board`, `plan`, `session-bus`, `memory` and `worktree`: a repository's own state now lives in one
+- `session-bus`, `board`: a store a sync client replicates can hold two machines' sessions, so a record and
+  a claim name the machine that wrote them: a record from elsewhere is judged by its heartbeat alone and
+  reads `quiet` rather than `gone` once that ages, and its claim lapses when *that machine's* row in
+  `session-bus/hosts/<host>.json` stops beating rather than on a local pid. Each machine's identity is
+  `presence/host.json` — 16 hex characters made once, with the hostname it was made under, so a rename does
+  not move it and two machines sharing a name cannot collide. The Team tab draws a row per machine with
+  how long ago it was last here, and the machine's name on a session that is not on this one; mail still
+  reaches only sessions on this machine.
+
+- `plan`: the review keeps the comment a reader is writing, and the owner can settle a reviewer's. A draft
+  survives a reload and every repaint, `Escape` closes the edit before the composer and the review, and
+  Resolve, Edit, Delete and the view switch refuse while a draft is open instead of dropping its text;
+  Save, Post and Back to Pi ask first while the tab holds comments the file does not, naming the
+  consequence, and the `?` sheet's keyboard-shortcuts row can turn the single keys off for this browser.
+  Resolve appears on a teammate's card and flips only that note's `resolved` flag — matched by author,
+  anchor and text — so her words stay as written, while Edit and Delete remain the writer's, and a settled
+  comment keeps its body, dimmed, where the card used to keep a quote the plan never stores.
+
+### Changed
+
+- `bytefly`: the `/bytefly` control center opens on **Project** scope in a trusted project — the layer the
+  session runs and the file the repository keeps — so `Space` writes `<cwd>/.pi/` and the screen shows the
+  merged view without a mode to set first; an untrusted project still opens on Global, the only scope it
+  can write. Settings lists all seventeen rows in both scopes: the two app rows (Startup screen, Theme) are
+  Pi's `settings.json`, so under Project they are drawn disabled with a `· Global` tag and `Space` answers
+  `… is a Global setting.`, where before the scope hid them and a reader had to know the rows existed. The
+  Settings hint names `s scope`, `x inherit` is offered only for a row that carries an override, the text
+  listing names the scope it read, and a trusted repository with no `.pi/` still creates the file on the
+  first write.
+
+- `board`, `plan`, `session-bus`, `memory`, `worktree` and `job`: a repository's own state lives in one
   directory — `~/.pi/agent/repos/<repo-id>/`, keyed by the identity its remote gives it — so pointing a
   sync client at `~/.pi/agent/repos/` is enough for this machine and another one to read the same board,
-  plans, mail, notes and worktree registry. A store an older build left at the flat spelling is taken
-  across once, on the first read that misses it, and an older build keeps working for one release; a
-  directory with no remote and no commit is filed as `local-<pathKey>`, which no other machine computes.
-  `job` follows in #788, and a managed checkout stays where `worktree.dir` says — relocating a live
-  worktree is `git worktree move`, which is its own card.
+  plans, mail, notes, job registry and worktree registry. A store an older build left at the flat spelling
+  is taken across once, on the first read that misses it, and an older build keeps working for one
+  release; a directory with no remote and no commit is filed as `local-<pathKey>`, which no other machine
+  computes, and a session in a worktree shares its repository's store rather than keeping a
+  per-checkout one. `job`'s registry and logs are `~/.pi/agent/repos/<repo-id>/jobs/`, beside the board,
+  where the old `~/.pi/agent/jobs/<project>/` came across once on the first read, and `job.registryDir`
+  still wins where a person sets it. A managed checkout stays where `worktree.dir` says, because
+  relocating a live worktree is `git worktree move` and its own card. The
+  follow-ons that reached the same directory are part of it: the board and the `plan` tool resolve the
+  one plan store and the prune sweeps and protects that one, a session's footer reads its label from
+  the new tree rather than the emptied flat one, and the board's store opens per root rather than per
+  session — the key follows `PI_WORKTREE_ROOT` — so a close after `worktree exit remove:true` reads the
+  checkout instead of throwing `spawn git ENOENT` for a directory that is gone.
 
-- `bytefly`, `plan`: a session's footer names the label the bus settled again. The label reader walked
-  `<agent-dir>/session-bus/<key>/`, the spelling #771 replaced and its mover emptied, so a resumed
-  session's bar fell back to Pi's own session name. It reads `<agent-dir>/repos/<repo-id>/session-bus/`
-  now, and the flat tree only as a one-release fallback, only for a record whose own directory is this
-  session's — that tree holds every repository's key, so a match there is not evidence of which
-  repository answered. No git call is added to a session's start.
+- `board`: the store survives a folder a sync client replicates. A write is verified — the card is read
+  back and compared byte for byte with what was written, a rival revision is replayed onto rather than
+  overwritten, and one that keeps coming back is refused by number with both revisions named — so the
+  board converges across two machines and is not linearizable. Ids come from `next-id.json` beside the
+  cards, merged by `max`, so a stale copy cannot unspend one; the write lock lives in
+  `~/.pi/agent/presence/<repo-key>/`, outside the store, and a `.lock-board` inside it is ignored; a
+  client's `0042 (conflicted copy).json` is reported as a file this build cannot read, with the reason,
+  instead of being parsed.
 
-- `session-bus`, `board`: a store a sync client replicates can hold two machines' sessions, and
-  until now this one judged all of them by its own pids — so another machine's live session read
-  `gone`, `session send` refused it, and the prune released its path claims. A record and a claim
-  now name the machine that wrote them: a record from elsewhere is judged by its heartbeat alone
-  and reads `quiet` rather than `gone` once that ages, and its claim lapses when *that machine's*
-  row in `session-bus/hosts/<host>.json` stops beating rather than on a local pid. Each machine's
-  identity is `presence/host.json` — 16 hex characters made once, and the hostname it was made
-  under, so a rename does not move it and two machines sharing a name cannot collide. The Team tab
-  draws the result: a row per machine with how long ago it was last here, and the machine's name on
-  a session that is not on this one. Mail still reaches only sessions on this machine.
+- **Breaking** `board`: the field that carries a note is `note` on every action, and `text` is gone —
+  `note`, `approve` and `review` take `note: "…"`, and `add`'s first note is that same field rather than a
+  second one with another name. It was one concept under two names, one of them the name of the action
+  that appends it, so `{"action":"note","note":"…"}` was refused with "note does not act on note"; a
+  caller still passing `text` is refused by the stray-field check rather than having it dropped in
+  silence, and no alias is kept. The refusals name the parameter the rename left in place —
+  `note is required.` and `note is 4,042 characters; the limit is 4,000 — trim 42.` — and the stored
+  field is still `notes[].text`, while `memory` and `session-bus` publish `text` and rightly keep
+  saying so.
 
-- `board`, `plan`: the board and the `plan` tool resolve one plan store again —
-  `~/.pi/agent/repos/<repo-id>/plans/` — so `board contract` records a plan `plan write` has just
-  saved instead of refusing it as outside the store, which is what a second resolver still pointing
-  at the flat `<agent-dir>/plans/<repo-key>` spelling did. A card whose recorded plan names that flat
-  store is still executed while the file is there, for one release; once the move has taken it, the
-  card reads gone until it records its plan again, which is expected and not a lost file. `/plan
-  prune` sweeps and protects the same store: its pass read the flat tree and took the protection set
-  from `~/.pi/agent/board/<key>/`, so it swept nothing at all.
+- `board`: a note has room for what a note says again — `MAX_NOTE` is 4,000, and an `approve` or `review`
+  account, which is recorded as a note, no longer arrives pre-trimmed to 1,200. The cap still bounds the
+  card file and the rollup line a blocked card prints; 1,200 was the number a survey of 1,284 cards put
+  under pressure, with 4,949 notes peaking at 1,198 and seven at 1,185 or above. `MAX_CONTRACT` stays 600:
+  its four lines peaked at 583 and none was ever refused, and that first refusal is the signal to move it.
 
-- `board`: an ask row's owner cell says how its owner is doing, in the words the Agents column
-  already prints — `billing-core, free` — as the cell's tooltip and its accessible name, while the
-  dot stays a decoration that agrees with the word. It was the one fact on that row carried by
-  colour alone: a colour-blind reader saw a hue, and a screen reader heard the name and nothing
-  about its state (WCAG 1.4.1). The words are published once as `board.stateWord` and both columns
-  read them, so one state cannot be said two ways.
+- `board`: the Needs you queue is one column of three bands — Your signature, Unclaimed and Stalled, a head
+  with 0 included — and every ask is a title line with a 12px facts line under it carrying the pill, the
+  kind, the row's own reason, the owner and the age. The six-column row spent 330 px of a 704 px row
+  before the title had a pixel, so every desktop title was elided; the title reads whole now, the reason
+  clamps to two lines with the whole sentence in the hover and in the description, the rank numbers the
+  rows as drawn, and a row spans its band at every width, lifting the 1024 px measure #784 gave it. The
+  pane loses its warn tone — the kit mutes a title inside a toned section, so colour is spent on the pill
+  and a danger sentence instead — one head counts the asks and carries the filtered `0 of 6`, the fold
+  reads `Show N more` / `Show fewer`, a phone keeps the id beside the title, an empty queue shows its
+  three heads at 0, and the filter's `nothing matches` sentence survives Enter now that it is scoped to
+  the root. Every row prints its own reason, which reverses #550's shared `2 say: …` sentence, and the
+  Team page says what the page now draws.
 
-- `board`: a Needs you row spans its band at every width, lifting the 1024px measure #784 gave it.
-  The cap bought a readable line, but on a 2K window, where the band is 1824px, it stopped every row
-  800px short of the band's edge with nothing to its right, so the queue read as two right edges and
-  an age floated mid-air; the row now takes the band's width, the age reaches the edge, and the cost
-  is that same gap on a short ask, where the reason and its age sit far apart. The Team page's screen
-  capture is unchanged — its three columns leave the queue 560px wide at 1280, already under the cap
-  — and the 2K case now measures a row against its band's content width rather than a number.
+- `tools`: every cap a tool enforces is in its parameter schema, and no tool publishes `anyOf`/`const`.
+  `board`'s five union fields (`action`, `lane`, `blocker`, `priority`, `type`) and `team`'s `action`
+  became `StringEnum`, the plain `{ type: "string", enum: [...] }` form `lib/tool-schema.ts` documents for
+  a provider that supports neither keyword — which took the board surface from 6,999 to 6,378 characters
+  against a ceiling that fell with it — and the caps only the runtime held are `maxLength` and `maxItems`
+  read from the constants that own them — board `title`, `note`, `blockedBy`, `paths`, `dependsOn`; team
+  `question` and `to`; session `text`; job `command`; watch `pattern`; memory `merged` — so Pi refuses an
+  over-cap call before `execute` instead of after it. Every normalizer keeps its own check, so a codemode
+  caller still gets the model-readable sentence;
+  two caps stay in prose because one field cannot carry them (`memory.text` is a selector for `update` and
+  `forget` as well as the note `add` writes, and `job.timeoutMs` is a floor for `start` and a ceiling for
+  `wait`). `test/tool-caps.test.ts` walks the registered surface through the fake runtime: no
+  `anyOf`/`const`, every carried bound equal to its constant, a description that does not restate one.
 
-- `board`: the Needs you ask row's facts line is one type size. The kind and the owner were inheriting
-  the column's 15px/22.5 in a line whose pill, reason and age are 12px, so a row carried three things
-  at title size, its sentence was the smallest, and a one-line row was 43px without a kind or an
-  owner, 51 with a kind and 52 with one. `.board-queue__facts` sets 12px/16 itself now, so every
-  one-line row is 44px; the pill and the kind sit in a 13rem track so the reason starts at one x
-  instead of 138px apart on two rows; and at a phone the reason takes a full line rather than the
-  99px strip the labels left it.
+- `board`: a contract's `verify` line is the card's own check, not the repository's whole gate. `review`
+  runs that line on the tree its owner already gated, so a line naming `bun run check` buys a second full
+  run for a second reading of one sha; `docs/extensions/board.md` carries the rule now and points at the
+  tutorial's single-test-file example rather than paraphrasing it a third time.
 
-- `board`: the Needs you queue is one head over one column of asks, and every row says its own reason.
-  The `ACTIVE WORK` caption and the pane's `NEEDS YOU` head were two counts of different things —
-  four cards, six asks — so one caption counts the asks and carries the filtered `0 of 6`, while the
-  swimlanes keep their own count under a `Moving` label. The pane loses its warn tone: the kit mutes
-  a title inside a toned section, so every ask's title was painted `--muted` at weight 400 while its
-  pill was amber; the title is the row's headline again and colour is spent on the pill and a danger
-  sentence. A band's head is its name and count — the shared `2 say: …` sentence and the suppression
-  it drove are gone, reversing #550's choice (a reader of the last release was told the opposite), so
-  every row prints its own reason, which closes the row whose facts line spanned ~400 px of nothing.
-  The fold reads `Show N more` / `Show fewer`, a phone keeps the id beside the title, a 2K row stops
-  at a readable measure, and the filter's `nothing matches` sentence survives Enter: the tab's own
-  empty statement matched a class inside the queue and removed it on the next frame, and it is now
-  scoped to the root. The Team page said the queue was one line per ask, none behind a fold, a column
-  per band on a 2K window — false since the last release — and now says what the page draws.
-
-- `board`, `session-bus`, `memory`, `wechat`, `job` and `plan`: every store this package creates is
-  owner-only now — `0700` with `0600` files — where `jobs/<key>/` and `plans/<key>/` were `0755`
-  with `0644` files. A job's log can carry what a command printed, a token included, and a plan is
-  the artifact a card is executed against. There is no migration: an older directory narrows on its
-  next write. A config document's project `.pi` keeps the mode it has, because that directory is not
-  a store. The names this package reserves are one table in `lib/storage.ts`, with the agent
-  directory documented beside the project one and both held to it by `test/drift.test.ts` — which is
-  also how the `.pi/agents` row stopped claiming `subagent` writes it.
-- `board`: the store survives a folder a sync client replicates. A write is now verified — the card
-  is read back and compared byte for byte with what was written, a rival revision is replayed onto
-  rather than overwritten, and one that keeps coming back is refused by number with both revisions
-  named — so the board converges across two machines and is not linearizable. Ids come from
-  `next-id.json` beside the cards, merged by `max`, so a stale copy cannot unspend one; the write
-  lock moved to `~/.pi/agent/presence/<repo-key>/`, outside the store, and a `.lock-board` inside it
-  is ignored; a client's `0042 (conflicted copy).json` is reported as a file this build cannot read,
-  with the reason, instead of being parsed. This is also what #768 landed silently: a repository has
-  an identity both machines compute from its remote, which is what makes a store shareable at all.
-
-- `board`: the Needs you queue is one column of three bands — Your signature, Unclaimed and Stalled
-  are always drawn, a head with 0 included — and each ask is a title line with its facts under it.
-  The six-column row spent 330 px of a 704 px row before the title could have a pixel, so every
-  desktop title was elided; the title now reads whole, the pill, the kind, the reason, the owner and
-  the age sit on the line below, a reason is clamped to two lines with the whole sentence in the
-  hover and in the description, a waiting row no longer prints its last write as an age, and the
-  rank numbers the rows as drawn. A band-suppressed row grows from 24 to about 44 px, and a queue
-  with nothing asked shows its three heads at 0 instead of an empty pane.
-
-- `board-triage`: the triage reads a card's own fields before its prose. `priority` orders the
-  rows inside a wave and `type: "refactor"` is what makes a card a refactor, where both were
-  inferred from a title; a card already in flight — an owner in `plan` or `execute`, or one
-  awaiting its review or its approval — is its own class, reported with the gate it waits on and
-  proposed for no write at all, because the slot it holds is what the first wave fits behind. The
-  read ban is now the card store and the full check, rather than "`board list` is the one read
-  this skill needs", which forbade the tree read a duplicate's root cause or a stale card's fix
-  owes; that read is bounded per candidate to the two cards and the one symbol, error string or
-  test they name. The limits are named where they live — `board.wip` in `bytefly.json` (`plan`,
-  `execute`, `perOwner`, clamped 1..20, the project's file under `.pi/` over the global one) —
-  and a board with every slot taken has a stop: the next move is a review or a landing, not a
-  wave. The read-only fence is unchanged; no class lost its meaning.
+- `board-triage`: the triage reads a card's own fields before its prose — `priority` orders the rows
+  inside a wave and `type: "refactor"` is what makes a card a refactor, where both were inferred from a
+  title. A card already in flight (an owner in `plan` or `execute`, or one awaiting its review or its
+  approval) is its own class, reported with the gate it waits on and proposed for no write, because the
+  slot it holds is what the first wave fits behind. The read ban is the card store and the full check, and
+  the tree read a duplicate's root cause owes is bounded per candidate to the two cards and the one
+  symbol, error string or test they name. The limits are named where they live — `board.wip` in
+  `bytefly.json` (`plan`, `execute`, `perOwner`, clamped 1..20, the project's file under `.pi/` over the
+  global one) — and a board with every slot taken has a stop: the next move is a review or a landing,
+  not a wave.
 
 - `board`: a card records its plan by the name it holds in this repository's plan store
-  (`2026-10-26-1008-the-query.md`) rather than the absolute path `plan` action `write` returned, so a
-  store two machines share resolves the same plan on either and a card contracted on one host still
-  executes on the other. The card's `planPath` is that name now: `planForContract` answers it and
-  `planForExecute` answers the record the card already holds, so a card written before this — an
-  absolute path — still reads present and still executes, and the plan-gone badge resolves a name
-  through the store rather than against the working directory. A build from before this reads a new
-  card's name as a gone plan in the page until it reloads.
-
-- `plan`: the store keeps a bound instead of growing forever. A plan is removed when it is outside
-  the newest `plan.keep` (100 per repository) **or** older than `plan.maxAgeDays` (180) — two deletion
-  triggers, either one alone, so a busy store loses its oldest and a small store still loses a stale
-  plan. The protections are the count bound and the card exemption: a plan any card on the board
-  records is never removed, and a board that cannot be read removes nothing. A revision goes only with
-  its plan, `plan.enabled: false` leaves `/plan prune` as the only door, and `/plan prune [--dry-run]`
-  sweeps every store the machine holds — which is what reclaims the 38 k plans left by repositories
-  that are no longer here.
-
-- `lib/web`: a tag's tone is its word's colour again. The kit's `.bf-tag`, `.bf-live` and
-  `.bf-reload` defaults set a colour at the same single-class specificity as the tone set and sat
-  below it, so `bf-tone--warn` and `bf-tone--dim` both painted `--muted`; the set now sits after the
-  rules it must beat, and `lib/web/tone.test.ts` reads the painted colours in both themes so a later
-  rule cannot silently win again. The board's Needs you pills, the "N needs you" chip, the live
-  state, code-review's pending count and the file-browse changes tag gain the colour their table
-  names; a dim tag is now `--dim`, quieter than before, as the table intends.
-
-- `file-browse`: in a repository with no commit, the changes tag and a changed file's **changes**
-  action open the comparison that holds what they counted — the **staged** index when something is
-  added, the **worktree** when files are only written — instead of a page refusing the commit it
-  compares. Those are the two comparisons `head` falls to before a commit exists, in that order, and
-  the fallback lives with the numbers: the tag names the comparison its totals came from, so the first
-  click after `git init` lands on the change rather than on "the commit it compares is missing". A case
-  pins the number and each rung's link together so neither moves without the other.
-
-- **Breaking** `file-browse`: `/files/diff[/<rel>]` is a `308` onto the review page, and the two keys
-  only its removed diff pages read are gone from its section. `mode=` becomes the review's `scope=`
-  (`head`, `staged`, `worktree`), `<rel>` becomes `?file=`, an unknown mode still answers `400`, and
-  a page with `gitDiff` off still answers `404`. A bookmark, the changes tag and a changed file's
-  **changes** action all land on `/review/new?...`; `code-review`'s section already owns
-  `diffContext` and `maxDiffLines`, with the same defaults, so a project that set them moves them
-  there. Reading a diff is `code-review`'s page now, not a second renderer of the same list.
-
-- `file-browse`: the tree keeps its header — the branch, the change totals, and the marker on each
-  row they name — and stops drawing a diff of its own. The two diff pages, the per-file git read
-  behind them, and the client's hunk navigation (`n`/`p` are the review page's) leave with the
-  route; the config section loses `diffContext` and `maxDiffLines`, which its pages no longer read.
-  A `gitDiff: false` page keeps the tags hidden, and one thing is new to state: the changes tag
-  needs `code-review` serving, because its address is that page's.
+  (`2026-10-26-1008-the-query.md`) rather than the absolute path `plan write` returned, so a store two
+  machines share resolves the same plan on either and a card contracted on one host executes on the other.
+  A card written before this — an absolute path — still reads present and still executes, and the plan-gone
+  badge resolves a name through the store rather than against the working directory. A build from before
+  this reads a new card's name as a gone plan in the page until it reloads.
 
 - `code-review`: the page's client is one closure assembled from three fragments — `view/client-comments.ts`,
-  `view/client-place.ts`, `view/client-keys.ts` — rather than one 920-line module, and its interaction suite waits on
-  the condition each case asserts instead of seven fixed sleeps. The sleeps were the real defect behind main's
-  tree-shape pins: a fixed wait asserts that the machine was fast enough, which is what reddened a gate under load
-  (#711). The place stays one fragment because the cursor, the file in view, the spy and the rail's filter share
-  `cursor`, `currentFile` and the scroll the page made itself; the fragment order is the order its statements run in,
-  so the page's start block is last. Nothing a reader sees changed — the served script is the same script — and the
-  suite is named in `LONG_SUITES` at its new height rather than split.
+  `view/client-place.ts` and `view/client-keys.ts` — rather than one 920-line module, and its interaction
+  suite waits on the condition each case asserts instead of seven fixed sleeps, which is what reddened a
+  gate under load. The place stays one fragment because the cursor, the file in view, the spy and the
+  rail's filter share `cursor`, `currentFile` and the scroll the page made itself; the served script is the
+  same script.
 
-- `code-review`: a review can be read one file at a time — `?file=<path>` on the page's address,
-  which is what the changes tag on a `file-browse` page opens — and the page compares five things
-  rather than four. The new `head` scope (shown as *uncommitted*) is the tree
-  against `HEAD`, the index and the working tree together with untracked files, so the three modes
-  `file-browse` publishes map onto the review's scopes one to one instead of losing half of what a
-  reader was looking at. The focused page draws that one file with **view file** and **download**
-  pairing it with the browse page's own routes, `n`/`p` stepping its hunks beside the review's
-  `[`/`]`, and a copied line reference in `path:12-30`. The snapshot behind both pages is still the
-  whole scope, so a focused page and the full one accept each other's writes and a comment on a
-  hidden file is still counted and still sent; the rail keeps the one row and a way back to the
-  whole comparison. `lib/http/prefixes.ts` owns the two mount prefixes now, because the two pages
-  name each other's address and neither may import the other's modules.
+- `code-review`: the page's words name the facts it holds, and one refusal narrowed. The scope segment
+  reads `last` like the URL, the command and the tool (its title says `HEAD~1...HEAD`); the draft and
+  review-id chips stay hidden until there is something to say; the footer names the comparison and the
+  commits the snapshot holds (`origin/main 3f9c21a → HEAD a5efbb9`), where it used to print a fingerprint
+  a reader could not read — the fingerprint still keys every write. An untouched file says `no comment`
+  instead of `not read yet`, and a repository with **no commits** renders `staged` and `worktree`, because
+  an index and a working tree exist before a commit, while `base` and `last` keep refusing with the
+  sentence that names the missing commit.
 
-- `code-review`: the page's words now name the facts it holds, and one refusal narrowed. The scope segment reads
-  `last` like the URL, the command and the tool (its title says `HEAD~1...HEAD`); the draft and review-id chips stay
-  hidden until there is something to say, the id behind its tooltip; the footer names the comparison and the commits
-  the snapshot holds (`origin/main 3f9c21a → HEAD a5efbb9`), where it used to print a fingerprint a reader could not
-  read — the fingerprint still keys every write; an untouched file says `no comment` instead of `not read yet`, a fact
-  the page cannot know; and a repository with **no commits** now renders `staged` and `worktree`, because an index and
-  a working tree exist before a commit, while `base` and `last` keep refusing with the sentence that names the missing
-  commit. The footer's commits are display-only and are read after the snapshot's fingerprint, so no open page starts
-  refusing its own writes.
+- **Breaking** `file-browse`: `/files/diff[/<rel>]` is a `308` onto the review page, and the two keys only
+  its removed diff pages read are gone from its section. `mode=` becomes the review's `scope=` (`head`,
+  `staged`, `worktree`), `<rel>` becomes `?file=`, an unknown mode still answers `400`, and a page with
+  `gitDiff` off still answers `404`. A bookmark, the changes tag and a changed file's **changes** action
+  all land on `/review/new?...`; `code-review`'s section already owns `diffContext` and `maxDiffLines`,
+  with the same defaults, so a project that set them moves them there.
 
-- `lib`: Pi 1.6.0's `Component.render()` returns `readonly string[]`, so the two declarations that still promised a
-  mutable array say `readonly` too. `bodyLines` hands the inner component's own lines through rather than copying
-  them — Pi may return an array it caches across frames, so a copy would cost a fresh array per frame for every
-  tool block and defeat the identity comparison `RenderCache` relies on, and the narrower type now tells a caller
-  not to edit one in place. The subagent render test names Pi's `Component` instead of re-declaring its
-  `{ render(width): string[] }`, the duplicate that broke when the return widened. What a block draws is unchanged:
-  on the 1.6.0 peers `check:types` went from 19 errors to 0, which is what CI's `compat` job would otherwise have
-  found on the next landing.
+- **Breaking** `serve`: whether a page opens a tab is `serve.autoOpen`, and `file-browse.autoOpen` is gone.
+  One switch governs `/browse` and `/board`, because the tab belongs to the session's page server rather
+  than to one extension; move the key, or a project that set it to `false` starts getting tabs again.
+  `/plan`'s browser step is not gated — the tab there is the step.
 
-- `code-review`: a branch, the index, or the working tree served as a review page at `/review/`, with a
-  `code_review` tool (`open`, `status`, `comments`, `close`) and a `/review` command. A comment anchors to a
-  path, a side, and a line; the page mints its review id on the first write and posts the snapshot it rendered
-  with every write, so a tree that moved refuses the write instead of landing a note on a line nobody read.
-  **Send feedback** marks the drafts sent and the session reads one `[CODE REVIEW]` notice at its next turn —
-  nothing is written to the tree and nothing wakes a turn. The page is loopback-only with a 128-bit token, one
-  page per session, and it reads the `code-review` section of `bytefly.json` (`base`, `diffContext`,
-  `maxDiffLines`, `maxFiles`). `serve`'s prefix table names it. It is the page `/files/diff`
-  redirects to, and the one that draws a diff in this release.
+- `plan`: the review's rail reads state, filter, outline, then help. The facts lead — the step progress and
+  the comment count share one geometry, a whole label and a value flush right — the view switch sits under
+  a `Show in the plan` caption naming the document it redraws and takes its name from that caption, the
+  finish sentence follows, and a `--border-strong` seam closes the head before the sections list. The list
+  holds sections, not the plan's own title, which used to be drawn twice and left a title-only plan with a
+  rail holding nothing else — a plan written in `# Part` sections keeps them — and eight 6px pips in
+  `--dim` filled with the accent replace the progress's empty half. The rail's labels take pairings that
+  clear 4.5: `--on-accent` on `--accent` pressed (5.19:1), `--text` on `--surface` hovered, `--text` in a
+  section's count badge; Share and Back to Pi take the row's own 8px gap, which Chrome had landed beside
+  a pair it folded into one anonymous flex item.
 
-- **Breaking** `serve`: whether a page opens a tab is `serve.autoOpen`, and `file-browse.autoOpen` is gone. One
-  switch governs `/browse` and `/board`, because the tab belongs to the session's page server rather than to one
-  extension; move the key, or a project that set it to `false` starts getting tabs again. `/plan`'s browser step is
-  not gated — the tab there is the step.
+- `plan`: at a narrow width the review gives the document the screen. Below 1180 the fold owns the whole
+  rail, so a shut band is one 44px row carrying Sections, the pressed view and both counts, and opening it
+  gives one section per row, indented by level and 44px tall under a coarse pointer, scrolling inside the
+  shell's existing 50vh band; the document starts at 200 of a 390×844 phone instead of 362. The counts are
+  painted from the same `data.steps` and annotations the rail's own rows read, so it is a second format
+  and never a second source, and a comment field is 16px, which stops iOS zooming on focus. At 640 and
+  below Share and Back to Pi fold behind a **More** menu, leaving the row reading Approve & run, Save
+  feedback, More. This reverses #729, which kept the switch outside the fold because a folded list took
+  the filter with it: the row's chips carry the view and both counts, so the state stays visible while the
+  switch costs a tap.
 
-- `browser`: a page that could not be opened now says why. `lib/browser.ts` launched the handler fire-and-forget, so
-  a missing `xdg-open` arrived as an uncaught async `'error'` that could take the session with it, and a non-zero exit
-  was dropped along with the launcher's own message. `openPageInBrowser` listens for both and reports once, reads
-  `$BROWSER`, opens through `wslview` under WSL and `explorer` on Windows — so `/board team`'s `&view=team` is no
-  longer split by `cmd` — and skips a turn answered from outside the terminal. `/browse` and `/board` print the URL
-  either way; `/plan`'s browser step keeps opening, and names a failed launch with the address to paste. `file-open`
-  now shares that one detached launch, loaded on first use, which took its registration graph from 5 modules to 3.
+- `lib`: Pi 1.6.0's `Component.render()` returns `readonly string[]`, so the two declarations that still
+  promised a mutable array say `readonly` too. `bodyLines` hands the inner component's own lines through
+  rather than copying them — Pi may return an array it caches across frames, so a copy would cost a fresh
+  array per frame for every tool block and defeat the identity comparison `RenderCache` relies on. The
+  subagent render test names Pi's `Component` instead of re-declaring its `{ render(width): string[] }`,
+  the duplicate that broke when the return widened; on the 1.6.0 peers `check:types` went from 19 errors
+  to 0.
 
-- `board`: the field that carries a note is `note` on every action, and `text` is gone — `note`, `approve` and
-  `review` take `note: "…"` where they took `text: "…"`, and `add`'s first note is that same field rather than a
-  second one with another name. It was one concept under two names, one of them the name of the action that
-  appends it, so `{"action":"note","note":"…"}` was refused with "note does not act on note" — a sentence that
-  reads as a contradiction because it was one. `team` has called this field `note` since it was written, and the
-  store's `CardOp.text` and the page's own wire field are unchanged; a caller still passing `text` is refused by
-  the stray-field check rather than having it dropped in silence, and no alias is kept. The merge also took the
-  board surface from 6,378 to 6,284 characters, the ceiling falling with it.
+- `lib`: every served page, client bundle and `/api/*` reply is gzipped when the browser asks for it —
+  `respond` settles the body once for all three mounts, so a file-browse directory page drops from 57,278
+  bytes to 14,356 and the client bundle from 51,181 to 14,594. `Vary: Accept-Encoding` is written on the
+  plain answer too, a `HEAD` names the body it would have sent, and `/raw` bytes and the event stream are
+  untouched.
 
-- `board`: the note refusals name the parameter that rename left in place. `normalizeNote` answers
-  "note is required." and "note is N characters; the limit is M — trim K" rather than talking about `text`,
-  so a caller reading a refusal is sent to a field it can send. Nothing else moved: the stored field is still
-  `notes[].text`, no argument changed, and the two modules that keep "text is required." are right to —
-  `memory` and `session-bus` publish `text`, and a refusal names the parameter under it.
+- `tui`: the transcript's densest blocks lose the rows that said nothing new, and the height they draw is
+  measured rather than remembered. The worktree tool draws from its own details now, where bytefly's
+  fallback printed the model's text — six rows for one worktree, eight for a listing — `plan exit` prints
+  the step count and the path with the plan one expand away (13 rows to 3), `todo` stops redrawing a list
+  the widget carries (5 to 2), a collapsed refusal draws its verdict instead of the route written for the
+  model, and no block spends a row on a blank any more. `test/tool-render.test.ts` draws each fixture's
+  call and its result at 80 columns and holds the total against `COLLAPSED_ROWS`: 39 entries, 100 rows,
+  mean 2.6, a ratchet that may only fall.
 
-- `tools`: every cap a tool enforces is now in its parameter schema, and no tool publishes `anyOf`/`const`.
-  `board`'s five union fields (`action`, `lane`, `blocker`, `priority`, `type`) and `team`'s `action` became
-  `StringEnum`, the plain `{ type: "string", enum: [...] }` form `lib/tool-schema.ts` documents for a provider that
-  supports neither keyword — which also took the board surface from 6,999 to 6,378 characters against a ceiling
-  that fell with it (7,013 → 6,378), and team's to 2,335. The caps only the runtime held are now `maxLength` and
-  `maxItems` read from the constants that own them: board `title`, `note`, `text`, `blockedBy`, `path`, `override`,
-  the four contract lines, `paths` and `dependsOn`; team `note`, `question`, `to`; session `paths`, `text`, `to`,
-  `label`; job `command`, `label`, `input`; watch `path`, `command`, `pattern`, `label`, `exclude`; memory `to`,
-  `merged`. Pi refuses an over-cap call before `execute` instead of after it, and the digits left the descriptions
-  that restated them. Every normalizer keeps its own check, so a codemode caller still gets the model-readable
-  sentence. Two caps stay in prose because one field cannot carry them — `memory.text` is a selector for `update`
-  and `forget` as well as the note `add` writes, and `job.timeoutMs` is a floor of 1 for `start` and a ceiling of
-  600,000 for `wait`. `test/tool-caps.test.ts` walks the *registered* surface through the fake runtime: no
-  `anyOf`/`const` anywhere, every carried bound equal to its constant, a description that does not restate one, and
-  the two prose-only caps still spelling their number. Red before the change — `board.action: anyOf`,
-  `board.lane: anyOf`, `board.title.maxLength: undefined, expected 120`; green after. The 18-name list moved to
-  `test/helpers/registry.ts`, where `naming.test.ts` and the new gate read one entry instead of two that drift.
+- `tui`: the state-change arrow has one home. `→` was hand-typed in nine source files that build call
+  subjects while `↑`, `↳` and `⊚` all came from the vocabulary; `ARROW` is exported from
+  `lib/tui/glyphs.ts` and `SEPARATORS.arrow` is `${ARROW}` spaced for a join, so the literal has one
+  owner, and the leading shape (`→ clear list`) keeps its own spacing, because it has no left-hand state
+  to join. The refactor renders the same bytes; `lib/tui/glyphs.test.ts` holds U+2192's width and its
+  East-Asian *ambiguous* class, and the vocabulary cases moved there out of `components.test.ts`, which was
+  at the 400-line bar. One site stays hand-typed on purpose — the context report's
+  `cut 40,000 → 2,000 summary` — because importing the vocabulary would add two static modules to that
+  entry. `send_wechat`'s result line takes the capital its neighbours use (`Sent to WeChat owner`), and
+  its two pictures that draw it are recaptured.
 
-- plan: the browser review's current-section mark answers any movement of the pane, not only a stepped
-  scroll. `observeSections` owned the mark through an `IntersectionObserver` rooted in the pane, and an
-  observer only ever marks what just intersected: a jump to the end delivers no entry that intersects,
-  so End and a scrollbar dragged to the bottom left the mark on the section it started from. Three
-  browser cases now write `#plan.scrollTop = scrollHeight` at 390×844, 900×844 and 1280×400 and read
-  the rail: red with `web-outline.ts` untouched (expected `s-55`, read `s-0` at every width), green
-  after. The owner is one scroll pass — it reads the pane's box, takes the reading line at 40% of
-  `clientHeight`, and marks the last heading whose top is at or above it, which answers a step, a jump
-  and a bare `scrollTop` write alike because it asks where the pane is rather than what crossed a band.
-  The rule is the pure `sectionAtLine`, and the pass is scheduled through `requestAnimationFrame`, so a
-  drag costs a pass a frame rather than a pass an event; it also runs once when installed, because a
-  repaint restores the scroll position it reads. Rejected: the observer plus a scroll-end pass (two
-  writers on one attribute, disagreeing at every boundary a debounce moves), and correcting the
-  observer only when nothing intersects (the callback is never called for a jump — that is the defect
-  stated as a design). Renamed with the mechanism: `observeSections` → `watchSections`,
-  `SectionWatcher` → `SectionWatch`, `previousObserver` → `previousWatch`, the client's
-  `sectionObserver` → `sectionWatch`, and the `IntersectionObserver` shim is gone. The reading line is
-  the band the observer used, a jumped heading sits at `scroll-margin-top: 88px` inside it at every
-  width the suite draws, so the click's own mark and the next pass agree. `web-outline.test.ts` stays
-  at the 400-line bar: the fake-observer case became the pass's, driven by a fake frame queue.
-
-- `test`: the plan page's scroll walk stops waiting on frames that cannot answer. `stepDown` in
-  `extensions/plan/web-outline-live.test.ts` scrolled 80 px and then awaited up to twelve animation
-  frames for the rail's current-section mark to move — but a section is several steps long, so most
-  steps could only answer "no": 131 steps spent 1,407 frames to see 15 mark changes, and three cases
-  were 21.1 s of a 118.2 s full sweep. It now waits two paints per step, which is the floor the
-  rendering order sets — an animation-frame callback runs before that frame's intersection
-  observations are delivered, so a scroll's own frame cannot show the mark it caused — and the step
-  returns the mark from the same call, dropping a round trip per step. 22.3 s alone became 5.6 s at
-  the same load; the sweep measured 97.1 s after against 110.9 s on the same tree before, though the
-  before run carried three times the load, so the suite's own pair is the clean reading. The three
-  cases, the six-section assertion in order and the return-to-top check are untouched, and the 80 px
-  step is kept because the rail's band is 96 px at the narrowest viewport: a larger step could carry
-  a heading through the band between two paints. Rejected: scrolling by the pane (the band, not the
-  pane, is what a step must not outrun), observing only the steps near a heading (a mark that
-  changed between headings would go unseen), and running the three viewports concurrently (3.2 s,
-  but three pages painting at once is the contention that makes a browser suite flaky).
+- `goal`, `todo`, `plan`, `memory`, `board`: one retention rule for injected context. `lib/notice.ts` owns
+  `retainNewest` — its own pruner is the notice case — and the five `context` handlers reach it through
+  the deferred import board already used, so no module is evaluated at registration that was not before
+  and no message the host sees changes.
 
 - `test`: the 400-line suite bar covers the package-level contracts under `test/`, not only the suites
-  beside an extension. `test/suite-sizes.test.ts` read `declaredSuiteFiles()` alone, so
-  `test/suite-manifest.ts` now declares `ROOT_SUITES` and `declaredRootSuites()` — the list
-  `test/layout.test.ts` already compared the directory against, moved there so both readers share it —
-  and the two halves ride the same four checks, an unnamed suite past the bar and a named one that fell
-  back under it alike. The silence was not theoretical: eight root contracts were already past it
-  (`site-docs` 829, `release` 633, `shared-helpers` 628, `dependencies` 628, `theme` 560,
-  `wait-budget` 513, `tool-render` 503, `settings-coverage` 483), which is how four cards grew
-  `test/tool-render.test.ts` from 277 lines to 503 with nothing noticing. That file is split by
-  capability: `tool-render.test.ts` keeps the render contract, `tool-rows.test.ts` takes
-  `COLLAPSED_ROWS` with its per-width tokens and budget cases, and `test/helpers/tool-block.ts` holds
-  the frame harness both draw through, because `shared-helpers.test.ts` fails a body two suites carry.
-  The entry the widening would have named is gone instead, so `LONG_SUITE_TOTAL` is 47,759 — 43,485
-  plus 4,274 for the seven that stay, against a ledger that measures 46,542 — and it may only fall. The
-  17 cases and 2,707 assertions are the same in two files as in one. `test/README.md` states the bar for
-  both halves and indexes the two suites. Rejected: recording the omission as deliberate, since eight
-  contracts already past the bar is the defect rather than a property to document.
+  beside an extension. `test/suite-manifest.ts` declares `ROOT_SUITES` and `declaredRootSuites()` — the
+  list `test/layout.test.ts` already compared the directory against, moved there so both readers share it
+  — and the two halves ride the same four checks. Eight root contracts were already past the bar
+  (`site-docs` 829, `release` 633, `shared-helpers` 628, `dependencies` 628, `theme` 560, `wait-budget`
+  513, `tool-render` 503, `settings-coverage` 483); the one the widening would have named is split
+  instead, so `tool-render.test.ts` keeps the render contract, `tool-rows.test.ts` takes `COLLAPSED_ROWS`,
+  and `test/helpers/tool-block.ts` holds the frame harness both draw through.
+
+- `check`: `bun run check` queues behind a lock, so two panes cannot gate at once. Three concurrent runs
+  turned browser suites into 30-second timeouts that were not defects, and each one cost a second full run
+  to show it was the machine; a second gate prints the holder and its time left before it waits, a lock a
+  killed run left is reclaimed by the next, a wait that outlasts its cap refuses naming the file instead
+  of hanging under a pid something else reused, and a run nested in the gate does not wait on itself.
 
 - `ci`: `bun run check` is the landing gate and `bun run check:all` is the full sweep. A landing used to pay
   the whole 465-file suite — 116.7 s, plus format and typecheck — for a docs or leaf change, and paid it
-  twice on one machine: once as the owner's gate and again when the lead's `board review` ran the card's
-  `verify` line. `check` now runs format, types, `--changed=main` and the 33 files of `test/` (8.4 s idle,
-  0.3 s for the selection), and it widens to the full sweep by itself on `--all`, on a change to the runner
-  (`package.json`, `tsconfig.json`, `bun.lock`, `bunfig.toml`, `test/helpers/preload.ts`), on a tree with
-  no branch to narrow against, and on a `git` read that failed — the last three are why it is a wrapper and
-  not a chain: the decision is `planFor` in `scripts/check.ts`, and `scripts/check.test.ts` fails if a plan
-  ever drops format, types, the changed selection, or the sweeps. CI's matrix, the `compat` job and
-  `publish.yml` run `check:all`, so the full sweep is still proved on every OS. Both `AGENTS.md`'s 981 and
-  `CONTRIBUTING.md`'s 2357 words stand, and `AGENTS.md` is untouched because its three command lines stay
-  true. Rejected: passing a path argument to one entry, since a gate that depends on remembering a flag is
-  a gate nobody runs right, and a `--changed`-only gate, since the tree contracts are invisible to it.
+  twice: once as the owner's gate and again when the lead's review ran the card's `verify` line. `check`
+  runs format, types, `--changed=main` and the 33 files of `test/`, and widens to the full sweep by itself
+  on `--all`, on a change to the runner (`package.json`, `tsconfig.json`, `bun.lock`, `bunfig.toml`,
+  `test/helpers/preload.ts`), on a tree with no branch to narrow against, and on a `git` read that failed.
+  The decision is `planFor` in `scripts/check.ts`, and `scripts/check.test.ts` fails if a plan drops
+  format, types, the changed selection or the sweeps; CI's matrix, the `compat` job and `publish.yml` run
+  `check:all`, so the full sweep is still proved on every OS.
 
-- `board`: a contract's `verify` line is the card's own check, not the repository's whole gate. `review`
-  runs that line on the tree its owner already gated, so a line naming `bun run check` paid a second full
-  run — 116.7 s over 465 files, measured — for a second reading of one sha. The card page said only what
-  `verify` is, while the triage skill already named a narrow one and the tutorial's example already showed
-  a single test file; `docs/extensions/board.md` carries the rule now and points at that example rather
-  than paraphrasing it a third time, and the tutorial says why — the owner's `bun run check` and CI cover
-  the rest. The page's own cap paid for it: the clause went into the existing sentence and the paragraph
-  was rewrapped to the width it already used, so `board.md` is still 119 lines against
-  `USER_PAGE_LINES = 120`. No behaviour changed, and the gate still runs exactly the command a contract
-  names. Rejected: a warning in `contract` when the line equals a repository's gate command — the board
-  cannot know a repository's gate, and the card whose work *is* that gate (#745) would be nagged by its
-  own remedy.
+- `dev`: `assets/cards/board-triage.html` is the set's eighth posting card, the one before
+  `board-parallel.html`: a 1200×675 poster titled `Triage first, parallel after` whose three bands are the
+  step that poster starts from — the lead reads the board once, sorts it into W0, W1 and W2 by the
+  `board-triage` skill's rules, and runs wave 1 as the three rows crossing the same `approve` and `review`
+  lines at once.
 
-- `tui`: the transcript's densest blocks lose the rows that said nothing new. The worktree tool had no
-  renderer at all, so bytefly's fallback printed the model's text — six rows for one worktree, eight for a
-  listing, at every task start and end; it draws from its own details now, a row per fact, and the six
-  fixtures with no registered renderer are still served by the fallback, which a case in the new
-  `extensions/bytefly/block/frame.test.ts` holds. `plan exit` stopped printing the plan the review screen
-  had just shown (13 rows to 3: the step count, then the path, with the plan one expand away), `todo`
-  stopped redrawing a list the widget already carries (5 to 2), a collapsed refusal draws its verdict
-  instead of the route written for the model (board-gated 4 to 2, and the result still carries the
-  instruction), and no block spends a row on a blank any more (`subagent` 13 to 10, and each
-  `TailResult` section one row shorter). The one-fact results fold where a widget or the status line
-  already states them: `goal` 2 to 1, `plan enter` 2 to 1, memory's write 3 to 2. The budget the last
-  card set goes from 129 rows to 100 over the same 39 fixtures, mean 3.3 to 2.6, with a case per trimmed
-  block at 80, 48 and 40 columns so a block that trims wide and wraps narrow is caught here.
-- board: a close no longer throws when the chain it was handed carries no commit subject. `#442` added
-  the field and the squash rule, and `landing.ts` reads it on the **tip check**, before it looks at any
-  candidate — so a chain from a `lib/git/read.ts` loaded before that landed (a `/reload` is not a
-  restart, so one session can hold both halves) threw `undefined is not an object` on *every* `done`
-  and left the card where it was. Git is not the source: `read.ts` always writes the field, and this
-  repository's own chain is 1,573 entries with none missing. `LandingCommit.subject` is optional now,
-  `declaredCard` reads a missing one as "this commit declares no card", and the tip is not trusted as
-  its own landing while its declaration is unreadable — naming it would put another card's sha on this
-  one, which is the misattribution `#439` fixed. A merge-landed close resolves exactly as it did; a
-  squash landing keeps `#442`'s refusal. The rejected alternative is worth recording: "restart the
-  session" instructs every user about an internal loading order our own code can tolerate, and a
-  refusal they can act on beats a TypeError they cannot.
+- `skills`: `triage-board` is renamed `board-triage`. The old name read as the verb and buried the surface
+  it works on; `/skill:board-triage` is how it starts now, and the skill's instructions are unchanged.
+  Nothing answers to `/skill:triage-board`, so a saved command has to be retyped.
 
-- `tui`: a collapsed tool block's height is measured now, not remembered. Nothing read how tall the
-  transcript drew a block, so one could grow a row per release with every suite green. `test/tool-render.test.ts`
-  draws each package fixture's call and its result through bytefly's frame at 80 columns and holds the
-  total against `COLLAPSED_ROWS`: 39 entries, 129 rows, mean 3.3, with `plan exit` and `subagent` at 13
-  apiece. The table is a ratchet — an entry is what the block drew, it may only fall, and a raise is an
-  edit that states its reason beside the number — and the six fixtures with no registered renderer are
-  counted through the generic fallback, so the frames they draw are budgeted too. The density rules those
-  ceilings serve are in `lib/tui/README.md`'s block grammar, which names this test as the owner of the
-  numbers. Rendered lines rather than pictures: there is nothing to recapture, and nothing to go stale.
+### Removed
 
-- `board`: a landing is found by its subject when the branch was squashed. `resolveLanding` knew only a
-  reviewed merge — the tip, or one carrying the review — so a repository that lands with `merge --squash`
-  was refused once anything landed on top: the sign had to be repeated on the new tip, and the card then
-  recorded that other commit. The chain carries each commit's subject now; a commit whose subject ends
-  with the card's id is its landing, the newest one at or below the review. The tip shortcut keeps a
-  premise it lacked: a tip whose marker names another card is that card's landing, not this one's — a
-  sign taken on someone else's squash would otherwise be recorded as its own landing, and the rule
-  would never reach the squash shape at all. The marker may name several cards —
-  `（#436、#440）`, the form a landing that also edits another card's plan writes (#441) — and the last
-  id is the one that landed. The trailing marker only: a subject that mentions another card in
-  passing still refuses, and so does one whose last id is another card.
+- `file-browse`: the tree keeps its header — the branch, the change totals, and the marker on each row they
+  name — and stops drawing a diff of its own. The two diff pages, the per-file git read behind them, and
+  the client's hunk navigation (`n`/`p` are the review page's) leave with the route. A `gitDiff: false`
+  page keeps the tags hidden, and one thing is new to state: the changes tag needs `code-review` serving,
+  because its address is that page's.
 
-- plan: the browser review announces its own two moves. A section jump scrolled the pane and moved
-  the outline's mark, and left focus where it was — the target is a plain `div`, so `document.activeElement`
-  stayed on the link and a screen reader heard nothing arrive at the heading the reader asked for. The
-  jumped block is a focus target now (`tabindex="-1"`, which is no tab stop, so the sequential point
-  is what it was) and takes focus with `preventScroll`, because the scroll that placed it was the
-  link's and a second one from focus would fight the section observer rooted in the pane. Separately,
-  the reason the **Changed** view is off lived in a `title` on its disabled button: a disabled control
-  leaves the tab order, so a keyboard reader never reached it and a touch reader never saw it. The
-  sentence is the note line's second span, `#review-view` describes itself with that element only while
-  the view is off, the live region moved inward so the reason is not announced as a view change, and
-  both `title` writes are gone. `plan-review.png` is recaptured for the note line and its alt names it;
-  the browser suites now prove the jump's three facts separately — focus on the block, the call carrying
-  `preventScroll` with a focus-suppressed pass landing the pane where the real one does, and the mark still
-  naming the section — and that a page which *does* offer Changed describes itself with nothing.
+### Fixed
 
-- tui: the state-change arrow has one home. `→` was hand-typed in nine source files that build call
-  subjects — memory, todo, goal, job, team, watch, subagent, the fetch result's final URL and the
-  context report's token comparison — while `↑`, `↳` and `⊚` all came from the vocabulary and
-  `SEPARATORS` held only `item`. `ARROW` is exported from `lib/tui/glyphs.ts` and
-  `SEPARATORS.arrow` is `${ARROW}` spaced for a join, so the literal has one owner: the leading shape
-  (`→ clear list`) keeps its own spacing at the call site, because it has no left-hand state to
-  join. The refactor renders the same bytes, which the suites that pin those subjects prove
-  unchanged. U+2192 is East-Asian *A (ambiguous)* — the class the module allows, along with `▸`,
-  `⊚` and `›` — and `lib/tui/glyphs.test.ts` now holds its width, the separator's, and states the
-  class, which is the version that fails on a hand-copied `⇒` rather than only on a missing name.
-  That suite is where the vocabulary cases moved to: `components.test.ts` was 395 lines and they
-  took it to 430, so `GLYPHS` and `SEPARATORS` moved out and it is back at 368. The module's
-  docstring had cited `lib/tui/glyphs.test.ts` for the ban all along — the reference pointed at a
-  file that did not exist, and the split makes it true rather than correcting it. One site stays hand-typed on purpose: the context
-  report's compaction line (`cut 40,000 → 2,000 summary`) — importing the vocabulary would add two
-  static modules to that entry, whose registration budget may only fall — and the prose uses (a
-  goal note, a subagent prompt, comments) stay as prose. `send_wechat`'s result line takes the capital
-  its neighbours use — `Sent to WeChat owner` — and its two pictures that draw it are recaptured
-  (`send_wechat.png`, `send_wechat-file.png`; the running one is unchanged, and both moved frames
-  were byte-identical to the shipped file when captured from main's tree).
+- `session-bus`: the status listing names what the next call acts on — `· gone` on a record whose process
+  stopped, `· not listening` on one that reads its mail at its next turn — where both used to be drawn as
+  an ordinary row while `send` refused the first with `no active session`. The refusal says
+  `— its process is gone.` for a name only a stopped record holds, by id or by label, and a name no
+  record holds keeps its sentence; `quiet` is deliberately unmarked, because it changes no outcome.
 
-- tui: a path or URL in a tool result stays one token. `plan write`'s saved path, `plan exit`'s plan
-  row and `web_search`'s URL rows were strings handed to Pi's `Text`, which can only wrap — and a
-  path is one token, so at 40 columns the saved path broke after `2026-10` and read as four lines
-  while a search result's URL split mid-word and lost its indent. They return a component now
-  (`LinesAtWidth`, `lib/tui/tool.ts`), which builds its lines at the render width through the same
-  clip the call line uses (`clipLine`, `lib/tui/columns.ts`): the middle clip for an identity,
-  keeping the head that names the file and the tail that identifies it, memoized through
-  `RenderCache` so a frame is one comparison. The fixed column counts in `web_search`
-  (`oneLine(…, 100)`, `160`) go with them, since a width read at render time is the one the reader
-  has; `oneLine` keeps its sanitiser. `read_doc` needed nothing: its call line already takes the
-  middle clip and its result carries no path. `subagent/render.ts`'s four `clip(task, 40/60/50)`
-  are end-clipped prose previews — the `end` clip's own shape — and stay as they are. `bench:render`
-  is unchanged (block 500 at 80 columns 0.1ms; 2,000 records 4,493 lines at 0.2ms, memo
-  1,937/2,000, stable). `assets/tools/plan-exit.png` is recaptured; the sheet and four other tool
-  pictures were already stale before this change, by up to 116px of height, and none of those is
-  this card's.
+- `board`: a card moving into `execute` claims the paths nobody else holds and names the ones a peer has,
+  where one held path used to void the whole batch — so a card ran in `execute` with every other file
+  unprotected, and the only record was a "nothing claimed" line on that write. `edit` and the re-claim
+  after a restart take what they can the same way; an edit whose added path is refused still releases
+  nothing, because a half-applied edit would free a file the card names.
 
-- `board`: a card row keeps its number and title on a narrow terminal. The row clipped its facts to the whole
-  width and then handed both cells to `splitRow`, whose anchor is the right one: at 44 columns the title was gone
-  (`#2 Re…`), at 40 the number (`#…`), and at a 38-column body — a 40-column terminal — the row was the facts alone,
-  `billing-core · execute · needs review`. That landed exactly where a row is worth most: a `round` lists each card
-  under a gate heading that already says what the card owes, so the section that said *needs review* could not say
-  which card needed it. The number and title now keep a 24-column floor and the facts move to their own line —
-  indented when the indent costs no column, the rule `fitCells` uses for its separator — so at 40 columns every row
-  of `board-round` still names its card (24 lines become 32) and at 80 the row is the byte it was. Session mail's
-  fold is untouched: it promotes its meta to a heading and wraps prose, a different operation, so the two folds are
-  named for what they own (`foldCardRow`, `messageRowLines`). `test/tool-render.test.ts` now holds a fixture's
-  `identity` at 80, 48 and 40 columns, because a line that fits its width is not the same as a block that still says
-  what it lists.
+- `board`: an ask row's owner cell says how its owner is doing, in the words the Agents column prints —
+  `billing-core, free` — as the cell's tooltip and its accessible name, while the dot stays a decoration
+  that agrees with the word. It was the one fact on that row carried by colour alone (WCAG 1.4.1); the
+  words are published once as `board.stateWord` and both columns read them, so one state cannot be said
+  two ways.
 
-- web: a label on the accent wash is the text colour, on every surface that paints one. `--accent-soft`
-  is the accent at 6% in light and 8% in dark, so the accent's own ratio on it moved with the plane
-  beneath — 4.77 on the canvas, 4.48 on a surface and 4.27 on a raised panel, the last two under the
-  4.5 AA owes a 13px label. Five rules painted the accent on it: `.bf-btn:hover`,
-  `.bf-btn[aria-pressed="true"]`, `.bf-dialog__option[aria-selected="true"]`, the plan review's
-  `.bf-block__count` and the board's `.board-agent__monogram`. They take `--text` now, the pairing a
-  current tree row has used all along, and the accent keeps drawing the pressed button's border and the
-  lead's monogram fill, which are different marks. The wash keeps both of its jobs — a hover and a
-  selected row. `lib/web/palette.test.ts` composites the wash over all three planes in both themes and
-  holds `--text` to 4.5 (13.00 light, 8.66 dark on the worst). The two quiet `--muted` labels on the
-  wash (`.review-nav__removed`, `.bf-quote-chip`) are left as they are with their number recorded: 4.35
-  in dark on a raised panel, which is `--muted`'s own value to answer. `team.png` and `plan-review.png`
-  are recaptured for the monogram and badge labels; `board.png` and `card-dialog.png` were compared and
-  left, the first differing only in footer antialiasing and the second varying between two runs of the
-  same tree.
+- `board`: a landing is found by its subject when the branch was squashed, and a close no longer throws
+  when the chain it was handed carries no commit subject. `resolveLanding` knew only a reviewed merge, so
+  a repository that lands with `merge --squash` was refused once anything landed on top; the chain carries
+  each commit's subject now, a commit whose subject ends with the card's id is its landing (the newest one
+  at or below the review), and the marker may name several cards (`（#436、#440）`), the last being the
+  one that landed. `LandingCommit.subject` is optional, and a tip whose marker names another card is that
+  card's landing rather than this one's, which is the misattribution #439 fixed. A merge-landed close
+  resolves exactly as it did; a squash landing keeps #442's refusal.
 
-- `plan`: the review's narrow band is one row when shut. Below 1180 the rail's head — the step progress,
-  the comment count, the view switch and the finish sentence — was band chrome above the fold, which the
-  reader could not put away: it cost 207px of a 390×844 phone (the document began 43% down the screen)
-  and 190px of a 900-wide window. Opened, the outline was a flat wrap of equal 26px rows with no
-  indentation. The fold now owns the whole rail, so a shut band is one 44px row carrying Sections, the
-  pressed view and both counts, and opening it gives one section per row, indented by level and 44px
-  tall under a coarse pointer or a narrow window, scrolling inside the shell's existing 50vh band with
-  the row pinned above it. The document starts at 200 of that phone instead of 362. This reverses #729,
-  which kept the switch outside the fold because a folded list took the filter with it and a filtered
-  plan then read as a short one: the row's chips carry the view and both counts, so the state stays
-  visible while the switch costs a tap, and the counts are painted from the same `data.steps` and
-  annotations the rail's own rows read — a second format, never a second source. The desk rail is
-  unchanged, and the shell is not touched, so the board page and the file browser cannot move.
+- `board`: a card row keeps its number and title on a narrow terminal. The row clipped its facts to the
+  whole width and handed both cells to `splitRow`, whose anchor is the right one: at 44 columns the title
+  was gone (`#2 Re…`), at 40 the number, and at a 38-column body the row was the facts alone. The number
+  and title keep a 24-column floor and the facts move to their own line, so at 40 columns every row of
+  `board-round` still names its card (24 lines become 32) and at 80 the row is the byte it was; session
+  mail's fold is untouched, so the two folds are named for what they own.
 
-- `plan`: the review's rail leads with the plan's state. Measured at 1440×900, the three-line finish
-  sentence held the rail's top while the step progress was a muted row under it — at 1280×400 the
-  facts scrolled out of reach — the tab row's bottom and the `Sections` heading shared one y, so the
-  heading read as a fourth segment of the switch, the step row wrapped alone to 51px against the
-  comment row's 20px, the progress's empty half drew `--accent-soft` on `--raised` = 1.08:1, and the
-  pressed segment's label was `--accent` on that wash = 4.27:1. The rail now reads state, filter,
-  outline, then help: the facts lead, the switch sits under a `Show in the plan` caption naming the
-  document it redraws and takes its name from that caption by `aria-labelledby`, the finish sentence
-  follows, and a `--border-strong` seam closes the head before the sections list. Both fact rows share
-  one geometry — a whole label and a value flush right, never a second line — the progress is eight
-  6px pips in `--dim` (4.69:1 on the rail) filled with the accent, and the rail's three labels take
-  pairings that clear 4.5: `--on-accent` on `--accent` when pressed (5.19:1), `--text` on `--surface`
-  hovered, `--text` in a section's count badge. `plan-review.png` is recaptured; the kit's
-  `.bf-btn:hover` and a block's own comment badge still wear the 4.27:1 pairing.
+- `browser`: a page that could not be opened now says why. `lib/browser.ts` launched the handler
+  fire-and-forget, so a missing `xdg-open` arrived as an uncaught async `'error'` that could take the
+  session with it, and a non-zero exit was dropped along with the launcher's own message.
+  `openPageInBrowser` listens for both and reports once, reads `$BROWSER`, opens through `wslview` under
+  WSL and `explorer` on Windows — so `/board team`'s `&view=team` is no longer split by `cmd` — and skips
+  a turn answered from outside the terminal. `/browse` and `/board` print the URL either way, `/plan`'s
+  browser step names a failed launch with the address to paste, and `file-open` shares that one detached
+  launch, which took its registration graph from 5 modules to 3.
 
-- `plan`: the review's current-section mark works at every width. The watcher was rooted in the window
-  with a band of `-88px 0px -68% 0px`, both numbers guesses at chrome the page no longer has; at and
-  below 860 the sidebar becomes a band above the document, so the pane started lower than the band's
-  bottom and no heading could ever intersect, and the mark never appeared on a phone or a narrow
-  window at all. The observer now roots in the pane that scrolls, with the band as its top 40%, so no
-  chrome height is modelled; the mark is asserted at 390, 900 and 1280×400 as the reader scrolls.
+- `file-browse`: in a repository with no commit, the changes tag and a changed file's **changes** action
+  open the comparison that holds what they counted — the **staged** index when something is added, the
+  **worktree** when files are only written — instead of a page refusing the commit it compares. Those are
+  the two comparisons `head` falls to before a commit exists, and the tag names the comparison its totals
+  came from, so the first click after `git init` lands on the change.
 
-- `plan`: the review's header actions are evenly spaced. Share and Back to Pi sat flush against each
-  other while every other pair was 8px apart: the two buttons live inside the More details, which the
-  wide row drew as `display:contents`, so Chrome made the pair one anonymous flex item and the row's
-  gap landed beside it rather than between the two. The panel is a flex group carrying the row's own
-  gap now, and the popup at and below 640 is unchanged. `plan-review.png` is recaptured.
+- `file-browse`: a request under `/api/` that is refused answers JSON, whatever refused it — an unmatched
+  path, a method that is not `GET`, a foreign `Host`. Only the catch after routing knew the namespace, so
+  `/api/nope` was 59 KB of the page shell where `/api/tree` is JSON, and a client that asked for JSON
+  parsed a page. One helper picks the shape for every refusal now, a 405 keeps `Allow` in both, and a page
+  path still answers the error page, which is where a reader was going.
 
-- `plan`: the review's rail lists sections, not the plan's own title. `reviewPageData` built `outline`
-  from every heading and read `title` from the first level-1 one, so the heading that named the page
-  was drawn twice — in the header and again as list row one, in a section row's own hit shape — and a
-  plan whose only heading is its title got a rail holding nothing else. The title's mark is now taken
-  once and feeds both: it names the page and is left out of the outline, so a seven-section plan reads
-  as seven rows, a plan written in `# Part` sections keeps them, and a title-only plan has no rail to
-  draw, because `hasOutline` was keyed on that same list. `plan-review.png` is recaptured to match.
+- `file-browse`: quick open says which folders it did not search. Its index skips `.git` and
+  `node_modules` — indexing them would spend the 20,000-path cap on dependencies — so a file a reader
+  could see in the tree answered `No matches` beside it. The empty state names them, a query that opens
+  with one says it is not indexed and points at the tree, and a root with neither reads exactly as before.
 
-- dev: `assets/cards/board-triage.html` is the set's eighth posting card, and the one before
-  `board-parallel.html`: `capture:cards triage` writes a 1200×675 poster titled `Triage first,
-  parallel after` whose three bands are the step that poster starts from — the lead reads the board
-  once (`board list round`, 17 open, 4 ready), sorts it into W0, W1 and W2 by the `board-triage`
-  skill's rules, and runs wave 1 as the three rows crossing the same `approve` and `review` lines at
-  once. A duplicate folds by root cause (#31 into #24), the refactor (#40) comes before the bug it
-  moves (#44), a naming decision (#52) waits on a person, and each band's floor carries what the
-  drawing cannot show: nothing is written while reading, wave one is at most the `plan` limit, and
-  one `execute` slot stays free as headroom. `cards.css` gains the 380px box the parallel card's
-  two-line head pays for and its header line lists the card.
+- `lib/web`: a tag's tone is its word's colour again. The kit's `.bf-tag`, `.bf-live` and `.bf-reload`
+  defaults set a colour at the same single-class specificity as the tone set and sat below it, so
+  `bf-tone--warn` and `bf-tone--dim` both painted `--muted`; the set sits after the rules it must beat
+  now, and `lib/web/tone.test.ts` reads the painted colours in both themes so a later rule cannot silently
+  win again. The board's Needs you pills, the "N needs you" chip, the live state, code-review's pending
+  count and the file-browse changes tag gain the colour their table names, and a dim tag is `--dim`,
+  quieter than before, as the table intends.
+
+- `web`: a label on the accent wash is the text colour, on every surface that paints one. `--accent-soft`
+  is the accent at 6% in light and 8% in dark, so the accent's own ratio moved with the plane beneath —
+  4.77 on the canvas, 4.48 on a surface and 4.27 on a raised panel, the last two under the 4.5 AA owes a
+  13px label. Five rules painted the accent on it — `.bf-btn:hover`, `.bf-btn[aria-pressed="true"]`,
+  `.bf-dialog__option[aria-selected="true"]`, the plan review's `.bf-block__count` and the board's
+  `.board-agent__monogram` — and they take `--text` now, the pairing a current tree row has used all
+  along, while the accent keeps the pressed button's border and the lead's monogram fill.
+  `lib/web/palette.test.ts` composites the wash over all three planes in both themes and holds `--text` to
+  4.5.
+
+- `lib/web`: a page's subject keeps its leading `/`. The identity row's label sits in a right-to-left span
+  so a long path keeps the folder it names, and an rtl paragraph moves a leading neutral character — the
+  `/` an absolute path opens with — to the visual end, so a served root painted as
+  `Users/…/my-pi-agent/` while the footer under it printed the path correctly. The label is isolated from
+  the row's direction now, and a page that rewrites it writes into that isolate rather than over it.
+
+- `tui`: a path or URL in a tool result stays one token. `plan write`'s saved path, `plan exit`'s plan row
+  and `web_search`'s URL rows were strings handed to Pi's `Text`, which can only wrap: at 40 columns the
+  saved path broke after `2026-10` and read as four lines, and a search result's URL split mid-word and
+  lost its indent. They return a component now (`LinesAtWidth`, `lib/tui/tool.ts`), which builds its lines
+  at the render width through the same middle clip the call line uses, memoized through `RenderCache` so a
+  frame is one comparison; the fixed column counts in `web_search` go with them, since a width read at
+  render time is the one the reader has.
+
+- `memory`: a note is named, not written. `update`'s and `forget`'s `text`, and `merge`'s `first` and
+  `second`, went through the write validator, so the 500-character cap applied to the string that has to
+  equal a stored note exactly — and a note past the cap was refused by the one string that matched it,
+  while `applyUpdate` would have honoured it and the picker already passed that text to `runtime.update`
+  uncapped. `normalizeNoteSelector` owns the one-line rule both roles share and `normalizeEntryText` is
+  that plus the cap; what is written (`add`, `to`, `merged`) keeps the cap, and matching stays exact.
 
 - `team`: `assign` and `ask` refuse `to: "*"` in the argument layer. The wildcard is the bus's broadcast
   and `offer`'s alone — `ask` sends the `ask` kind and `assign` records one owner — so the refusal used to
-  arrive from the transport, after `ask` had already joined the team and after `assign` had written the
-  owner, leaving a card owned by a label nothing answers to. The sentence now names `offer`, the verb that
-  does broadcast, and answers before the join, the write, and the send.
+  arrive from the transport, after `ask` had joined the team and after `assign` had written the owner,
+  leaving a card owned by a label nothing answers to. The sentence names `offer`, the verb that does
+  broadcast, and answers before the join, the write and the send.
 
-- `memory`: a note is named, not written. `update`'s and `forget`'s `text`, and `merge`'s `first`
-  and `second`, went through the write validator, so the 500-character cap applied to the string
-  that has to equal a stored note exactly — and a note past the cap, which the store is markdown
-  enough to hold, was refused by the one string that matched it, while `applyUpdate` would have
-  honoured it and the picker already passed the same text to `runtime.update` uncapped. One store,
-  two front ends that disagreed. `normalizeNoteSelector` now owns the one-line rule both roles
-  share and `normalizeEntryText` is that plus the cap, and the caller picks by action, since `text`
-  is a note for `add` and a name for `update`/`forget`. What is written (`add`, `to`, `merged`)
-  keeps the cap, and matching stays exact.
+- `todo`: a planning or goal-only turn no longer counts as work. The lag reminder judged every tool it did
+  not list by `readOnlyHint: false`, a hint that claims writing *anything*, so entering plan mode or
+  refining a plan three times forced a `[TODO SYNC]` continuation for work nobody had done. `todo`,
+  `goal` and `plan` publish session state instead of changing the checkout, so they are one set checked
+  before the hint; `session` joins it, and `board` splits instead of joining it, because `review` runs the
+  card's verify command in the tree the card names while every other card verb writes
+  `~/.pi/agent/board` — a new exhaustive `BOARD_ACTION_EFFECT` table says which. A `subagent` call is
+  judged the same way, from its result's `readOnly`.
 
-- `goal`, `todo`, `plan`, `memory`, `board`: one retention rule for injected context. `lib/notice.ts`
-  owns `retainNewest` — its own pruner is the notice case — and the five `context` handlers reach it
-  through the deferred import board already used, so no module is evaluated at registration that was
-  not before and no message the host sees changes.
-- `todo`: a planning or goal-only turn no longer counts as work. The lag reminder judged every tool it
-  did not list by `readOnlyHint: false`, a hint that claims writing *anything* — plan's five verbs
-  share the strictest set and goal declares it too — so entering plan mode, or refining a plan three
-  times, forced a `[TODO SYNC]` continuation for work nobody had done and, with no list yet, asked for
-  one before any work existed. `todo`, `goal` and `plan` publish session state instead of changing
-  the checkout, so they are one set checked before the hint, and `isFileWrite` follows it: a plan-file
-  write is not a file write. `session` joins that set, since no bus verb can reach the checkout, and
-  `board` splits instead of joining it: `review` runs the card's verify command as a child process in
-  the tree the card names, so it stays work, while every other card verb writes `~/.pi/agent/board`
-  and is state — a new exhaustive `BOARD_ACTION_EFFECT` table says which, read from the result's
-  action the same way a board read is. A `subagent` call is judged the same way, from the result
-  rather than the hint: its details carry `readOnly`, so a read-only child is investigation like `rg`
-  and a writing child is work and a file write — three delegated explorations no longer ask for a
-  list that no one started.
-- `plan`: the owner can settle a reviewer's note. Resolve appears on a teammate's card, and the
-  owner's save flips only that note's `resolved` flag — matched by author, anchor and text — so
-  her words stay as written; Edit and Delete remain the writer's.
-- `check`: a gate that may not signal the pane holding the lock now waits for it instead of stealing
-  it. `alive()` read every refusal from `process.kill` as "gone", so a lock held by another user was
-  reclaimed as dead — and so was a corrupt file naming pid 0, which probes the caller's own process
-  group rather than the pid. Existence is the question and `EPERM` means the process is there; a file
-  that names no holder is only garbage once it is old enough to rule out a writer mid-take.
-- `plan`: at a narrow width the review gives the document the screen. At 1180px and below the
-  sections list starts shut, and the view switch and its count sit above it rather than inside,
-  so folding the outline no longer takes the filter with it; a comment field is 16px, which stops
-  iOS zooming the page on focus; and at 640 and below Share and Back to Pi fold behind a **More**
-  menu, leaving the row reading Approve & run, Save feedback, More.
-- `check`: `bun run check` queues behind a lock, so two panes cannot gate at once. Three concurrent
-  runs turned browser suites into 30-second timeouts that were not defects, and each one cost a
-  second full run to show it was the machine; a second gate now prints the holder and its time left
-  before it waits, a lock a killed run left is reclaimed by the next, a wait that outlasts its cap
-  refuses naming the file instead of hanging under a pid something else reused, and a run nested in
-  the gate does not wait on itself. The three commands are unchanged behind `scripts/check.ts`, so CI and
-  `publish.yml` need no edit — and a CI runner runs one gate and never contends, so nothing about
-  that job changes.
-- `plan`: a comment control names its block. Each rail `+` is announced as *Comment on “…”*, the
-  count carries its own name, a thread reads as a list, and the rail and card actions reach 24px;
-  a write leaves focus on the card it changed, or on the block's `+` when the last comment goes.
-- `check`: a headless browser that dies mid-file is reported as that, in milliseconds, instead of
-  as the case's own 30-second budget. The handle records its process's exit, a suite's reload path
-  throws a sentence naming the signal before it spends a case, and our own `close()` is not a
-  death — three full runs tonight went red on one 30,000 ms case in a file the card never touched,
-  in a suite that alone takes four seconds.
-- `lib`: every served page, client bundle and `/api/*` reply is gzipped when the browser asks
-  for it — `respond` settles the body once for all three mounts, so a file-browse directory page
-  drops from 57,278 bytes to 14,356 and the client bundle from 51,181 to 14,594. `Vary:
-  Accept-Encoding` is written on the plain answer too, a `HEAD` names the body it would have sent,
-  and `/raw` bytes and the event stream are untouched.
-- `file-browse`: a request under `/api/` that is refused now answers JSON, whatever refused it —
-  an unmatched path, a method that is not `GET`, a foreign `Host`. Only the catch after routing
-  knew the namespace, so `/api/nope` was 59 KB of the page shell where `/api/tree` is JSON, and a
-  client that asked for JSON parsed a page. One helper now picks the shape for every refusal, and
-  a 405 keeps `Allow` in both. A page path still answers the error page: that is where a reader
-  was going.
-- `file-browse`: quick open says which folders it did not search. Its index skips `.git` and
-  `node_modules` — indexing them would spend the 20,000-path cap on dependencies — so a file a
-  reader could see in the tree answered `No matches` beside it. The empty state now names them,
-  a query that opens with one says it is not indexed and points at the tree, and a root with
-  neither reads exactly as before.
-- `board`: a note has room for what a note says again — `MAX_NOTE` is 4,000, and an `approve` or
-  `review` account, which is recorded as a note, no longer arrives pre-trimmed to 1,200. The cap
-  still bounds the card file and the rollup line a blocked card prints; 1,200 was the number a
-  survey of 1,284 cards put under pressure, with 4,949 notes peaking at 1,198 and seven at 1,185 or
-  above — trimmed to fit. `MAX_CONTRACT` stays 600: its four lines peaked at 583 and none was ever
-  refused, and that first refusal is the signal to move it.
-- `plan`: the browser review keeps the comment a reader is writing or editing through a reload
-  and every repaint. `Escape` closes the edit before the composer and the review, and Resolve,
-  Edit, Delete and the view switch refuse while a draft is open instead of dropping its text; an
-  edit updates the tab's draft as it is typed, and Cancel puts the note back.
-- `lib/web`: a page's subject keeps its leading `/`. The identity row's label sits in a
-  right-to-left span so a long path keeps the folder it names, and an rtl paragraph moves a
-  leading neutral character — the `/` an absolute path opens with — to the visual end, so a
-  served root painted as `Users/…/my-pi-agent/` while the footer under it printed the path
-  correctly. The label is isolated from the row's direction now, and a page that rewrites it
-  writes into that isolate rather than over it.
-- `plan`: ending the review or posting comments asks first while the tab has comments the file
-  does not. Save, Post and Back to Pi open one confirmation naming the consequence, and a clean
-  action runs as before; leaving clears the tab's draft. The `?` sheet's keyboard-shortcuts row
-  turns the single keys off for this browser, while the buttons, Escape and `?` keep working.
-- `plan`: a settled comment keeps its body. The card hid the note and kept a quote that the plan
-  never stores, so a reloaded settled comment was an author and a chip with nothing to read; the
-  body now stays, dimmed, and the record is readable.
-- `skills`: `triage-board` is renamed `board-triage`. The old name read as the verb and buried the
-  surface it works on; `/skill:board-triage` is how it starts now, and the skill's instructions are
-  unchanged. Nothing answers to `/skill:triage-board`, so a saved command has to be retyped.
+- `plan`: the review's current-section mark answers any movement of the pane, not only a stepped scroll.
+  `observeSections` owned the mark through an `IntersectionObserver`, and an observer only ever marks what
+  just intersected, so a jump to the end delivered no entry and End or a scrollbar dragged to the bottom
+  left the mark on the section it started from. The owner is one scroll pass now — it reads the pane's
+  box, takes the reading line at 40% of `clientHeight` and marks the last heading whose top is at or above
+  it, which answers a step, a jump and a bare `scrollTop` write alike, and the pass is scheduled through
+  `requestAnimationFrame`, so a drag costs a pass a frame rather than a pass an event. The rule is the
+  pure `sectionAtLine`, and the vocabulary follows the mechanism: `observeSections` → `watchSections`,
+  `SectionWatcher` → `SectionWatch`, `previousObserver` → `previousWatch`, the client's
+  `sectionObserver` → `sectionWatch`, and the `IntersectionObserver` shim is gone. The plan page's scroll
+  walk waits two paints per step rather than up to twelve animation frames, so 131 steps spend 262
+  frames where they spent 1,407 to see 15 mark changes.
+
+- `plan`: the browser review announces its own two moves. A section jump scrolled the pane and moved the
+  outline's mark but left focus on the link, so a screen reader heard nothing arrive at the heading the
+  reader asked for: the jumped block is a focus target now (`tabindex="-1"`, which is no tab stop) and
+  takes focus with `preventScroll`, because a second scroll from focus would fight the pass rooted in the
+  pane. Separately, the reason the **Changed** view is off lived in a `title` on its disabled button,
+  which a keyboard reader never reached and a touch reader never saw: the sentence is the note line's
+  second span, `#review-view` describes itself with that element only while the view is off, and both
+  `title` writes are gone.
+
+- `check`: a gate that may not signal the pane holding the lock waits for it instead of stealing it, and a
+  browser that dies mid-file is reported as that, in milliseconds, instead of as the case's own 30-second
+  budget. `alive()` read every refusal from `process.kill` as "gone", so a lock held by another user was
+  reclaimed as dead — and so was a corrupt file naming pid 0; existence is the question and `EPERM` means
+  the process is there, while a file that names no holder is only garbage once it is old enough to rule
+  out a writer mid-take. The handle records its process's exit, so a suite's reload path throws a sentence
+  naming the signal before it spends a case, and our own `close()` is not a death.
+
+- `plan`: a comment control names its block. Each rail `+` is announced as *Comment on “…”*, the count
+  carries its own name, a thread reads as a list, and the rail and card actions reach 24px; a write leaves
+  focus on the card it changed, or on the block's `+` when the last comment goes.
+
+### Security
+
+- `board`, `session-bus`, `memory`, `wechat`, `job` and `plan`: every store this package creates is
+  owner-only — `0700` with `0600` files — where `jobs/<key>/` and `plans/<key>/` were `0755` with `0644`
+  files. A job's log can carry what a command printed, a token included, and a plan is the artifact a card
+  is executed against. There is no migration: an older directory narrows on its next write. A config
+  document's project `.pi` keeps the mode it has, because that directory is not a store. The names this
+  package reserves are one table in `lib/storage.ts`, with the agent directory documented beside the
+  project one and both held to it by `test/drift.test.ts` — which is also how the `.pi/agents` row stopped
+  claiming `subagent` writes it.
 
 ## [0.29.0] - 2026-11-18
 
