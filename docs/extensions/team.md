@@ -29,6 +29,7 @@ one row each however many inboxes it reached; a card's chip counts its own inbox
 | Take a card yourself | `board claim 5` |
 | Ask a peer a question | `team ask to billing-core question "what is left on #4?"` |
 | See the round | `/team` in the terminal, or the board's Team tab |
+| See who is here, and what each holds | `/team list` — one row per session, `- none` for an empty group |
 | Join the team | `/team join billing-core` names yourself, or `/team join` for a name `team.teammates` lists |
 
 ## Try it
@@ -39,8 +40,7 @@ Two sessions, one repository. In the first:
 /board
 ```
 
-It joins as the lead. In the second, claim a card with `board` — that joins it under its own
-name. Then, from the lead:
+It joins as the lead; in the second, `board claim` joins it under its own name. From the lead:
 
 ```text
 team assign 4 to billing-core
@@ -52,8 +52,8 @@ lead's round now shows it as held.
 ## Reference
 
 **Actions.** Three, and every one of them reaches another session. `assign` (card, `to`, `note?`) joins, then
-sends a handoff, then records the owner — read from the team again *after* the message, so the card names the
-session that has it and a stopped record cannot become one — and whether the bus took it: `told` means written,
+sends a handoff, then records the owner — read from the team *after* the message, so a stopped record cannot
+become the owner — and whether the bus took it: `told` means written,
 not read, because mail is pruned after a day; a handoff whose write lost the race names both outcomes in its own
 body — leave a rival's card alone, or claim one the write left nobody's; a completed contract tells the lead,
 and `approve` tells the holder; `offer` (card, `note?`) broadcasts the card and records only the moment it was
@@ -64,18 +64,18 @@ bus prints it as `re: <id>`.
 A card's own verbs are not here: `claim` takes a pool card into `plan`, `reclaim` returns it to
 Backlog with its notes and contract (the lead from anyone, a peer only from a stopped owner), and
 the lane moves, the contract and the two signs are the rest — all [`board`](board.md)'s, one door.
-`/team`'s stalled line names it: `board reclaim 1, 2 — api-core stopped`.
-
-A flat parameter object refuses a field an action does not read, naming the verb that takes it —
-`offer` takes no `to`, and `assign` and `ask` refuse `*`: it is `offer`'s broadcast.
+`/team`'s stalled line names it: `board reclaim 1, 2 — api-core stopped`. A flat parameter object refuses a
+field an action does not read, naming the verb that takes it — `offer` takes no `to`, and `assign` and `ask`
+refuse `*`: it is `offer`'s broadcast.
 
 **Who is who.** `/team` lists who is live, who is live but not listening, who is quiet (a heartbeat past ten
-minutes), and who is absent from the bus — an owner a card names that no record answers. A label nobody answers
-to cannot be handed a card; the result says so. A card is named by the record its owner's **id** names now, so a
-rename is one row, not a live one beside a dead label. A handoff the bus could not name records the owner
-`unresolved`: mail still goes to the label, but only the lead moves the card. A quiet owner's card is
-reclaimable; one held by a session with no record is not — a live session that never joined looks the same. A
-message to a quiet or not-listening peer says so: written is not heard.
+minutes), and who is absent from the bus — an owner a card names that no record answers, and a label nobody
+answers to cannot be handed a card. A rename is one row: a card is named by the record its owner's **id** names.
+A handoff the bus could not name records the owner `unresolved`: mail reaches the label, but only the lead moves
+the card. A quiet owner's card is reclaimable; one held by a session with no record is not — a live session
+that never joined looks the same. A message to a quiet or not-listening peer says so: written is not heard.
+`/team list` prints that answer as rows — `live (n)`, `quiet (n)`, `not on the bus (n)`, `gone (n)`, one per
+session, nothing elided, `· not listening` on the row it flags, one grouping with the round's own paragraph.
 
 **Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own name — `/team
 join <label>`, or a bare one for the first free `team.teammates` name, the id-derived `team-agent-` name when
