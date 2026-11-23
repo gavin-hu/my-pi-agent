@@ -95,7 +95,7 @@ export interface WorktreeScreenOptions {
 	/** Run a prune in place and return its report. */
 	prune(): Promise<string>;
 	/** Plan mode: the screen still shows the list, but no verb may change it. */
-	/** The mode the session is in: any mode but `auto` refuses a lifecycle change. */
+	/** The mode the session is in; only `auto` allows a lifecycle change. */
 	mode: SessionMode;
 	viewportRowsSource?: ViewportRowsSource;
 }

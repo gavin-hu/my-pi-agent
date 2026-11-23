@@ -46,7 +46,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/bytefly/block/block.test.ts": 561,
 	"extensions/bytefly/chrome.test.ts": 1185,
 	"extensions/bytefly/doctor/doctor.test.ts": 511,
-	"extensions/bytefly/footer/footer.test.ts": 2056,
+	"extensions/bytefly/footer/footer.test.ts": 2077,
 	"extensions/bytefly/notify/notify.test.ts": 461,
 	"extensions/bytefly/panel/model.test.ts": 429,
 	"extensions/bytefly/update/update.test.ts": 1176,
@@ -103,7 +103,7 @@ const LONG_SUITES: Record<string, number> = {
 	// The root contracts, measured from #746 on. Each grew while the bar read only the suites
 	// beside an extension, and `tool-render` reaching 503 is the proof that silence was not safe:
 	// this card split it, which is why there is no entry for it here.
-	"test/dependencies.test.ts": 637,
+	"test/dependencies.test.ts": 641,
 	"test/release.test.ts": 633,
 	"test/settings-coverage.test.ts": 492,
 	"test/shared-helpers.test.ts": 628,
