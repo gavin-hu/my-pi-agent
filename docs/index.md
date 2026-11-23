@@ -37,7 +37,7 @@ The [extension index](./extensions/README.md) and the
 catalog with the tools and commands each delivers.
 
 - **Plan before writing.** `plan` keeps a task in read-only planning mode, saves a
-  plan under `~/.pi/agent/plans/<repo-key>`, and waits for your approval.
+  plan under `~/.pi/agent/repos/<repo-id>/plans/`, and waits for your approval.
 - **Never wreck the checkout.** `worktree` moves a task onto its own branch in a
   `git worktree`, and `rewind` snapshots each prompt's first change.
 - **Delegate in parallel.** `subagent` runs a specialist agent in its own Pi

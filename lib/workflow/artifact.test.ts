@@ -243,3 +243,46 @@ describe("planIsGone", () => {
 		).toEqual(new Set(["2"]));
 	});
 });
+
+describe("a plan recorded before the store moved", () => {
+	// #771 filed the store under `repos/<id>/plans`, and a card written before it records a path in
+	// the flat `<agent-dir>/plans/<key>` tree. That tree is read for one release, and only where a
+	// record names it: nothing new is written there.
+	const AGENT = join(ROOT, "legacy-agent");
+	const REPOS_STORE = join(AGENT, "repos", "bc5568fd39b6", "plans");
+	const FLAT_STORE = join(AGENT, "plans", "8872d3adda0e");
+
+	test("is executable while the flat store still holds it, and gone once it does not", () => {
+		mkdirSync(REPOS_STORE, { recursive: true });
+		mkdirSync(FLAT_STORE, { recursive: true });
+		const recorded = join(FLAT_STORE, "2026-11-23-0023-one-type-on-the-facts-line.md");
+		writeFileSync(recorded, "# Facts line\n");
+		// The store moved, not the plan: a record that names the readable flat tree still executes,
+		// and it is not drawn as gone on the card's face.
+		expect(planForExecute(REPOS_STORE, card("execute", recorded))).toEqual({ record: recorded });
+		expect(planIsGone(REPOS_STORE, card("execute", recorded))).toBe(false);
+		rmSync(recorded, { force: true });
+		expect(proved(planForExecute(REPOS_STORE, card("execute", recorded)))).toMatchObject({
+			error: expect.stringContaining("is gone"),
+		});
+		expect(planIsGone(REPOS_STORE, card("execute", recorded))).toBe(true);
+	});
+
+	test("is still refused as a contract, which names the store plans live in", () => {
+		mkdirSync(FLAT_STORE, { recursive: true });
+		const recorded = join(FLAT_STORE, "2026-11-23-0023-an-old-one.md");
+		writeFileSync(recorded, "# Old\n");
+		expect(proved(planForContract(REPOS_STORE, recorded))).toMatchObject({
+			error: expect.stringContaining("is not in this repository's plan store"),
+		});
+		rmSync(recorded, { force: true });
+	});
+
+	test("is not reached by a bare name, because a name belongs to this store", () => {
+		// A bare name is the half a card keeps for another host to join to its own store, so it can
+		// only mean a plan of the current one — the flat tree holds what the move left, not a home.
+		mkdirSync(FLAT_STORE, { recursive: true });
+		writeFileSync(join(FLAT_STORE, "2026-11-23-0023-flat-only.md"), "# Flat\n");
+		expect(planIsGone(REPOS_STORE, card("execute", "2026-11-23-0023-flat-only.md"))).toBe(true);
+	});
+});

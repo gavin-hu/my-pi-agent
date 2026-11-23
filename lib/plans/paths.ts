@@ -3,10 +3,14 @@
  *
  * A plan file is the artifact a card is executed against, so two extensions have to
  * agree about it: `plan` writes and reads the store, and `board` records the file a
- * card promises. The store is `<agent-dir>/plans/<repo-key>` for a repository and
- * `<agent-dir>/plans` outside one — the key is the same one `repo-key.ts` hands
- * every other per-repository store, which is why the keyed branch lives here rather
- * than in either caller.
+ * card promises. The store is `<agent-dir>/repos/<id>/plans`, the sibling of the board
+ * that proves a plan — one repository's state is one directory (#771) — and every caller
+ * derives it from a store it already resolved rather than from a key of its own.
+ *
+ * `plansDir`/`plansDirFor` are the spelling that store replaced: `<agent-dir>/plans/<key>`,
+ * or `<agent-dir>/plans` outside a repository. They survive as the mover's legacy argument
+ * (`lib/store-paths.ts`) and as the tree a recorded path may still name for one release,
+ * which is what {@link legacyPlanStore} answers.
  *
  * The rules are one body for the same reason: a copy of `isContainedPlan` that
  * dropped the symlink half would look identical at a glance and would be the one
@@ -25,19 +29,43 @@ import { isInside, isInsideReal } from "../path.ts";
 /** The agent-directory entry plans are filed under. */
 export const PLANS_DIR_NAME = "plans";
 
-/** The plan store: `<agent-dir>/plans`, or `<agent-dir>/plans/<key>` inside a repository. */
+/**
+ * The directory a repository's stores are filed under: `<agent-dir>/repos/<id>/<concept>`.
+ *
+ * `repo-key.ts`'s `reposRoot` spells this too, and that module is the owner of the name — it is
+ * repeated here because importing it would put the whole git cluster into the registration graph
+ * of every entry that reads a plan (`ENTRY_BUDGET`), and this module's need is one `basename`.
+ */
+const REPOS_DIR_NAME = "repos";
+
+/** The legacy plan store: `<agent-dir>/plans`, or `<agent-dir>/plans/<key>` inside a repository. */
 export function plansDir(agentDir: string, key?: string): string {
 	return key === undefined ? join(agentDir, PLANS_DIR_NAME) : join(agentDir, PLANS_DIR_NAME, key);
 }
 
 /**
- * The store for a resolved repository: keyed when git answered, unkeyed outside one.
+ * The legacy store for a resolved repository: keyed when git answered, unkeyed outside one.
  *
- * The `fromGit` branch lives here and nowhere else — that is the line a copy gets wrong,
- * and both the plan tool and the board reach it through this one function.
+ * The `fromGit` branch lives here and nowhere else — that is the line a copy gets wrong, and
+ * both the plan tool and the board reach it through this one function. It names where a store
+ * *was*, so the two callers today pass it as `lib/store-paths.ts`'s legacy argument.
  */
 export function plansDirFor(agentDir: string, repo: { key: string; fromGit?: boolean }): string {
 	return plansDir(agentDir, repo.fromGit ? repo.key : undefined);
+}
+
+/**
+ * The flat plans tree this store replaced, or nothing when the store is not filed under `repos/`.
+ *
+ * A record written before #771 names a path in the flat tree, and the mover has since taken the
+ * store across — so a recorded path is looked for where it points and, for one release, in here.
+ * Derived from the store the caller already holds, because a second `repoKeyFor` call would be
+ * the drift this function exists to end.
+ */
+export function legacyPlanStore(planDir: string): string | undefined {
+	// `<agent-dir>/repos/<id>/plans`: the store is two levels under the directory that holds `repos`.
+	const repos = dirname(dirname(planDir));
+	return basename(repos) === REPOS_DIR_NAME ? join(dirname(repos), PLANS_DIR_NAME) : undefined;
 }
 
 /** A plan file name: markdown and not a dotfile, so the self-ignore file is never a target. */

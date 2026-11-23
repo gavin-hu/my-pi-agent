@@ -15,7 +15,6 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { billingCard } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { repoKeyOf } from "../repo-key.ts";
 import { agentLabel } from "../session-label.ts";
 import { createStore, openBoard } from "./store.ts";
 import { busDirFor, openBoardSession } from "./session.ts";
@@ -365,18 +364,22 @@ describe("holder", () => {
 });
 
 describe("planDir", () => {
-	test("names the plan store keyed by the same repository the board filed itself under", async () => {
+	test("is the sibling of the board store this session resolved", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const repo = temps.track(tempDir("pi-repo-"));
 		const runtime = openBoardSession(repoPi(repo).pi, { now: () => NOW, agentDir });
-		expect(await runtime.planDir(repo)).toBe(join(agentDir, "plans", repoKeyOf(join(repo, ".git"))));
+		// One repository's state is one directory (#771), so the plans are the sibling the `plan`
+		// tool writes — not a second key resolved here that can drift from it (#789).
+		expect(await runtime.planDir(repo)).toBe(join(dirname((await runtime.store(repo)).dir), "plans"));
 	});
 
-	test("keeps the unkeyed store for a directory outside a repository", async () => {
-		// The branch a copy gets wrong: the board is always keyed, plans are not.
+	test("files a directory outside a repository under the same identity as its board", async () => {
+		// The branch a copy gets wrong: the flat store is the mover's spelling now, not this one's.
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const runtime = runtimeFor(agentDir);
-		expect(await runtime.planDir("/repo/billing")).toBe(join(agentDir, "plans"));
+		const planDir = await runtime.planDir("/repo/billing");
+		expect(planDir).toBe(join(dirname((await runtime.store("/repo/billing")).dir), "plans"));
+		expect(dirname(dirname(planDir))).toBe(join(agentDir, "repos"));
 	});
 
 	test("resolves once per working directory", async () => {

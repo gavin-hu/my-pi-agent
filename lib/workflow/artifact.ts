@@ -25,10 +25,10 @@
  */
 
 import { statSync } from "node:fs";
-import { relative } from "node:path";
+import { isAbsolute, relative } from "node:path";
 import { sanitizeLine, shortenPath } from "../format.ts";
 import { isInside } from "../path.ts";
-import { isContainedPlan, isPlanFileName, resolvePlanArg } from "../plans/paths.ts";
+import { isContainedPlan, isPlanFileName, legacyPlanStore, resolvePlanArg } from "../plans/paths.ts";
 import type { Card } from "./card.ts";
 import { cardRef } from "./card.ts";
 import { contractRoute } from "./lanes.ts";
@@ -99,11 +99,41 @@ function locate(planDir: string, rawPath: string): Located {
 		// here: a `.txt` in the store deserves the sentence about its name, not about a link.
 		return isInside(planDir, path) && !isPlanFileName(path) ? { kind: "named", path } : { kind: "outside", path };
 	}
+	return { kind: "plan", path, ...presentAt(path) };
+}
+
+/**
+ * A **recorded** path, which may name the flat tree the store replaced.
+ *
+ * #771 moved the plan store, so a record written before it names a path in `<agent-dir>/plans`:
+ * for one release that tree is still read, or a card the mover has not reached would read as
+ * gone and be refused at `execute`. Only a path can name it — a bare name is a name in *this*
+ * store, because the flat tree is where nothing new is written — and the current store answers
+ * first, so a record that names a plan in both is read where plans live now.
+ */
+function locateRecorded(planDir: string, rawPath: string): Located {
+	const here = locate(planDir, rawPath);
+	if (isName(rawPath) || (here.kind === "plan" && here.present)) return here;
+	const legacy = legacyPlanStore(planDir);
+	if (legacy === undefined) return here;
+	const there = locate(legacy, rawPath);
+	// The store the record names answers, present or not: a plan the flat tree has lost is "gone",
+	// not "outside", and a sentence about the wrong refusal sends a reader to the wrong repair.
+	return there.kind === "outside" ? here : there;
+}
+
+/** Whether a record is a name inside a store rather than a path one host resolved. */
+function isName(rawPath: string): boolean {
+	const text = rawPath.trim();
+	return !isAbsolute(text) && !text.startsWith("~");
+}
+
+/** Whether something is at a path, and whether it is a file. */
+function presentAt(path: string): { present: boolean; file: boolean } {
 	try {
-		const info = statSync(path);
-		return { kind: "plan", path, present: true, file: info.isFile() };
+		return { present: true, file: statSync(path).isFile() };
 	} catch {
-		return { kind: "plan", path, present: false, file: false };
+		return { present: false, file: false };
 	}
 }
 
@@ -143,7 +173,7 @@ export function planForContract(planDir: string, rawPath: string): ArtifactCheck
  */
 export function planForExecute(planDir: string, card: Pick<Card, "id" | "lane" | "planPath">): ArtifactCheck {
 	const rawPath = card.planPath ?? "";
-	const found = locate(planDir, rawPath);
+	const found = locateRecorded(planDir, rawPath);
 	const route = ` ${contractRoute(card)}`;
 	if (found.kind === "outside") {
 		return { error: `${cardRef(card.id)}'s plan is outside this repository's plan store (${at(rawPath)});${route}` };
@@ -175,7 +205,10 @@ export function planForExecute(planDir: string, card: Pick<Card, "id" | "lane" |
 export function planIsGone(planDir: string, card: Pick<Card, "id" | "lane" | "planPath">): boolean {
 	if (card.planPath === undefined) return false;
 	if (card.lane !== "plan" && card.lane !== "execute") return false;
-	return !isFile(resolvePlanArg(planDir, card.planPath));
+	// The same resolution the gate makes, including the flat tree a record may still name: a badge
+	// that read a readable plan as gone would send a reader to re-record a plan nothing lost.
+	const found = locateRecorded(planDir, card.planPath);
+	return !(found.kind === "plan" && found.present && found.file);
 }
 
 /**
@@ -191,13 +224,4 @@ export function gonePlans(planDir: string, cards: readonly Pick<Card, "id" | "la
 		if (planIsGone(planDir, card)) gone.add(card.id);
 	}
 	return gone;
-}
-
-/** Whether a recorded path is a file now. The one stat the drawing side makes. */
-function isFile(path: string): boolean {
-	try {
-		return statSync(path).isFile();
-	} catch {
-		return false;
-	}
 }

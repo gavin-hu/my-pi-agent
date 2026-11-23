@@ -15,6 +15,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `job` follows in #788, and a managed checkout stays where `worktree.dir` says — relocating a live
   worktree is `git worktree move`, which is its own card.
 
+- `board`, `plan`: the board and the `plan` tool resolve one plan store again —
+  `~/.pi/agent/repos/<repo-id>/plans/` — so `board contract` records a plan `plan write` has just
+  saved instead of refusing it as outside the store, which is what a second resolver still pointing
+  at the flat `<agent-dir>/plans/<repo-key>` spelling did. A card whose recorded plan names that flat
+  store is still executed while the file is there, for one release; once the move has taken it, the
+  card reads gone until it records its plan again, which is expected and not a lost file. `/plan
+  prune` sweeps and protects the same store: its pass read the flat tree and took the protection set
+  from `~/.pi/agent/board/<key>/`, so it swept nothing at all.
+
 - `board`: an ask row's owner cell says how its owner is doing, in the words the Agents column
   already prints — `billing-core, free` — as the cell's tooltip and its accessible name, while the
   dot stays a decoration that agrees with the word. It was the one fact on that row carried by
