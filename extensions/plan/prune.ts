@@ -22,6 +22,7 @@ import { dirname, join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { formatSize } from "../../lib/format.ts";
 import { PLANS_DIR_NAME, plansDirFor } from "../../lib/plans/paths.ts";
+import type { StoreArtefact } from "./retention.ts";
 import { loadPlanConfig } from "./config.ts";
 import { type SweepResult, sweepPlanStore } from "./retention.ts";
 
@@ -75,6 +76,8 @@ export async function sweepQuietly(pi: ExtensionAPI, cwd: string, options: { now
 export interface PruneReport {
 	/** Stores the pass read. */
 	stores: number;
+	/** Stores the pass could not read, and therefore holds none of these numbers. */
+	skipped: number;
 	/** Plans removed (or, under `dryRun`, that it would remove). */
 	removed: number;
 	/** Plans left behind. */
@@ -83,6 +86,12 @@ export interface PruneReport {
 	protected: number;
 	/** Bytes freed (or that the removal would free). */
 	bytes: number;
+	/** What the stores it read hold, plans and everything else. */
+	heldBytes: number;
+	/** The plan half of that. */
+	planBytes: number;
+	/** The files a sweep can never remove, grouped by kind across those stores, largest first. */
+	artefacts: StoreArtefact[];
 }
 
 /**
@@ -101,13 +110,34 @@ export async function pruneAll(
 	const { reposRoot } = await import("../../lib/repo-key.ts");
 	const root = reposRoot(getAgentDir());
 	const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
-	const report: PruneReport = { stores: 0, removed: 0, kept: 0, protected: 0, bytes: 0 };
+	const report: PruneReport = {
+		stores: 0,
+		skipped: 0,
+		removed: 0,
+		kept: 0,
+		protected: 0,
+		bytes: 0,
+		heldBytes: 0,
+		planBytes: 0,
+		artefacts: [],
+	};
+	const kinds = new Map<string, StoreArtefact>();
 	const collect = (result: SweepResult): void => {
 		report.stores += 1;
 		report.removed += result.removedPlans;
 		report.kept += result.kept;
 		report.protected += result.protected;
 		report.bytes += result.bytes;
+		report.heldBytes += result.summary.bytes;
+		report.planBytes += result.summary.planBytes;
+		for (const artefact of result.summary.artefacts) {
+			const found = kinds.get(artefact.kind);
+			if (found === undefined) kinds.set(artefact.kind, { ...artefact });
+			else {
+				found.count += artefact.count;
+				found.bytes += artefact.bytes;
+			}
+		}
 	};
 	for (const entry of entries) {
 		if (!entry.isDirectory()) continue;
@@ -117,9 +147,15 @@ export async function pruneAll(
 		// A store whose board cannot be read is skipped, not emptied: the report counts what was
 		// actually read, and silence about a skipped store is the alternative to deleting a plan.
 		const protectedNames = await protectionFor(store);
-		if (protectedNames === undefined) continue;
+		if (protectedNames === undefined) {
+			// Counted here, where the decision was made, so a run cannot report one store as both read
+			// and skipped: nothing of it is in the numbers above, and the line below says so.
+			report.skipped += 1;
+			continue;
+		}
 		collect(await sweepPlanStore(store, { config, protectedNames, nowMs, dryRun: options.dryRun }));
 	}
+	report.artefacts = [...kinds.values()].sort((a, b) => b.bytes - a.bytes || a.kind.localeCompare(b.kind));
 	return report;
 }
 
@@ -127,7 +163,42 @@ export async function pruneAll(
 export function pruneText(report: PruneReport, dryRun: boolean): string {
 	const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? "" : "s"}`;
 	const size = formatSize(report.bytes);
-	return dryRun
-		? `plan: would remove ${plural(report.removed, "plan")} from ${plural(report.stores, "store")} · ${report.kept} kept · ${report.protected} protected by a card · ${size}`
-		: `plan: removed ${plural(report.removed, "plan")} from ${plural(report.stores, "store")} · ${report.kept} kept · ${report.protected} protected by a card · ${size} freed`;
+	const head = `${plural(report.removed, "plan")} from ${plural(report.stores, "store")} · ${report.kept} kept · ${report.protected} protected by a card · ${size}`;
+	return `plan: ${dryRun ? "would remove" : "removed"} ${head}${dryRun ? "" : " freed"} · ${heldText(report)}`;
+}
+
+/**
+ * What the stores the pass read hold, in bytes, and what a sweep cannot touch.
+ *
+ * The store is bounded in plans, not in bytes, and this is the clause that says so: the numbers are
+ * the stores it read being counted, so a store it skipped is named rather than left out of a total
+ * that would then read as the store's own size.
+ */
+function heldText(report: PruneReport): string {
+	const held = formatSize(report.heldBytes);
+	const counted =
+		report.skipped === 0 ? `${held} held` : `${held} held in the ${plural2(report.stores, "store")} it could read`;
+	const artefacts = report.artefacts.reduce((sum, entry) => sum + entry.bytes, 0);
+	const files = report.artefacts.reduce((sum, entry) => sum + entry.count, 0);
+	const named =
+		files === 0
+			? "all of it plans"
+			: `${formatSize(artefacts)} of it in ${plural2(files, "file")} a sweep cannot remove (${kindsText(report.artefacts)})`;
+	const skipped =
+		report.skipped === 0
+			? ""
+			: ` · ${plural2(report.skipped, "store")} skipped, ${report.skipped === 1 ? "its" : "their"} board could not be read`;
+	return `${counted}, ${named}${skipped}`;
+}
+
+/** The kinds that make up the artefacts, the largest four by name and count. */
+function kindsText(artefacts: readonly StoreArtefact[]): string {
+	const shown = artefacts.slice(0, 4).map((entry) => `${entry.kind} ${entry.count}`);
+	const rest = artefacts.length - shown.length;
+	return rest > 0 ? `${shown.join(", ")} and ${rest} more` : shown.join(", ");
+}
+
+/** The plural form without the count in front, for a sentence that already carries it. */
+function plural2(count: number, word: string): string {
+	return `${count} ${word}${count === 1 ? "" : "s"}`;
 }

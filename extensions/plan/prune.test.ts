@@ -35,6 +35,14 @@ function writePlan(dir: string, name: string, days: number): void {
 	utimesSync(path, (NOW - days * DAY) / 1_000, (NOW - days * DAY) / 1_000);
 }
 
+/** A file in the store that is not a plan: the screenshots the bound can never reach. */
+function writeArtefact(dir: string, name: string, bytes: number): void {
+	mkdirSync(dir, { recursive: true });
+	const path = join(dir, name);
+	writeFileSync(path, Buffer.alloc(bytes, 1));
+	utimesSync(path, (NOW - 400 * DAY) / 1_000, (NOW - 400 * DAY) / 1_000);
+}
+
 /** One card that records `plan` as its plan, in the board beside the store. */
 function writeCard(agentDir: string, cwd: string, plan: string): void {
 	const pile = join(agentDir, "repos", storeIdOf(cwd), "board", "cards");
@@ -69,7 +77,17 @@ describe("pruneAll", () => {
 			// Both directions in one pass, because either half alone passes on an inert sweep: a
 			// protection set read from a board nothing writes would take `recorded.md` with it, and a
 			// sweep of the flat tree the mover emptied would take neither.
-			expect(report).toEqual({ stores: 1, removed: 1, kept: 2, protected: 1, bytes: expect.any(Number) });
+			expect(report).toEqual({
+				stores: 1,
+				skipped: 0,
+				removed: 1,
+				kept: 2,
+				protected: 1,
+				bytes: expect.any(Number),
+				heldBytes: expect.any(Number),
+				planBytes: expect.any(Number),
+				artefacts: [],
+			});
 			expect(report.bytes).toBeGreaterThan(0);
 			expect(await namesIn(store)).toEqual(["newest.md", "recorded.md"]);
 		});
@@ -184,15 +202,127 @@ describe("the protection set a sweep reads", () => {
 	});
 });
 
+describe("what a sweep cannot touch", () => {
+	test("names the artefacts by kind with count and bytes, and never removes one", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = tempDir("plan-prune-cwd-");
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
+			const store = storeOf(agentDir, cwd);
+			writePlan(store, "stale.md", 400);
+			writeArtefact(store, "team-page.png", 3_000);
+			writeArtefact(store, "width-1280.png", 1_000);
+			writeArtefact(store, "notes.txt", 10);
+			// A revision is a dotfile: a plan's own history, not something the bound cannot see.
+			writeArtefact(store, ".stale.md.rev1", 5);
+
+			const report = await pruneAll(createFakePi().pi, cwd, { nowMs: NOW });
+			expect(report.artefacts).toEqual([
+				{ kind: "png", count: 2, bytes: 4_000 },
+				{ kind: "txt", count: 1, bytes: 10 },
+			]);
+			// The arithmetic, not only the output: `kept` and `removed` count plans, so a `.png`
+			// cannot enter either however the store is swept.
+			expect([report.removed, report.kept]).toEqual([1, 0]);
+			expect(report.planBytes).toBeGreaterThan(0);
+			expect(report.heldBytes).toBeGreaterThan(report.planBytes);
+			// A dry run and a real sweep leave the screenshots exactly where they are.
+			expect((await namesIn(store)).sort()).toEqual([".stale.md.rev1", "notes.txt", "team-page.png", "width-1280.png"]);
+		});
+	});
+
+	test("takes the summary from the listing the decision used, so the two cannot disagree", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = tempDir("plan-prune-cwd-");
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
+			const store = storeOf(agentDir, cwd);
+			writePlan(store, "newest.md", 1);
+			writePlan(store, "stale.md", 400);
+			writeArtefact(store, "shot.png", 200);
+			writeCard(agentDir, cwd, "newest.md");
+			const { sweepPlanStore, readPlanStore, storeSummary } = await import("./retention.ts");
+			const { loadPlanConfig } = await import("./config.ts");
+			const entries = await readPlanStore(store);
+			const swept = await sweepPlanStore(store, {
+				config: { ...loadPlanConfig(cwd), enabled: true },
+				protectedNames: new Set(["newest.md"]),
+				nowMs: NOW,
+				dryRun: true,
+			});
+			// One listing: the summary a sweep reports is the summary of the entries it decided from.
+			expect(swept.summary).toEqual(storeSummary(entries));
+			expect(swept.summary.plans).toBe(2);
+			expect(swept.summary.artefacts).toEqual([{ kind: "png", count: 1, bytes: 200 }]);
+		});
+	});
+
+	test("counts a store it could not read and names it, so the total reads as what it is", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = tempDir("plan-prune-cwd-");
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
+			const readable = storeOf(agentDir, cwd);
+			writePlan(readable, "newest.md", 1);
+			writeArtefact(readable, "shot.png", 200);
+			// A second repository's store whose board cannot be read: the pass declines it, which is
+			// right, and the report must say so rather than quietly counting one store's bytes.
+			const unreadable = join(agentDir, "repos", "other", "plans");
+			writePlan(unreadable, "stranger.md", 400);
+			const pile = join(agentDir, "repos", "other", "board", "cards");
+			mkdirSync(pile, { recursive: true });
+			writeFileSync(join(pile, "0004.json"), "{ not a card");
+
+			const report = await pruneAll(createFakePi().pi, cwd, { nowMs: NOW });
+			expect([report.stores, report.skipped]).toEqual([1, 1]);
+			expect(report.artefacts).toEqual([{ kind: "png", count: 1, bytes: 200 }]);
+			// Its files are untouched: the decline rule is not a licence.
+			expect(await namesIn(unreadable)).toEqual(["stranger.md"]);
+			expect(pruneText(report, true)).toContain("held in the 1 store it could read");
+			expect(pruneText(report, true)).toContain("1 store skipped, its board could not be read");
+		});
+	});
+});
+
 describe("pruneText", () => {
+	/** A report as a run builds it: the numbers a reader already knows, and the held clause. */
+	function report(overrides: Partial<Parameters<typeof pruneText>[0]> = {}): Parameters<typeof pruneText>[0] {
+		return {
+			stores: 146,
+			skipped: 0,
+			removed: 36_912,
+			kept: 2_206,
+			protected: 3,
+			bytes: 385 * 1024 * 1024,
+			heldBytes: 512 * 1024 * 1024,
+			planBytes: 22 * 1024 * 1024,
+			artefacts: [
+				{ kind: "png", count: 1_790, bytes: 480 * 1024 * 1024 },
+				{ kind: "pdf", count: 14, bytes: 2 * 1024 * 1024 },
+			],
+			...overrides,
+		};
+	}
+
 	test("names what a run did, and what a dry run would do", () => {
-		const report = { stores: 146, removed: 36_912, kept: 2_206, protected: 3, bytes: 385 * 1024 * 1024 };
-		expect(pruneText(report, true)).toContain("would remove 36912 plans from 146 stores");
-		expect(pruneText(report, true)).toContain("3 protected by a card");
-		expect(pruneText(report, false)).toContain("removed 36912 plans from 146 stores");
-		expect(pruneText(report, false)).toContain("385 MB freed");
-		expect(pruneText({ stores: 1, removed: 1, kept: 0, protected: 0, bytes: 12 }, false)).toContain(
+		expect(pruneText(report(), true)).toContain("would remove 36912 plans from 146 stores");
+		expect(pruneText(report(), true)).toContain("3 protected by a card");
+		expect(pruneText(report(), false)).toContain("removed 36912 plans from 146 stores");
+		expect(pruneText(report(), false)).toContain("385 MB freed");
+		expect(pruneText(report({ stores: 1, removed: 1, kept: 0, protected: 0, bytes: 12 }), false)).toContain(
 			"removed 1 plan from 1 store",
 		);
+	});
+
+	test("adds the held bytes and the kinds it cannot sweep, after the numbers it already printed", () => {
+		const line = pruneText(report(), true);
+		expect(line).toContain("512 MB held");
+		expect(line).toContain("482 MB of it in 1804 files a sweep cannot remove (png 1790, pdf 14)");
+		// The numbers a reader already knows keep their places: the clause is the end of the line.
+		expect(line.indexOf("385 MB")).toBeLessThan(line.indexOf("512 MB held"));
+	});
+
+	test("says all of it plans when nothing is there but plans, and names the stores it skipped", () => {
+		expect(pruneText(report({ artefacts: [] }), true)).toContain("all of it plans");
+		const skipped = pruneText(report({ stores: 2, skipped: 1 }), true);
+		expect(skipped).toContain("held in the 2 stores it could read");
+		expect(skipped).toContain("1 store skipped, its board could not be read");
 	});
 });

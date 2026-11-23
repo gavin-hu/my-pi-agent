@@ -8,9 +8,9 @@ import { type PlanFile, planRemovals, readPlanStore, sweepPlanStore } from "./re
 const NOW = Date.parse("2026-11-22T12:00:00.000Z");
 const DAY = 24 * 60 * 60 * 1000;
 
-/** A plan store entry `days` old. */
+/** A plan store entry `days` old, one kilobyte of it — the decision reads the name and the age. */
 function aged(name: string, days: number): PlanFile {
-	return { name, mtimeMs: NOW - days * DAY };
+	return { name, mtimeMs: NOW - days * DAY, size: 1_024 };
 }
 
 /** A config with both bounds stated, so a case names only what it is about. */
@@ -130,7 +130,7 @@ describe("planRemovals", () => {
 
 	test("with maxAgeDays 0 every plan older than today is old enough, and one written now is not", () => {
 		const answer = planRemovals({
-			entries: [aged("today.md", 1), { name: "just-written.md", mtimeMs: NOW }],
+			entries: [aged("today.md", 1), { name: "just-written.md", mtimeMs: NOW, size: 1_024 }],
 			protectedNames: new Set(),
 			config: config({ keep: 100, maxAgeDays: 0 }),
 			nowMs: NOW,

@@ -25,6 +25,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export interface PlanFile {
 	name: string;
 	mtimeMs: number;
+	/** What it takes on disk, from the same `stat` the mtime came from. */
+	size: number;
 }
 
 /** What a pass is decided from. */
@@ -55,6 +57,65 @@ export interface RetentionAnswer {
 	kept: number;
 	/** Set when the pass declined and removed nothing. */
 	declined?: Decline;
+}
+
+/** One kind of file in a store that a sweep can never remove. */
+export interface StoreArtefact {
+	/** The extension, lowercased, or `none` for a file without one. */
+	kind: string;
+	count: number;
+	bytes: number;
+}
+
+/** What one store holds, as the listing a sweep already read reported it. */
+export interface StoreSummary {
+	/** Plans a sweep can see: the only files it may remove. */
+	plans: number;
+	planBytes: number;
+	/** Every file a sweep cannot see, grouped by kind, largest first. */
+	artefacts: StoreArtefact[];
+	/** Everything the store holds, plans and artefacts alike. */
+	bytes: number;
+}
+
+/**
+ * What a store holds, from the entries a pass already read.
+ *
+ * The filter is the *opposite* of {@link isPlan}'s: a dotfile is a revision of a plan, not an
+ * artefact, so counting one would report a plan's history as something nobody can bound. Nothing
+ * here decides anything — `planRemovals` owns that — so a store's size can never change what a
+ * sweep removes.
+ */
+export function storeSummary(entries: readonly PlanFile[]): StoreSummary {
+	let plans = 0;
+	let planBytes = 0;
+	const kinds = new Map<string, StoreArtefact>();
+	let bytes = 0;
+	for (const entry of entries) {
+		bytes += entry.size;
+		if (isPlan(entry.name)) {
+			plans += 1;
+			planBytes += entry.size;
+			continue;
+		}
+		if (entry.name.startsWith(".")) continue;
+		const kind = kindOf(entry.name);
+		const found = kinds.get(kind);
+		if (found === undefined) kinds.set(kind, { kind, count: 1, bytes: entry.size });
+		else {
+			found.count += 1;
+			found.bytes += entry.size;
+		}
+	}
+	// Largest first: the kind that made the store big is the one a reader needs to see.
+	const artefacts = [...kinds.values()].sort((a, b) => b.bytes - a.bytes || a.kind.localeCompare(b.kind));
+	return { plans, planBytes, artefacts, bytes };
+}
+
+/** The extension a file is known by, or `none`: the unit a report groups by. */
+function kindOf(name: string): string {
+	const dot = name.lastIndexOf(".");
+	return dot <= 0 || dot === name.length - 1 ? "none" : name.slice(dot + 1).toLowerCase();
 }
 
 /** A plan is markdown and not a dotfile; the dotfiles are revisions and the legacy ignore file. */
@@ -128,7 +189,7 @@ export async function readPlanStore(dir: string): Promise<PlanFile[]> {
 		// neither follows one nor counts one.
 		if (!entry.isFile()) continue;
 		const info = await stat(join(dir, entry.name)).catch(() => undefined);
-		if (info !== undefined) files.push({ name: entry.name, mtimeMs: info.mtimeMs });
+		if (info !== undefined) files.push({ name: entry.name, mtimeMs: info.mtimeMs, size: info.size });
 	}
 	return files;
 }
@@ -137,6 +198,8 @@ export async function readPlanStore(dir: string): Promise<PlanFile[]> {
 export interface SweepResult extends RetentionAnswer {
 	/** Bytes the removal freed, measured before the unlink. */
 	bytes: number;
+	/** What the store held when the sweep read it — the same entries the decision was made from. */
+	summary: StoreSummary;
 }
 
 /** What a sweep is asked for: the same decision, plus whether to act on it. */
@@ -154,6 +217,7 @@ export interface SweepOptions extends Omit<RetentionInput, "entries"> {
 export async function sweepPlanStore(dir: string, options: SweepOptions): Promise<SweepResult> {
 	const entries = await readPlanStore(dir);
 	const answer = planRemovals({ ...options, entries });
+	const summary = storeSummary(entries);
 	let bytes = 0;
 	for (const name of answer.remove) {
 		const info = await stat(join(dir, name)).catch(() => undefined);
@@ -161,5 +225,5 @@ export async function sweepPlanStore(dir: string, options: SweepOptions): Promis
 		bytes += info.size;
 		if (options.dryRun !== true) await rm(join(dir, name), { force: true }).catch(() => undefined);
 	}
-	return { ...answer, bytes };
+	return { ...answer, bytes, summary };
 }
