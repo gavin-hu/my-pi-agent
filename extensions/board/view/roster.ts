@@ -103,6 +103,7 @@ __HISTORY_OWNER__
           // snapshot adds reaches the card only by a line here.
           refused: mate.refused,
           listening: mate.listening,
+          machine: mate.machine,
           seen: mate.seen,
           cards: owners[labelKey(mate.label)] || { live: [], done: [] }
         });
@@ -140,6 +141,8 @@ __HISTORY_OWNER__
     history.sort(function (a, b) {
       return b.cards.done.length - a.cards.done.length || a.label.localeCompare(b.label);
     });
-    return { agents: agents, history: history, roster: roster };
+    // The machines are the bus's own rows, drawn as they came: this column asks nothing further of
+    // one, because a machine has no lane, no mail and no name to settle.
+    return { agents: agents, history: history, roster: roster, machines: view.machines || [] };
   };
 })();`;

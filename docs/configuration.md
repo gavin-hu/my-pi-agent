@@ -205,7 +205,7 @@ store narrows on its next write.
 | `bytefly.json` | the global document, one section per extension | `bytefly`'s settings screen, or `team`'s `/team join` | `—` |
 | `memory.md` | global notes, injected into every run | [`memory`](./extensions/memory.md) | `0600` |
 | `agents/` | agent definitions a subagent may run | you | `—` |
-| `presence/` | one board's write lock, per repository identity | [`board`](./extensions/board.md) | `0700` |
+| `presence/` | this machine's own state, which a sync client must not replicate: one board's write lock per repository identity, and the host identity its bus records name | [`board`](./extensions/board.md), [`session-bus`](./extensions/session-bus.md) | `0700` |
 | `repos/` | one directory per repository: its board, plans, session-bus, memory store and worktree registry | [`board`](./extensions/board.md), [`plan`](./extensions/plan.md), [`session-bus`](./extensions/session-bus.md), [`memory`](./extensions/memory.md), [`worktree`](./extensions/worktree.md) | `0700` |
 | `jobs/` | a job's registry and its log, until that store follows | [`job`](./extensions/job.md) | `0700` |
 | `wechat/` | the bridge's credentials, cursor and media | [`wechat`](./extensions/wechat.md) | `0700` |

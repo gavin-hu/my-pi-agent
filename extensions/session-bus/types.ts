@@ -23,6 +23,14 @@ export interface SessionRecord {
 	label: string;
 	pid: number;
 	/**
+	 * The machine that wrote this record.
+	 *
+	 * A bus directory can live where a sync client replicates it, so a record read here may be the
+	 * other machine's: this is what tells them apart, and what stops a stranger's pid being read as
+	 * a local process. Absent is a record an older build wrote, which is always this machine's.
+	 */
+	host?: string;
+	/**
 	 * That process's start time, when the host can name one.
 	 *
 	 * It is what tells the record's process apart from an unrelated one that has since
@@ -109,6 +117,15 @@ export interface ClaimRecord {
 	owner: string;
 	ownerLabel: string;
 	at: number;
+	/**
+	 * The machine that made it.
+	 *
+	 * It is what the claim lapses on: a peer here judges its owner by the owner's record, and owns
+	 * no pid on another machine — so the other machine's claim ends when *that machine* stops
+	 * writing its heartbeat, not when a local pid happens to be missing. Absent is a claim an older
+	 * build wrote, which claimed paths on this machine only.
+	 */
+	host?: string;
 }
 
 /** What `session status` returns. */

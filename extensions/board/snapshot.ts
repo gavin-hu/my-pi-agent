@@ -8,7 +8,7 @@
  * has recorded them and draws exactly what it drew before when it has not.
  */
 
-import { stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { type Actor } from "../../lib/workflow/rules.ts";
 import { gonePlans } from "../../lib/workflow/artifact.ts";
@@ -33,6 +33,13 @@ export interface SnapshotContext {
 	 */
 	bus: () => Promise<TeamRead>;
 	/**
+	 * This machine's host id, from `presence/host.json`, or nothing when it has none yet.
+	 *
+	 * The frame needs it to say which teammates are elsewhere: a record names its machine, and this
+	 * is the one name that makes the rest foreign.
+	 */
+	host: () => Promise<string | undefined>;
+	/**
 	 * This host's plan store, for the cards whose recorded plan is asked about.
 	 *
 	 * A thunk because the store is resolved from the session — a git call the session memoizes per
@@ -49,7 +56,8 @@ export async function viewOf(context: SnapshotContext, pile?: Pile): Promise<Boa
 	// Read, never consumed: an inbox is its owner's, and a frame is drawn once a second. A bus that
 	// cannot be read is a page with no teammates and an empty queue, said the same way as one that
 	// has never recorded anything — the page cannot act on the difference.
-	const { roster, waiting } = await context.bus();
+	const { roster, waiting, hosts } = await context.bus();
+	const host = await context.host();
 	// One read of the pile answers every question a frame asks: the cards, the files it refused,
 	// and the bytes they occupy. Asking `list` and `skipped` separately parsed every card twice,
 	// once a second, for as long as a tab is open.
@@ -77,6 +85,8 @@ export async function viewOf(context: SnapshotContext, pile?: Pile): Promise<Boa
 			lead: context.store.config().lead,
 			waiting,
 			...(roster === undefined ? {} : { roster }),
+			...(hosts === undefined ? {} : { hosts }),
+			...(host === undefined ? {} : { host }),
 		}),
 	);
 }
@@ -137,4 +147,73 @@ export function createSnapshot(context: SnapshotContext): Snapshot {
 			return viewOf(context, kept);
 		},
 	};
+}
+
+/**
+ * The bus's cheapest question: a stamp that moves when a file the page draws moves.
+ *
+ * It lives here rather than with the roster because it asks the page's question — *has anything
+ * landed since the last frame* — and its one caller is the page's tick; the roster answers *who is
+ * there*, which is the expensive half a stamp spares.
+ *
+ * A page asks this once a tick and reads the bus only when the answer changed, because that
+ * read is a ledger walk over every record and every inbox. Contents are not what is asked: a
+ * directory's **entry names** are, because that is what moves when a session joins or leaves
+ * (`sessions/`), when an inbox appears (`inbox/`), and when a message lands or is consumed
+ * (`inbox/<id>`). A directory's own mtime sits beside its names, and it is the half that is not
+ * to be trusted: Windows updates it lazily, so an entry can land and leave the parent's clock
+ * exactly where it was — a join that the poll then never saw. The mtime stays for the one change
+ * a name set cannot see on POSIX, an entry renamed with the count unchanged. A path that is not
+ * there reads `-`, so a bus arriving later is news rather than a silence.
+ *
+ * A record rewritten in place — a heartbeat, a label — moves neither, which is why the page
+ * sweeps every five seconds for what no file announces.
+ *
+ * Never throws: a bus nobody can read is a stamp that does not move, and a caller's own slow
+ * cadence still builds its frame.
+ */
+export async function stampBus(dir: string): Promise<string> {
+	const { busPaths } = await import("../../lib/session-files.ts");
+	const paths = busPaths(dir);
+	const parts: string[] = [
+		await stampOfDir(paths.dir),
+		await stampOfDir(paths.sessions),
+		await stampOfDir(paths.inbox),
+		await stampOfDir(paths.hosts),
+	];
+	// Each inbox is its own directory, and its names are the messages a row counts.
+	for (const name of await namesIn(paths.inbox)) {
+		parts.push(`${name}:${await stampOfDir(join(paths.inbox, name))}`);
+	}
+	return parts.join("|");
+}
+
+/**
+ * One directory as a stamp part: its mtime and its entry names, or `-` when it is not there.
+ *
+ * The names come from {@link namesIn}, which answers `[]` for a directory that vanished between
+ * the stat and the listing — the race a page's one-second ticker would otherwise be the first to
+ * meet.
+ */
+async function stampOfDir(path: string): Promise<string> {
+	const mtime = await stampOf(path);
+	return mtime === "-" ? mtime : `${mtime}|${(await namesIn(path)).join(",")}`;
+}
+
+/** One path's mtime as a stamp part: absent is `-`, because it is a value a later stamp can move. */
+async function stampOf(path: string): Promise<string> {
+	try {
+		return String((await stat(path)).mtimeMs);
+	} catch {
+		return "-";
+	}
+}
+
+/** One directory's entries, sorted: the order a listing comes back in is not a fact to compare. */
+async function namesIn(dir: string): Promise<string[]> {
+	try {
+		return (await readdir(dir)).sort();
+	} catch {
+		return [];
+	}
 }

@@ -111,8 +111,9 @@ export const RESERVED_PATHS: readonly ReservedPath[] = [
 		home: "agent",
 		owner: "package",
 		name: "presence/",
-		holds: "one board's write lock, per repository identity",
-		written: ["board"],
+		holds:
+			"this machine's own state, which a sync client must not replicate: one board's write lock per repository identity, and the host identity its bus records name",
+		written: ["board", "session-bus"],
 		mode: DIR_MODE,
 	},
 	{

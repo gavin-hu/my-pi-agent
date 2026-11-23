@@ -15,8 +15,11 @@ import {
 	dropIfEmpty,
 	dropStaleTemps,
 	ensureDir,
+	type HostIdentity,
+	type HostRecord,
 	listJson,
 	publishNew,
+	readHosts,
 	readJsonAs,
 	storedName,
 	writeJsonAtomic,
@@ -35,8 +38,17 @@ import type {
 } from "./types.ts";
 
 export interface BusStoreOptions {
-	/** The repository bus directory, e.g. `<agent-dir>/session-bus/<key>`. */
+	/** The repository bus directory, e.g. `<agent-dir>/repos/<id>/session-bus`. */
 	dir: string;
+	/**
+	 * This machine's host id, stamped on every claim the store publishes.
+	 *
+	 * It is also what tells a claim of this machine's from one that arrived from the other machine
+	 * through a sync client: the first lapses on its owner's record here, the second only when that
+	 * machine's heartbeat ages out. Absent is a store built without an identity (a suite's), which
+	 * writes claims an older build would have written.
+	 */
+	host?: string;
 }
 
 export interface BusStore {
@@ -79,6 +91,15 @@ export interface BusStore {
 	 */
 	dropUnaccounted(ids: readonly string[]): Promise<DropResult>;
 	claims(): Promise<ClaimRecord[]>;
+	/** Every machine that has written here, this one included. */
+	hosts(): Promise<HostRecord[]>;
+	/**
+	 * Refresh this machine's own entry, creating it once.
+	 *
+	 * `publishNew` is the create, so two sessions starting at once agree on one file; after that the
+	 * write is an ordinary atomic replacement of a file only this machine writes.
+	 */
+	writeHost(identity: HostIdentity, at: number): Promise<void>;
 	claimAll(
 		paths: readonly string[],
 		owner: string,
@@ -172,6 +193,7 @@ function isSession(value: unknown): value is SessionRecord {
 		typeof entry.mode === "string" &&
 		typeof entry.startedAt === "number" &&
 		typeof entry.lastSeen === "number" &&
+		(entry.host === undefined || typeof entry.host === "string") &&
 		(entry.startToken === undefined || typeof entry.startToken === "string") &&
 		(entry.turnAt === undefined || typeof entry.turnAt === "number") &&
 		(entry.watching === undefined || isWatchingState(entry.watching)) &&
@@ -193,14 +215,16 @@ function isClaim(value: unknown): value is ClaimRecord {
 		typeof entry.path === "string" &&
 		typeof entry.owner === "string" &&
 		typeof entry.ownerLabel === "string" &&
-		typeof entry.at === "number"
+		typeof entry.at === "number" &&
+		(entry.host === undefined || typeof entry.host === "string")
 	);
 }
 
 /** Create a store rooted at one repository's bus directory. */
 export function createBusStore(options: BusStoreOptions): BusStore {
 	const paths = busPaths(options.dir);
-	const { dir, sessions: sessionsDir, claims: claimsDir } = paths;
+	const { dir, sessions: sessionsDir, claims: claimsDir, hosts: hostsDir } = paths;
+	const host = options.host;
 	const sessionFile = paths.recordOf;
 	const inboxDir = paths.inboxOf;
 	const claimFile = paths.claimOf;
@@ -242,7 +266,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		at: number,
 	): Promise<{ claim: ClaimRecord; conflict?: ClaimRecord; created: boolean }> {
 		const file = claimFile(path);
-		const claim: ClaimRecord = { path, owner, ownerLabel, at };
+		const claim: ClaimRecord = { path, owner, ownerLabel, at, ...(host === undefined ? {} : { host }) };
 		// Publish a written temp file instead of creating the claim and filling it
 		// afterwards: the link is the exclusive create, so no reader can observe a
 		// half-written claim and mistake it for a crashed owner's.
@@ -325,6 +349,27 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			return { claimed: [], conflicts: settled };
 		}
 		return { claimed, conflicts: [] };
+	}
+
+	/**
+	 * Whether a claim still holds, which is a question about a machine before it is about an owner.
+	 *
+	 * This machine's claim (or one an older build wrote, which could only have been made here) is the
+	 * owner's record: a session whose heartbeat aged out owns nothing, and one whose process is gone
+	 * owns nothing sooner than that. Another machine's claim is that machine's heartbeat — the one
+	 * clock a peer cannot read for itself, measured by the same `SESSION_TTL_MS` the roster applies —
+	 * falling back to the claim's own `at` when no row for that machine is here at all, because a claim
+	 * with no evidence behind it is the debris that window is for.
+	 */
+	function claimHolds(
+		claim: ClaimRecord,
+		live: ReadonlySet<string>,
+		beats: ReadonlyMap<string, number>,
+		at: number,
+		ttlMs: number,
+	): boolean {
+		if (claim.host === undefined || claim.host === host) return live.has(claim.owner);
+		return at - (beats.get(claim.host) ?? claim.at) <= ttlMs;
 	}
 
 	/**
@@ -443,6 +488,17 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 		claims: readClaims,
 
+		hosts: () => readHosts(dir),
+
+		async writeHost(identity, at) {
+			const record: HostRecord = { host: identity.id, name: identity.name, lastSeen: at };
+			await ensureDir(hostsDir);
+			// The create is exclusive so two sessions of one machine cannot each make its row; after
+			// that every write is this machine's own, which is what keeps the file one file.
+			if (await publishNew(paths.hostOf(identity.id), record)) return;
+			await writeJsonAtomic(paths.hostOf(identity.id), record);
+		},
+
 		claimAll,
 
 		release: releaseOne,
@@ -476,8 +532,12 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 					live.add(session.id);
 				}
 			}
+			// A claim lapses on the owner's record only where that record is *here*: a claim that named
+			// another machine's session is judged by that machine's heartbeat, because a local pid says
+			// nothing about it and the owner's record lives on a disk this one cannot see.
+			const beats = new Map((await readHosts(dir)).map((entry) => [entry.host, entry.lastSeen]));
 			for (const claim of await readClaims()) {
-				if (!live.has(claim.owner)) await rm(claimFile(claim.path), { force: true });
+				if (!claimHolds(claim, live, beats, at, sessionTtlMs)) await rm(claimFile(claim.path), { force: true });
 			}
 			await dropStaleTemps(sessionsDir);
 			await dropStaleTemps(claimsDir);

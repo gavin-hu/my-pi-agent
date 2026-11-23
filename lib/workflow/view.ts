@@ -15,11 +15,13 @@
  */
 
 import { homedir } from "node:os";
+import type { HostRecord } from "../session-files.ts";
 import {
 	presenceOf,
 	type RosterSession,
 	type RosterState,
 	rosterStateOf,
+	SESSION_TTL_MS,
 	type SessionPresence,
 } from "../session-roster.ts";
 import type { WaitingPage, WaitingRecipient } from "../session-mail.ts";
@@ -64,6 +66,13 @@ export interface ViewTeammate {
 	 */
 	working?: true;
 	/**
+	 * The name of the machine this session is on, when it is not this one.
+	 *
+	 * Drawn as a chip, and absent on this machine's own rows: a fleet tab that said "on studio"
+	 * beside every row would be saying nothing about the ones a lead can act on directly.
+	 */
+	machine?: string;
+	/**
 	 * Whether this row holds the board's lead role, from the configured name; absent when not.
 	 *
 	 * Not the same fact as `you`: the page serves as the lead, so on most boards the two
@@ -71,6 +80,21 @@ export interface ViewTeammate {
 	 * at the row its gates will answer, and a reader must be able to see the rename.
 	 */
 	lead?: true;
+}
+
+/** One machine on the bus, as the Team tab draws it: a `hosts/` row, not this machine's. */
+export interface ViewMachine {
+	/** The name the machine wrote when it first appeared, which it keeps. */
+	name: string;
+	/** When a session on it last beat, which is the only liveness another machine can offer. */
+	seen: number;
+	/**
+	 * `live` while that heartbeat is inside the bus's window, `quiet` once it has aged.
+	 *
+	 * There is no `gone`: this machine cannot see that one's processes, and "cannot tell" is not a
+	 * death — the same rule the roster applies to a foreign session's pid.
+	 */
+	state: "live" | "quiet";
 }
 
 /** One recipient of a waiting message, and what the bus says about it. */
@@ -172,6 +196,8 @@ export interface BoardView {
 	 * empty one can say nobody is — and the tab draws those two answers differently.
 	 */
 	teammates?: ViewTeammate[];
+	/** The machines on the bus that are not this one; absent when the bus has recorded none. */
+	machines?: ViewMachine[];
 	/**
 	 * Mail nobody has read, oldest first, at most the reader's cap — and the count of what
 	 * that cap left out, so a deep queue does not draw like a quiet one.
@@ -272,6 +298,15 @@ export interface ViewInput {
 	/** The bus's records, when the page could read them at all. */
 	roster?: readonly RosterSession[];
 	/**
+	 * This machine's host id, from `presence/host.json`; absent when no session here has made one.
+	 *
+	 * It is what tells a teammate's machine from this one, and which `hosts/` rows are worth
+	 * drawing: the rows of this machine are the sessions the column already lists.
+	 */
+	host?: string;
+	/** The machines the bus has recorded, from `hosts/`; absent reads as none. */
+	hosts?: readonly HostRecord[];
+	/**
 	 * Mail waiting on this repository's bus, read without consuming it.
 	 *
 	 * Read by the caller because the bus directory is the caller's fact; absent reads as
@@ -329,8 +364,11 @@ export function buildView(input: ViewInput): BoardView {
 		};
 	});
 	const reader = input.me;
+	const machines = machinesOf(input.hosts, input.host, input.now);
 	const teammates =
-		input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.lead, input.now);
+		input.roster === undefined
+			? undefined
+			: teammatesOf(input.roster, reader.label, input.lead, input.now, machineNames(input.hosts));
 	// The states a waiting row wears come from the same roster the agent cards are drawn from,
 	// so a handoff to a dead session cannot look like one to a live peer. Resolved by the
 	// recipient's id, not its name: an inbox outlives its record, and the name it was addressed
@@ -353,6 +391,7 @@ export function buildView(input: ViewInput): BoardView {
 		total: cards.length,
 		round,
 		...(teammates === undefined ? {} : { teammates }),
+		...(machines.length === 0 ? {} : { machines }),
 		waiting: {
 			messages,
 			dropped: waiting.dropped,
@@ -381,7 +420,8 @@ export function buildView(input: ViewInput): BoardView {
 			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}` +
 			// A plan file going away moves no card's revision, and the face says so: without this the
 			// tab would keep a frame that still reads the plan as there.
-			`|gone:${[...gone].sort().join(",")}`,
+			`|gone:${[...gone].sort().join(",")}` +
+			machinesSuffix(machines),
 		repo: input.repo,
 		root: input.root,
 		where: input.where,
@@ -450,18 +490,51 @@ function viewCardOf(
 	};
 }
 
+/** The name each machine goes by, for the chip a foreign teammate wears. */
+function machineNames(hosts: readonly HostRecord[] | undefined): ReadonlyMap<string, string> {
+	return new Map((hosts ?? []).map((host) => [host.host, host.name]));
+}
+
+/**
+ * The machines on this bus that are not this one.
+ *
+ * A machine row outlives the sessions on it — that is why it is drawn at all — so it is the
+ * `hosts/` entry, not a session's record: a peer asleep for an hour with every record pruned still
+ * says how long ago it was here. This machine's own row is left out, because its sessions are the
+ * column itself.
+ */
+function machinesOf(hosts: readonly HostRecord[] | undefined, host: string | undefined, now: number): ViewMachine[] {
+	return (hosts ?? [])
+		.filter((entry) => entry.host !== host)
+		.map((entry) => ({
+			name: entry.name,
+			seen: entry.lastSeen,
+			state: now - entry.lastSeen <= SESSION_TTL_MS ? ("live" as const) : ("quiet" as const),
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The machines' term in the signature, or nothing: a bus with one machine signs what it signed before. */
+function machinesSuffix(machines: readonly ViewMachine[]): string {
+	return machines.length === 0
+		? ""
+		: `|machines:${machines.map((machine) => `${machine.name}:${machine.state}`).join(",")}`;
+}
+
 /** The roster as the page shows it, ordered so a repaint never reorders it. */
 function teammatesOf(
 	roster: readonly RosterSession[],
 	meLabel: string,
 	lead: string | undefined,
 	now: number,
+	names: ReadonlyMap<string, string>,
 ): ViewTeammate[] {
 	return roster
 		.map((session) => {
 			// Once, because the rule can cost a process: a quiet record with a start token is
-			// settled by asking the host about that pid.
+			// settled by asking the host about that pid — never for a record another machine wrote.
 			const state = rosterStateOf(session, now);
+			const machine = session.foreign === true && session.host !== undefined ? names.get(session.host) : undefined;
 			return {
 				label: session.label,
 				state,
@@ -475,7 +548,10 @@ function teammatesOf(
 				// A record that does not say is not a promise either way, so the fact is left out
 				// rather than drawn as "not listening".
 				...(session.watching === undefined ? {} : { listening: session.watching.armed }),
-				you: sameLabel(session.label, meLabel),
+				...(machine === undefined ? {} : { machine }),
+				// A label is a name two machines can hold at once, so an id-less match across hosts
+				// would mark the other machine's peer as this seat.
+				you: session.foreign !== true && sameLabel(session.label, meLabel),
 			};
 		})
 		.sort((a, b) => a.label.localeCompare(b.label));

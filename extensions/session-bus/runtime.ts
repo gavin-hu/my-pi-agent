@@ -20,9 +20,10 @@ import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { realPathOfNearest } from "../../lib/path.ts";
-import { BUS_DIR_NAME } from "../../lib/session-files.ts";
+import { BUS_DIR_NAME, ensureHostIdentity, type HostIdentity } from "../../lib/session-files.ts";
 import { labelKey, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
 import {
+	recordFacts,
 	type RosterSeams,
 	type RosterState,
 	peerRowOf,
@@ -82,11 +83,14 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 * label and its claims while the screen already says it is gone.
 	 */
 	function stateOf(session: SessionRecord, at = now()): RosterState {
-		return rosterStateOf(session, at, sessionTtlMs, seams);
+		// Facts first: whether this machine may judge the pid is settled at the read.
+		return rosterStateOf(recordFacts(session, host), at, sessionTtlMs, seams);
 	}
 	const sessionTtlMs = options.sessionTtlMs ?? SESSION_TTL_MS;
 	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
 
+	let host: string | undefined;
+	let identity: HostIdentity | undefined;
 	let store: BusStore | undefined;
 	let record: SessionRecord | undefined;
 	let joined = false;
@@ -158,7 +162,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// One of the two always answered: a caller supplies the directory, or the resolver did.
 			if (dir === undefined) throw new Error("the session bus could not resolve its directory");
 			const repo = options.repo ?? located?.repo;
-			store = createBusStore({ dir });
+			// This machine's identity, made on first use: the host every record and claim names.
+			identity = options.host ?? (options.dir === undefined ? await ensureHostIdentity(agentDir) : undefined);
+			host = identity?.id;
+			store = createBusStore(host === undefined ? { dir } : { dir, host });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
 			const mode = sessionMode(context.mode);
@@ -174,6 +181,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				id,
 				label,
 				pid,
+				...(identity === undefined ? {} : { host: identity.id }),
 				cwd,
 				repoRoot: repo?.root ?? cwd,
 				mode,
@@ -209,6 +217,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (used.has(labelKey(record.label))) record.label = suffixLabel(record.label, record.id);
 		record.lastSeen = now();
 		await store.writeSession(record);
+		if (identity) await store.writeHost(identity, now());
 		await settleLabel();
 		publishLabel();
 		joined = true;
@@ -230,6 +239,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				// grow with every message the session ever read.
 				await cursor?.trim();
 				await store.writeSession(record);
+				// The machine's row beats with the session: a claim lapses on it.
+				if (identity) await store.writeHost(identity, now());
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
 				if (await settleLabel()) publishLabel();
@@ -523,7 +534,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// state: the gone exclusion and the sender's own record are read there, once, rather than
 			// pre-filtered here and read again beside the wording.
 			const at = now();
-			const rows = (await store.sessions()).map((session) => peerRowOf(session, at));
+			const rows = (await store.sessions()).map((session) => peerRowOf(recordFacts(session, host), at));
 			const resolved = resolveRecipients(rows, input.to, me.id);
 			if ("error" in resolved) throw new Error(resolved.error);
 			let paths: string[] | undefined;

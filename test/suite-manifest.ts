@@ -96,6 +96,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/dialog",
 		"view/dialog-behaviour",
 		"view/face",
+		"view/machines",
 		"view/fields-behaviour",
 		"view/header-behaviour",
 		"view/filter-behaviour",
@@ -270,6 +271,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	serve: ["registry", "extension"],
 	"session-bus": [
 		"format",
+		"hosts",
 		"label",
 		"protocol",
 		"prune",
@@ -363,6 +365,7 @@ export const LIB_SUITES: readonly string[] = [
 	"workflow/limits",
 	"workflow/links",
 	"workflow/lock",
+	"workflow/machines",
 	"workflow/one-card",
 	"workflow/page-pointer",
 	"workflow/proven-remove",

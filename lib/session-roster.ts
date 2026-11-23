@@ -10,7 +10,11 @@
  * module's static imports, and none of them needs a path before a call.
  *
  * The rule answers three things, not two: a record whose process is gone is `gone` at once, rather than
- * aging into `quiet` while the paths it claimed stay held.
+ * aging into `quiet` while the paths it claimed stay held. It is this *machine's* rule, though: a bus
+ * directory can be replicated, so a record names the host that wrote it, and `recordFacts` settles whether
+ * this machine may judge its pid at all before the rule sees it — a stranger's pid is a local process by
+ * coincidence, and its heartbeat is the only evidence there is. `readTeam` draws those machines from
+ * `hosts/` beside the records, so one pass answers who is here and which machines they are on.
  *
  * A missing directory is an answer, not an error: no session ever joined, which reads differently from an
  * empty bus.
@@ -25,10 +29,11 @@
  * most — and the caller polls on its own clock.
  */
 
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { WaitingPage } from "./session-mail.ts";
 import { sameLabel } from "./session-label.ts";
+import type { HostRecord } from "./session-files.ts";
 import { isPidAlive, type LivenessFn, type StartTokenFn, startTokenOf } from "./spawn.ts";
 
 /** How long a record's heartbeat stays believable: the rule the bus prunes by. */
@@ -41,6 +46,22 @@ export interface RosterSession {
 	mode: string;
 	/** When the session last proved it was alive. */
 	lastSeen: number;
+	/**
+	 * The machine that wrote the record, when the record named one.
+	 *
+	 * A record with no host was written by a build that had one notion of "here", so this machine
+	 * wrote it; every record this build writes carries {@link host}, which is what lets a replicated
+	 * store tell its own sessions from the other machine's.
+	 */
+	host?: string;
+	/**
+	 * Whether that machine is a different one, decided by the read that knows its own.
+	 *
+	 * `true` is a record this machine must not judge by pid: a stranger's pid names a local process
+	 * that has nothing to do with the session, so the heartbeat is the only evidence there is.
+	 * Absent is this machine's record — which is also every record an older build wrote.
+	 */
+	foreign?: true;
 	/** Messages waiting in its inbox that the record does not say it was told about. */
 	mail: number;
 	/** Message files in its inbox this build cannot parse; absent when there are none. Not part of
@@ -82,7 +103,7 @@ export type RosterState = "live" | "quiet" | "gone";
  * The fields the rule reads, rather than the whole roster row: `session-bus` judges its
  * own records by the same rule without carrying a `mail` count it never shows.
  */
-export type RosterFacts = Pick<RosterSession, "lastSeen" | "pid" | "startToken">;
+export type RosterFacts = Pick<RosterSession, "lastSeen" | "pid" | "startToken" | "foreign">;
 
 /**
  * The host facts {@link rosterStateOf} reads, injectable so every branch is testable.
@@ -108,6 +129,11 @@ export interface RosterSeams {
  * - `quiet` — the heartbeat has aged. If the pid is alive but its start time is not the
  *   one the record wrote, the process is somebody else's and the session is `gone`
  *   after all; a platform that cannot answer the start time leaves it at `quiet`.
+ *
+ * Both process branches are skipped on a record another machine wrote ({@link RosterFacts.foreign}):
+ * its pid is a local process by coincidence, and its start time is another machine's clock. The
+ * heartbeat is then the whole rule, which is why a foreign session reads `quiet` and never `gone`
+ * — "cannot tell" is not a death.
  */
 export function rosterStateOf(
 	session: RosterFacts,
@@ -116,13 +142,34 @@ export function rosterStateOf(
 	seams: RosterSeams = {},
 ): RosterState {
 	const alive = seams.alive ?? isPidAlive;
-	if (session.pid !== undefined && !alive(session.pid)) return "gone";
+	// The one gate both pid branches pass: a stranger's process is not this record's evidence.
+	const own = session.foreign !== true;
+	if (own && session.pid !== undefined && !alive(session.pid)) return "gone";
 	if (now - session.lastSeen <= ttlMs) return "live";
-	if (session.pid !== undefined && session.startToken !== undefined) {
+	if (own && session.pid !== undefined && session.startToken !== undefined) {
 		const current = (seams.token ?? startTokenOf)(session.pid);
 		if (current !== undefined && current !== session.startToken) return "gone";
 	}
 	return "quiet";
+}
+
+/**
+ * One record's facts, with the one decision its reader is the only one able to make.
+ *
+ * A record names the machine that wrote it; whether that machine is *this* one is a fact only a
+ * caller with its own identity can settle. Deciding it at the read is what keeps
+ * {@link rosterStateOf} from judging a stranger's pid: the seam it applies is `foreign`, so a
+ * caller that never asked cannot accidentally skip it.
+ *
+ * `host` is this machine's id, or `undefined` when the caller cannot name itself — and then a
+ * record that names a host is not one it can vouch for, which is why "cannot tell" falls to the
+ * heartbeat rather than to a local `ps`.
+ */
+export function recordFacts<T extends RosterFacts & { host?: string }>(
+	facts: T,
+	host: string | undefined,
+): T & Pick<RosterFacts, "foreign"> {
+	return facts.host === undefined || facts.host === host ? facts : { ...facts, foreign: true as const };
 }
 
 /** One record as addressing reads it: the identity, the name, and the two facts a result prints. */
@@ -375,49 +422,6 @@ function seenOf(value: unknown): string[] | undefined {
 	return value.every((id): id is string => typeof id === "string") ? value : undefined;
 }
 
-/**
- * One session's own label, found by the id it belongs to.
- *
- * The record is filed under the repository's key, which a caller without a board store
- * would have to resolve with git first — and a footer asking for a name that may not
- * exist should not cost two subprocesses at every session start. So the bus root is
- * walked instead and the record is matched on its id: a session id belongs to one
- * session, so the first record that names it is the answer wherever the bus filed it.
- *
- * Every miss is ordinary: a machine with no bus, or with records for other sessions
- * only, answers `undefined` rather than an error.
- */
-export async function readSessionLabel(agentDir: string, id: string): Promise<string | undefined> {
-	const { BUS_DIR_NAME, JSON_SUFFIX, SESSIONS_DIR_NAME } = await import("./session-files.ts");
-	const root = join(agentDir, BUS_DIR_NAME);
-	let keys: string[];
-	try {
-		keys = await readdir(root);
-	} catch {
-		return undefined;
-	}
-	for (const key of keys) {
-		const dir = join(root, key, SESSIONS_DIR_NAME);
-		let names: string[];
-		try {
-			names = await readdir(dir);
-		} catch {
-			continue;
-		}
-		for (const name of names) {
-			if (!name.endsWith(JSON_SUFFIX)) continue;
-			let parsed: unknown;
-			try {
-				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
-			} catch {
-				continue;
-			}
-			if (isSessionPayload(parsed) && parsed.id === id) return parsed.label;
-		}
-	}
-	return undefined;
-}
-
 /** One record as this reader parsed it, before the ledger turns it into a row. */
 interface RecordedSession {
 	id: string;
@@ -430,14 +434,37 @@ interface RecordedSession {
 	startToken?: string;
 	turnAt?: number;
 	watching?: { armed: boolean; wake: boolean };
+	/** The machine the record named, when it named one. */
+	host?: string;
 }
 
-/** The bus as the page draws it: who is on it, and what is waiting on it. */
+/** The bus as the page draws it: who is on it, what is waiting on it, and the machines behind both. */
 export interface TeamRead {
 	/** `undefined` when the bus has never been used in this repository. */
 	roster: RosterSession[] | undefined;
 	/** The queue that same read drew, so a page pays no second pass for it. */
 	waiting: WaitingPage;
+	/**
+	 * The machine entries under `hosts/`: every machine that has written here, this one included.
+	 *
+	 * Carried beside the rows because a machine is a different fact from a session — it outlives
+	 * every record it wrote, which is what lets a page say "last seen 3h ago" about a peer whose
+	 * sessions have all been pruned.
+	 */
+	hosts?: HostRecord[];
+}
+
+/** What one read of the bus needs beyond the directory. */
+export interface TeamReadOptions {
+	/** How many waiting messages to draw. */
+	limit?: number;
+	/**
+	 * This machine's host id, so a record's machine can be judged at the read.
+	 *
+	 * Absent is a caller that cannot name its own machine: every record that names a host is then
+	 * foreign to it, because a record it cannot vouch for must not be judged by a local pid.
+	 */
+	host?: string;
 }
 
 /**
@@ -450,8 +477,8 @@ export interface TeamRead {
  * The mail number comes from the ledger in `session-mail.ts`, the one reader of "written and not
  * told", so a row, a chip and a queue cannot count one inbox differently.
  */
-export async function readRoster(dir: string): Promise<RosterSession[] | undefined> {
-	return (await readTeam(dir)).roster;
+export async function readRoster(dir: string, options: TeamReadOptions = {}): Promise<RosterSession[] | undefined> {
+	return (await readTeam(dir, options)).roster;
 }
 
 /**
@@ -462,84 +489,34 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
  * by the call rather than by the import, because every entry that shows a teammate also imports
  * this file, and the ledger is only needed once one is drawn.
  */
-export async function readTeam(dir: string, limit?: number): Promise<TeamRead> {
+export async function readTeam(dir: string, options: TeamReadOptions = {}): Promise<TeamRead> {
 	const records = await readRecords(dir);
 	if (records === undefined) return { roster: undefined, waiting: { messages: [], dropped: 0 } };
 	const mail = await import("./session-mail.ts");
-	const ledger = await mail.readMailLedger(
-		dir,
-		records.map((record) => ({ id: record.id, label: record.label, told: record.told })),
-	);
+	const { readHosts } = await import("./session-files.ts");
+	const [ledger, hosts] = await Promise.all([
+		mail.readMailLedger(
+			dir,
+			records.map((record) => ({ id: record.id, label: record.label, told: record.told })),
+		),
+		// The machines come from the same pass as the rows a page draws: one directory read, and a
+		// host that arrived since the last frame is part of the frame that draws it.
+		readHosts(dir),
+	]);
 	return {
 		roster: records
-			.map((record) => rosterRow(record, mail.untoldIn(ledger, record.id), mail.refusedIn(ledger, record.id)))
+			.map((record) =>
+				rosterRow(
+					record,
+					mail.untoldIn(ledger, record.id),
+					mail.refusedIn(ledger, record.id),
+					recordFacts(record, options.host).foreign === true,
+				),
+			)
 			.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id)),
-		waiting: mail.pageOf(ledger, limit),
+		waiting: mail.pageOf(ledger, options.limit),
+		...(hosts.length === 0 ? {} : { hosts }),
 	};
-}
-
-/**
- * The bus's cheapest question: a stamp that moves when a file the page draws moves.
- *
- * A page asks this once a tick and reads the bus only when the answer changed, because that
- * read is a ledger walk over every record and every inbox. Contents are not what is asked: a
- * directory's **entry names** are, because that is what moves when a session joins or leaves
- * (`sessions/`), when an inbox appears (`inbox/`), and when a message lands or is consumed
- * (`inbox/<id>`). A directory's own mtime sits beside its names, and it is the half that is not
- * to be trusted: Windows updates it lazily, so an entry can land and leave the parent's clock
- * exactly where it was — a join that the poll then never saw. The mtime stays for the one change
- * a name set cannot see on POSIX, an entry renamed with the count unchanged. A path that is not
- * there reads `-`, so a bus arriving later is news rather than a silence.
- *
- * A record rewritten in place — a heartbeat, a label — moves neither, which is why the page
- * sweeps every five seconds for what no file announces.
- *
- * Never throws: a bus nobody can read is a stamp that does not move, and a caller's own slow
- * cadence still builds its frame.
- */
-export async function stampBus(dir: string): Promise<string> {
-	const { busPaths } = await import("./session-files.ts");
-	const paths = busPaths(dir);
-	const parts: string[] = [
-		await stampOfDir(paths.dir),
-		await stampOfDir(paths.sessions),
-		await stampOfDir(paths.inbox),
-	];
-	// Each inbox is its own directory, and its names are the messages a row counts.
-	for (const name of await namesIn(paths.inbox)) {
-		parts.push(`${name}:${await stampOfDir(join(paths.inbox, name))}`);
-	}
-	return parts.join("|");
-}
-
-/**
- * One directory as a stamp part: its mtime and its entry names, or `-` when it is not there.
- *
- * The names come from {@link namesIn}, which answers `[]` for a directory that vanished between
- * the stat and the listing — the race a page's one-second ticker would otherwise be the first to
- * meet.
- */
-async function stampOfDir(path: string): Promise<string> {
-	const mtime = await stampOf(path);
-	return mtime === "-" ? mtime : `${mtime}|${(await namesIn(path)).join(",")}`;
-}
-
-/** One path's mtime as a stamp part: absent is `-`, because it is a value a later stamp can move. */
-async function stampOf(path: string): Promise<string> {
-	try {
-		return String((await stat(path)).mtimeMs);
-	} catch {
-		return "-";
-	}
-}
-
-/** One directory's entries, sorted: the order a listing comes back in is not a fact to compare. */
-async function namesIn(dir: string): Promise<string[]> {
-	try {
-		return (await readdir(dir)).sort();
-	} catch {
-		return [];
-	}
 }
 
 /** Every record on disk, parsed once, or `undefined` when the bus has never recorded one. */
@@ -566,6 +543,7 @@ async function readRecords(dir: string): Promise<RecordedSession[] | undefined> 
 		const pid = pidOf((parsed as { pid?: unknown }).pid);
 		const rawToken = (parsed as { startToken?: unknown }).startToken;
 		const rawTurn = (parsed as { turnAt?: unknown }).turnAt;
+		const rawHost = (parsed as { host?: unknown }).host;
 		records.push({
 			id,
 			label,
@@ -576,19 +554,22 @@ async function readRecords(dir: string): Promise<RecordedSession[] | undefined> 
 			...(typeof rawToken === "string" && rawToken !== "" ? { startToken: rawToken } : {}),
 			...(typeof rawTurn === "number" && Number.isFinite(rawTurn) ? { turnAt: rawTurn } : {}),
 			...(watching === undefined ? {} : { watching }),
+			...(typeof rawHost === "string" && rawHost !== "" ? { host: rawHost } : {}),
 		});
 	}
 	return records;
 }
 
 /** One record as the page's row: what it says, how much mail it is owed, and what it cannot read. */
-function rosterRow(record: RecordedSession, mail: number, refused: readonly string[]): RosterSession {
+function rosterRow(record: RecordedSession, mail: number, refused: readonly string[], foreign: boolean): RosterSession {
 	return {
 		id: record.id,
 		label: record.label,
 		mode: record.mode,
 		lastSeen: record.lastSeen,
 		mail,
+		...(record.host === undefined ? {} : { host: record.host }),
+		...(foreign ? { foreign: true as const } : {}),
 		...(refused.length === 0 ? {} : { refused }),
 		...(record.pid === undefined ? {} : { pid: record.pid }),
 		...(record.startToken === undefined ? {} : { startToken: record.startToken }),

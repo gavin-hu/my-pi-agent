@@ -83,7 +83,7 @@ requests   board, team ───► lib/session-tool.ts
 |---|---|---|
 | a card | one session, by its id | released, reclaimed, or closed |
 | the two signatures | the lead, never a session holding the card | written on the card |
-| a path claim | one session | released, or that session ends |
+| a path claim | one session | released, or that session ends — and, for a claim from another machine, when that machine's heartbeat stops |
 | a label | one session | its heartbeat stops and ten minutes pass |
 | an inbox message | one recipient | read, or after 24 hours |
 
@@ -94,8 +94,10 @@ requests   board, team ───► lib/session-tool.ts
   process with your file access can read and write it.
 - **No lock.** Ownership is a session id, so two sessions can still open one file; a
   path claim is what makes the collision visible before the edit.
-- **One machine, one user.** A peer on another host is not on the bus, and
-  membership does not survive a resume or a restart — unread mail and the label do.
+- **One user, and one machine per session.** A session's process is on the machine
+  that wrote its record, so another machine's session is read by its heartbeat and
+  never by its pid — and mailed from here it will not read it. Membership does not
+  survive a resume or a restart — unread mail and the label do.
 - **No forced takeover.** Reclaiming a card takes it back to `backlog`; nobody
   takes a path claim from a session that is still running.
 
@@ -111,6 +113,15 @@ wrote is a rival revision, so the operation is replayed onto what is there. A ca
 being replaced is refused by number with both revisions named, never forced over. That is what
 makes the board **converge** — no operation is lost silently — and it is not linearizability: a
 copy the client delivers after the read-back is caught by the next write on either machine.
+
+**The bus joins the same directory.** A replicated store means `session-bus/` is shared too, so a
+record names the machine that wrote it and a claim names the machine that made it. Two rules follow
+from what a peer can actually see: a record from another machine is judged by its heartbeat alone
+(its pid here is a local process by coincidence), and its claim lapses on *that machine's*
+heartbeat, read from `session-bus/hosts/<host>.json`. Each machine's identity lives in
+`~/.pi/agent/presence/host.json` — outside the store, because a client would replicate it and the
+other machine would then claim this one's name. The Team tab draws those machines: a row per
+machine saying when it was last seen, and the machine's name on a session that is not here.
 
 **Ids** come from `next-id.json` beside the cards, read as the maximum of the counter and the
 piles, so a stale copy cannot unspend one; the exclusive create still decides when two machines

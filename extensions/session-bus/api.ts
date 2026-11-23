@@ -12,6 +12,7 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { HostIdentity } from "../../lib/session-files.ts";
 import type { LivenessFn, StartTokenFn } from "../../lib/spawn.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
 import type { WatchingState } from "./mail-watch.ts";
@@ -27,6 +28,13 @@ export interface SessionBusOptions {
 	alive?: LivenessFn;
 	/** Test seam: the start-time seam the record is stamped with. */
 	startTokenFn?: StartTokenFn;
+	/**
+	 * Test seam: this machine's identity, as `presence/host.json` holds it.
+	 *
+	 * The product reads it, making it on first use. A caller that names its own `dir` names its host
+	 * too; one that names neither writes records and claims an older build would have written.
+	 */
+	host?: HostIdentity;
 	/** Test seam: skip git and use this repository identity, saying whether git would have resolved it. */
 	repo?: { root: string; key: string; fromGit?: boolean };
 	/** Heartbeat interval; 0 disables it (tests). */

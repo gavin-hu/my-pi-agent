@@ -127,6 +127,8 @@ export function fakeBoardSession(name = "team-agent-slead"): BoardSession & {
 		// `reclaim` is the tool's, and the one caller: no `board` word reads a holder's record.
 		holder: async () => undefined,
 		now: () => 0,
+		// A page's words name no machine: this board reads no identity.
+		host: async () => undefined,
 		who: async () => ({ id: "s-lead", label: seat ?? name }),
 		serving: () => seat,
 		serve: (label) => {

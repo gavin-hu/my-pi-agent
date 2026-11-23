@@ -8,7 +8,13 @@
  * answers to `billing-core` cannot be assigned.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { writeBusRecord } from "../test/helpers/bus.ts";
+import { tempDir } from "../test/helpers/env.ts";
+import { makeTempTracker } from "../test/helpers/git.ts";
+import { BUS_DIR_NAME, SESSIONS_DIR_NAME } from "./session-files.ts";
 import {
 	agentLabel,
 	checkoutNames,
@@ -20,6 +26,7 @@ import {
 	MAX_TEAMMATES,
 	normalizeLabel,
 	normalizeTeammates,
+	readSessionLabel,
 	sameLabel,
 	SAME_LABEL_JS,
 	shortId,
@@ -261,5 +268,52 @@ describe("defaultLabel", () => {
 
 	test("ends on the id when even the repository has no name", () => {
 		expect(defaultLabel({ cwd: "/", id: "session-9191", checkouts: [{ path: "/" }] })).toBe("session");
+	});
+});
+
+const temps = makeTempTracker();
+afterAll(() => temps.flush());
+
+/** One agent directory's bus for a repository key, with the `sessions/` its records live in. */
+function busUnder(agentDir: string, key: string): string {
+	const dir = join(agentDir, BUS_DIR_NAME, key);
+	mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
+	return dir;
+}
+
+describe("readSessionLabel", () => {
+	const NOW = 1_000_000;
+
+	test("finds this session's record under whichever key filed it", async () => {
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		// A second repository's bus sits beside the first: the id decides, not the directory.
+		writeBusRecord(busUnder(agentDir, "first"), { id: "s-1", label: "billing-core", lastSeen: NOW });
+		writeBusRecord(busUnder(agentDir, "second"), { id: "s-2", label: "billing-lead", lastSeen: NOW });
+		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
+		expect(await readSessionLabel(agentDir, "s-2")).toBe("billing-lead");
+	});
+
+	test("answers undefined for a session no record names, and with no bus at all", async () => {
+		const empty = temps.track(tempDir("pi-bus-agent-"));
+		expect(await readSessionLabel(empty, "s-1")).toBeUndefined();
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		writeBusRecord(busUnder(agentDir, "key"), { id: "s-2", label: "billing-lead", lastSeen: NOW });
+		expect(await readSessionLabel(agentDir, "s-1")).toBeUndefined();
+	});
+
+	test("does not take a file the bus's own shape refuses, nor one that will not parse", async () => {
+		// An id and a name alone are not a record: a half-written file must not name the session,
+		// and a file that is not JSON costs itself rather than the walk.
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const dir = busUnder(agentDir, "key");
+		writeFileSync(join(dir, SESSIONS_DIR_NAME, "broken.json"), "{ not json\n", "utf-8");
+		writeFileSync(join(dir, SESSIONS_DIR_NAME, "half.json"), JSON.stringify({ id: "s-1", label: "half" }), "utf-8");
+		expect(await readSessionLabel(agentDir, "s-1")).toBeUndefined();
+	});
+
+	test("answers the label of a record that is one", async () => {
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		writeBusRecord(busUnder(agentDir, "key"), { id: "s-1", label: "billing-core", lastSeen: NOW });
+		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
 	});
 });
