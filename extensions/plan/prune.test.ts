@@ -6,10 +6,24 @@ import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
 import { writeConfig } from "../../test/helpers/fixtures/footer.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { billingCard } from "../../test/helpers/fixtures/board.ts";
+import { repoKeyOf } from "../../lib/repo-key.ts";
 import { pruneAll, pruneText, sweepQuietly } from "./prune.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-11-22T12:00:00.000Z");
+
+/**
+ * The id one directory's state is filed under, computed from the identity rules rather than asked
+ * of the resolver: a sweep that names the wrong store must fail here, not follow the code it tests.
+ */
+function storeIdOf(cwd: string): string {
+	return `local-${repoKeyOf(cwd)}`;
+}
+
+/** The plan store the `plan` tool writes: one repository's state, one directory. */
+function storeOf(agentDir: string, cwd: string): string {
+	return join(agentDir, "repos", storeIdOf(cwd), "plans");
+}
 
 /** A plan file `days` old, written by hand so the suite needs no store. */
 function writePlan(dir: string, name: string, days: number): void {
@@ -21,9 +35,9 @@ function writePlan(dir: string, name: string, days: number): void {
 	utimesSync(path, (NOW - days * DAY) / 1_000, (NOW - days * DAY) / 1_000);
 }
 
-/** One card that records `plan` as its plan, in the board filed under `key`. */
-function writeCard(agentDir: string, key: string, plan: string): void {
-	const pile = join(agentDir, "board", key, "cards");
+/** One card that records `plan` as its plan, in the board beside the store. */
+function writeCard(agentDir: string, cwd: string, plan: string): void {
+	const pile = join(agentDir, "repos", storeIdOf(cwd), "board", "cards");
 	mkdirSync(pile, { recursive: true });
 	const card = billingCard({ planPath: plan });
 	// The fixture carries the version the reader gates on, so the file is written as it says.
@@ -35,19 +49,29 @@ function writeBound(cwd: string, plan: Record<string, unknown>): void {
 	writeConfig(join(cwd, CONFIG_DIR_NAME), "bytefly.json", { plan });
 }
 
+/** The plan names one store holds now, oldest first. */
+async function namesIn(dir: string): Promise<string[]> {
+	const { readPlanStore } = await import("./retention.ts");
+	return (await readPlanStore(dir)).map((entry) => entry.name);
+}
+
 describe("pruneAll", () => {
-	test("sweeps every keyed store, keeps a card's plan, and reports the counts", async () => {
+	test("removes an unreferenced plan and keeps a card's, in one pass over the store the tool writes", async () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-prune-cwd-");
 			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
-			const store = join(agentDir, "plans", "abc123");
+			const store = storeOf(agentDir, cwd);
 			writePlan(store, "newest.md", 1);
 			writePlan(store, "gone.md", 400);
 			writePlan(store, "recorded.md", 9_000);
-			writeCard(agentDir, "abc123", "recorded.md");
+			writeCard(agentDir, cwd, "recorded.md");
 			const report = await pruneAll(createFakePi().pi, cwd, { nowMs: NOW });
+			// Both directions in one pass, because either half alone passes on an inert sweep: a
+			// protection set read from a board nothing writes would take `recorded.md` with it, and a
+			// sweep of the flat tree the mover emptied would take neither.
 			expect(report).toEqual({ stores: 1, removed: 1, kept: 2, protected: 1, bytes: expect.any(Number) });
 			expect(report.bytes).toBeGreaterThan(0);
+			expect(await namesIn(store)).toEqual(["newest.md", "recorded.md"]);
 		});
 	});
 
@@ -55,7 +79,7 @@ describe("pruneAll", () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-prune-cwd-");
 			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
-			const store = join(agentDir, "plans", "abc123");
+			const store = storeOf(agentDir, cwd);
 			writePlan(store, "newest.md", 1);
 			writePlan(store, "gone.md", 400);
 			const planned = await pruneAll(createFakePi().pi, cwd, { nowMs: NOW, dryRun: true });
@@ -72,7 +96,7 @@ describe("pruneAll", () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-prune-cwd-");
 			writeBound(cwd, { enabled: false, keep: 1, maxAgeDays: 180 });
-			const store = join(agentDir, "plans", "abc123");
+			const store = storeOf(agentDir, cwd);
 			writePlan(store, "newest.md", 1);
 			writePlan(store, "gone.md", 400);
 			expect((await pruneAll(createFakePi().pi, cwd, { nowMs: NOW })).removed).toBe(1);
@@ -85,13 +109,13 @@ describe("sweepQuietly", () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-quiet-cwd-");
 			writeBound(cwd, { keep: 100, maxAgeDays: 180 });
-			// Outside git the store is the plans directory itself, which is the key the sweep
-			// resolves to here; both plans are young and inside `keep: 100`, so neither trigger fires.
-			const store = join(agentDir, "plans");
+			// The store the tool resolved for this directory; both plans are young and inside
+			// `keep: 100`, so neither trigger fires.
+			const store = storeOf(agentDir, cwd);
 			writePlan(store, "one.md", 1);
 			writePlan(store, "two.md", 2);
 			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
-			expect(await (await import("./retention.ts")).readPlanStore(store)).toHaveLength(2);
+			expect(await namesIn(store)).toEqual(["one.md", "two.md"]);
 		});
 	});
 
@@ -99,32 +123,63 @@ describe("sweepQuietly", () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-quiet-cwd-");
 			writeBound(cwd, { keep: 100, maxAgeDays: 180 });
-			const store = join(agentDir, "plans");
+			const store = storeOf(agentDir, cwd);
 			writePlan(store, "fresh.md", 1);
 			writePlan(store, "stale.md", 400);
 			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
 			// The automatic pass reads a short store too, because the age trigger is its own reason.
-			expect((await (await import("./retention.ts")).readPlanStore(store)).map((entry) => entry.name)).toEqual([
-				"fresh.md",
-			]);
+			expect(await namesIn(store)).toEqual(["fresh.md"]);
 		});
 	});
 
-	test("does nothing at all when retention is off, and sweeps the same store when it is on", async () => {
+	test("keeps what the board beside the store records, and does nothing when retention is off", async () => {
 		await withAgentDir(async (agentDir) => {
 			const cwd = tempDir("plan-quiet-cwd-");
-			const store = join(agentDir, "plans");
-			const { readPlanStore } = await import("./retention.ts");
+			const store = storeOf(agentDir, cwd);
 			writePlan(store, "newest.md", 1);
 			writePlan(store, "gone.md", 400);
+			writePlan(store, "recorded.md", 400);
+			writeCard(agentDir, cwd, "recorded.md");
 			writeBound(cwd, { enabled: false, keep: 1, maxAgeDays: 180 });
 			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
-			expect(await readPlanStore(store)).toHaveLength(2);
-			// The same two files and the same bounds, with the switch the other way: the plan that
-			// trips both bounds goes, which is what makes the first half the switch's doing.
+			expect(await namesIn(store)).toEqual(["gone.md", "newest.md", "recorded.md"]);
+			// The same files and the same bounds, with the switch the other way: the plan that trips a
+			// bound goes, the one a card records stays, and the first half is the switch's doing.
 			writeBound(cwd, { enabled: true, keep: 1, maxAgeDays: 180 });
 			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
-			expect((await readPlanStore(store)).map((entry) => entry.name)).toEqual(["newest.md"]);
+			expect(await namesIn(store)).toEqual(["newest.md", "recorded.md"]);
+		});
+	});
+});
+
+describe("the protection set a sweep reads", () => {
+	test("an absent board protects nothing, so a plans-only repository is still swept", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = tempDir("plan-quiet-cwd-");
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
+			const store = storeOf(agentDir, cwd);
+			writePlan(store, "stale.md", 400);
+			// No board was ever opened: there is no card, so nothing records a plan and the store is
+			// sweepable. Absent is not the same answer as unreadable.
+			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
+			expect(await namesIn(store)).toEqual([]);
+		});
+	});
+
+	test("a board that is there and cannot be read declines, rather than deleting what it could not see", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = tempDir("plan-quiet-cwd-");
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
+			const store = storeOf(agentDir, cwd);
+			writePlan(store, "stale.md", 400);
+			const pile = join(agentDir, "repos", storeIdOf(cwd), "board", "cards");
+			mkdirSync(pile, { recursive: true });
+			// A card the reader refuses may still record the plan in front of it, so the pass counts
+			// what it could read and leaves the rest alone.
+			writeFileSync(join(pile, "0004.json"), "{ not a card");
+			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
+			expect(await namesIn(store)).toEqual(["stale.md"]);
+			expect(await pruneAll(createFakePi().pi, cwd, { nowMs: NOW })).toMatchObject({ stores: 0, removed: 0 });
 		});
 	});
 });

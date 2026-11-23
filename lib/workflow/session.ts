@@ -22,9 +22,7 @@
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { resolveEffectiveCwd } from "../env.ts";
-import { plansDirFor } from "../plans/paths.ts";
-import { repoKeyFor } from "../repo-key.ts";
+import { PLANS_DIR_NAME } from "../plans/paths.ts";
 import { agentLabel, defaultLabel, labelKey, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
 import { presenceOf, type RosterSession, readRoster, readTeam, type TeamRead } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
@@ -123,10 +121,11 @@ export interface BoardSession {
 	 * This repository's plan store, where a card's plan file has to live.
 	 *
 	 * The board records the artifact a card is executed against, so it has to answer the
-	 * question `plan` answers: which directory that store is. One key rule — `repoKeyFor`
-	 * over the effective cwd — and the unkeyed branch outside a repository, so a card cannot
-	 * name a plan the plan tool would refuse to read. Resolved once per working directory,
-	 * with a failed resolution as unremembered as a failed store.
+	 * question `plan` answers: which directory that store is. The answer is the sibling of the
+	 * board store this session resolved — one repository's state is one directory (#771) — which
+	 * is the rule {@link busDirFor} states for the bus and the one that keeps a plan the tool
+	 * just wrote contractible. Resolved once per working directory, with a failed resolution as
+	 * unremembered as a failed store.
 	 */
 	planDir(cwd: string): Promise<string>;
 	/** The seat this session serves the page as, or undefined when it is not serving. */
@@ -299,7 +298,7 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 		},
 		planDir(cwd) {
 			return rememberLoad(planDirs, cwd, () =>
-				repoKeyFor(pi, resolveEffectiveCwd(cwd)).then((repo) => plansDirFor(agentDir ?? getAgentDir(), repo)),
+				session.store(cwd).then((store) => join(dirname(store.dir), PLANS_DIR_NAME)),
 			);
 		},
 		serving: () => seat,
