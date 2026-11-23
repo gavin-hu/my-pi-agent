@@ -348,6 +348,7 @@ export const LIB_SUITES: readonly string[] = [
 	"workflow/card-arg",
 	"workflow/ended",
 	"workflow/claims",
+	"workflow/claims-reclaim",
 	"workflow/clock",
 	"workflow/concurrency",
 	"workflow/config",

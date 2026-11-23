@@ -112,10 +112,58 @@ export async function reclaimHeld(
 	const failed: string[] = [];
 	for (const card of held) {
 		if (card.lane !== "execute" || card.paths.length === 0) continue;
-		const clause = reclaimClause(await claims.claim(ctx, card.paths).catch(failedClaim));
+		const clause = reclaimClause(await claimWhatWeCan(claims, ctx, card.paths));
 		if (clause !== undefined) failed.push(`${cardRef(card.id)}: ${clause}`);
 	}
 	return failed.length === 0 ? undefined : failed.join("; ");
+}
+
+/** What the two-ask crossing took, and what a peer held. */
+interface TakenPaths {
+	/** The paths this session now holds, which may be fewer than the card names. */
+	claimed: string[];
+	/** The card's paths a peer holds, from either ask, each named once. */
+	conflicts: ClaimConflict[];
+	/** Set when a batch was refused outright: the door words it, because the bus is not there. */
+	error?: string;
+}
+
+/**
+ * Claim what nobody holds: the batch as it stands, then — only when conflicts came back — the rest.
+ *
+ * A batch is all-or-nothing at the bus, and this asks a second time rather than loosening that: one
+ * peer-held path used to void the whole crossing, so a card entered `execute` holding nothing while
+ * its row read `execute` and named its paths. The second batch can be refused too, by a peer that
+ * took a free path in the window between the two asks, so the answer keeps the union of what was
+ * refused and never counts a path the later batch refused as claimed. A clean list still costs one
+ * call, and the free set is exact because a conflict names the path the card asked for.
+ */
+async function claimWhatWeCan(claims: Claims, ctx: ExtensionContext, paths: readonly string[]): Promise<TakenPaths> {
+	const first = await claims.claim(ctx, paths).catch(failedClaim);
+	if (!first.ok) return { claimed: [], conflicts: [], error: first.error };
+	if (first.conflicts.length === 0) return { claimed: first.claimed, conflicts: [] };
+	const held = new Set(first.conflicts.map((conflict) => conflict.path));
+	const free = paths.filter((path) => !held.has(path));
+	if (free.length === 0) return { claimed: [], conflicts: first.conflicts };
+	const second = await claims.claim(ctx, free).catch(failedClaim);
+	if (!second.ok) return { claimed: [], conflicts: first.conflicts, error: second.error };
+	return { claimed: second.claimed, conflicts: [...first.conflicts, ...second.conflicts] };
+}
+
+/**
+ * What two asks said, in one clause: what the crossing took, and what a peer held.
+ *
+ * A clean batch answers only the first half. A partial one says both, because "claimed 2 paths" alone
+ * would read as the card holding every path it names. `tail` is the door's own addition — the edit,
+ * whose removals must not stand beside a refused add.
+ */
+function tookClause(taken: TakenPaths, tail = ""): string | undefined {
+	if (taken.claimed.length === 0) {
+		return taken.conflicts.length === 0 ? undefined : nothingClaimed(taken.conflicts, tail);
+	}
+	const took = `claimed ${plural(taken.claimed.length, "path")}`;
+	if (taken.conflicts.length === 0) return took;
+	return `${took}, ${plural(taken.conflicts.length, "path")} already held by ${holdersOf(taken.conflicts)}${tail}`;
 }
 
 /** A seam that threw, as the answer it would have given: a bus that went away is a refusal. */
@@ -127,10 +175,11 @@ function failedClaim(error: unknown): { ok: false; error: string } {
  * What a re-claim answered with something other than "held": the refusal, or the paths another
  * session has. Shorter than the crossing's clause because the card id it follows is the subject.
  */
-function reclaimClause(answer: ClaimPathsResult): string | undefined {
-	if (!answer.ok) return `not claimed (${sanitizeLine(answer.error)})`;
-	if (answer.conflicts.length === 0) return undefined;
-	return nothingClaimed(answer.conflicts);
+function reclaimClause(taken: TakenPaths): string | undefined {
+	if (taken.error !== undefined) return `not claimed (${sanitizeLine(taken.error)})`;
+	// Silence when it all landed: the first turn after a restart is not the place for a receipt. A
+	// shortfall is the one thing worth the line, and it now says what was taken beside it.
+	return taken.conflicts.length === 0 ? undefined : tookClause(taken);
 }
 
 /**
@@ -151,10 +200,16 @@ async function editedClause(
 	const removed = was.filter((path) => !now.includes(path));
 	const said: string[] = [];
 	if (added.length > 0) {
-		const answer = await claims.claim(ctx, added).catch(failedClaim);
-		if (!answer.ok) return `paths not claimed (${sanitizeLine(answer.error)})`;
-		if (answer.conflicts.length > 0) return nothingClaimed(answer.conflicts, " or released");
-		said.push(`claimed ${plural(answer.claimed.length, "path")}`);
+		const taken = await claimWhatWeCan(claims, ctx, added);
+		if (taken.error !== undefined) return `paths not claimed (${sanitizeLine(taken.error)})`;
+		// A refused added path keeps the removals: a half-applied edit would free a file the card still
+		// names, so nothing is released and the clause carries both halves, the refusal last.
+		if (taken.conflicts.length > 0) {
+			return taken.claimed.length === 0
+				? nothingClaimed(taken.conflicts, " or released")
+				: tookClause(taken, ", nothing released");
+		}
+		said.push(`claimed ${plural(taken.claimed.length, "path")}`);
 	}
 	if (removed.length > 0) {
 		const answer = await claims.release(ctx, removed).catch(failedClaim);
@@ -165,13 +220,17 @@ async function editedClause(
 	return said.length === 0 ? undefined : said.join(", ");
 }
 
-/** What a claim did, as one clause: the paths it took, the ones it could not, or why not. */
+/**
+ * What a crossing did, as one clause: the paths it took, the ones a peer held, or why not.
+ *
+ * Both halves when it is partial, because a card in `execute` that named six paths and holds five is
+ * a fact a reader needs on the line that moved it.
+ */
 async function claimedClause(claims: Claims, ctx: ExtensionContext, card: Card): Promise<string | undefined> {
 	if (card.paths.length === 0) return undefined;
-	const answer = await claims.claim(ctx, card.paths).catch(failedClaim);
-	if (!answer.ok) return `paths not claimed (${sanitizeLine(answer.error)})`;
-	if (answer.conflicts.length === 0) return `claimed ${plural(answer.claimed.length, "path")}`;
-	return nothingClaimed(answer.conflicts);
+	const taken = await claimWhatWeCan(claims, ctx, card.paths);
+	if (taken.error !== undefined) return `paths not claimed (${sanitizeLine(taken.error)})`;
+	return tookClause(taken);
 }
 
 /**
