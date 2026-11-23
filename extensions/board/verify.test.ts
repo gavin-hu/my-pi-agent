@@ -232,6 +232,9 @@ function worktreeBench(): {
 		if (args.includes("--git-common-dir")) return { stdout: `${common}\n`, stderr: "", code: 0 };
 		// Before the `HEAD` answer below, which would otherwise answer the branch question with a sha.
 		if (args.includes("--abbrev-ref")) return { stdout: `${branchOf(cwd)}\n`, stderr: "", code: 0 };
+		// The repository's first commit, not the tree's head: a worktree shares its history, so the
+		// identity the store is filed under is the repository's and both roots resolve one store.
+		if (args.includes("--max-parents=0")) return { stdout: `${ROOT_SHA}\n`, stderr: "", code: 0 };
 		if (args.includes("HEAD"))
 			return { stdout: `${cwd === worktree ? WORKTREE_SHA : CHECKOUT_SHA}\n`, stderr: "", code: 0 };
 		if (args.includes("--show-toplevel")) return { stdout: `${cwd}\n`, stderr: "", code: 0 };
@@ -243,3 +246,5 @@ function worktreeBench(): {
 /** The two commits the fake git answers with, so a case can tell one tree from the other. */
 const CHECKOUT_SHA = "b59cf427";
 const WORKTREE_SHA = "6c1e9a02";
+/** The repository's first commit, which every tree of it shares. */
+const ROOT_SHA = "3f1a0c55";
