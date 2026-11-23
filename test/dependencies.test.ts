@@ -429,10 +429,6 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// so that +1 cannot come back the way `json` did, and `tools/nested` behind synchronous
 	// `planMerge` (`todo-seed.ts:37`). Re-derive any price with `staticGraph`
 	// (`test/helpers/graph.ts`) over a reader that drops one specifier.
-	// 52 -> 53 (#803): the modes' active-set filter is one module of its own (`lib/tool-set.ts`),
-	// because plan mode and lead mode apply one policy to one active set and a second copy of the
-	// hid-and-restore bookkeeping is how a mode leaves a tool behind. It cannot defer: `enable`,
-	// `disable` and `restore` are synchronous, and the filter is what they call.
 	plan: 53, // 53 <= 53 (#803)
 	team: 54, // 54 <= 54 (#748)
 	job: 45,

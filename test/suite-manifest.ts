@@ -24,6 +24,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"footer/collect/label",
 		"footer/collect/team",
 		"footer/footer",
+		"footer/mode-keys",
 		"footer/team-root",
 		"mode/editor",
 		"notify/notify",

@@ -1274,27 +1274,6 @@ describe("footer segments", () => {
 		expect(theme.calls).toContainEqual(["accent", `${GLYPHS.autoMode} auto`]);
 	});
 
-	test("draws the lead mode in accent, and never beside the plan chip", () => {
-		const seat = fullSnapshot({ statuses: new Map([[STATUS_KEYS.leadMode, "lead"]]) });
-		expect(modeSegment(seat, fakeTheme)?.forms).toEqual([`${GLYPHS.lead} lead`, GLYPHS.lead]);
-		const theme = makeRecordingTheme() as any;
-		modeSegment(seat, theme);
-		expect(theme.calls).toContainEqual(["accent", `${GLYPHS.lead} lead`]);
-
-		// Plan's guarantee is the stronger one, so a bar carrying both reads plan.
-		const both = fullSnapshot({
-			statuses: new Map([
-				[STATUS_KEYS.leadMode, "lead"],
-				[STATUS_KEYS.planMode, "plan"],
-			]),
-		});
-		expect(modeSegment(both, fakeTheme)?.forms?.[0]).toBe(`${GLYPHS.plan} plan`);
-	});
-
-	test("never repeats a mode chip in the statuses segment", () => {
-		expect(modesSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.leadMode, "lead"]]) }), fakeTheme)).toBeNull();
-	});
-
 	test("has no status slot when every status is routed elsewhere", () => {
 		expect(modesSegment(fullSnapshot({ statuses: new Map() }), fakeTheme)).toBeNull();
 		expect(
