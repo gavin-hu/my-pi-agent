@@ -11,15 +11,22 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
-import { readOnlyGitCommand } from "./git-bash.ts";
+import { type ModePhrasing, readOnlyGitCommand } from "./read-command.ts";
+
+/** Plan mode's two clauses: the phrasings it shipped, kept byte-identical here. */
+const PLAN: ModePhrasing = { label: "plan mode", whileDoing: "while planning" };
+
+/** One command, judged as the planning mode asks. */
+const guard = (command: string) => readOnlyGitCommand(command, PLAN);
+
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 describe("read-only git shell guard — allowed shapes", () => {
-	const ok = (command: string): boolean => readOnlyGitCommand(command).ok;
+	const ok = (command: string): boolean => guard(command).ok;
 	const reason = (command: string): string => {
-		const verdict = readOnlyGitCommand(command);
+		const verdict = guard(command);
 		return verdict.ok ? "" : verdict.reason;
 	};
 
@@ -84,9 +91,9 @@ describe("read-only git shell guard — allowed shapes", () => {
 });
 
 describe("read-only git shell guard — refused shapes", () => {
-	const ok = (command: string): boolean => readOnlyGitCommand(command).ok;
+	const ok = (command: string): boolean => guard(command).ok;
 	const reason = (command: string): string => {
-		const verdict = readOnlyGitCommand(command);
+		const verdict = guard(command);
 		return verdict.ok ? "" : verdict.reason;
 	};
 
@@ -191,7 +198,7 @@ describe("read-only git shell guard — refused shapes", () => {
 
 describe("read-only git shell guard — the command it hands back", () => {
 	const ran = (command: string): string => {
-		const verdict = readOnlyGitCommand(command);
+		const verdict = guard(command);
 		if (!verdict.ok) throw new Error(`refused: ${verdict.reason}`);
 		return verdict.command;
 	};
@@ -237,8 +244,8 @@ describe("read-only git shell guard — the command it hands back", () => {
 
 	test("a caller cannot re-enable either program by name", () => {
 		// The denylist refuses both, so the forced flag cannot be out-ordered.
-		expect(readOnlyGitCommand("git diff --textconv").ok).toBe(false);
-		expect(readOnlyGitCommand("git log --ext-diff -p").ok).toBe(false);
+		expect(guard("git diff --textconv").ok).toBe(false);
+		expect(guard("git log --ext-diff -p").ok).toBe(false);
 	});
 });
 
@@ -271,7 +278,7 @@ describe("read-only git shell guard — a repository's own diff program", () => 
 		// The claim is about what git executes, so this one case runs the produced command
 		// rather than asserting on its text. It only ever gains bare flags, so splitting it is
 		// the whole parse the guard's own output needs.
-		const produced = readOnlyGitCommand("git diff");
+		const produced = guard("git diff");
 		if (!produced.ok) throw new Error(`refused: ${produced.reason}`);
 		const argv = produced.command.split(" ");
 		const { code } = await execP(argv[0] ?? "git", argv.slice(1), { cwd: repo });

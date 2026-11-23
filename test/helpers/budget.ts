@@ -12,7 +12,7 @@
  * The number is measured, not guessed. While eight busy loops ran on an eight-core box (load
  * 20-40) the card's two starvations were a `git init` settle at 20.15 s and the `job` exit trap's
  * shell at 25.6 s, both green once the machine was quiet; the worst of those doubled is where this sat.
- * It rose to 90 s on 2026-11-09, when a spawned `git` in `extensions/plan/git-bash.test.ts` spent
+ * It rose to 90 s on 2026-11-09, when a spawned `git` in `lib/git/read-command.test.ts` spent
  * 55.11 s — exactly the watchdog this budget derives — beside a second gate on one box, and a
  * loopback page in `extensions/file-browse/transport/root-move.test.ts` reached the case's own
  * deadline in another session; both were green alone and on the re-run, and neither reproduced

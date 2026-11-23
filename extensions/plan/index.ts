@@ -45,6 +45,13 @@ import { createLazyPlanWebReview } from "./web-lazy.ts";
 export const PLAN_MODE_MARKER = "[PLAN MODE ACTIVE]";
 
 /**
+ * How the read-only git guard words a refusal, kept as plan mode has always said
+ * it. `lib/git/read-command.ts` is mode-neutral, so its sentences are the
+ * caller's: byte-identical here, and lead mode passes its own.
+ */
+const PLAN_PHRASING = { label: "plan mode", whileDoing: "while planning" };
+
+/**
  * Longest goal text restated here. `goal` injects the full objective every turn
  * regardless of plan mode, so this line is a short pointer; the clip is what keeps
  * the whole context inside the prompt-budget ceiling.
@@ -239,8 +246,8 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 			if (typeof command !== "string" || command.trim() === "") {
 				return `Plan mode: an empty bash command is not allowed. ${BASH_BLOCKED_GUIDANCE}`;
 			}
-			const { readOnlyGitCommand } = await import("./git-bash.ts");
-			const decision = readOnlyGitCommand(command);
+			const { readOnlyGitCommand } = await import("../../lib/git/read-command.ts");
+			const decision = readOnlyGitCommand(command, PLAN_PHRASING);
 			if (!decision.ok) return `Plan mode: ${decision.reason} ${BASH_BLOCKED_GUIDANCE}`;
 			// The guard hands back the command it approved, with the switches that keep a
 			// repository's own diff program out of it: the call runs what the guard decided, the
