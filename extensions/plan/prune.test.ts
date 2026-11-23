@@ -57,9 +57,13 @@ function writeBound(cwd: string, plan: Record<string, unknown>): void {
 	writeConfig(join(cwd, CONFIG_DIR_NAME), "bytefly.json", { plan });
 }
 
-/** The plan names one store holds now, oldest first. */
+/** The plan names one store holds now, by name. */
 async function namesIn(dir: string): Promise<string[]> {
 	const { readPlanStore } = await import("./retention.ts");
+	// The sort is the assertion's, not the store's: `readPlanStore` hands back `readdir` order,
+	// which is the filesystem's. The compat job read this array in a different order on the same
+	// code — `gone.md`, `newest.md`, `recorded.md` — so a machine whose `readdir` happens to be
+	// sorted (this one, five runs without the sort) cannot show the defect the sort fixes.
 	return (await readPlanStore(dir)).map((entry) => entry.name).sort();
 }
 
