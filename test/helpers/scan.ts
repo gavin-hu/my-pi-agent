@@ -12,16 +12,16 @@
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { posix, walkFiles } from "./files.ts";
+import { posixPath, walkFiles } from "./files.ts";
 
 /** The repository root, posix-normalized so a sliced path compares on every host. */
-export const repo = posix(join(import.meta.dir, "..", ".."));
+export const repo = posixPath(join(import.meta.dir, "..", ".."));
 
 /** `test/`, which holds the package-level contracts and the shared helpers. */
-export const testDir = posix(join(repo, "test"));
-export const extensionsDir = posix(join(repo, "extensions"));
-export const libDir = posix(join(repo, "lib"));
-export const scriptsDir = posix(join(repo, "scripts"));
+export const testDir = posixPath(join(repo, "test"));
+export const extensionsDir = posixPath(join(repo, "extensions"));
+export const libDir = posixPath(join(repo, "lib"));
+export const scriptsDir = posixPath(join(repo, "scripts"));
 
 /**
  * Every directory whose capability suites the banned-pattern scan covers.
@@ -35,7 +35,7 @@ export const SOURCE_DIRS: string[] = [...SCANNED_DIRS, scriptsDir];
 
 /** A path relative to the repository root, in posix form so a failure names one file on every OS. */
 export function relative(file: string): string {
-	return file.slice(repo.length + 1).replaceAll("\\", "/");
+	return posixPath(file.slice(repo.length + 1));
 }
 
 /** A file's text, read once per test run; tests write only under OS temp dirs. */

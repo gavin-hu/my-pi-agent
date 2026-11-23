@@ -11,6 +11,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { createFakePi, fakeTheme as theme, toolRenderContext } from "../../test/helpers/fakes.ts";
 import { registerTools } from "./tools.ts";
@@ -68,7 +69,7 @@ describe("the worktree block", () => {
 			expect(lines[0]).toContain("tool-gallery");
 			if (width === 80) {
 				expect(lines[0]).toContain("worktree-tool-gallery");
-				expect(lines[0]).toContain(".pi/worktrees/tool-gallery");
+				expect(lines[0]).toContain(join(".pi", "worktrees", "tool-gallery"));
 			}
 			expectFits(lines, width);
 		}

@@ -60,7 +60,7 @@ function writeBound(cwd: string, plan: Record<string, unknown>): void {
 /** The plan names one store holds now, oldest first. */
 async function namesIn(dir: string): Promise<string[]> {
 	const { readPlanStore } = await import("./retention.ts");
-	return (await readPlanStore(dir)).map((entry) => entry.name);
+	return (await readPlanStore(dir)).map((entry) => entry.name).sort();
 }
 
 describe("pruneAll", () => {

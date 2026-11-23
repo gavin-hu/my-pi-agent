@@ -35,7 +35,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, posix as pathPosix, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { posix, walkFiles } from "./helpers/files.ts";
+import { posixPath, walkFiles } from "./helpers/files.ts";
 
 const repo = join(import.meta.dir, "..");
 
@@ -122,7 +122,7 @@ function docPins(): string[] {
 	const pins: string[] = [];
 	for (const file of pinnedDocs()) {
 		const text = readFileSync(file, "utf-8");
-		for (const match of text.matchAll(PIN)) pins.push(`${posix(relative(repo, file))}: ${match[1]}`);
+		for (const match of text.matchAll(PIN)) pins.push(`${posixPath(relative(repo, file))}: ${match[1]}`);
 	}
 	return pins.sort();
 }
@@ -199,7 +199,7 @@ function packagedPageImages(): PageImage[] {
 	];
 	const images: PageImage[] = [];
 	for (const file of pages) {
-		const page = posix(relative(repo, file));
+		const page = posixPath(relative(repo, file));
 		const text = readFileSync(file, "utf-8");
 		for (const [kind, pattern] of [
 			["markdown", MARKDOWN_IMAGE],

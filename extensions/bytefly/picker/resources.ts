@@ -9,7 +9,8 @@
  */
 
 import { homedir } from "node:os";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, posix, relative, resolve, sep } from "node:path";
+import { posixPath } from "../../../lib/path.ts";
 import { CONFIG_DIR_NAME, type PathMetadata } from "@earendil-works/pi-coding-agent";
 import type { Entry, ResourceItem, ResourceKind } from "./types.ts";
 
@@ -28,7 +29,7 @@ export function getItemScope(item: ResourceItem): ItemScope {
 
 /** Relative path using forward slashes, matching how settings patterns are written. */
 function relativePattern(from: string, to: string): string {
-	return relative(from, to).replaceAll("\\", "/");
+	return posixPath(relative(from, to));
 }
 
 /** Strip the `!` / `+` / `-` modifier from a settings pattern entry. */
@@ -99,9 +100,9 @@ function formatBaseDir(baseDir: string): string {
 		baseDir === home
 			? "~"
 			: baseDir.startsWith(homePrefix)
-				? `~${baseDir.slice(home.length).replaceAll("\\", "/")}`
-				: baseDir.replaceAll("\\", "/");
-	return display.endsWith("/") ? display : `${display}/`;
+				? `~${posixPath(baseDir.slice(home.length))}`
+				: posixPath(baseDir);
+	return display.endsWith(posix.sep) ? display : `${display}${posix.sep}`;
 }
 
 /** Header label for a source group, mirroring Pi's config selector. */

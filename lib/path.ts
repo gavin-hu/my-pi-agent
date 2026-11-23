@@ -10,14 +10,27 @@
  * `isInside` compares path strings; `isInsideReal` first resolves symlinks in
  * the deepest existing ancestor, so a link that leaves the root is refused.
  * `lastSegment` names the part a path ends in — the directory a session is read as,
- * the last folder of a root-relative page — splitting on either separator, because
- * git prints forward slashes on Windows.
+ * the last folder of a root-relative page.
+ *
+ * One spelling rule, stated here because four functions read it: `posixPath` is the
+ * POSIX spelling this package prints, compares and encodes in, and its separators come
+ * from `node:path` rather than from a typed character — `win32.sep` as well as
+ * `posix.sep`, because git prints forward slashes on Windows and a page served here may
+ * name a root another platform built.
  *
  * No runtime dependencies beyond `node:fs` and `node:path`.
  */
 
 import { existsSync, realpathSync } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from "node:path";
+
+/** The separators a path may arrive with, taken from `node:path` rather than typed. */
+const SEPARATORS = [win32.sep, posix.sep] as const;
+
+/** `value` in the POSIX spelling this package prints, compares and encodes in. */
+export function posixPath(value: string): string {
+	return SEPARATORS.reduce((out, separator) => out.split(separator).join(posix.sep), value);
+}
 
 /** Whether `target` is `root` itself or sits underneath it. */
 export function isInside(root: string, target: string): boolean {
@@ -54,24 +67,24 @@ export function isInsideReal(root: string, target: string): boolean {
 /**
  * The segment a path ends in, with trailing separators and a root ignored.
  *
- * Either separator splits, so a path git printed on Windows and a path built by this
- * platform give the same answer; a path that has no segment — `/`, or the empty string
- * — yields the empty string rather than its own punctuation.
+ * `posixPath` normalises first, so a path git printed on Windows and a path built by
+ * this platform give the same answer; a path that has no segment — `/`, or the empty
+ * string — yields the empty string rather than its own punctuation.
  */
 export function lastSegment(path: string): string {
-	return path.split(/[\\/]/).filter(Boolean).at(-1) ?? "";
+	return posixPath(path).split(posix.sep).filter(Boolean).at(-1) ?? "";
 }
 
 /**
- * Percent-encode each segment of a root-relative path, keeping `/` separators.
+ * Percent-encode each segment of a root-relative path, keeping its separators.
  *
  * A URL is built from a path git printed, and a path may hold a space, a `#` or a `?`:
  * encoding per segment keeps the separators readable while the segments are safe.
  */
 export function encodePath(rel: string): string {
-	return rel
-		.split("/")
+	return posixPath(rel)
+		.split(posix.sep)
 		.filter(Boolean)
 		.map((segment) => encodeURIComponent(segment))
-		.join("/");
+		.join(posix.sep);
 }

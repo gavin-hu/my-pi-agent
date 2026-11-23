@@ -7,9 +7,9 @@
  */
 
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { posix as posixPath } from "node:path";
+import { posix as pathPosix } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { posix } from "./helpers/files.ts";
+import { posixPath } from "./helpers/files.ts";
 import { filesIn, repo, textOf } from "./helpers/scan.ts";
 
 /**
@@ -18,7 +18,7 @@ import { filesIn, repo, textOf } from "./helpers/scan.ts";
  * the host's `join` returning backslashes on Windows would make every root doc's
  * links look broken.
  */
-const docPath = (...parts: string[]): string => posix(posixPath.join(...parts));
+const docPath = (...parts: string[]): string => posixPath(pathPosix.join(...parts));
 
 describe("doc links", () => {
 	/** Every Markdown doc a user or contributor reads, from the root and the doc trees. */

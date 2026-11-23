@@ -39,7 +39,7 @@ import { join, relative as relativePath } from "node:path";
 import { describe, expect, test } from "bun:test";
 import ts from "typescript";
 import { CASE_BUDGET_MS, REPORT_MARGIN_MS, SPAWN_WATCHDOG_MS } from "./helpers/budget.ts";
-import { posix, walkFiles } from "./helpers/files.ts";
+import { posixPath, walkFiles } from "./helpers/files.ts";
 import { waitFor } from "./helpers/process.ts";
 import { CONTENTION_HINT, type WaitTimeout, waitTimeoutMessage } from "./helpers/wait-site.ts";
 
@@ -228,7 +228,7 @@ export function fixedSleepProblems(source: Source): string[] {
 function testFiles(): string[] {
 	return TEST_DIRS.flatMap((dir) => walkFiles(join(repo, dir)))
 		.filter((file) => file.endsWith(".test.ts"))
-		.map((file) => posix(relativePath(repo, file)))
+		.map((file) => posixPath(relativePath(repo, file)))
 		.sort();
 }
 

@@ -267,6 +267,13 @@ the code under test is missing a seam. Add the seam instead of the mock.
 9. **A suite lives beside the extension or `lib/` subsystem it covers.** Its
    imports name the module under test (`./module.ts`), not a copy, so coverage
    and edits stay local.
+10. **A path is compared through `node:path` or `posixPath`.** A filesystem value
+    is matched with `join`/`relative`/`basename`/`dirname`, or spelled once with
+    `posixPath` from `lib/path.ts` before a literal tail is compared; a listing
+    whose order is asserted is sorted where it is read. `conventions.test.ts`
+    fails a hand-typed separator, and the rest is this rule rather than a scan:
+    a literal with a separator in it is only ever compared against a value
+    `walkFiles`/`filesIn`/`posixPath` produced.
 
 ## Fixtures
 
@@ -504,7 +511,8 @@ Rules:
   (`isWindows: () => false`) rather than the ambient `process.platform`: the
   suite runs on all three OSes and the seam is how the other two are simulated.
   `process.platform` stays for what genuinely needs the real host — symlink
-  creation, a detached child's own output, a shell `EXIT` trap.
+  creation, a detached child's own output, a shell `EXIT` trap, or a root whose
+  own spelling the case reads (a Windows path cannot open with `/`).
 
 ## Imports
 

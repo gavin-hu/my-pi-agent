@@ -27,7 +27,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
-import { posix, walkFiles } from "./helpers/files.ts";
+import { posixPath, walkFiles } from "./helpers/files.ts";
 import { ALL_EXTENSIONS_ENV, withAgentDir, withEnv } from "./helpers/env.ts";
 import { createFakePi } from "./helpers/fakes.ts";
 
@@ -62,7 +62,7 @@ function skillFiles(): string[] {
 
 /** The skill directory a `SKILL.md` sits in, as the README links it. */
 function skillName(file: string): string {
-	return file.slice(posix(join(root, "skills")).length + 1).split("/")[0];
+	return file.slice(posixPath(join(root, "skills")).length + 1).split("/")[0];
 }
 
 /** Every theme the package ships. */

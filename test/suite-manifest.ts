@@ -403,6 +403,7 @@ export const LIB_SUITES: readonly string[] = [
 	"lazy",
 	"lines",
 	"notice",
+	"path",
 	"plans/paths",
 	"process",
 	"report",

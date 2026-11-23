@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, relative as relativePath } from "node:path";
 import type { CallExpression, Node } from "typescript";
-import { posix } from "./files.ts";
+import { posixPath } from "./files.ts";
 
 /** What an expired wait knows about itself. */
 export interface WaitTimeout {
@@ -125,7 +125,7 @@ export async function waitTimeoutMessage(
 
 /** A site as `"describe > test" (path:line)`, or the bare path when no title encloses it. */
 async function describeSite(site: Site, read: (path: string) => string): Promise<string> {
-	const at = `${posix(relativePath(root, site.path))}:${site.line}`;
+	const at = `${posixPath(relativePath(root, site.path))}:${site.line}`;
 	if (!isTestFile(site.path)) return at;
 	const text = readOrUndefined(read, site.path);
 	if (text === undefined) return at;

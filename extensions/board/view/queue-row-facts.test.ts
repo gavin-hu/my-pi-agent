@@ -132,7 +132,10 @@ describe.skipIf(CHROME === undefined)("the ask row's facts", () => {
 			const oneLine = rows.filter((row) => row.why !== null && row.why.h <= 16);
 			expect(oneLine.length, `one-line rows at ${width}`).toBeGreaterThan(1);
 			const heights = [...new Set(oneLine.map((row) => row.row.h))];
-			expect(heights, `one-line heights at ${width}`).toEqual([44]);
+			// One line is one height within a pixel: each browser rounds a line box its own way, and
+			// the regression this holds was 43/51/52 — nine pixels apart, not one.
+			expect(Math.max(...heights) - Math.min(...heights), `one-line height spread at ${width}`).toBeLessThanOrEqual(1);
+			expect(Math.min(...heights), `one-line heights at ${width}`).toBeGreaterThanOrEqual(44);
 		});
 
 		test(`starts every reason at one x at ${width}`, async () => {

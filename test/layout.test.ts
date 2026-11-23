@@ -11,13 +11,13 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { posix } from "./helpers/files.ts";
+import { posixPath } from "./helpers/files.ts";
 import { dirsOf, extensionsDir, filesIn, libDir, repo, testDir } from "./helpers/scan.ts";
 import { EXTENSION_SUITES, declaredRootSuites, declaredSuiteFiles } from "./suite-manifest.ts";
 
 /** Every test file the layout governs, relative to the repository root. */
 function layoutTestFiles(): string[] {
-	return [extensionsDir, libDir, posix(join(repo, "scripts"))]
+	return [extensionsDir, libDir, posixPath(join(repo, "scripts"))]
 		.flatMap((root) => filesIn(root))
 		.filter((file) => file.endsWith(".test.ts"))
 		.map((file) => file.slice(repo.length + 1))
