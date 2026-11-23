@@ -27,9 +27,10 @@ import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-stat
 import {
 	READ_ONLY_SUMMARY,
 	PLAN_ENTER_REQUEST,
+	PLAN_LEAVE_REQUEST,
 	PLAN_TOGGLE_REQUEST,
 	type PlanModeRequest,
-} from "../../lib/plan-entry.ts";
+} from "../../lib/mode-entry.ts";
 import { isBoardRead, supportsReadOnlyDelegation } from "../../lib/policy.ts";
 import { boardWriteRefusal } from "../../lib/workflow/actions.ts";
 import { BOARD_TOOL, QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
@@ -147,6 +148,19 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 				(request) => {
 					if (!runtime.isEnabled()) runtime.enable(request.ctx);
 					return true;
+				},
+				answers,
+			),
+		);
+		unsubscribes.push(
+			answerOn(
+				pi,
+				PLAN_LEAVE_REQUEST,
+				(request) => {
+					// Idempotent, and silent: a door entering another mode needs plan off, not a
+					// notice about a mode it is leaving on its way somewhere else.
+					if (runtime.isEnabled()) runtime.disable(request.ctx);
+					return !runtime.isEnabled();
 				},
 				answers,
 			),

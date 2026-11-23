@@ -7,7 +7,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { planModeRefusal } from "../../lib/plan-entry.ts";
+import { modeRefusal } from "../../lib/mode-entry.ts";
 import { isPlanModeEnabled } from "../../lib/mode-state.ts";
 import type { BackgroundRuntime } from "./background.ts";
 import { formatAgentsList } from "./format.ts";
@@ -19,7 +19,7 @@ export async function openAgents(
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
 	if (isPlanModeEnabled(ctx.sessionManager.getBranch())) {
-		ctx.ui.notify(planModeRefusal("managing background runs"), "warning");
+		ctx.ui.notify(modeRefusal("plan", "managing background runs"), "warning");
 		return;
 	}
 

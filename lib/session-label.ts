@@ -164,7 +164,7 @@ export function sessionIdOf(ctx: Pick<ExtensionContext, "sessionManager">): stri
 /**
  * `pi.events` channel: a session settled the label its peers address it by.
  *
- * Here rather than in `lib/events.ts`, the way `lib/plan-entry.ts` and `lib/http/mount.ts`
+ * Here rather than in `lib/events.ts`, the way `lib/mode-entry.ts` and `lib/http/mount.ts`
  * keep their own: a label is this module's vocabulary, and both sides of the channel — the
  * bus that settles one and the footer that draws it — already load this module, so the
  * literal costs a registration graph nothing and cannot be re-typed on one side.

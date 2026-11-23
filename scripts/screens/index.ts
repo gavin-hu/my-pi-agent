@@ -208,7 +208,7 @@ export const SCREENS: Record<string, Screen> = {
 				onDone: noop,
 				reload: async () => WORKTREE_SNAPSHOT,
 				prune: async () => "Pruned 1 worktree",
-				readOnly: false,
+				mode: "auto",
 				viewportRowsSource: () => rows,
 			}).render(width),
 	},

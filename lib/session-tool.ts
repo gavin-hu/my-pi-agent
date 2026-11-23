@@ -9,7 +9,7 @@
  *
  * There are two transports, and the difference is the context, not the caller's
  * choice: `join` travels as an in-process request on `pi.events` because a *command*
- * context has no `ctx.executeTool` — the same constraint `lib/plan-entry.ts` exists
+ * context has no `ctx.executeTool` — the same constraint `lib/mode-entry.ts` exists
  * for — `peers` is a nested tool call, and `send` is whichever its context allows: the
  * nested call from a tool, where the bus's own validation and hooks run, and the same
  * request from a command, so `/board approve` can tell a card's owner its gate was

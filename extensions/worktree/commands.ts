@@ -41,12 +41,13 @@ const SUBCOMMANDS: Completion[] = [
 
 const USAGE = "Usage: /worktree [enter [name]|exit|prune]";
 
-/** Refuse a lifecycle change while plan mode is read-only, as `/agents` does. */
-async function refuseInPlanMode(ctx: ExtensionContext): Promise<boolean> {
-	const { isPlanModeEnabled } = await import("../../lib/mode-state.ts");
-	if (!isPlanModeEnabled(ctx.sessionManager.getBranch())) return false;
-	const { planModeRefusal } = await import("../../lib/plan-entry.ts");
-	ctx.ui.notify(planModeRefusal("changing worktrees"), "warning");
+/** Refuse a lifecycle change while a mode holds the session, as `/agents` does. */
+async function refuseInMode(ctx: ExtensionContext): Promise<boolean> {
+	const { modeOf } = await import("../../lib/mode-state.ts");
+	const mode = modeOf(ctx.sessionManager.getBranch());
+	if (mode === "auto") return false;
+	const { modeRefusal } = await import("../../lib/mode-entry.ts");
+	ctx.ui.notify(modeRefusal(mode, "changing worktrees"), "warning");
 	return true;
 }
 
@@ -70,7 +71,7 @@ async function reportLifecycle(ctx: ExtensionContext, verb: string, run: () => P
 }
 
 async function runEnter(pi: ExtensionAPI, ctx: ExtensionContext, name: string | undefined): Promise<void> {
-	if (await refuseInPlanMode(ctx)) return;
+	if (await refuseInMode(ctx)) return;
 	// The path on its own line: a command's answer is read without a tool result beside it,
 	// and "which directory am I in now" is the question entering answers.
 	await reportLifecycle(ctx, "Enter", async () => {
@@ -80,12 +81,12 @@ async function runEnter(pi: ExtensionAPI, ctx: ExtensionContext, name: string | 
 }
 
 async function runExit(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
-	if (await refuseInPlanMode(ctx)) return;
+	if (await refuseInMode(ctx)) return;
 	await reportLifecycle(ctx, "Exit", async () => (await exitWorktree(pi, ctx, {})).output);
 }
 
 async function runPrune(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
-	if (await refuseInPlanMode(ctx)) return;
+	if (await refuseInMode(ctx)) return;
 	ctx.ui.notify(await pruneWorktrees(pi, ctx), "info");
 }
 
@@ -101,7 +102,7 @@ async function showWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<v
 	// inside a mounted screen. Prune runs in place, so its verb stays on the screen.
 	const { withRailsSuppressed } = await import("../../lib/rails.ts");
 	const { WorktreeListComponent } = await import("./screen.ts");
-	const { isPlanModeEnabled } = await import("../../lib/mode-state.ts");
+	const { modeOf } = await import("../../lib/mode-state.ts");
 	const action = await withRailsSuppressed(pi, () =>
 		ctx.ui.custom<WorktreeAction | undefined>((tui, theme, _keybindings, done) => {
 			return new WorktreeListComponent({
@@ -111,7 +112,7 @@ async function showWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<v
 				onDone: (next) => done(next),
 				reload: () => worktreeSnapshot(pi, ctx),
 				prune: () => pruneWorktrees(pi, ctx),
-				readOnly: isPlanModeEnabled(ctx.sessionManager.getBranch()),
+				mode: modeOf(ctx.sessionManager.getBranch()),
 				viewportRowsSource: () => tui.terminal?.rows,
 			});
 		}),

@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import planMode, { PLAN_MODE_MARKER } from "./index.ts";
 import { PLAN_TOOL } from "./runtime.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { requestPlanMode, requestPlanToggle } from "../../lib/plan-entry.ts";
+import { requestPlanMode, requestPlanToggle } from "../../lib/mode-entry.ts";
 import { SUBAGENT_READ_ONLY_PARAM } from "../../lib/tool-names.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { otherMessage } from "../../test/helpers/entries.ts";

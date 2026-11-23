@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { READ_ONLY_SUMMARY } from "../../lib/plan-entry.ts";
+import { READ_ONLY_SUMMARY } from "../../lib/mode-entry.ts";
 import { planModeNotice } from "./commands.ts";
 
 describe("plan-mode notice", () => {

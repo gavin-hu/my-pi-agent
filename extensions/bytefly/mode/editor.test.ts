@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getKeybindings, KeybindingsManager, setKeybindings, type TUI, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import type { KeybindingDefinitions } from "@earendil-works/pi-tui";
-import { PLAN_TOGGLE_REQUEST } from "../../../lib/plan-entry.ts";
+import { PLAN_TOGGLE_REQUEST } from "../../../lib/mode-entry.ts";
 import { PLAN_TOOL } from "../../../lib/tool-names.ts";
 import { editorTheme } from "../../../lib/tui/chrome.ts";
 import { isShiftTab } from "../../../lib/tui/cursor.ts";

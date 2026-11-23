@@ -2,7 +2,7 @@
  * The send request, answered.
  *
  * A *tool* context reaches the `session` tool's own `send` and an
- * `ExtensionCommandContext` cannot — the limit `lib/plan-entry.ts` works around for plan mode
+ * `ExtensionCommandContext` cannot — the limit `lib/mode-entry.ts` works around for plan mode
  * — so a command that has something to say asks here instead, on `pi.events`, exactly as it
  * asks for a join. `/board approve` is the caller this exists for: the sign is the fact the
  * card's owner acts on, and the person's door has no nested call to send it with.
