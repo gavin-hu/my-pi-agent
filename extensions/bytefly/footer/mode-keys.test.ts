@@ -13,12 +13,12 @@ import { fullSnapshot } from "../../../test/helpers/fixtures/footer.ts";
 import { modeSegment, modesSegment } from "./render/segments.ts";
 
 describe("the bar's mode slot", () => {
-	test("names auto in accent when no mode chip is published", () => {
+	test("names auto in meta when no mode chip is published", () => {
 		const theme = makeRecordingTheme() as any;
 		expect(modeSegment(fullSnapshot({ statuses: new Map() }), fakeTheme)?.forms).toEqual([`${GLYPHS.autoMode} auto`]);
 
 		modeSegment(fullSnapshot({ statuses: new Map() }), theme);
-		expect(theme.calls).toContainEqual(["accent", `${GLYPHS.autoMode} auto`]);
+		expect(theme.calls).toContainEqual(["muted", `${GLYPHS.autoMode} auto`]);
 	});
 
 	test("draws the lead mode in accent, and never beside the plan chip", () => {
