@@ -67,7 +67,8 @@ export class ModeEditor extends CustomEditor {
 	}
 
 	override render(width: number): string[] {
-		// The two roles the footer's mode segment draws, so the bar and the composer agree.
+		// Planning's role, so the border and the bar's `≡ plan` chip agree. At rest the
+		// border keeps `accent`: that is the composer's own highlight, not a mode read.
 		const role = this.options.isPlanning() ? "warn" : "accent";
 		this.borderColor = (text) => paint(this.options.theme(), role, text);
 		return super.render(width);
