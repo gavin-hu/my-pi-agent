@@ -223,14 +223,15 @@ export function resolveRecipients(
 	const found = lookupPeer(rows, { id: target, label: target }, from);
 	if (found.ambiguous !== undefined) return { error: `the label "${target}" is ambiguous; use a session id.` };
 	// A name no live record holds and a name only a stopped record holds are different facts: one is a
-	// typo to retype, the other a name to drop. `lookupPeer` names a stopped record by its id and answers
-	// nothing for a label, because a label is a role a later session may take — so the label's stopped
-	// holder is read here, where nothing but the sentence depends on it.
+	// typo to retype, the other a name to drop. Only a **label** reaches this branch — `lookupPeer`'s
+	// last step answers a stopped record by its id, so an id spelling arrives with a peer below — and
+	// `lookupPeer` answers nothing for a label, because a label is a role a later session may take. So
+	// the label's stopped holder is read here, where nothing but the sentence depends on it.
 	const stopped = (peer: PeerRow | undefined): boolean => peer !== undefined && peer.state === "gone";
 	if (found.peer === undefined) {
 		const key = labelKey(target);
 		return {
-			error: rows.some((row) => row.state === "gone" && (row.id === target || labelKey(row.label) === key))
+			error: rows.some((row) => row.state === "gone" && labelKey(row.label) === key)
 				? `no active session "${target}" — its process is gone.`
 				: `no active session "${target}".`,
 		};

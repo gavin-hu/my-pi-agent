@@ -152,7 +152,9 @@ describe("addressing records that say whether they are alive", () => {
 		const rows = [{ id: "s-dead", label: "api-core", state: "gone" as const }];
 		// A name no record holds and a record whose process stopped are different facts: one is a typo to
 		// retype, the other a name to drop. The listing marks the second, and this is the sentence that
-		// says the same thing when mail is written to it.
+		// says the same thing when mail is written to it. The two assertions also hold the two branches:
+		// the id is named by `lookupPeer`'s last step, and the label is the only spelling that reaches the
+		// branch where nothing was found.
 		expect(resolveRecipients(rows, "s-dead", "s-x")).toEqual({
 			error: 'no active session "s-dead" — its process is gone.',
 		});
