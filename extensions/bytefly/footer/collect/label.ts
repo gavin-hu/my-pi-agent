@@ -39,7 +39,7 @@ export type RosterLabelSink = (label: string) => void;
  */
 export function followRosterLabel(input: {
 	pi: Pick<ExtensionAPI, "events">;
-	ctx: Pick<ExtensionContext, "sessionManager">;
+	ctx: Pick<ExtensionContext, "sessionManager" | "cwd">;
 	agentDir: string;
 	sink: RosterLabelSink;
 }): Promise<void> {
@@ -53,9 +53,10 @@ export function followRosterLabel(input: {
 		if (published === undefined || published.id !== own) return;
 		sink(published.label);
 	});
-	// The record the bus wrote before this process started, if any. A failure is the same
-	// answer as no record: the bar names nobody.
-	return readSessionLabel(agentDir, own).then(
+	// The record the bus wrote before this process started, if any — and the session's own directory,
+	// which is what scopes the one-release legacy bus to this repository's records. A failure is the
+	// same answer as no record: the bar names nobody.
+	return readSessionLabel(agentDir, own, { cwd: ctx.cwd }).then(
 		(label) => {
 			if (label !== undefined) sink(label);
 		},

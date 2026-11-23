@@ -256,62 +256,91 @@ export function checkoutNames(trees: Iterable<Checkout>): Set<string> {
 }
 
 /**
- * The label one record names, when the record is that session's and is a bus record at all.
+ * The label one record names, with the directories it says it was working in.
  *
  * The strictness is the roster's: a file missing the fields the bus writes is debris, and a
- * `half` record that happened to sit in front of the real one must not name the session. The id
- * is compared here rather than by the caller, so "which session" and "what it is called" are one
- * question over one file.
+ * `half` record that happened to sit in front of the real one must not name the session. The homes
+ * are canonicalized here because they are compared with a caller's, and a path is one spelling.
  */
-function labelIn(value: unknown, id: string): string | undefined {
+function labelledRecord(value: unknown, id: string): { label: string; homes: string[] } | undefined {
 	if (typeof value !== "object" || value === null) return undefined;
 	const record = value as Record<string, unknown>;
-	const { label, mode, lastSeen } = record;
+	const { label, mode, lastSeen, cwd, repoRoot } = record;
 	if (record.id !== id || typeof label !== "string" || typeof mode !== "string" || typeof lastSeen !== "number") {
 		return undefined;
 	}
-	return label;
+	const homes = [cwd, repoRoot].filter((path): path is string => typeof path === "string" && path !== "");
+	return { label, homes };
+}
+
+/** The label one `sessions/` directory holds for `id`, when `accept` takes what the record names. */
+async function labelIn(
+	sessions: string,
+	id: string,
+	accept: (homes: readonly string[]) => boolean,
+): Promise<string | undefined> {
+	const { JSON_SUFFIX } = await import("./session-files.ts");
+	let names: string[];
+	try {
+		names = await readdir(sessions);
+	} catch {
+		return undefined;
+	}
+	for (const name of names) {
+		if (!name.endsWith(JSON_SUFFIX)) continue;
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(await readFile(join(sessions, name), "utf-8"));
+		} catch {
+			continue;
+		}
+		const found = labelledRecord(parsed, id);
+		if (found !== undefined && accept(found.homes)) return found.label;
+	}
+	return undefined;
 }
 
 /**
  * One session's own label, found by the id it belongs to.
  *
- * The record is filed under the repository's key, which a caller without a board store
- * would have to resolve with git first — and a footer asking for a name that may not
- * exist should not cost two subprocesses at every session start. So the bus root is
- * walked instead and the record is matched on its id: a session id belongs to one
- * session, so the first record that names it is the answer wherever the bus filed it.
+ * The record is filed under the repository's store, which a caller without a board store would have
+ * to resolve with git first — and a footer asking for a name that may not exist should not cost two
+ * subprocesses at every session start. So the stores are walked instead and the record is matched on
+ * its id: a session id belongs to one session, so the first record that names it answers.
  *
- * Every miss is ordinary: a machine with no bus, or with records for other sessions
- * only, answers `undefined` rather than an error.
+ * Two trees, in this order. `repos/<id>/session-bus/` is where every joined session writes, and it
+ * answers first by id alone. `<agent-dir>/session-bus/<key>/` is the spelling #771 replaced: it is
+ * read for one release, only when the caller names its `cwd`, and only for a record whose own `cwd`
+ * or `repoRoot` is that same directory — because that tree holds *every* repository's key, and a walk
+ * that took the first id match could answer with a stranger's label. Without a `cwd` the flat tree is
+ * not read at all, which is the honest answer rather than a guess.
+ *
+ * Every miss is ordinary: a machine with no bus, or with records for other sessions only, answers
+ * `undefined` rather than an error.
  */
-export async function readSessionLabel(agentDir: string, id: string): Promise<string | undefined> {
-	const { BUS_DIR_NAME, JSON_SUFFIX, SESSIONS_DIR_NAME } = await import("./session-files.ts");
-	const root = join(agentDir, BUS_DIR_NAME);
-	let keys: string[];
-	try {
-		keys = await readdir(root);
-	} catch {
-		return undefined;
+export async function readSessionLabel(
+	agentDir: string,
+	id: string,
+	options: { cwd?: string } = {},
+): Promise<string | undefined> {
+	const { BUS_DIR_NAME, SESSIONS_DIR_NAME } = await import("./session-files.ts");
+	const { reposRoot } = await import("./repo-key.ts");
+	// Loaded here rather than imported: `job` reads a label and reaches no other path, so a static edge
+	// would cost its registration graph a module for a call it never makes.
+	const { realPathOfNearest } = await import("./path.ts");
+	const stores = reposRoot(agentDir);
+	for (const store of await readdir(stores).catch(() => [] as string[])) {
+		const label = await labelIn(join(stores, store, BUS_DIR_NAME, SESSIONS_DIR_NAME), id, () => true);
+		if (label !== undefined) return label;
 	}
-	for (const key of keys) {
-		const dir = join(root, key, SESSIONS_DIR_NAME);
-		let names: string[];
-		try {
-			names = await readdir(dir);
-		} catch {
-			continue;
-		}
-		for (const name of names) {
-			if (!name.endsWith(JSON_SUFFIX)) continue;
-			let parsed: unknown;
-			try {
-				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
-			} catch {
-				continue;
-			}
-			if (labelIn(parsed, id) !== undefined) return labelIn(parsed, id);
-		}
+	if (options.cwd === undefined) return undefined;
+	const mine = realPathOfNearest(options.cwd);
+	const flat = join(agentDir, BUS_DIR_NAME);
+	for (const key of await readdir(flat).catch(() => [] as string[])) {
+		const label = await labelIn(join(flat, key, SESSIONS_DIR_NAME), id, (homes) =>
+			homes.some((home) => realPathOfNearest(home) === mine),
+		);
+		if (label !== undefined) return label;
 	}
 	return undefined;
 }
