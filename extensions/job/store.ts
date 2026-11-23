@@ -61,6 +61,19 @@ export function createJobStore(initialDir = ""): JobStore {
 	let sessionId = "session";
 	let counter = 1;
 
+	/**
+	 * The directory a write needs, or the sentence that says there is none.
+	 *
+	 * An empty directory is what a store has before its runtime places it, and an empty string is a
+	 * *relative* path: `reserveId("")` would write `<id>.lock` into whatever directory the process
+	 * happens to be in, which is the leak this card closed, one file over. The reads answer from the
+	 * table they hold; the writes go through here.
+	 */
+	function placed(): string {
+		if (dir === "") throw new Error("the job store has no directory until its runtime places it");
+		return dir;
+	}
+
 	return {
 		directory: () => dir,
 		setDirectory: (next) => {
@@ -76,9 +89,10 @@ export function createJobStore(initialDir = ""): JobStore {
 			// Read every session's file so a peer that advanced its counter or took an
 			// id is respected, even though we only ever write our own file. The
 			// reservation file is the atomic guard against a simultaneous start.
-			const { files, counter: diskCounter } = loadRegistries(dir);
+			const at = placed();
+			const { files, counter: diskCounter } = loadRegistries(at);
 			const registryIds = files.flatMap((file) => file.jobs.map((job) => job.id));
-			const next = reserveId(dir, [...registryIds, ...listReservedIds(dir), ...ids], Math.max(counter, diskCounter));
+			const next = reserveId(at, [...registryIds, ...listReservedIds(at), ...ids], Math.max(counter, diskCounter));
 			counter = Number(next.slice(1)) + 1;
 			return next;
 		},
@@ -86,16 +100,17 @@ export function createJobStore(initialDir = ""): JobStore {
 		pruneReservations: (committed) => pruneReservations(dir, committed),
 		persist: (jobs) => {
 			try {
+				const at = placed();
 				// Only this session's records are ours to write; peer records live in
 				// their own files and are read back on the next load.
 				const own = [...jobs].filter((job) => job.sessionId === sessionId);
-				saveRegistry(dir, { version: REGISTRY_VERSION, sessionId, counter, jobs: own.map(toRecord) });
+				saveRegistry(at, { version: REGISTRY_VERSION, sessionId, counter, jobs: own.map(toRecord) });
 			} catch {
 				// Registry persistence is best-effort; a job still works in-process.
 			}
 		},
-		logPath: (id) => join(dir, `${id}.log`),
-		safeLogPath: (job) => safeArtifact(job.logPath, join(dir, `${job.id}.log`)),
+		logPath: (id) => join(placed(), `${id}.log`),
+		safeLogPath: (job) => safeArtifact(job.logPath, join(placed(), `${job.id}.log`)),
 		rotatedLogPath: (id) => join(dir, `${id}.log.1`),
 		// No record field names this file, so the id is the only input: refuse an id
 		// that would resolve outside the registry directory.

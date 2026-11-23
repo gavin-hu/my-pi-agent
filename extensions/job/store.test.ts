@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadRegistries, REGISTRY_VERSION, saveRegistry } from "./registry.ts";
 import { createJobStore } from "./store.ts";
@@ -42,6 +42,25 @@ describe("job registry directory", () => {
 });
 
 describe("job store", () => {
+	test("a store with no directory refuses a write instead of writing into the process's cwd", async () => {
+		// An empty directory is a *relative* path: `reserveId("")` would leave `<id>.lock` beside
+		// whatever the process's working directory is — the leak this card closed, one file over. The
+		// read paths still answer from the table they hold; only the writes need a place.
+		const cwd = temps.track(tempDir("pi-jobs-cwd-"));
+		const previous = process.cwd();
+		process.chdir(cwd);
+		try {
+			const store = createJobStore();
+			expect(() => store.nextId([])).toThrow("no directory");
+			expect(() => store.logPath("j1")).toThrow("no directory");
+			// `persist` keeps its swallow — a job still works in-process — and writes nothing.
+			store.persist([job({ sessionId: "session" })]);
+			expect(readdirSync(cwd)).toEqual([]);
+		} finally {
+			process.chdir(previous);
+		}
+	});
+
 	test("persist writes only this session's records", async () => {
 		const dir = temps.track(tempDir("pi-jobs-store-"));
 		const store = createJobStore(dir);
