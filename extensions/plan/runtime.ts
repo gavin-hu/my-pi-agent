@@ -17,11 +17,11 @@
  */
 
 import { basename, resolve } from "node:path";
-import { realpathSync } from "node:fs";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
+import { realPathOfNearest } from "../../lib/path.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { toolResultDetails } from "../../lib/tool-result.ts";
 import { PLAN_TOOL as PLAN_TOOL_NAME } from "../../lib/tool-names.ts";
@@ -173,18 +173,6 @@ function readBranchState(ctx: ExtensionContext): BranchState {
 	return { mode, lastPlan, baselines, seeded };
 }
 
-/** Compare two paths, resolving symlinks when possible so `/tmp` and `/private/tmp` match. */
-function samePath(a: string, b: string): boolean {
-	const normalize = (path: string): string => {
-		try {
-			return realpathSync(path);
-		} catch {
-			return resolve(path);
-		}
-	};
-	return normalize(a) === normalize(b);
-}
-
 /** One terminal-safe line for the footer chip. */
 function statusName(path: string): string {
 	const name = sanitizeLine(basename(path).replace(/\.md$/i, ""));
@@ -222,7 +210,11 @@ export function createPlanRuntime(
 		if (toolName !== PLAN_TOOL) return false;
 		const info = pi.getAllTools().find((tool) => tool.name === toolName);
 		const source = info?.sourceInfo?.path;
-		return source === undefined || options.entryPath === undefined || samePath(source, options.entryPath);
+		return (
+			source === undefined ||
+			options.entryPath === undefined ||
+			realPathOfNearest(source) === realPathOfNearest(options.entryPath)
+		);
 	};
 
 	/**

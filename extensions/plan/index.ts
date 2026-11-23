@@ -30,7 +30,7 @@ import {
 	PLAN_TOGGLE_REQUEST,
 	type PlanModeRequest,
 } from "../../lib/plan-entry.ts";
-import { isBoardRead } from "../../lib/policy.ts";
+import { isBoardRead, supportsReadOnlyDelegation } from "../../lib/policy.ts";
 import { boardWriteRefusal } from "../../lib/workflow/actions.ts";
 import { BOARD_TOOL, QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { clip } from "../../lib/tui/columns.ts";
@@ -187,17 +187,6 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 	});
 
 	/**
-	 * Whether the registered `subagent` tool declares the read-only parameter
-	 * plan mode forces. A `subagent` that cannot honor it is refused rather than
-	 * run read-write.
-	 */
-	const subagentSupportsReadOnly = (): boolean => {
-		const info = pi.getAllTools().find((tool) => tool.name === SUBAGENT_TOOL);
-		const properties = (info?.parameters as { properties?: Record<string, unknown> } | undefined)?.properties;
-		return properties !== undefined && Object.prototype.hasOwnProperty.call(properties, SUBAGENT_READ_ONLY_PARAM);
-	};
-
-	/**
 	 * Why a tool call is blocked while planning, or undefined when it may
 	 * proceed. Two layers: the policy (readers, `readOnlyHint`, deny list), then
 	 * the path backstop (a hint on a path-carrying tool is only a claim).
@@ -214,7 +203,7 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 		// cannot forget it; a `subagent` that does not declare the parameter is
 		// refused rather than run read-write.
 		if (toolName === SUBAGENT_TOOL) {
-			if (!subagentSupportsReadOnly()) {
+			if (!supportsReadOnlyDelegation(pi)) {
 				return `Plan mode: the registered "${SUBAGENT_TOOL}" tool does not support read-only delegation; explore with the structured tools instead. ${BLOCKED_GUIDANCE}`;
 			}
 			if (typeof input === "object" && input !== null) {
