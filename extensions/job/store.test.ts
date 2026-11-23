@@ -42,10 +42,11 @@ describe("job registry directory", () => {
 });
 
 describe("job store", () => {
-	test("a store with no directory refuses a write instead of writing into the process's cwd", async () => {
-		// An empty directory is a *relative* path: `reserveId("")` would leave `<id>.lock` beside
-		// whatever the process's working directory is — the leak this card closed, one file over. The
-		// read paths still answer from the table they hold; only the writes need a place.
+	test("a store with no directory refuses every write, and leaves the process's cwd untouched", async () => {
+		// An empty directory is a *relative* path: the reservation's create and its removal, the
+		// rotation's paths and the child's status paths would all land beside whatever directory the
+		// process is in. The read paths still answer from the table they hold; every path that writes
+		// or unlinks needs a place first.
 		const cwd = temps.track(tempDir("pi-jobs-cwd-"));
 		const previous = process.cwd();
 		process.chdir(cwd);
@@ -53,12 +54,52 @@ describe("job store", () => {
 			const store = createJobStore();
 			expect(() => store.nextId([])).toThrow("no directory");
 			expect(() => store.logPath("j1")).toThrow("no directory");
+			// The four path getters a write goes through: the rotation's rename and the status write.
+			expect(() => store.rotatedLogPath("j1")).toThrow("no directory");
+			expect(() => store.statusPath("j1")).toThrow("no directory");
+			expect(() => store.safeRotatedLogPath(jobRecord({ id: "j1" }))).toThrow("no directory");
+			expect(() => store.safeStatusPath(jobRecord({ id: "j1" }))).toThrow("no directory");
+			// One of the two that touches the filesystem: the removal, which would unlink `<id>.lock`.
+			expect(() => store.releaseId("j1")).toThrow("no directory");
 			// `persist` keeps its swallow — a job still works in-process — and writes nothing.
 			store.persist([job({ sessionId: "session" })]);
 			expect(readdirSync(cwd)).toEqual([]);
 		} finally {
 			process.chdir(previous);
 		}
+	});
+
+	test("the reservation sweep is the one accessor that writes, and it refuses beside the process too", async () => {
+		// Its own case because it is not a path getter and not an unlink: an unguarded
+		// `pruneReservations("")` writes the reservation file into the process's directory.
+		const cwd = temps.track(tempDir("pi-jobs-cwd-"));
+		const previous = process.cwd();
+		process.chdir(cwd);
+		try {
+			expect(() => createJobStore().pruneReservations(new Set())).toThrow("no directory");
+			expect(readdirSync(cwd)).toEqual([]);
+		} finally {
+			process.chdir(previous);
+		}
+	});
+
+	test("a placed store answers every one of them exactly as before", async () => {
+		// The regression half a guard needs: the cheap way to pass a refusal case is to refuse too
+		// much, and every path a placed store answers is what the rotation, the status write and the
+		// reservation sweep read on every job.
+		const dir = temps.track(tempDir("pi-jobs-store-"));
+		const store = createJobStore(dir);
+		expect(store.rotatedLogPath("j1")).toBe(join(dir, "j1.log.1"));
+		expect(store.statusPath("j1")).toBe(join(dir, "j1.status"));
+		expect(store.safeRotatedLogPath(jobRecord({ id: "j1" }))).toBe(join(dir, "j1.log.1"));
+		// A record that names no status file still answers nothing — the guard must not invent one.
+		expect(store.safeStatusPath(jobRecord({ id: "j1" }))).toBeUndefined();
+		expect(store.safeStatusPath(jobRecord({ id: "j1", statusPath: join(dir, "j1.status") }))).toBe(
+			join(dir, "j1.status"),
+		);
+		expect(store.logPath("j1")).toBe(join(dir, "j1.log"));
+		expect(() => store.releaseId("j1")).not.toThrow();
+		expect(() => store.pruneReservations(new Set())).not.toThrow();
 	});
 
 	test("persist writes only this session's records", async () => {

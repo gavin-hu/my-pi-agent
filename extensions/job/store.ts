@@ -96,8 +96,8 @@ export function createJobStore(initialDir = ""): JobStore {
 			counter = Number(next.slice(1)) + 1;
 			return next;
 		},
-		releaseId: (id) => releaseReservation(dir, id),
-		pruneReservations: (committed) => pruneReservations(dir, committed),
+		releaseId: (id) => releaseReservation(placed(), id),
+		pruneReservations: (committed) => pruneReservations(placed(), committed),
 		persist: (jobs) => {
 			try {
 				const at = placed();
@@ -111,16 +111,18 @@ export function createJobStore(initialDir = ""): JobStore {
 		},
 		logPath: (id) => join(placed(), `${id}.log`),
 		safeLogPath: (job) => safeArtifact(job.logPath, join(placed(), `${job.id}.log`)),
-		rotatedLogPath: (id) => join(dir, `${id}.log.1`),
+		rotatedLogPath: (id) => join(placed(), `${id}.log.1`),
 		// No record field names this file, so the id is the only input: refuse an id
-		// that would resolve outside the registry directory.
+		// that would resolve outside the registry directory. The guard is read *before* the
+		// resolve: `resolve("")` is the process's cwd, and the prefix check that follows would
+		// then pass against the wrong root and look exactly like a correct guard.
 		safeRotatedLogPath: (job) => {
-			const root = resolve(dir);
+			const root = resolve(placed());
 			const target = resolve(root, `${job.id}.log.1`);
 			return target.startsWith(`${root}${sep}`) ? target : undefined;
 		},
-		statusPath: (id) => statusPathFor(dir, id),
-		safeStatusPath: (job) => safeArtifact(job.statusPath ?? undefined, join(dir, `${job.id}.status`)),
+		statusPath: (id) => statusPathFor(placed(), id),
+		safeStatusPath: (job) => safeArtifact(job.statusPath ?? undefined, join(placed(), `${job.id}.status`)),
 	};
 }
 
