@@ -274,46 +274,101 @@ describe("defaultLabel", () => {
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
-/** One agent directory's bus for a repository key, with the `sessions/` its records live in. */
-function busUnder(agentDir: string, key: string): string {
-	const dir = join(agentDir, BUS_DIR_NAME, key);
-	mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
-	return dir;
-}
-
 describe("readSessionLabel", () => {
 	const NOW = 1_000_000;
 
-	test("finds this session's record under whichever key filed it", async () => {
+	/** One agent directory holding this repository's bus store under an id. */
+	function storeUnder(agentDir: string, id = "bc55"): string {
+		const dir = join(agentDir, "repos", id, BUS_DIR_NAME);
+		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
+		return dir;
+	}
+
+	/** The flat tree #771 replaced: one bus per path key, as a repository that has not moved keeps. */
+	function flatKey(agentDir: string, key: string): string {
+		const dir = join(agentDir, BUS_DIR_NAME, key);
+		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
+		return dir;
+	}
+
+	/** A record in the shape the bus writes, including the directories a legacy record is scoped by. */
+	function write(dir: string, name: string, record: Record<string, unknown>): void {
+		writeFileSync(join(dir, SESSIONS_DIR_NAME, name), JSON.stringify({ mode: "tui", ...record }), "utf-8");
+	}
+
+	test("finds the record in the store the bus files it in", async () => {
 		const agentDir = temps.track(tempDir("pi-bus-agent-"));
-		// A second repository's bus sits beside the first: the id decides, not the directory.
-		writeBusRecord(busUnder(agentDir, "first"), { id: "s-1", label: "billing-core", lastSeen: NOW });
-		writeBusRecord(busUnder(agentDir, "second"), { id: "s-2", label: "billing-lead", lastSeen: NOW });
+		writeBusRecord(storeUnder(agentDir), { id: "s-1", label: "billing-core", lastSeen: NOW });
 		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
-		expect(await readSessionLabel(agentDir, "s-2")).toBe("billing-lead");
+	});
+
+	test("answers a record still in the flat tree, when it is this session's own", async () => {
+		// The one-release read: a repository the mover has not reached keeps its records under a path
+		// key, and the record's own directory is what says they are this session's.
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		write(flatKey(agentDir, "abc123"), "s-1.json", {
+			id: "s-1",
+			label: "billing-core",
+			lastSeen: NOW,
+			cwd,
+			repoRoot: cwd,
+		});
+		expect(await readSessionLabel(agentDir, "s-1", { cwd })).toBe("billing-core");
+	});
+
+	test("never answers from another repository's flat key", async () => {
+		// The flat tree holds every repository's key, so a walk that took the first id match could put
+		// another repository's label on this session's bar.
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const mine = temps.track(tempDir("pi-repo-"));
+		const theirs = temps.track(tempDir("pi-repo-"));
+		write(flatKey(agentDir, "def456"), "s-1.json", {
+			id: "s-1",
+			label: "their-label",
+			lastSeen: NOW,
+			cwd: theirs,
+			repoRoot: theirs,
+		});
+		expect(await readSessionLabel(agentDir, "s-1", { cwd: mine })).toBeUndefined();
+	});
+
+	test("reads the store alone when it is given no cwd, and by id rather than by store", async () => {
+		// A session id is unique, so any store that holds it answers; without a `cwd` the flat tree is
+		// not guessed at, because a match there is not evidence of which repository it belongs to.
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		write(flatKey(agentDir, "abc123"), "s-1.json", { id: "s-1", label: "flat", lastSeen: NOW, cwd, repoRoot: cwd });
+		expect(await readSessionLabel(agentDir, "s-1")).toBeUndefined();
+		writeBusRecord(storeUnder(agentDir, "other"), { id: "s-1", label: "billing-core", lastSeen: NOW });
+		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
+	});
+
+	test("prefers the store over the flat tree when both name the session", async () => {
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		write(flatKey(agentDir, "abc123"), "s-1.json", { id: "s-1", label: "flat", lastSeen: NOW, cwd, repoRoot: cwd });
+		writeBusRecord(storeUnder(agentDir), { id: "s-1", label: "billing-core", lastSeen: NOW });
+		expect(await readSessionLabel(agentDir, "s-1", { cwd })).toBe("billing-core");
 	});
 
 	test("answers undefined for a session no record names, and with no bus at all", async () => {
 		const empty = temps.track(tempDir("pi-bus-agent-"));
 		expect(await readSessionLabel(empty, "s-1")).toBeUndefined();
 		const agentDir = temps.track(tempDir("pi-bus-agent-"));
-		writeBusRecord(busUnder(agentDir, "key"), { id: "s-2", label: "billing-lead", lastSeen: NOW });
+		writeBusRecord(storeUnder(agentDir), { id: "s-2", label: "billing-lead", lastSeen: NOW });
 		expect(await readSessionLabel(agentDir, "s-1")).toBeUndefined();
 	});
 
 	test("does not take a file the bus's own shape refuses, nor one that will not parse", async () => {
-		// An id and a name alone are not a record: a half-written file must not name the session,
-		// and a file that is not JSON costs itself rather than the walk.
+		// An id and a name alone are not a record: a half-written file must not name the session, and a
+		// file that is not JSON costs itself rather than the walk.
 		const agentDir = temps.track(tempDir("pi-bus-agent-"));
-		const dir = busUnder(agentDir, "key");
+		const dir = storeUnder(agentDir);
 		writeFileSync(join(dir, SESSIONS_DIR_NAME, "broken.json"), "{ not json\n", "utf-8");
 		writeFileSync(join(dir, SESSIONS_DIR_NAME, "half.json"), JSON.stringify({ id: "s-1", label: "half" }), "utf-8");
 		expect(await readSessionLabel(agentDir, "s-1")).toBeUndefined();
-	});
-
-	test("answers the label of a record that is one", async () => {
-		const agentDir = temps.track(tempDir("pi-bus-agent-"));
-		writeBusRecord(busUnder(agentDir, "key"), { id: "s-1", label: "billing-core", lastSeen: NOW });
+		writeBusRecord(dir, { id: "s-1", label: "billing-core", lastSeen: NOW });
 		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
 	});
 });

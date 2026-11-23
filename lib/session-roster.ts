@@ -2,12 +2,12 @@
  * Who is on this repository's session bus, read as data.
  *
  * The Team tab lists teammates, and `session-bus` owns those records. Neither extension may import the
- * other, and the board must keep working when the bus is not loaded — so the records are read where the
- * bus already put them, `<agent-dir>/session-bus/<repo-key>/`, as files rather than through its code. The
- * directory names, the record fields this reader trusts, and the liveness rule live here once, and
- * `session-bus` imports them, so a layout change cannot land in one copy and not the other. The layout is
- * loaded by the read that spells a path rather than at import: `board`, `team` and `job` each pay this
- * module's static imports, and none of them needs a path before a call.
+ * other, and the board must keep working when the bus is not loaded — so the records are read where
+ * the bus already put them, `<agent-dir>/repos/<repo-id>/session-bus/`, as files rather than through
+ * its code. The directory names, the record fields this reader trusts, and the liveness rule live here
+ * once, and `session-bus` imports them, so a layout change cannot land in one copy and not the other.
+ * The layout is loaded by the read that spells a path rather than at import: `board`, `team` and `job`
+ * each pay this module's static imports, and none of them needs a path before a call.
  *
  * The rule answers three things, not two: a record whose process is gone is `gone` at once, rather than
  * aging into `quiet` while the paths it claimed stay held. It is this *machine's* rule, though: a bus

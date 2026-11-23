@@ -26,7 +26,7 @@ afterAll(() => temps.flush());
 /** An agent directory holding one repository's bus, with one record in it. */
 function busWith(id: string, label: string): string {
 	const agentDir = temps.track(scratchDir(temps, "pi-footer-label-"));
-	const dir = join(agentDir, BUS_DIR_NAME, "key", SESSIONS_DIR_NAME);
+	const dir = join(agentDir, "repos", "bc55", BUS_DIR_NAME, SESSIONS_DIR_NAME);
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, "record.json"), JSON.stringify({ id, label, mode: "tui", lastSeen: 1_000 }), "utf-8");
 	return agentDir;
@@ -91,7 +91,7 @@ describe("the installed footer's chip", () => {
 			// The project's team holds `gavin` and not `billing-core`, and `/board` is what puts a
 			// session on that record without renaming it: the chip follows the label, not Pi.
 			writeFileSync(join(agentDir, "bytefly.json"), JSON.stringify({ team: { teammates: ["gavin", "tom"] } }));
-			const dir = join(agentDir, BUS_DIR_NAME, "key", SESSIONS_DIR_NAME);
+			const dir = join(agentDir, "repos", "bc55", BUS_DIR_NAME, SESSIONS_DIR_NAME);
 			mkdirSync(dir, { recursive: true });
 			writeFileSync(
 				join(dir, "record.json"),
@@ -114,7 +114,7 @@ describe("the installed footer's chip", () => {
 	test("follows the label a join publishes, and draws nothing for one the team refuses", async () => {
 		await withAgentDir(async (agentDir) => {
 			writeFileSync(join(agentDir, "bytefly.json"), JSON.stringify({ team: { teammates: ["gavin", "tom"] } }));
-			const dir = join(agentDir, BUS_DIR_NAME, "key", SESSIONS_DIR_NAME);
+			const dir = join(agentDir, "repos", "bc55", BUS_DIR_NAME, SESSIONS_DIR_NAME);
 			mkdirSync(dir, { recursive: true });
 			writeFileSync(
 				join(dir, "record.json"),

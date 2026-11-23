@@ -40,7 +40,7 @@ function projectWith(document: unknown): string {
  * after the subscription and cannot be.
  */
 function joined(agentDir: string, label: string): void {
-	const dir = join(agentDir, BUS_DIR_NAME, "key", SESSIONS_DIR_NAME);
+	const dir = join(agentDir, "repos", "bc55", BUS_DIR_NAME, SESSIONS_DIR_NAME);
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, "record.json"), JSON.stringify({ id: "sess", label, mode: "tui", lastSeen: 1_000 }), "utf-8");
 }

@@ -15,6 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `job` follows in #788, and a managed checkout stays where `worktree.dir` says — relocating a live
   worktree is `git worktree move`, which is its own card.
 
+- `bytefly`, `plan`: a session's footer names the label the bus settled again. The label reader walked
+  `<agent-dir>/session-bus/<key>/`, the spelling #771 replaced and its mover emptied, so a resumed
+  session's bar fell back to Pi's own session name. It reads `<agent-dir>/repos/<repo-id>/session-bus/`
+  now, and the flat tree only as a one-release fallback, only for a record whose own directory is this
+  session's — that tree holds every repository's key, so a match there is not evidence of which
+  repository answered. No git call is added to a session's start.
+
 - `session-bus`, `board`: a store a sync client replicates can hold two machines' sessions, and
   until now this one judged all of them by its own pids — so another machine's live session read
   `gone`, `session send` refused it, and the prune released its path claims. A record and a claim
