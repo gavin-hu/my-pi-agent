@@ -148,16 +148,17 @@ export function attentionSegments(counts: PanelCounts, dirty: boolean): SummaryS
 }
 
 /**
- * The Settings headline for non-TUI modes, e.g. `bytefly: Settings · Global · 16 settings`.
- * The listing only ever reads the personal document, so the scope is not a parameter.
+ * The Settings headline for non-TUI modes, e.g. `bytefly: Settings · Project · 17 settings`.
+ * Text modes name the scope the values were read in, so a print run cannot disagree
+ * with the screen a session opens.
  */
-export function formatSettingsHeadline(count: number): string {
-	return `bytefly: Settings · Global · ${count} settings`;
+export function formatSettingsHeadline(scope: PanelScope, count: number): string {
+	return `bytefly: Settings · ${scope === "global" ? "Global" : "Project"} · ${count} settings`;
 }
 
 /** The Settings listing for non-TUI modes, one row per line, in screen order. */
-export function formatSettingsListing(views: readonly SettingView[]): string {
-	const lines = [formatSettingsHeadline(views.length)];
+export function formatSettingsListing(scope: PanelScope, views: readonly SettingView[]): string {
+	const lines = [formatSettingsHeadline(scope, views.length)];
 	for (const view of views) lines.push(`  ${sanitizeLine(view.label)}: ${sanitizeLine(view.valueLabel)}`);
 	return lines.join("\n");
 }

@@ -100,7 +100,7 @@ describe("reading a key", () => {
 });
 
 describe("the hint row", () => {
-	const idle = { expanded: false, refreshing: false, projectScope: false, dirty: false, help: false };
+	const idle = { expanded: false, refreshing: false, projectOverride: false, dirty: false, help: false };
 	const text = (section: PanelSection, state: Partial<typeof idle> = {}): string =>
 		hintsFor(section, { ...idle, ...state })
 			.map((hint) => (typeof hint === "string" ? hint : hint.text))
@@ -111,6 +111,7 @@ describe("the hint row", () => {
 			true,
 		);
 		expect(text("settings")).toContain("Space change");
+		expect(text("settings")).toContain("s scope");
 		expect(text("settings")).toContain("u reset");
 	});
 
@@ -123,7 +124,7 @@ describe("the hint row", () => {
 
 	test("offers a binding only when it would do something", () => {
 		expect(text("extensions")).not.toContain("x inherit");
-		expect(text("extensions", { projectScope: true })).toContain("x inherit");
+		expect(text("extensions", { projectOverride: true })).toContain("x inherit");
 		expect(text("extensions")).not.toContain("R reload");
 		expect(text("extensions", { dirty: true })).toContain("R reload");
 		expect(text("extensions")).toContain("r refresh");

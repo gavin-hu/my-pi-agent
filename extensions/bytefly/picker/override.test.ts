@@ -95,10 +95,11 @@ describe("runtime clearing a project override", () => {
 			agentDir: "/agent",
 			onError: (message) => errors.push(message),
 		});
+		runtime.setScope("global");
 
 		await runtime.clearOverride("extensions", runtime.items("extensions")[0]);
 
-		expect(errors).toEqual(["Overrides are cleared in Project scope; switch with Tab."]);
+		expect(errors).toEqual(["Overrides are cleared in Project scope; switch with s."]);
 		expect(store.calls.setExtensionPaths).toEqual([]);
 		expect(runtime.isDirty()).toBe(false);
 	});

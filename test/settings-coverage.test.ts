@@ -452,8 +452,7 @@ const STATED: readonly { file: string; phrase: string }[] = [
 	{ file: "README.md", phrase: `the ${count(ROW_COUNT)} preferences a session changes` },
 	{ file: "README.zh-CN.md", phrase: `${zhCount(ROW_COUNT)}项设置` },
 	{ file: "docs/extensions/bytefly.md", phrase: `a session changes: ${count(ROW_COUNT)} preferences` },
-	{ file: "docs/extensions/bytefly.md", phrase: `Global · ${ROW_COUNT} settings` },
-	{ file: "docs/extensions/bytefly.md", phrase: `capped at ${count(ROW_COUNT)} rows` },
+	{ file: "docs/extensions/bytefly.md", phrase: `Project · ${ROW_COUNT} settings` },
 	{ file: "docs/extensions/bytefly.md", phrase: `the ${count(PROJECT_ROW_COUNT)} \`bytefly.json\` rows` },
 	{ file: "docs/extensions/bytefly.md", phrase: `at ${count(ROW_COUNT)} rows so the screen fits` },
 	{ file: "docs/extensions/bytefly.md", phrase: `catalogue: the ${count(ROW_COUNT)} descriptors` },
@@ -469,6 +468,7 @@ const STALE: readonly string[] = [
 	`${count(ROW_COUNT - 1)} rows`,
 	`${count(ROW_COUNT - 1)} descriptors`,
 	`Global · ${ROW_COUNT - 1} settings`,
+	`Global · ${ROW_COUNT} settings`,
 	`the ${count(PROJECT_ROW_COUNT - 1)} \`bytefly.json\` rows`,
 	`${zhCount(ROW_COUNT - 1)}项设置`,
 ];

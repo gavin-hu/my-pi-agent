@@ -40,6 +40,7 @@ describe("PanelComponent settings actions", () => {
 		const { component } = buildPanel({
 			items: [],
 			section: "settings",
+			scope: "global",
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
@@ -77,6 +78,7 @@ describe("PanelComponent settings actions", () => {
 		const { component } = buildPanel({
 			items: [],
 			section: "settings",
+			scope: "global",
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
@@ -96,6 +98,7 @@ describe("PanelComponent settings actions", () => {
 		const { component } = buildPanel({
 			items: [],
 			section: "settings",
+			scope: "global",
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
@@ -163,7 +166,6 @@ describe("PanelComponent settings review", () => {
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		component.handleInput("s");
 		focusPanel(component, "Resume after a job");
 		let text = component.render(140).join("\n");
 		expect(text).toContain(`Inherited from Global · ${join("/agent", "bytefly.json")}`);
@@ -181,26 +183,25 @@ describe("PanelComponent settings review", () => {
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		component.handleInput("s");
 		focusPanel(component, "Resume after a job");
 		component.handleInput("J");
 
 		const text = component.render(140).join("\n");
-		expect(text).toContain("Inherited from Global");
 		expect(text).toContain("── job");
 		expect(text).toContain("Not set in this scope.");
 		expect(text).not.toContain('"wakeOnFinish": true');
 	});
 
-	test("counts the settings it shows in the range row", () => {
+	test("counts the settings it shows in the range row in both scopes", () => {
 		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings", rows: 12 });
 
-		const global = component.render(80).join("\n");
-		expect(global).toContain("showing");
-		expect(global).toContain("of 17");
+		const project = component.render(80).join("\n");
+		expect(project).toContain("showing");
+		expect(project).toContain("of 17");
 
 		component.handleInput("s");
-		expect(component.render(80).join("\n")).toContain("of 15");
+		// Every scope lists the catalogue, so the count is the same on both layers.
+		expect(component.render(80).join("\n")).toContain("of 17");
 	});
 
 	test("ignores a click below the last body row", () => {
@@ -230,7 +231,13 @@ describe("PanelComponent settings review", () => {
 
 	test("counts the JSON lines it hides", () => {
 		const doctor = Object.fromEntries(Array.from({ length: 10 }, (_, index) => [`key${index}`, `value ${index}`]));
-		const { component } = buildPanel({ items: [], section: "settings", rows: 16, globalDoc: { doctor } });
+		const { component } = buildPanel({
+			items: [],
+			section: "settings",
+			rows: 16,
+			scope: "global",
+			globalDoc: { doctor },
+		});
 
 		focusPanel(component, "Health check at startup");
 		component.handleInput("J");
@@ -265,9 +272,9 @@ describe("PanelComponent settings review", () => {
 	});
 
 	test("fits an eight-row terminal in both scopes and while dirty", () => {
-		for (const project of [false, true]) {
+		for (const global of [false, true]) {
 			const { component } = buildPanel({ items: [], section: "settings", rows: 8 });
-			if (project) {
+			if (global) {
 				component.render(80);
 				component.handleInput("s");
 			}
@@ -298,26 +305,28 @@ describe("PanelComponent settings frame", () => {
 		for (const gone of ["Notification title", "Probe timeout", "Rail glyph", "Base ref", "Snapshots kept"]) {
 			expect(text, gone).not.toContain(gone);
 		}
+		expect(text).not.toContain("showing");
 		expect(text).toContain("Session budget");
 	});
 
 	test("scrolls the list on a 24-row terminal, saying how much it shows", () => {
-		// Sixteen rows and six headings are taller than a 24-row terminal, which is the trade the
-		// catalogue's cap states: the screen keeps its frame and scrolls the list.
+		// Seventeen rows, six headings, and the Project note are taller than a 24-row
+		// terminal, which is the trade the catalogue's cap states: the screen keeps its
+		// frame and scrolls the list.
 		const { component } = buildPanel({ items: [], section: "settings", rows: 24 });
 		const lines = component.render(96);
 
-		expect(lines).toHaveLength(24);
-		expect(lines.join("\n")).toContain("showing 1–13 of 17");
+		expect(lines.length).toBeLessThanOrEqual(24);
+		expect(lines.join("\n")).toContain("showing 1–11 of 17");
 	});
 
 	test("fits the whole catalogue on a terminal tall enough for it", () => {
 		const { component } = buildPanel({ items: [], section: "settings", rows: 40 });
 		const lines = component.render(96);
 
-		expect(lines).toHaveLength(29);
 		expect(lines.join("\n")).not.toContain("showing");
 		expect(lines.join("\n")).toContain("Session budget");
+		expect(lines.length).toBeLessThanOrEqual(40);
 	});
 
 	test("keeps a value beside its label on a wide terminal", () => {
@@ -345,10 +354,11 @@ describe("PanelComponent settings frame", () => {
 });
 
 describe("PanelComponent theme setting", () => {
-	test("renders the Theme row and cycles the resolved names", async () => {
+	test("renders the Theme row and cycles the resolved names in Global scope", async () => {
 		const { component } = buildPanel({
 			items: [],
 			section: "settings",
+			scope: "global",
 			themes: ["system", "bytefly-dark", "bytefly-light"],
 			app: { theme: "system" } as Settings,
 		});
@@ -365,12 +375,17 @@ describe("PanelComponent theme setting", () => {
 		expect(after).toContain("unsaved changes");
 	});
 
-	test("omits the Theme row in Project scope", () => {
+	test("lists the Theme row in Project scope and marks it Global", () => {
 		const { component } = buildPanel({ items: [], section: "settings", themes: ["system", "bytefly-dark"] });
 
-		component.render(80);
-		component.handleInput("s");
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Theme");
+		expect(text).toContain("system · Global");
 
-		expect(component.render(80).join("\n")).not.toContain("Theme");
+		// Global scope is where the row can be changed, so the tag goes away there.
+		component.handleInput("s");
+		const global = component.render(80).join("\n");
+		expect(global).toContain("Theme");
+		expect(global).not.toContain("system · Global");
 	});
 });

@@ -266,7 +266,7 @@ describe("panel text projection", () => {
 	});
 
 	test("states the settings scope and count", () => {
-		expect(formatSettingsHeadline(28)).toBe("bytefly: Settings · Global · 28 settings");
+		expect(formatSettingsHeadline("project", 17)).toBe("bytefly: Settings · Project · 17 settings");
 	});
 
 	test("renders a row without a report with no glyph and no summary", () => {
@@ -388,7 +388,7 @@ describe("panel text projection", () => {
 
 	test("lists settings flat, in screen order, with their values", () => {
 		const views = settingViews(settingsSnapshot(), "global");
-		const lines = formatSettingsListing(views).split("\n");
+		const lines = formatSettingsListing("global", views).split("\n");
 
 		expect(lines[0]).toBe("bytefly: Settings · Global · 17 settings");
 		expect(lines).toHaveLength(18);
@@ -421,7 +421,7 @@ describe("panel text projection", () => {
 			label: "Bad\u001b[31m",
 			valueLabel: "On\u0007",
 		};
-		const text = formatSettingsListing([view]);
+		const text = formatSettingsListing("global", [view]);
 
 		expect(text).not.toContain("\u001b");
 		expect(text).not.toContain("\u0007");

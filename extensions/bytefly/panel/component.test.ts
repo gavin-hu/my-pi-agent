@@ -82,7 +82,7 @@ describe("PanelComponent rendering", () => {
 		});
 		expect(component.render(96).join("\n")).toContain("Extensions 2");
 		expect(component.render(44).join("\n")).toContain("Extensions 2");
-		expect(component.render(96).join("\n")).toContain("writes Global");
+		expect(component.render(96).join("\n")).toContain("writes Project");
 		expect(component.render(44).join("\n").includes("Extensions 2")).toBe(true);
 	});
 
@@ -286,8 +286,8 @@ describe("PanelComponent skills", () => {
 		expect(refused).toContain("missing description");
 	});
 
-	test("toggles the focused skill into the global skills array", async () => {
-		const { component, store } = buildPanel({
+	test("toggles the focused skill into the skills array of the open scope", async () => {
+		const { component, projectStore } = buildPanel({
 			items: [],
 			skills: [skillItem("pdf")],
 			skillIndex: SKILLS_INDEX,
@@ -299,8 +299,12 @@ describe("PanelComponent skills", () => {
 		await settle();
 		await settle();
 
-		expect(store.calls.setSkillPaths.at(-1)).toEqual(["-skills/pdf/SKILL.md"]);
-		expect(store.calls.setExtensionPaths).toEqual([]);
+		// Project is the scope the screen opens on, so the skill is written there.
+		expect(projectStore.calls.setProjectSkillPaths.at(-1)).toEqual([
+			"/agent/skills/pdf/SKILL.md",
+			"-/agent/skills/pdf/SKILL.md",
+		]);
+		expect(projectStore.calls.setSkillPaths).toEqual([]);
 		expect(component.render(80).join("\n")).toContain("off");
 	});
 
@@ -313,7 +317,6 @@ describe("PanelComponent skills", () => {
 		});
 		component.render(80);
 
-		component.handleInput("s");
 		component.handleInput(" ");
 		await settle();
 		await settle();

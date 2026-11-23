@@ -242,7 +242,7 @@ async function updateAnswer(
 	ctx.ui.notify(text, severity);
 }
 
-/** Settings outside `tui`: the grouped listing without resolving packages. */
+/** Settings outside `tui`: the grouped listing without resolving packages, in the scope the screen opens on. */
 async function settingsText(
 	run: PanelRun,
 	makeSettings: NonNullable<PanelCommandDeps["settings"]>,
@@ -260,7 +260,10 @@ async function settingsText(
 		themes: run.themes,
 		onError: (message) => surfaceNotice(message, "warning"),
 	});
-	run.ctx.ui.notify(formatSettingsListing(settings.views("global")), "info");
+	// The screen opens on Project when the project is trusted, and text mode names the
+	// scope it read: one rule for both, so a print run and the screen cannot disagree.
+	const scope = run.trusted ? "project" : "global";
+	run.ctx.ui.notify(formatSettingsListing(scope, settings.views(scope)), "info");
 }
 
 /** Skills outside `tui`: the grouped listing from Pi's metadata, with no probe. */

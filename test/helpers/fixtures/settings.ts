@@ -100,7 +100,8 @@ export function fakeSettingsSurface(
 		},
 		change: async (scope, id) => {
 			const view = settingViews(state, scope).find((entry) => entry.id === id);
-			if (!view) return;
+			// The runtime refuses a row this scope cannot write, and writes nothing.
+			if (!view || view.readOnly) return;
 			const next = nextValue(view, view.value);
 			const config = view.config;
 			if (view.source === "app") {
@@ -117,6 +118,8 @@ export function fakeSettingsSurface(
 		},
 		reset: async (scope, id) => {
 			const view = settingViews(state, scope).find((entry) => entry.id === id);
+			// Pi's own rows have no unset, and neither does a scope that cannot write them.
+			if (view?.readOnly) return false;
 			const config = view?.config;
 			if (!config) return false;
 			const document = scope === "global" ? state.global : state.project;

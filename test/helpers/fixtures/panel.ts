@@ -96,6 +96,8 @@ export function buildPanel(options: {
 	app?: Settings;
 	globalDoc?: Record<string, unknown>;
 	projectDoc?: Record<string, unknown>;
+	/** The scope the screen opens on; the runtime's own default unless a test names one. */
+	scope?: "global" | "project";
 	themes?: readonly string[];
 	settings?: SettingsSurface;
 }) {
@@ -114,6 +116,7 @@ export function buildPanel(options: {
 		agentDir: "/agent",
 		onError: (message) => holder.component?.notify(message),
 	});
+	if (options.scope !== undefined) runtime.setScope(options.scope);
 	let closed = 0;
 	const reports = options.reports ?? [];
 	const settings =

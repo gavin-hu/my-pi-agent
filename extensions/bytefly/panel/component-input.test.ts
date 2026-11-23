@@ -17,7 +17,7 @@ import { PanelComponent } from "./tui.ts";
 
 describe("PanelComponent input", () => {
 	test("navigation skips group headers", async () => {
-		const { component, store } = buildPanel({
+		const { component, projectStore } = buildPanel({
 			items: [enabledItem("plan"), makeItem({ path: "/agent/extensions/auto.ts" })],
 			reports: [],
 		});
@@ -26,7 +26,8 @@ describe("PanelComponent input", () => {
 		component.handleInput(" ");
 		await settle();
 
-		expect(store.calls.setExtensionPaths.at(-1)).toEqual(["-extensions/auto.ts"]);
+		// The screen opens on Project, so the write is the project document's.
+		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toContain("-/agent/extensions/auto.ts");
 	});
 
 	test("space toggles the focused item and marks the screen dirty", async () => {
@@ -61,19 +62,19 @@ describe("PanelComponent input", () => {
 		expect(component.render(80).join("\n")).toContain("not trusted");
 	});
 
-	test("s switches to project scope when trusted", () => {
+	test("s switches to Global scope when trusted, where the personal file is written", () => {
 		const { component, runtime } = buildPanel({ items: [enabledItem("plan")], reports: [] });
 
+		expect(runtime.scope()).toBe("project");
 		component.handleInput("s");
 
-		expect(runtime.scope()).toBe("project");
+		expect(runtime.scope()).toBe("global");
 	});
 
 	test("x clears the project override the toggle wrote", async () => {
 		const item = makeItem({ path: "/agent/extensions/auto.ts" });
 		const { component, projectStore } = buildPanel({ items: [item], reports: [] });
 
-		component.handleInput("s");
 		component.handleInput(" ");
 		await settle();
 		await settle();
@@ -97,7 +98,6 @@ describe("PanelComponent input", () => {
 	test("x explains a row with no project override and writes nothing", async () => {
 		const { component, projectStore } = buildPanel({ items: [enabledItem("plan")], reports: [] });
 
-		component.handleInput("s");
 		component.handleInput("x");
 		await settle();
 		await settle();
@@ -108,16 +108,20 @@ describe("PanelComponent input", () => {
 		expect(text).not.toContain("Esc close");
 	});
 
-	test("offers x in Project scope only", () => {
-		const global = buildPanel({ items: [enabledItem("plan")], reports: [] });
-		expect(global.component.render(120).join("\n")).not.toContain("x inherit");
+	test("offers x only for a row that carries a project override", () => {
+		const overridden = buildPanel({
+			items: [makeItem({ path: "/proj/extensions/p.ts", metadata: { scope: "project" } })],
+			reports: [],
+		});
+		expect(overridden.component.render(120).join("\n")).toContain("x inherit");
 
-		global.component.handleInput("x");
-		expect(global.store.calls.setExtensionPaths).toEqual([]);
+		// An inherited row sits in Project scope too, and has nothing for the key to drop.
+		const inherited = buildPanel({ items: [enabledItem("plan")], reports: [] });
+		expect(inherited.component.render(120).join("\n")).not.toContain("x inherit");
 
-		const project = buildPanel({ items: [enabledItem("plan")], reports: [] });
-		project.component.handleInput("s");
-		expect(project.component.render(120).join("\n")).toContain("x inherit");
+		inherited.component.handleInput("x");
+		expect(inherited.store.calls.setExtensionPaths).toEqual([]);
+		expect(inherited.projectStore.calls.setProjectExtensionPaths).toEqual([]);
 	});
 
 	test("Escape closes the screen", () => {

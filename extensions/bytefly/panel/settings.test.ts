@@ -1,7 +1,7 @@
 /**
- * The Settings catalogue: the sixteen curated rows, the view and origin each one
- * reports per scope, its cycling and stored-value mapping, and the theme row's
- * shortlist.
+ * The Settings catalogue: the seventeen curated rows, the view and origin each
+ * one reports per scope, its cycling and stored-value mapping, and the theme
+ * row's shortlist.
  *
  * The writer behind the rows is `settings-runtime.test.ts`.
  */
@@ -16,7 +16,7 @@ import {
 	settingView,
 } from "../../../test/helpers/fixtures/settings.ts";
 import type { Settings } from "../picker/types.ts";
-import { nextValue, rowsForScope, SETTING_ROWS, settingViews, storedValue, textError } from "./settings.ts";
+import { nextValue, SETTING_ROWS, settingViews, storedValue, textError } from "./settings.ts";
 import { SHIPPED_THEMES_DIR, shippedThemeNames } from "./themes.ts";
 
 describe("settings catalogue", () => {
@@ -69,16 +69,12 @@ describe("settings catalogue", () => {
 		]);
 	});
 
-	test("shows app rows only in Global scope", () => {
-		const global = rowsForScope("global").map((entry) => entry.id);
-		expect(global).toEqual(SETTING_ROWS.map((entry) => entry.id));
-		expect(rowsForScope("project").map((entry) => entry.id)).toEqual(
-			rowsForScope("global")
-				.filter((entry) => entry.config !== undefined)
-				.map((entry) => entry.id),
-		);
-		expect(global).toHaveLength(17);
-		expect(rowsForScope("project")).toHaveLength(15);
+	test("lists the whole catalogue in both scopes", () => {
+		const ids = SETTING_ROWS.map((entry) => entry.id);
+
+		expect(settingViews(settingsSnapshot(), "global").map((entry) => entry.id)).toEqual(ids);
+		expect(settingViews(settingsSnapshot(), "project").map((entry) => entry.id)).toEqual(ids);
+		expect(ids).toHaveLength(17);
 	});
 
 	test("names every row and describes it", () => {
@@ -117,7 +113,7 @@ describe("settings catalogue", () => {
 		]);
 
 		expect(settingViews(settingsSnapshot(), "project").map((entry) => entry.origin)).toEqual(
-			Array.from({ length: 15 }, () => "default"),
+			Array.from({ length: SETTING_ROWS.length }, () => "default"),
 		);
 		const inherited = settingsSnapshot({ global: { notify: { enabled: true } } });
 		expect(settingView(inherited, "project", "notify.enabled")).toMatchObject({ value: "true", origin: "inherited" });

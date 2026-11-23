@@ -188,8 +188,8 @@ export interface HintState {
 	expanded: boolean;
 	/** A probe is in flight, so the refresh key is not offered. */
 	refreshing: boolean;
-	/** Project scope can hold an override, Global cannot (lists only). */
-	projectScope: boolean;
+	/** The focused row carries a project override, so the inherit key would do something. */
+	projectOverride: boolean;
 	/** Something was changed this session, so the reload key applies. */
 	dirty: boolean;
 	/** The help block is open. */
@@ -212,17 +212,18 @@ export function hintsFor(section: PanelSection, state: HintState): ScreenHint[] 
 		hint("←/→ section"),
 		section === "settings" ? hint("Space change", true) : hint("Space toggle", true),
 		...(section === "settings" ? [] : [hint(state.expanded ? "Enter collapse" : "Enter detail", true)]),
-		hint("/ filter"),
 	];
+	// Settings leads with the scope key: with Project the default, an app row's only
+	// route to a write is the switch, so it outranks filtering there.
 	if (section === "settings") {
-		hints.push(hint("u reset"), hint(state.help ? "? hide" : "? keys"));
+		hints.push(hint("s scope"), hint("/ filter"), hint("u reset"), hint(state.help ? "? hide" : "? keys"));
 		return hints;
 	}
-	hints.push(hint(state.help ? "? hide" : "? keys"));
+	hints.push(hint("/ filter"), hint(state.help ? "? hide" : "? keys"));
 	if (section === "extensions") hints.push(hint(state.refreshing ? "refreshing…" : "r refresh"));
 	if (state.dirty) hints.push(hint("R reload", true));
 	hints.push(hint("s scope"));
-	if (state.projectScope) hints.push(hint("x inherit"));
+	if (state.projectOverride) hints.push(hint("x inherit"));
 	hints.push(hint("↑/↓ select"));
 	return hints;
 }
