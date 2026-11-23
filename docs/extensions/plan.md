@@ -105,12 +105,12 @@ that changes. A delegated agent runs with writing forced off.
 
 ## Settings
 
-**The store's bound** is `bytefly.json`'s `plan` section: `keep` (the newest 100 per repository)
-and `maxAgeDays` (180). A plan goes when it is outside the newest `keep` **or** older than `maxAgeDays`
-— either alone, so a small store still loses a stale plan; the count bound and the card exemption are
-the protections, and `enabled: false` leaves `/plan prune` as the only door. The keys are in the
-[reference](../configuration-reference.md#plan--the-plan-stores-bound). Plan mode has no key: toggle
-`plan` in `/bytefly`.
+**The store's bound** is `bytefly.json`'s `plan` section: `keep` (the newest 100 per repository) and
+`maxAgeDays` (180). It counts plans, not bytes: `/plan prune` names the files it can never remove —
+screenshots and the like, by kind with their bytes — beside the store's real size, and counts a store it
+could not read. The count bound and the card exemption are the protections; the keys are in the
+[reference](../configuration-reference.md#plan--the-plan-stores-bound), `enabled: false` leaves `/plan
+prune` as the only door, and plan mode has no key — toggle `plan` in `/bytefly`.
 
 ## Learn more
 
