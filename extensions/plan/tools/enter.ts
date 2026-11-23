@@ -7,7 +7,7 @@
 
 import type { AgentToolResult, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../../lib/interaction.ts";
-import { planConsent, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
+import { planConsent, READ_ONLY_SUMMARY } from "../../../lib/mode-entry.ts";
 import { failedResult } from "../../../lib/tool-result.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, type ToolCallText } from "../../../lib/tui/tool.ts";

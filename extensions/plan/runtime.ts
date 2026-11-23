@@ -17,14 +17,15 @@
  */
 
 import { basename, resolve } from "node:path";
-import { realpathSync } from "node:fs";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
+import { PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
+import { realPathOfNearest } from "../../lib/path.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { toolResultDetails } from "../../lib/tool-result.ts";
 import { PLAN_TOOL as PLAN_TOOL_NAME } from "../../lib/tool-names.ts";
+import { createToolSetFilter } from "../../lib/tool-set.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
 import { sameSections, sectionDigests, type SectionDigest } from "./plan-text.ts";
@@ -172,18 +173,6 @@ function readBranchState(ctx: ExtensionContext): BranchState {
 	return { mode, lastPlan, baselines, seeded };
 }
 
-/** Compare two paths, resolving symlinks when possible so `/tmp` and `/private/tmp` match. */
-function samePath(a: string, b: string): boolean {
-	const normalize = (path: string): string => {
-		try {
-			return realpathSync(path);
-		} catch {
-			return resolve(path);
-		}
-	};
-	return normalize(a) === normalize(b);
-}
-
 /** One terminal-safe line for the footer chip. */
 function statusName(path: string): string {
 	const name = sanitizeLine(basename(path).replace(/\.md$/i, ""));
@@ -205,13 +194,12 @@ export function createPlanRuntime(
 	/** The steps each approval appended, so the next approval can replace its own leftovers. */
 	const seededPlans = new Map<string, string[]>();
 	// Tools plan mode deactivated, so disabling restores exactly those and does
-	// not re-activate a tool another extension intentionally hid.
+	// not re-activate a tool another extension intentionally hid. The tools it had
+	// to *activate* are `createToolSetFilter`'s own memory.
 	let removedForPlan: string[] = [];
-	// Mode tools this enable had to activate, so disabling puts the user's own
-	// active set back instead of widening it.
-	let addedForPlan: string[] = [];
 
 	const plans = createPlanStore(pi);
+	const tools = createToolSetFilter(pi, policy, MODE_TOOLS);
 
 	/**
 	 * Whether `toolName` is plan's own registration, matched by the entry path the
@@ -222,35 +210,24 @@ export function createPlanRuntime(
 		if (toolName !== PLAN_TOOL) return false;
 		const info = pi.getAllTools().find((tool) => tool.name === toolName);
 		const source = info?.sourceInfo?.path;
-		return source === undefined || options.entryPath === undefined || samePath(source, options.entryPath);
+		return (
+			source === undefined ||
+			options.entryPath === undefined ||
+			realPathOfNearest(source) === realPathOfNearest(options.entryPath)
+		);
 	};
 
-	/** Tools plan mode would hide from the current active set. */
-	const captureHidden = (): string[] => [
-		...new Set(pi.getActiveTools().filter((name) => !policy.isAllowed(name) && !MODE_TOOLS.includes(name))),
-	];
-
 	/**
-	 * Apply the current mode to the active set. `addHidden` re-adds the tools a
+	 * Apply the enabled mode to the active set. `addHidden` re-adds the tools a
 	 * user disable hid; a branch restore passes false, because the host has
 	 * already put the target branch's base tools back.
 	 */
-	const applyTools = (addHidden: boolean): void => {
-		const active = pi.getActiveTools();
+	const applyMode = (addHidden: boolean): void => {
 		if (enabled) {
-			// Keep only tools the policy considers safe to expose while read-only
-			// (structured readers and the plan/goal trackers), plus the `plan` tool
-			// itself, whose actions are the mode's own vocabulary.
-			addedForPlan = MODE_TOOLS.filter((name) => !active.includes(name));
-			pi.setActiveTools([...new Set([...active.filter((name) => policy.isAllowed(name)), ...MODE_TOOLS])]);
+			tools.enter();
 			return;
 		}
-		// A mode tool this enable had to activate goes back to how the user left it,
-		// rather than staying active because the mode needed it for a while.
-		const kept = active.filter((name) => !addedForPlan.includes(name));
-		addedForPlan = [];
-		const restored = addHidden ? removedForPlan : [];
-		pi.setActiveTools([...new Set([...kept, ...restored])]);
+		tools.leave(removedForPlan, { reAdd: addHidden });
 		removedForPlan = [];
 	};
 
@@ -269,9 +246,9 @@ export function createPlanRuntime(
 		// A redundant enable (for example a `session_tree` restore while already
 		// enabled) must not recompute this from the already-filtered active set, or
 		// disabling would lose them.
-		if (changed && next) removedForPlan = captureHidden();
+		if (changed && next) removedForPlan = tools.capture();
 		enabled = next;
-		applyTools(!next);
+		applyMode(!next);
 		if (persist && changed) {
 			pi.appendEntry(STATE_TYPE, (next ? { enabled, removed: removedForPlan } : { enabled }) satisfies PlanModeEntry);
 		}
@@ -300,12 +277,12 @@ export function createPlanRuntime(
 			// A branch carries the tools it hid, so adopt them for a later disable;
 			// a fresh `--plan` captures the current set instead.
 			if (next && persisted?.removed !== undefined) removedForPlan = [...persisted.removed];
-			else if (next) removedForPlan = captureHidden();
+			else if (next) removedForPlan = tools.capture();
 			else removedForPlan = [];
 			enabled = next;
 			// Never re-add hidden tools on restore: the host has already restored the
 			// target branch's base set, and only a user disable should undo our hide.
-			applyTools(false);
+			applyMode(false);
 			if (ctx) setStatus(ctx);
 		},
 		plans,

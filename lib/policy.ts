@@ -14,9 +14,9 @@
  * actions read comes from `board/actions.ts`, so this module stays value-only.
  */
 
-import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ToolAnnotations } from "@earendil-works/pi-coding-agent";
 import { isBoardReadAction, isBoardWorkAction } from "./workflow/actions.ts";
-import { READ_DOC_TOOL } from "./tool-names.ts";
+import { READ_DOC_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "./tool-names.ts";
 
 /**
  * Whether a call to the `board` tool only reads it.
@@ -31,6 +31,19 @@ import { READ_DOC_TOOL } from "./tool-names.ts";
 export function isBoardRead(call: unknown): boolean {
 	if (typeof call !== "object" || call === null) return false;
 	return isBoardReadAction((call as { action?: unknown }).action);
+}
+
+/**
+ * Whether the registered `subagent` tool declares the read-only parameter a mode
+ * pins. A mode that only reads must not start a writing child, and a `subagent`
+ * that cannot honour the flag is refused rather than run read-write — which is why
+ * the probe and the parameter name agree here, beside the classification both modes
+ * already share, instead of in the extension that happened to need it first.
+ */
+export function supportsReadOnlyDelegation(pi: Pick<ExtensionAPI, "getAllTools">): boolean {
+	const info = pi.getAllTools().find((tool) => tool.name === SUBAGENT_TOOL);
+	const properties = (info?.parameters as { properties?: Record<string, unknown> } | undefined)?.properties;
+	return properties !== undefined && Object.prototype.hasOwnProperty.call(properties, SUBAGENT_READ_ONLY_PARAM);
 }
 
 /**

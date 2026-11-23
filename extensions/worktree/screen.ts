@@ -17,7 +17,8 @@
 import { basename } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
-import { planModeRefusal } from "../../lib/plan-entry.ts";
+import { modeRefusal } from "../../lib/mode-entry.ts";
+import type { SessionMode } from "../../lib/mode-state.ts";
 import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
@@ -94,7 +95,8 @@ export interface WorktreeScreenOptions {
 	/** Run a prune in place and return its report. */
 	prune(): Promise<string>;
 	/** Plan mode: the screen still shows the list, but no verb may change it. */
-	readOnly: boolean;
+	/** The mode the session is in; only `auto` allows a lifecycle change. */
+	mode: SessionMode;
 	viewportRowsSource?: ViewportRowsSource;
 }
 
@@ -217,8 +219,9 @@ export class WorktreeListComponent extends DockListScreen<WorktreeRow> {
 
 	protected handleVerb(key: string, row: WorktreeRow | undefined): void {
 		if (key !== "e" && key !== "x" && key !== "p") return;
-		if (this.deps.readOnly) {
-			this.notify(planModeRefusal("changing worktrees"));
+		const { mode } = this.deps;
+		if (mode !== "auto") {
+			this.notify(modeRefusal(mode, "changing worktrees"));
 			return;
 		}
 		if (key === "e") {

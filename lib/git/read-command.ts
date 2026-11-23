@@ -1,11 +1,18 @@
 /**
- * Read-only git shell guard for plan mode (pure).
+ * One shell command judged read-only git — the guard a mode without code puts on
+ * `bash` (pure).
  *
  * Plan mode keeps the path-taking readers but, historically, disabled raw shell
- * entirely and relied on a structured `git` tool for repository inspection.
- * With that tool removed, this guard lets `bash` run read-only git commands
- * while planning (`powershell` is blocked outright). Several may be chained
- * with `&&` or `;`, but every segment must itself be a read-only git command.
+ * entirely and relied on a structured `git` tool for repository inspection. With
+ * that tool removed, this guard lets `bash` run read-only git commands instead.
+ * Lead mode needs the same permission for the same reason: a lead vets a handed
+ * sha with `git log` and `git diff`, and nothing else. Several commands may be
+ * chained with `&&` or `;`, but every segment must itself be read-only.
+ *
+ * What a refusal is called is the caller's: the grammar is mode-neutral and
+ * {@link ModePhrasing} supplies the two clauses plan mode and lead mode word
+ * differently, so plan's rendered sentences are byte-identical to the ones it
+ * shipped and a second mode reads its own.
  *
  * It is deliberately conservative and allowlist-based:
  *
@@ -20,11 +27,11 @@
  *      rejected, and dual-use subcommands (`branch`, `tag`, `remote`, `config`,
  *      `stash`, `worktree`, `reflog`) must be in their read-only form.
  *
- * This is a guard rail, not a sandbox — the same stance as the rest of plan
- * mode. A few exotic read invocations are refused on purpose rather than
- * risking a bypass. It writes nothing of its own: what it allows can still move
- * `.git/index`, which `git status` and `git diff` refresh, and that is git's
- * record of the working tree rather than a write a plan asks for.
+ * This is a guard rail, not a sandbox. A few exotic read invocations are
+ * refused on purpose rather than risking a bypass. It writes nothing of its own:
+ * what it allows can still move `.git/index`, which `git status` and `git diff`
+ * refresh, and that is git's record of the working tree rather than a write the
+ * mode asks for.
  *
  * Two switches are forced onto every allowed command that runs a diff, because a
  * repository can otherwise name the program that runs: `--no-textconv` stops a
@@ -40,6 +47,20 @@ type GitCheck = { ok: true } | { ok: false; reason: string };
 
 /** What the guard answers: the command to run, or why the caller may not. */
 export type GitCommandVerdict = { ok: true; command: string } | { ok: false; reason: string };
+
+/**
+ * How a refusal names the mode it is judging for, so the grammar stays neutral.
+ *
+ * Plan mode passes `{ label: "plan mode", whileDoing: "while planning" }`, which
+ * renders the sentences it shipped; lead mode passes its own two, and the same
+ * check reads as the seat's rule rather than a planner's.
+ */
+export interface ModePhrasing {
+	/** The mode, mid-sentence and lowercase: `plan mode`, `lead mode`. */
+	label: string;
+	/** A prohibition's clause: `while planning`, `in lead mode`. */
+	whileDoing: string;
+}
 
 /**
  * Characters that chain commands, substitute, redirect, or form a subshell.
@@ -280,7 +301,7 @@ const CONFIG_GET_FLAGS = new Set([
  * one this guard knows, a write action is refused by name, positionals are at most one, and
  * the only forms left are the ones git reads with: `--get*`, `--list`, or one bare name.
  */
-function checkConfig(rest: string[]): GitCheck {
+function checkConfig(rest: string[], phrasing: ModePhrasing): GitCheck {
 	const tokens = rest.map(unquote);
 	const positionals: string[] = [];
 	let reads = false;
@@ -294,7 +315,7 @@ function checkConfig(rest: string[]): GitCheck {
 		if (CONFIG_WRITE_FLAGS.has(flag)) {
 			return {
 				ok: false,
-				reason: `"git config ${flag}" writes .git/config; "git config" may only read while planning.`,
+				reason: `"git config ${flag}" writes .git/config; "git config" may only read ${phrasing.whileDoing}.`,
 			};
 		}
 		if (!CONFIG_READ_FLAGS.has(flag) && !CONFIG_VALUE_FLAGS.has(flag)) {
@@ -310,12 +331,15 @@ function checkConfig(rest: string[]): GitCheck {
 		// A flag is not a value: reading `--replace-all` as `--get`'s key would refuse nothing
 		// and leave git to act on it, so the value is refused rather than guessed.
 		if (value === undefined || value.startsWith("-")) {
-			return { ok: false, reason: `"git config ${flag}" needs a value, and plan mode does not guess one.` };
+			return { ok: false, reason: `"git config ${flag}" needs a value, and ${phrasing.label} does not guess one.` };
 		}
 		index += 1;
 	}
 	if (positionals.length > 1) {
-		return { ok: false, reason: '"git config <name> <value>" writes .git/config; plan mode reads config only.' };
+		return {
+			ok: false,
+			reason: `"git config <name> <value>" writes .git/config; ${phrasing.label} reads config only.`,
+		};
 	}
 	if (!reads && positionals.length !== 1) {
 		return {
@@ -327,7 +351,7 @@ function checkConfig(rest: string[]): GitCheck {
 }
 
 /** Subcommand-specific read-only rules; the rest only pass the option denylist. */
-function checkRest(subcommand: string, rest: string[]): GitCheck {
+function checkRest(subcommand: string, rest: string[], phrasing: ModePhrasing): GitCheck {
 	switch (subcommand) {
 		case "branch":
 			return checkFlagAndPositional(rest, { flags: BRANCH_FLAGS, listFlags: ["-l", "--list"] }, "branch");
@@ -345,7 +369,7 @@ function checkRest(subcommand: string, rest: string[]): GitCheck {
 			};
 		}
 		case "config":
-			return checkConfig(rest);
+			return checkConfig(rest, phrasing);
 		case "stash": {
 			const [first] = rest.map(unquote);
 			if (first === "list" || first === "show") return { ok: true };
@@ -380,20 +404,23 @@ function checkRest(subcommand: string, rest: string[]): GitCheck {
  * Pure and side-effect free. Chaining is not handled here; see
  * {@link checkReadOnlyGit}.
  */
-function checkSingleGitCommand(command: string): GitCheck {
+function checkSingleGitCommand(command: string, phrasing: ModePhrasing): GitCheck {
 	if (SHELL_META.test(command) || hasShellEscape(command)) {
-		return { ok: false, reason: "shell substitution and redirection are not allowed while planning." };
+		return { ok: false, reason: `shell substitution and redirection are not allowed ${phrasing.whileDoing}.` };
 	}
 
 	const argv = command.split(/\s+/).map(unquote);
 	if (argv[0] === "cd") {
 		return {
 			ok: false,
-			reason: '"cd" does not run while planning; the working directory is already the project root.',
+			reason: `"cd" does not run ${phrasing.whileDoing}; the working directory is already the project root.`,
 		};
 	}
 	if (argv[0] !== "git") {
-		return { ok: false, reason: `only read-only git commands run in the shell while planning (got "${argv[0]}").` };
+		return {
+			ok: false,
+			reason: `only read-only git commands run in the shell ${phrasing.whileDoing} (got "${argv[0]}").`,
+		};
 	}
 	if (argv[1] === "--version") return { ok: true };
 	if (argv[1] === undefined) {
@@ -408,11 +435,11 @@ function checkSingleGitCommand(command: string): GitCheck {
 
 	for (const token of argv.slice(1)) {
 		if (isDangerousOption(token)) {
-			return { ok: false, reason: `"${token}" is not allowed while planning.` };
+			return { ok: false, reason: `"${token}" is not allowed ${phrasing.whileDoing}.` };
 		}
 	}
 
-	return checkRest(argv[1], argv.slice(2));
+	return checkRest(argv[1], argv.slice(2), phrasing);
 }
 
 /** Chain operators that join read-only git commands into one call. */
@@ -464,7 +491,7 @@ function forceNoRepoPrograms(segment: string): string {
  * The returned command is what `index.ts` puts on the call, so the guard decides
  * both the shape and the switches rather than leaving the latter to the model.
  */
-export function readOnlyGitCommand(input: string): GitCommandVerdict {
+export function readOnlyGitCommand(input: string, phrasing: ModePhrasing): GitCommandVerdict {
 	const command = input.trim();
 	if (command === "") return { ok: false, reason: "the command is empty." };
 
@@ -480,7 +507,7 @@ export function readOnlyGitCommand(input: string): GitCommandVerdict {
 		if (segment === "") {
 			return { ok: false, reason: "a chained command has an empty segment." };
 		}
-		const verdict = checkSingleGitCommand(segment);
+		const verdict = checkSingleGitCommand(segment, phrasing);
 		if (!verdict.ok) return verdict;
 		rewritten.push(forceNoRepoPrograms(part));
 	}

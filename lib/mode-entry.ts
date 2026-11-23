@@ -1,31 +1,43 @@
 /**
- * Plan-mode entry, shared by the extension that owns the mode and the one that
- * offers it as a phase of the goal.
+ * A mode's entry and what a refusal says, shared by the extension that owns a
+ * mode and the ones that ask for it or must answer for it.
  *
- * Plan mode has one owner: `plan` gates the tools, persists the flag, and draws
- * the footer. A tool context can reach it through `ctx.executeTool`, but a
- * command context cannot (`ExtensionCommandContext` has no `executeTool`), so the
- * request travels on `pi.events` as an in-process request/response. The caller
- * asks the user — with the consent sentence below — and `plan` enables without a
- * second dialog, so the session never asks twice for one decision.
+ * Each mode has one owner: `plan` gates the tools, persists its flag, and draws
+ * the footer; lead mode's owner is the board. A tool context can reach the owner
+ * through `ctx.executeTool`, but a command context cannot
+ * (`ExtensionCommandContext` has no `executeTool`), so a request travels on
+ * `pi.events` as an in-process request/response: plan's own enter, toggle and
+ * leave channels are here, and the caller asks the user with the consent sentence
+ * below, so the session never asks twice for one decision.
  *
- * The consent sentence and the read-only summary live here because two
- * extensions show them: one copy each is how a trust guarantee drifts apart.
- * Value-only, as `lib/` must be: the state is the caller's context and a closure,
- * never a module variable.
+ * The consent sentence, the read-only summary and {@link modeRefusal} live here
+ * because more than one extension shows them: one copy each is how a trust
+ * guarantee drifts apart. Value-only, as `lib/` must be: the state is the
+ * caller's context and a closure, never a module variable.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { dialogLanguage, isRemoteTurn, type UIContextCarrier } from "./interaction.ts";
-import { isPlanModeEnabled } from "./plan-state.ts";
+import { isPlanModeEnabled, type SessionMode } from "./mode-state.ts";
 import { PLAN_TOOL } from "./tool-names.ts";
+
+/** A mode that refuses code: the two a session gates, never `auto`. */
+export type LeashedMode = Exclude<SessionMode, "auto">;
 
 /** EventBus channel on which a caller asks `plan` to enable plan mode. */
 export const PLAN_ENTER_REQUEST = "my-pi-agent/plan-mode/enter";
 
 /** EventBus channel on which a caller asks `plan` to flip the mode. */
 export const PLAN_TOGGLE_REQUEST = "my-pi-agent/plan-mode/toggle";
+
+/**
+ * EventBus channel on which a caller asks `plan` to turn the mode off, and to
+ * report whether it is off. Idempotent: a session already out of plan mode
+ * answers `true` without changing anything, which is what a door entering a
+ * different mode needs before it hides anything itself.
+ */
+export const PLAN_LEAVE_REQUEST = "my-pi-agent/plan-mode/leave";
 
 /** One clause describing the read-only guarantee, reused across prompts. */
 export const READ_ONLY_SUMMARY =
@@ -59,14 +71,18 @@ export function planConsent(ctx: UIContextCarrier): string {
 }
 
 /**
- * The refusal a command shows when plan mode forbids what it does.
+ * The refusal a command shows when the session's mode forbids what it does.
  *
- * Plan mode is read-only, so every extension whose command changes something says so the
- * same way and names the action it is not doing: one sentence in `lib/`, because five
- * copies is how the guarantee stops reading as one guarantee.
+ * Every extension whose command changes something says so the same way and names
+ * the action it is not doing, with the hatch that would let it: plan mode asks for
+ * the approval, lead mode asks the session to step out of the seat. One sentence
+ * in `lib/`, because a copy per caller is how the guarantee stops reading as one
+ * guarantee.
  */
-export function planModeRefusal(action: string): string {
-	return `Plan mode is read-only. Approve the plan before ${action}.`;
+export function modeRefusal(mode: LeashedMode, action: string): string {
+	return mode === "lead"
+		? `Lead mode holds the seat: \`/board exit\` before ${action}.`
+		: `Plan mode is read-only. Approve the plan before ${action}.`;
 }
 
 /** What a caller sends on {@link PLAN_ENTER_REQUEST} or {@link PLAN_TOGGLE_REQUEST}. */
@@ -100,6 +116,27 @@ export function requestPlanMode(
 	if (!isPlanExtensionLoaded(pi)) return Promise.resolve(false);
 	return requestOverBus<boolean, PlanModeRequest>(pi, {
 		channel: PLAN_ENTER_REQUEST,
+		payload: (respond) => ({ ctx, respond }),
+		unclaimed: () => false,
+	});
+}
+
+/**
+ * Ask `plan` to turn the mode off, and report whether it is off.
+ *
+ * Idempotent, unlike the toggle: a caller that is about to enter another mode
+ * needs "plan is not on" rather than "the flip landed", and a session already out
+ * of plan mode resolves `true` without a listener doing anything. `false` means
+ * nothing answered — the `plan` extension is not loaded, so there is no plan mode
+ * to leave.
+ */
+export function requestPlanLeave(
+	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
+	ctx: ExtensionContext,
+): Promise<boolean> {
+	if (!isPlanExtensionLoaded(pi)) return Promise.resolve(false);
+	return requestOverBus<boolean, PlanModeRequest>(pi, {
+		channel: PLAN_LEAVE_REQUEST,
 		payload: (respond) => ({ ctx, respond }),
 		unclaimed: () => false,
 	});

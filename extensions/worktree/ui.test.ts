@@ -94,7 +94,7 @@ function build(overrides: Partial<WorktreeSnapshot> = {}, options: Partial<Workt
 			built.prunes += 1;
 			return "Removed /repo/.pi/worktrees/old\nKept /repo/.pi/worktrees/busy";
 		},
-		readOnly: false,
+		mode: "auto",
 		viewportRowsSource: 20,
 		...options,
 	});
@@ -269,8 +269,8 @@ describe("WorktreeListComponent", () => {
 		expect(built.component.render(100).join("\n")).toContain("Removed /repo/.pi/worktrees/old");
 	});
 
-	test("a read-only screen refuses every verb", () => {
-		const built = build({ active: activeWorktree() }, { readOnly: true });
+	test("a leashed screen refuses every verb", () => {
+		const built = build({ active: activeWorktree() }, { mode: "plan" });
 		for (const key of ["e", "x", "p"]) built.component.handleInput(key);
 		expect(built.actions).toEqual([]);
 		expect(built.prunes).toBe(0);

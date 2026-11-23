@@ -12,7 +12,7 @@ import { planCtx, makePlanPi } from "../../test/helpers/fixtures/plan.ts";
 import { useEnv } from "../../test/helpers/env.ts";
 import { repoKeyOf } from "../../lib/repo-key.ts";
 import { shortenPath } from "../../lib/format.ts";
-import { PLAN_CONSENT_SHORT } from "../../lib/plan-entry.ts";
+import { PLAN_CONSENT_SHORT } from "../../lib/mode-entry.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";

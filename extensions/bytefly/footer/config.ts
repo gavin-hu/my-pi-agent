@@ -7,7 +7,7 @@
  * configuration is `bytefly.json`, read by `../price/config.ts`.
  */
 
-import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
+import { GLYPHS, MODE_STATUS_KEYS, SEPARATORS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 
 /**
  * Status keys that are alerts rather than modes, and so are never dropped.
@@ -32,20 +32,24 @@ export const CONFIG = {
 		delegation: GLYPHS.delegation,
 		autoMode: GLYPHS.autoMode,
 		planMode: GLYPHS.plan,
+		leadMode: GLYPHS.lead,
 	},
 	/** Status key the worktree extension uses; routed to line 1's right zone. */
 	worktreeStatusKey: STATUS_KEYS.worktree,
 	/** Status key `serve` publishes the session's one page port under. */
 	httpStatusKey: STATUS_KEYS.http,
-	/** Status key whose chip is the plan state; the mode segment renders it. */
-	planStatusKey: STATUS_KEYS.planMode,
+	/**
+	 * Status keys whose chips are the session's mode; the mode segment renders
+	 * them, and the statuses segment never does.
+	 */
+	modeStatusKeys: MODE_STATUS_KEYS,
 	/**
 	 * Status keys that are alerts rather than modes, and so are never dropped.
 	 * A mode can be read again from the session; a failure cannot be re-derived
 	 * once its chip is off the bar.
 	 */
 	alertStatusKeys: ALERT_STATUS_KEYS,
-	labels: { noModel: "no model", detached: "detached", autoMode: "auto", planMode: "plan" },
+	labels: { noModel: "no model", detached: "detached", autoMode: "auto", planMode: "plan", leadMode: "lead" },
 	/** Minimum gap kept between the left and right zones. */
 	minGap: 2,
 	/** Worktree label length before the compact form truncates it. */

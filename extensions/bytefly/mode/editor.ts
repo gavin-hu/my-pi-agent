@@ -28,8 +28,8 @@ import {
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { type EditorTheme, getKeybindings, type KeybindingsManager, type TUI } from "@earendil-works/pi-tui";
-import { isPlanExtensionLoaded, requestPlanToggle } from "../../../lib/plan-entry.ts";
-import { isPlanModeEnabled } from "../../../lib/plan-state.ts";
+import { isPlanExtensionLoaded, requestPlanToggle } from "../../../lib/mode-entry.ts";
+import { isPlanModeEnabled } from "../../../lib/mode-state.ts";
 import { isShiftTab } from "../../../lib/tui/cursor.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 

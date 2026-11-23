@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { PLAN_ENTER_REQUEST, type PlanModeRequest } from "../../lib/plan-entry.ts";
+import { PLAN_ENTER_REQUEST, type PlanModeRequest } from "../../lib/mode-entry.ts";
 import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { lastWidget, otherMessage } from "../../test/helpers/entries.ts";
 import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";

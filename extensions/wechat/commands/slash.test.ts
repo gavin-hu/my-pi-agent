@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { PLAN_MODE_ENTRY_TYPE } from "../../../lib/plan-state.ts";
+import { PLAN_MODE_ENTRY_TYPE } from "../../../lib/mode-state.ts";
 import { withAgentDir } from "../../../test/helpers/env.ts";
 import { emit } from "../../../test/helpers/fakes.ts";
 import { inboundText, startWechat, updates, writeAccount } from "../../../test/helpers/fixtures/wechat.ts";

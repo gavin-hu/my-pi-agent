@@ -274,7 +274,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/wechat/bridge.ts": "the bridge loads when a bound session starts it",
 	"extensions/plan/web.ts": "the browser page loads on /plan list's Enter or the plan tool's exit action",
 	"extensions/plan/review.ts": "the review gate and its TUI screen load on the first plan exit",
-	"extensions/plan/git-bash.ts": "the read-only git check loads when plan mode vets a bash call",
+	"lib/git/read-command.ts": "the read-only git check loads when a mode vets a bash call",
 	"extensions/plan/path-guard.ts": "the path backstop loads when plan mode vets a tool call",
 	"extensions/board/page.ts": "the board page loads on the first /board",
 	"lib/workflow/proven-remove.ts": "the proven removal loads with the first lock release or takeover",
@@ -429,7 +429,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// so that +1 cannot come back the way `json` did, and `tools/nested` behind synchronous
 	// `planMerge` (`todo-seed.ts:37`). Re-derive any price with `staticGraph`
 	// (`test/helpers/graph.ts`) over a reader that drops one specifier.
-	plan: 52,
+	plan: 53, // 53 <= 53 (#803)
 	team: 54, // 54 <= 54 (#748)
 	job: 45,
 	"session-bus": 45,

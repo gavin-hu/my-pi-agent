@@ -4,7 +4,7 @@
  * `board` and `team` sit above the bus: `/board`, `/team join`, and a card write all
  * put this session on the team, and none of them may import this extension. A *tool*
  * context could reach the `session` tool and an `ExtensionCommandContext` cannot —
- * the same limit `lib/plan-entry.ts` works around for plan mode — so the request
+ * the same limit `lib/mode-entry.ts` works around for plan mode — so the request
  * travels on `pi.events` and this module answers it with the runtime's own `join`.
  *
  * The answer always comes: every path here returns a result, including a failure, so

@@ -158,19 +158,28 @@ export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 }
 
 /**
- * The mode: `≡ plan` while planning, `▶ auto` otherwise.
+ * The mode: `≡ plan` while planning, `⏵ lead` while a session holds the board's
+ * seat, `▶ auto` otherwise.
  *
- * Plan owns the flag, so the presence of its status key is what the bar reads; the
- * mode's word and colour are the bar's own, so neither the plan file name nor a
- * truncated chip can reach it. Planning wears `warn`, the same role the composer's
- * border takes while it is on. It leads the resource line, before the gauge, so the
- * mode is read before how much room is left. A session without `plan` still reads
+ * A mode owns its flag, so the presence of a mode's status key is what the bar
+ * reads; the mode's word and colour are the bar's own, so neither the plan file
+ * name nor a truncated chip can reach it. Plan wins a bar carrying both keys, the
+ * same precedence the branch reader takes, so a stale chip cannot advertise the
+ * weaker mode. Planning wears `warn`, the same role the composer's border takes
+ * while it is on; the seat wears `accent`, because it is a place the session chose
+ * rather than a warning. The mode leads the resource line, before the gauge, so it
+ * is read before how much room is left. A session without either mode still reads
  * `auto`: that is the mode it is in.
  */
 export function modeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	if (snapshot.statuses.has(CONFIG.planStatusKey)) {
+	const [planKey, leadKey] = CONFIG.modeStatusKeys;
+	if (snapshot.statuses.has(planKey)) {
 		const plan = paint(theme, "warn", `${CONFIG.icons.planMode} ${CONFIG.labels.planMode}`);
 		return { id: "mode", weight: 1, droppable: false, separator: "", forms: [plan, compactStatus(plan)] };
+	}
+	if (leadKey !== undefined && snapshot.statuses.has(leadKey)) {
+		const lead = paint(theme, "accent", `${CONFIG.icons.leadMode} ${CONFIG.labels.leadMode}`);
+		return { id: "mode", weight: 1, droppable: false, separator: "", forms: [lead, compactStatus(lead)] };
 	}
 	const auto = paint(theme, "accent", `${CONFIG.icons.autoMode} ${CONFIG.labels.autoMode}`);
 	return { id: "mode", weight: 1, droppable: false, separator: "", forms: [auto] };
@@ -180,7 +189,7 @@ export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 	const others = [...snapshot.statuses.entries()]
 		.filter(
 			([key]) =>
-				key !== CONFIG.planStatusKey &&
+				!CONFIG.modeStatusKeys.includes(key as (typeof CONFIG.modeStatusKeys)[number]) &&
 				key !== CONFIG.worktreeStatusKey &&
 				key !== CONFIG.httpStatusKey &&
 				!isAlert(key),

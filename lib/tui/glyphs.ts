@@ -27,6 +27,7 @@ export const GLYPHS = {
 	rewind: "↺",
 	snapshot: "⬥",
 	plan: "≡",
+	lead: "⏵",
 	jobsRunning: "▸",
 	jobsFailure: "✗",
 	stopped: "⊘",
@@ -82,6 +83,7 @@ export const SEPARATORS = {
 export const STATUS_KEYS = {
 	worktree: "worktree",
 	planMode: "plan-mode",
+	leadMode: "lead-mode",
 	jobs: "jobs",
 	jobsFailure: "jobs-failure",
 	watch: "watch",
@@ -91,6 +93,16 @@ export const STATUS_KEYS = {
 	agents: "agents",
 	wechat: "wechat",
 } as const;
+
+/**
+ * The keys a session's mode publishes its chip under, in the order the footer
+ * prefers them: plan first, because its guarantee is the stronger one and a stale
+ * chip must not advertise a weaker mode.
+ *
+ * One list rather than a field per key in the footer, so a third mode is one row
+ * here and the bar and the mode reader cannot disagree about which keys are modes.
+ */
+export const MODE_STATUS_KEYS = [STATUS_KEYS.planMode, STATUS_KEYS.leadMode] as const;
 
 /**
  * Keybinding id for Pi's built-in expand toggle (`ctrl+o` by default). Bind a

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { PLAN_CONSENT, PLAN_ENTER_REQUEST, type PlanModeRequest } from "../../lib/plan-entry.ts";
+import { PLAN_CONSENT, PLAN_ENTER_REQUEST, type PlanModeRequest } from "../../lib/mode-entry.ts";
 import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { callTool } from "../../test/helpers/tools.ts";
 import { lastWidget } from "../../test/helpers/entries.ts";

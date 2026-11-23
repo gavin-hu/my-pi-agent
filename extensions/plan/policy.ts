@@ -9,7 +9,7 @@
  *
  * Plan mode keeps raw shell on a short leash: `bash` stays active only so the
  * model can run read-only git commands (the `tool_call` guard in `index.ts`
- * refuses anything that is not one, see `git-bash.ts`), and `powershell` is
+ * refuses anything that is not one, see `lib/git/read-command.ts`), and `powershell` is
  * blocked outright so plan mode has one shell to reason about.
  */
 
