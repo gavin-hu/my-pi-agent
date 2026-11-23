@@ -5,39 +5,34 @@
  * served page does — so the review answers on the session's one origin and
  * closes with its last mount. Idle is not armed: a review waits for the person
  * who opened it, and `/review stop` or the session's end is the way it closes.
+ *
+ * The root, the reader and the page are the session's (`review/current.ts`), not
+ * this mount's: a page that lives for an opening would read the tree it opened on
+ * after a worktree switch.
  */
 
 import type { MountOutcome, MountSpec } from "../../../lib/http/index.ts";
-import { REVIEW_BASE } from "../../../lib/http/prefixes.ts";
-import { createReviewReader, type ReviewReader, type SnapshotOutcome } from "../git/diff.ts";
-import type { ReviewConfig } from "../config/config.ts";
-import { createReviewStore, type ReviewStore } from "../review/store.ts";
+import type { SnapshotOutcome } from "../git/diff.ts";
+import { REVIEW_BASE } from "../links.ts";
+import type { ReviewCurrent } from "../review/current.ts";
+import type { ReviewStore } from "../review/store.ts";
 import type { ReviewScope } from "../scope.ts";
 import { createReviewHandler, type ReviewHandlerDeps } from "./router.ts";
 
 /** The largest write body the page accepts. */
 export const MAX_BODY_BYTES = 256 * 1024;
 
-/** What a page needs from the session it serves. */
+/** What a mount needs of the session it serves. */
 export interface ReviewServerDeps {
-	/** The host's exec, for the reader's git calls. */
-	exec: Parameters<typeof createReviewReader>[0];
+	/** The review's state, which outlives one mount. */
+	store: ReviewStore;
+	/** The session's root, reader and page. */
+	current: ReviewCurrent;
 	/** The Pi session the mount lands on. */
 	session: string;
-	/** The checkout the review reads, canonicalized by the caller. */
-	root: string;
-	/** The repository's name, for the header. */
-	repo: string;
-	config: ReviewConfig;
-	/** The comparison the page opens on. */
-	scope: ReviewScope;
 	mount: (spec: MountSpec) => Promise<MountOutcome>;
 	/** Told after a send, so the session reads the comments at its next turn. */
 	onSent?: ReviewHandlerDeps["onSent"];
-	/** The token and id generator, for a case. */
-	mint?: () => string;
-	/** Wall-clock seam, for a case. */
-	now?: () => number;
 }
 
 /** A running review page. */
@@ -46,41 +41,28 @@ export interface ReviewServer {
 	url: string;
 	base: string;
 	store: ReviewStore;
-	reader: ReviewReader;
+	current: ReviewCurrent;
 	/** The scope the page is showing. */
 	scope(): ReviewScope;
 	/** Read the page's current snapshot. */
 	snapshot(): Promise<SnapshotOutcome>;
-	/** Release the prefix; idempotent. */
+	/** Release the prefix; idempotent. The page it served is the session's to drop. */
 	close(): Promise<void>;
 }
 
 /**
  * Mount one review page, or say why the session has none.
  *
- * A refused mount leaves the store unused: the caller reports the reason and the
+ * A refused mount leaves the store untouched: the caller reports the reason and the
  * session is exactly as it was.
  */
 export async function createReviewPage(
 	deps: ReviewServerDeps,
 ): Promise<{ kind: "page"; page: ReviewServer } | { kind: "refused"; reason: string }> {
-	const store = createReviewStore({
-		...(deps.mint === undefined ? {} : { mint: deps.mint }),
-		...(deps.now === undefined ? {} : { now: deps.now }),
-	});
-	const reader = createReviewReader(deps.exec, deps.root, {
-		base: deps.config.base,
-		context: deps.config.diffContext,
-		maxLines: deps.config.maxDiffLines,
-		maxFiles: deps.config.maxFiles,
-	});
 	const handler = createReviewHandler({
-		store,
-		reader,
+		store: deps.store,
+		current: deps.current,
 		base: REVIEW_BASE,
-		repo: deps.repo,
-		root: deps.root,
-		baseRef: deps.config.base,
 		...(deps.onSent === undefined ? {} : { onSent: deps.onSent }),
 	});
 	const outcome = await deps.mount({
@@ -91,34 +73,19 @@ export async function createReviewPage(
 	});
 	if (outcome.kind === "refused") return { kind: "refused", reason: outcome.reason };
 	const mount = outcome.mount;
-	// The page exists from the mount, so a status read before anybody asks for it
-	// already names the comparison it serves.
-	const opened = store.open(deps.scope, "", "");
-	if (deps.scope === "base") opened.base = (await reader.baseRef()) ?? "";
-	const first = await reader.snapshot(deps.scope, opened.base);
-	if (first.kind === "snapshot") {
-		opened.base = first.snapshot.base;
-		opened.label = first.snapshot.label;
-	}
 	let closed = false;
 	return {
 		kind: "page",
 		page: {
 			url: `${mount.origin}${REVIEW_BASE}/new`,
 			base: REVIEW_BASE,
-			store,
-			reader,
-			scope: () => store.current()?.scope ?? "base",
-			snapshot: async () => {
-				const page = store.current();
-				return page === undefined
-					? { kind: "failed", message: "this session has no review page open" }
-					: reader.snapshot(page.scope, page.base);
-			},
+			store: deps.store,
+			current: deps.current,
+			scope: () => deps.store.current()?.scope ?? "base",
+			snapshot: () => deps.current.snapshot(),
 			close: async () => {
 				if (closed) return;
 				closed = true;
-				store.close();
 				await mount.release();
 			},
 		},

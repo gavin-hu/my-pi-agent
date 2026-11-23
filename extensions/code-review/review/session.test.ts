@@ -16,6 +16,7 @@ import { execP, makeRepo, makeTempTracker } from "../../../test/helpers/git.ts";
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { useEnv } from "../../../test/helpers/env.ts";
 import { createReviewSession, scopeLocked } from "./session.ts";
+import { SNAPSHOT_MOVED } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -68,7 +69,7 @@ function fakeMount() {
 }
 
 /** One request as the loopback server hands it to the mounted handler. */
-async function request(handler: LoopbackHandler, method: string, url: string, body?: unknown) {
+async function ask(handler: LoopbackHandler, method: string, url: string, body?: unknown) {
 	const req: LoopbackRequest = {
 		method,
 		url,
@@ -126,6 +127,30 @@ describe("opening the page", () => {
 		await session.close();
 	});
 
+	test("follows the session's tree when a worktree switch moves it", async () => {
+		const first = await featureRepo();
+		const second = temps.track(await makeRepo());
+		writeFileSync(join(second, "b.ts"), "const b = 2;\n");
+		const mounted = fakeMount();
+		const ctx = fakeCtx({ cwd: first }).ctx;
+		const session = createReviewSession({ pi: host, ctx, open: () => {}, mount: mounted.mount });
+		await session.open({ scope: "worktree" }, ctx);
+		const handler = mounted.state.specs[0].handler;
+		const before = reviewIsland(String((await ask(handler, "GET", "/new?scope=worktree")).body ?? ""));
+		// The tree moves under the page, as `worktree enter` moves the session's root.
+		ctx.cwd = second;
+		const after = await ask(handler, "GET", "/new?scope=worktree");
+		expect(String(after.body)).toContain('data-path="b.ts"');
+		// The write names the tree it rendered, so the page read before the move no longer matches.
+		const stale = await ask(handler, "POST", "/api/comment", {
+			token: before.token,
+			rev: before.rev,
+			comment: { rel: "b.ts", line: 1, side: "new", body: "name the constant" },
+		});
+		expect(JSON.parse(String(stale.body)).error).toBe(SNAPSHOT_MOVED);
+		await session.close();
+	});
+
 	test("refuses a scope change once the review holds a comment, naming the count", async () => {
 		const repo = await featureRepo();
 		const mounted = fakeMount();
@@ -133,8 +158,8 @@ describe("opening the page", () => {
 		const session = createReviewSession({ pi: host, ctx, open: () => {}, mount: mounted.mount });
 		await session.open({}, ctx);
 		const handler = mounted.state.specs[0].handler;
-		const page = reviewIsland(String((await request(handler, "GET", "/new")).body ?? ""));
-		const written = await request(handler, "POST", "/api/comment", {
+		const page = reviewIsland(String((await ask(handler, "GET", "/new")).body ?? ""));
+		const written = await ask(handler, "POST", "/api/comment", {
 			token: page.token,
 			rev: page.rev,
 			comment: { rel: "a.ts", line: 1, side: "new", body: "name the constant" },

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ReviewSnapshot } from "../git/diff.ts";
+import { fileHref } from "../links.ts";
 import type { Review } from "../review/store.ts";
 import { REVIEW_SCOPES } from "../scope.ts";
 import { comparisonLine, renderReviewPage, renderReviewProblem, reviewData } from "./page.ts";
@@ -209,11 +210,20 @@ describe("the review page", () => {
 		expect(focused.rev).toBe("abc123");
 	});
 
-	test("each file's head pairs it with the browse page's own views", () => {
+	test("each file's head offers the review's own whole-file view, and nothing from another page", () => {
 		const html = renderReviewPage(input());
-		expect(html).toContain('href="/files/view/lib/http/mount.ts"');
-		expect(html).toContain('href="/files/raw/lib/http/mount.ts"');
-		expect(html).toContain('href="/files/view/docs/serve.md"');
+		// The attribute is HTML-escaped for the document; a browser decodes it back before the route
+		// reads it, so the round trip is asserted on the decoded form.
+		const href = (/class="bf-btn" href="([^"]*\/review\/file\?[^"]*)"/.exec(html)?.[1] ?? "").replaceAll("&amp;", "&");
+		// The round trip is the contract: the router reads these two keys back as the path and
+		// the comparison, so the encoding belongs to `fileHref` and not to the caller.
+		const url = new URL(href, "http://127.0.0.1");
+		expect(url.pathname).toBe("/review/file");
+		expect(url.searchParams.get("path")).toBe("lib/http/mount.ts");
+		expect(url.searchParams.get("scope")).toBe("base");
+		expect(href).toBe(fileHref("lib/http/mount.ts", "base"));
+		expect(html).not.toContain('href="/files');
+		expect(html).not.toContain(" download");
 	});
 
 	test("a focused page still counts the comments it does not draw", () => {

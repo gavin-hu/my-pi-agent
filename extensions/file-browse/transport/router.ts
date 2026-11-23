@@ -17,16 +17,13 @@ import {
 	jsonHeaders,
 	jsonResponse,
 	parseRequestUrl,
-	redirectResponse,
 	scriptHeaders,
 	type ServeResponse,
 } from "../../../lib/http/index.ts";
-import { reviewHref } from "../../../lib/http/prefixes.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
 import { CLIENT_JS } from "../view/client.ts";
 import type { LivePage } from "../view/chrome.ts";
 import type { ServeConfig } from "../config/config.ts";
-import { isDiffMode, type DiffMode } from "../../../lib/diff/modes.ts";
 import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "../git/git.ts";
 import { changeIndexOf, type LiveStatusSource } from "../live/live.ts";
 import {
@@ -45,7 +42,7 @@ import { FOLDER_ICON, iconHref, languageOf } from "../view/icons.ts";
 import { fuzzySearch } from "../text/fuzzy.ts";
 import { renderDirectoryPage, renderErrorPage, renderFilePage, hrefFor } from "../view/html.ts";
 import type { ChangeSummary } from "../view/html.ts";
-import { decodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "../files/paths.ts";
+import { HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "../files/paths.ts";
 import { listingRevision } from "../live/rev.ts";
 
 export interface ServeContext {
@@ -92,11 +89,11 @@ async function gitFor(ctx: ServeContext): Promise<GitStatus | undefined> {
 	}
 }
 
-/** The change list for a mode, or `undefined` outside a repository. */
-async function diffFor(ctx: ServeContext, mode: DiffMode) {
+/** The uncommitted change list, or `undefined` outside a repository or with the tag off. */
+async function diffFor(ctx: ServeContext) {
 	if (!ctx.config.gitDiff || !ctx.diff) return undefined;
 	try {
-		return await ctx.diff.list(mode);
+		return await ctx.diff.list("head");
 	} catch {
 		return undefined;
 	}
@@ -123,26 +120,10 @@ function liveOf(ctx: ServeContext, folder?: { dir: string; rev: string }): LiveP
 	return ctx.config.live && ctx.live ? { intervalMs: ctx.config.liveIntervalMs, ...folder } : undefined;
 }
 
-/** The change summary, and the comparison its numbers were taken in. */
-interface Changes {
-	summary: ChangeSummary;
-	/** The comparison the list was taken in: the index on a repository's first commit. */
-	scope: DiffMode;
-}
-
-/**
- * The comparison a page's change chrome names: the one its list was taken in, or `head` for a page
- * with no list — an error page, or a live shell drawn before the repository exists. The chip's number
- * and the page its links open come from this one value.
- */
-function scopeOf(changes: Changes | undefined): DiffMode {
-	return changes?.scope ?? "head";
-}
-
-/** The `head` change summary and comparison, for the header chip, tree markers, and file action. */
-async function changed(ctx: ServeContext): Promise<Changes | undefined> {
-	const list = await diffFor(ctx, "head");
-	return list ? { summary: summaryOf(list), scope: list.mode } : undefined;
+/** The `head` change summary: the header chip's numbers and the tree's markers. */
+async function changed(ctx: ServeContext): Promise<ChangeSummary | undefined> {
+	const list = await diffFor(ctx);
+	return list ? summaryOf(list) : undefined;
 }
 
 /** The error page: the browse shell with the status, the reason, and a usable tree. */
@@ -173,8 +154,6 @@ async function errorPage(
 		message,
 		tree,
 		git: await gitFor(ctx),
-		// No list: the live shell names the comparison a list would be taken in.
-		scope: "head",
 		live: liveOf(ctx),
 	});
 	return htmlResponse(status, body, extra);
@@ -242,8 +221,7 @@ async function directoryResponse(ctx: ServeContext, rel: string): Promise<ServeR
 			thumbnails: ctx.config.thumbnails,
 			maxThumbBytes: ctx.config.maxThumbBytes,
 			git,
-			summary: changes?.summary,
-			scope: scopeOf(changes),
+			summary: changes,
 			live: liveOf(
 				ctx,
 				listing.truncated ? undefined : { dir: rel, rev: listingRevision(listing.entries.map((entry) => entry.name)) },
@@ -269,23 +247,10 @@ async function fileResponse(ctx: ServeContext, rel: string, raw: boolean): Promi
 			git,
 			markdownRaw: raw,
 			markdownHtml: ctx.config.markdownHtml,
-			changed: changes?.summary.files.has(rel),
-			summary: changes?.summary,
-			scope: scopeOf(changes),
+			summary: changes,
 			live: liveOf(ctx),
 		}),
 	);
-}
-
-/**
- * The diff routes' answer now: a permanent move to the review page, which reads the same change list
- * and draws one file under `?file=`. The guards keep the sentences the pages gave — an unknown mode
- * 400s before any path is matched, and a page with the diff view off or no provider is not asked to
- * advertise a page it could not draw.
- */
-function diffRedirect(ctx: ServeContext, mode: DiffMode, rawRel?: string): ServeResponse {
-	if (!ctx.config.gitDiff || !ctx.diff) throw new HttpError(404, "The diff view is not available.");
-	return redirectResponse(308, reviewHref(mode, rawRel === undefined ? undefined : decodePath(rawRel)));
 }
 
 function disposition(rel: string, inline: boolean): string {
@@ -398,11 +363,6 @@ export async function handleRequest(
 		if (pathname === "/api/dir-rev") return await dirRevApi(ctx, search.get("path") ?? "");
 		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");
 		if (pathname === "/events") return liveEvents(ctx);
-		const rawMode = search.get("mode");
-		if (rawMode !== null && !isDiffMode(rawMode)) return failure(ctx, api, 400, "Unknown diff mode.");
-		const mode: DiffMode = isDiffMode(rawMode) ? rawMode : "head";
-		if (pathname === "/diff" || pathname === "/diff/") return diffRedirect(ctx, mode);
-		if (pathname.startsWith("/diff/")) return diffRedirect(ctx, mode, pathname.slice("/diff/".length));
 		if (pathname === "/" || pathname === "/browse" || pathname === "/browse/") return await browse(ctx, "");
 		if (pathname.startsWith("/browse/")) return await browse(ctx, pathname.slice("/browse/".length));
 		if (pathname.startsWith("/view/"))

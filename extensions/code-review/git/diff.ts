@@ -62,10 +62,20 @@ export interface ReviewSnapshot {
 /** A snapshot, or the sentence that says why there is none. */
 export type SnapshotOutcome = { kind: "snapshot"; snapshot: ReviewSnapshot } | { kind: "failed"; message: string };
 
+/** A whole file as context lines, or the sentence that says why it has no text to show. */
+export type TextOutcome =
+	| { kind: "text"; lines: DiffLine[]; binary: boolean; truncated: boolean }
+	| { kind: "failed"; message: string };
+
 /** The reader a page holds for one root. */
 export interface ReviewReader {
 	/** The ref a `base` review compares against, or undefined when none resolves. */
 	baseRef(): Promise<string | undefined>;
+	/**
+	 * One path's whole text as context lines — both gutter numbers the same — capped by
+	 * `maxFileBytes` and `maxLines`. The file view's reader, and no second one.
+	 */
+	text(rel: string): Promise<TextOutcome>;
 	/** Read a scope with `base` (the effective ref) or the configured one. */
 	snapshot(scope: ReviewScope, base?: string): Promise<SnapshotOutcome>;
 }
@@ -92,6 +102,39 @@ export const NOT_A_REPOSITORY = "the working directory is not a git repository";
 export const NO_COMMITS = "this repository has no commits yet";
 export const NO_PARENT = "HEAD has no parent commit to review";
 export const NO_BASE = 'no base branch found — set "base" in the bytefly.json code-review section';
+export const NO_TEXT = "that file could not be read — it may have been deleted";
+
+/**
+ * A file's lines under a byte cap, with the two facts a view owes: whether the bytes are
+ * binary, and whether the cap cut it short. `undefined` when the file cannot be read — a
+ * review lists paths git printed, and one of them may be gone.
+ */
+async function readTextFile(
+	abs: string,
+	cap: number,
+): Promise<{ lines: string[]; binary: boolean; truncated: boolean } | undefined> {
+	let buffer: Buffer;
+	let cut = false;
+	try {
+		const handle = await open(abs, "r");
+		try {
+			const info = await handle.stat();
+			const size = Math.min(info.size, cap);
+			cut = info.size > size;
+			buffer = Buffer.alloc(size);
+			await handle.read(buffer, 0, size, 0);
+		} finally {
+			await handle.close();
+		}
+	} catch {
+		return undefined;
+	}
+	const text = buffer.toString("utf8");
+	if (text.includes("\0")) return { lines: [], binary: true, truncated: false };
+	const lines = text.split("\n");
+	if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+	return { lines, binary: false, truncated: cut };
+}
 
 /** A reader over an injected git seam: what a suite drives. */
 export function createReviewReaderFrom(run: RunGit, root: string, options: ReviewReaderOptions = {}): ReviewReader {
@@ -118,6 +161,16 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 
 	return {
 		baseRef,
+		async text(rel) {
+			const read = await readTextFile(join(root, rel), maxFileBytes);
+			if (read === undefined) return { kind: "failed", message: NO_TEXT };
+			if (read.binary) return { kind: "text", lines: [], binary: true, truncated: false };
+			const truncated = read.truncated || read.lines.length > maxLines;
+			const lines: DiffLine[] = read.lines
+				.slice(0, maxLines)
+				.map((body, index) => ({ kind: "ctx", text: body, oldNo: index + 1, newNo: index + 1 }));
+			return { kind: "text", lines, binary: false, truncated };
+		},
 		async snapshot(scope, effectiveBase) {
 			const repo = await repoRoot(run, root);
 			if (!repo) return { kind: "failed", message: NOT_A_REPOSITORY };
@@ -228,29 +281,13 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 	/** An untracked file as an all-add diff, read up to the byte cap. */
 	async function untrackedFile(repo: string, rel: string, status: string): Promise<ReviewFile> {
 		const empty: ReviewFile = { rel, status, add: 0, del: 0, lines: [], binary: false, truncated: false };
-		let buffer: Buffer;
-		let cut = false;
-		try {
-			const handle = await open(join(repo, rel), "r");
-			try {
-				const info = await handle.stat();
-				const size = Math.min(info.size, maxFileBytes);
-				cut = info.size > size;
-				buffer = Buffer.alloc(size);
-				await handle.read(buffer, 0, size, 0);
-			} finally {
-				await handle.close();
-			}
-		} catch {
-			return empty;
-		}
-		const text = buffer.toString("utf8");
-		if (text.includes("\0")) return { ...empty, binary: true };
-		const parts = text.split("\n");
-		if (parts.length > 0 && parts[parts.length - 1] === "") parts.pop();
-		const truncated = cut || parts.length > maxLines;
-		const shown = parts.slice(0, maxLines);
-		const lines: DiffLine[] = shown.map((body, index) => ({ kind: "add", text: body, newNo: index + 1 }));
+		const read = await readTextFile(join(repo, rel), maxFileBytes);
+		if (read === undefined) return empty;
+		if (read.binary) return { ...empty, binary: true };
+		const truncated = read.truncated || read.lines.length > maxLines;
+		const lines: DiffLine[] = read.lines
+			.slice(0, maxLines)
+			.map((body, index) => ({ kind: "add", text: body, newNo: index + 1 }));
 		return { rel, status, add: lines.length, del: 0, lines, binary: false, truncated };
 	}
 }

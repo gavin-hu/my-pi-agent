@@ -15,8 +15,7 @@ import { DEFAULT_CONFIG, LIVE_MAX_CLIENTS, type ServeConfig } from "../config/co
 import { createGitDiff, type DiffList, type GitDiffProvider } from "../git/git.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
-import { type FileServer } from "./server.ts";
-import { FILES_BASE } from "../../../lib/http/prefixes.ts";
+import { FILES_BASE, type FileServer } from "./server.ts";
 import type { ServeResponse } from "../../../lib/http/index.ts";
 import { createFakePi } from "../../../test/helpers/fakes.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
@@ -336,73 +335,12 @@ describe("live folder revision", () => {
 	});
 });
 
-describe("diff routes", () => {
-	/** The address a redirect names, split as the browser will read it. */
-	function locationOf(response: ServeResponse): { path: string; query: URLSearchParams } {
-		const [path, query = ""] = (response.headers.Location ?? "").split("?");
-		return { path: path ?? "", query: new URLSearchParams(query) };
-	}
-
-	test("moves both diff addresses onto the review page", async () => {
-		const overview = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff", {});
-		expect(overview.status).toBe(308);
-		expect(overview.headers.Location).toBe("/review/new?scope=head");
-		expect(text(overview)).toBe("");
-
-		const slashed = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/", {});
-		expect(slashed.status).toBe(308);
-		expect(slashed.headers.Location).toBe("/review/new?scope=head");
-	});
-
-	test("carries the mode as the review's comparison", async () => {
-		for (const mode of ["staged", "worktree"] as const) {
-			const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", `/diff?mode=${mode}`, {});
-			expect(locationOf(response).query.get("scope")).toBe(mode);
+describe("the diff address", () => {
+	test("is gone: the review page is its own entry, so nothing links or redirects into it", async () => {
+		for (const url of ["/diff", "/diff/", "/diff/sub/a.txt", "/diff?mode=staged", "/diff/a.txt?mode=bogus"]) {
+			expect((await handleRequest({ ...context(), diff: diffProvider() }, "GET", url, {})).status).toBe(404);
 		}
-	});
-
-	test("names the file the path asked for", async () => {
-		const response = await handleRequest(
-			{ ...context(), diff: diffProvider() },
-			"GET",
-			"/diff/sub/a.txt?mode=worktree",
-			{},
-		);
-		expect(response.status).toBe(308);
-		const { path, query } = locationOf(response);
-		expect(path).toBe("/review/new");
-		expect(query.get("scope")).toBe("worktree");
-		expect(query.get("file")).toBe("sub/a.txt");
-	});
-
-	test("encodes a filename so the review page reads it back unchanged", async () => {
-		// A `+` in a query value decodes to a space, which is why the address is built with
-		// `URLSearchParams` rather than by pasting the path into the query.
-		const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/a%2Bb%20c.txt", {});
-		expect(locationOf(response).query.get("file")).toBe("a+b c.txt");
-	});
-
-	test("rejects an unknown mode before any path is matched", async () => {
-		const overview = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff?mode=bogus", {});
-		expect(overview.status).toBe(400);
-		expect(overview.headers.Location).toBeUndefined();
-
-		const file = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/a.txt?mode=bogus", {});
-		expect(file.status).toBe(400);
-		expect(file.headers.Location).toBeUndefined();
-	});
-
-	test("rejects a malformed percent escape in the file", async () => {
-		const response = await handleRequest({ ...context(), diff: diffProvider() }, "GET", "/diff/a%zz.txt", {});
-		expect(response.status).toBe(400);
-		expect(text(response)).toContain("Malformed percent-encoding in the path.");
-	});
-
-	test("hides the move when the diff view is disabled or unconfigured", async () => {
-		expect(
-			(await handleRequest({ ...context({ gitDiff: false }), diff: diffProvider() }, "GET", "/diff", {})).status,
-		).toBe(404);
-		expect((await handleRequest(context(), "GET", "/diff", {})).status).toBe(404);
+		expect((await handleRequest(context({ gitDiff: false }), "GET", "/diff", {})).status).toBe(404);
 	});
 
 	test("marks a changed file in the listing and the tree", async () => {
@@ -410,7 +348,7 @@ describe("diff routes", () => {
 		expect(text(response)).toContain('class="browse-change"');
 	});
 
-	test("names the comparison its numbers came from, in the chip and the action", async () => {
+	test("takes its numbers from the comparison the tree actually holds a change in", async () => {
 		interface Reply {
 			stdout?: string;
 			code?: number;
@@ -434,7 +372,7 @@ describe("diff routes", () => {
 			{ stdout: " a.txt | 1 +\n 1 file changed, 1 insertion(+)\n" },
 		];
 
-		/** The page a tree's provider draws, the chip's href, and the comparison asked for. */
+		/** The page a tree's provider draws, and the comparison its numbers came from. */
 		const pageFor = async (status: string, commit: boolean) => {
 			const git = gitAsking([
 				ROOT,
@@ -444,35 +382,32 @@ describe("diff routes", () => {
 			]);
 			const diff = createGitDiff(createFakePi({ exec: git.exec }).pi, "/repo");
 			const listing = await handleRequest({ ...context(), diff }, "GET", "/", {});
-			const file = await handleRequest({ ...context(), diff }, "GET", "/view/a.txt", {});
 			return {
 				mode: (await diff.list("head"))?.mode,
-				chip: /id="browse-changes" href="([^"]+)"/.exec(text(listing))?.[1],
-				action: /<a class="bf-btn" href="([^"]+)" title="View this file's uncommitted changes">/.exec(text(file))?.[1],
+				chip: /<span class="bf-tag browse-changes"[^>]*>[\s\S]*?<\/span><\/span>/.exec(text(listing))?.[0],
 				diffs: git.asked.filter((line) => line.startsWith("diff ")),
 				mentionsHead: git.asked.filter((line) => line.includes("HEAD")),
 			};
 		};
 
-		// The ladder's three rungs, each with the comparison git was asked for beside its href.
+		// The ladder's three rungs, each with the comparison git was asked for beside the chip the
+		// page drew — a count now, so the tell is that it is a chip and not a link out of this page.
 		// No commit, nothing staged: the working tree is the first comparison holding the change.
 		const written = await pageFor("?? a.txt\0", false);
 		expect(written.mode).toBe("worktree");
-		expect(written.chip).toBe("/review/new?scope=worktree");
-		expect(written.action).toBe("/review/new?scope=worktree&amp;file=a.txt");
+		expect(written.chip).toContain("1 change");
+		expect(written.chip).not.toContain("href");
 		expect(written.diffs.every((line) => !line.includes("--cached") && !line.includes("HEAD"))).toBe(true);
 
 		// No commit, one file added: the index.
 		const staged = await pageFor("A  a.txt\0", false);
 		expect(staged.mode).toBe("staged");
-		expect(staged.chip).toBe("/review/new?scope=staged");
-		expect(staged.action).toBe("/review/new?scope=staged&amp;file=a.txt");
 		expect(staged.diffs.every((line) => line.includes("--cached"))).toBe(true);
 
 		// A commit exists: the comparison asked for.
 		const committed = await pageFor(" M a.txt\0", true);
 		expect(committed.mode).toBe("head");
-		expect(committed.chip).toBe("/review/new?scope=head");
+		expect(committed.chip).toContain("1 change");
 		expect(committed.diffs.some((line) => line.includes("HEAD"))).toBe(true);
 
 		// An unborn branch never compares against the commit: the one question about `HEAD` is the

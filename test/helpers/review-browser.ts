@@ -15,6 +15,7 @@ import type { Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
 import type { DiffLine } from "../../lib/diff/parse.ts";
 import type { ReviewSnapshot } from "../../extensions/code-review/git/diff.ts";
+import type { ReviewCurrent } from "../../extensions/code-review/review/current.ts";
 import { createReviewStore } from "../../extensions/code-review/review/store.ts";
 import { createReviewHandler } from "../../extensions/code-review/transport/router.ts";
 import type { TestBrowser } from "./browser.ts";
@@ -114,16 +115,19 @@ export async function mountReviewPage(options: SnapshotOptions = {}): Promise<Re
 	const store = createReviewStore({ mint: () => `token${++minted}`.padEnd(32, "a"), now: () => 1 });
 	const reader = {
 		baseRef: async () => "main",
+		text: async () => ({ kind: "text" as const, lines: [], binary: false, truncated: false }),
 		snapshot: async () => ({ kind: "snapshot" as const, snapshot: reviewSnapshot(fingerprint, options) }),
 	};
-	const handler = createReviewHandler({
-		store,
-		reader,
-		base: REVIEW_MOUNT,
-		repo: "probe",
-		root: "/tmp/probe",
-		baseRef: "",
-	});
+	const current: ReviewCurrent = {
+		place: () => ({ root: "/tmp/probe", repo: "probe" }),
+		reader: () => reader,
+		configure: () => {},
+		page: () => store.current(),
+		snapshotOf: () => reader.snapshot(),
+		snapshot: () => reader.snapshot(),
+		openPage: async (scope) => store.open(scope, "", ""),
+	};
+	const handler = createReviewHandler({ store, current, base: REVIEW_MOUNT });
 	const mount = await testMountSource()({
 		session: "review-browser",
 		prefix: REVIEW_MOUNT,

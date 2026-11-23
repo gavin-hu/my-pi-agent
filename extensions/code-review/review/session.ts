@@ -10,15 +10,14 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Launch, openPageInBrowser, urlLauncher } from "../../../lib/browser.ts";
-import { effectiveRealCwd } from "../../../lib/env.ts";
 import { isRemoteTurn } from "../../../lib/interaction.ts";
 import type { MountOutcome, MountSpec } from "../../../lib/http/mount.ts";
-import { lastSegment } from "../../../lib/path.ts";
 import { loadServeConfig } from "../../../lib/serve-config.ts";
 import { loadReviewConfig } from "../config/config.ts";
 import { parseScope, type ReviewScope } from "../scope.ts";
 import { createReviewPage, type ReviewServer } from "../transport/server.ts";
-import type { ReviewComment } from "./store.ts";
+import { createReviewCurrent } from "./current.ts";
+import { createReviewStore, type ReviewComment } from "./store.ts";
 
 /** What a review page is showing, as a tool or a command reports it. */
 export interface ReviewStatus {
@@ -61,6 +60,10 @@ export interface ReviewSessionDeps {
 	onSent?: (sent: ReadonlyArray<ReviewComment>, id: string) => void;
 	/** The mount seam a case replaces instead of asking the session's server. */
 	mount?: (spec: MountSpec) => Promise<MountOutcome>;
+	/** The token and id generator, for a case. */
+	mint?: () => string;
+	/** Wall-clock seam, for a case. */
+	now?: () => number;
 }
 
 /** The refusal a scope change gets while the review holds comments. */
@@ -74,12 +77,18 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 	const sessionId = ctx.sessionManager.getSessionId();
 	let running: ReviewServer | undefined;
 	let sent: ReviewComment[] = [];
-
-	/** The repository the review reads: the session's root, and the name it shows. */
-	const place = (): { root: string; repo: string } => {
-		const root = effectiveRealCwd(ctx.cwd);
-		return { root, repo: lastSegment(root) ?? root };
-	};
+	/** The review's state, which outlives a mount: closing the page drops it, the session ends it. */
+	const store = createReviewStore({
+		...(deps.mint === undefined ? {} : { mint: deps.mint }),
+		...(deps.now === undefined ? {} : { now: deps.now }),
+	});
+	/** The root, reader and page as one request reads them — a worktree switch moves the root. */
+	const current = createReviewCurrent({
+		store,
+		exec: deps.pi,
+		config: loadReviewConfig(ctx.cwd),
+		cwd: () => ctx.cwd,
+	});
 
 	/** The status of the page, or of a session with none. */
 	const describe = async (): Promise<ReviewStatus> => {
@@ -122,10 +131,12 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 
 	return {
 		async open(input) {
-			const { root, repo } = place();
+			const { repo } = current.place();
 			const config = loadReviewConfig(ctx.cwd);
 			const scope = parseScope(input.scope) ?? "base";
 			const configured = input.base === undefined ? config : { ...config, base: input.base };
+			// An open's own `base` replaces the configured one for the reader this opening reads.
+			current.configure(configured);
 
 			const held = running?.store.current();
 			if (running !== undefined && held !== undefined) {
@@ -147,12 +158,9 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 
 			const { requestMount } = await import("../../../lib/http/mount.ts");
 			const outcome = await createReviewPage({
-				exec: deps.pi,
+				store,
+				current,
 				session: sessionId,
-				root,
-				repo,
-				config: configured,
-				scope,
 				mount: deps.mount ?? ((spec) => requestMount(deps.pi, spec)),
 				onSent: (comments, id) => {
 					sent = [...sent, ...comments];
@@ -164,6 +172,8 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 				return { kind: "refused", reason: outcome.reason };
 			}
 			running = outcome.page;
+			// The mount only routes; the page this opening names is minted by the seam's one rule.
+			await current.openPage(scope);
 			const status = await describe();
 			const problem = status.label === "" ? "the review page has no diff to show — open it for the reason" : undefined;
 			ctx.ui.notify(
@@ -181,6 +191,7 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 		async close() {
 			const page = running;
 			running = undefined;
+			store.close();
 			await page?.close();
 		},
 	};

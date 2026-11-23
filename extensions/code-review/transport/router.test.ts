@@ -6,87 +6,13 @@
  * reads the state a refusal left alone rather than a mock's promise.
  */
 
-import { describe, expect, test } from "bun:test";
-import type { LoopbackReply, LoopbackRequest } from "../../../lib/http/index.ts";
-import type { ReviewComment } from "../review/store.ts";
-import { createReviewStore, SNAPSHOT_MOVED } from "../review/store.ts";
-import type { ReviewReader, ReviewSnapshot } from "../git/diff.ts";
-import { createReviewHandler } from "./router.ts";
+import { afterAll, describe, expect, test } from "bun:test";
+import { makeTempTracker } from "../../../test/helpers/git.ts";
+import { request, reply, reviewRoute as harness } from "../../../test/helpers/review-route.ts";
+import { SNAPSHOT_MOVED } from "../review/store.ts";
 
-/** A one-file snapshot whose fingerprint a case can move. */
-function snapshotState() {
-	const state = { rev: "rev-1" };
-	const snapshot = (): ReviewSnapshot => ({
-		scope: "base",
-		base: "main",
-		label: "main...HEAD",
-		files: [
-			{
-				rel: "a.ts",
-				status: "M",
-				add: 1,
-				del: 1,
-				binary: false,
-				truncated: false,
-				lines: [
-					{ kind: "hunk", text: "@@ -1 +1 @@" },
-					{ kind: "del", text: "old", oldNo: 1 },
-					{ kind: "add", text: "new", newNo: 1 },
-				],
-			},
-		],
-		omitted: 0,
-		insertions: 1,
-		deletions: 1,
-		fingerprint: state.rev,
-	});
-	const reader: ReviewReader = {
-		baseRef: async () => "main",
-		snapshot: async () => ({ kind: "snapshot", snapshot: snapshot() }),
-	};
-	return { state, reader };
-}
-
-/** A handler over a fresh store, with the sends it reported. */
-function harness() {
-	const { state, reader } = snapshotState();
-	let token = 0;
-	const store = createReviewStore({ mint: () => `tok-${++token}`, now: () => 1 });
-	const sent: Array<ReadonlyArray<ReviewComment>> = [];
-	const handler = createReviewHandler({
-		store,
-		reader,
-		base: "/review",
-		repo: "repo",
-		root: "/tmp/repo",
-		baseRef: "",
-		onSent: (comments) => sent.push(comments),
-	});
-	return { store, state, handler, sent };
-}
-
-const LOCAL = { host: "127.0.0.1:4781" };
-
-/** One request as the loopback server hands it to a handler. */
-function request(method: string, url: string, body?: unknown, headers: Record<string, string> = {}): LoopbackRequest {
-	return {
-		method,
-		url,
-		headers: {
-			...LOCAL,
-			...(body === undefined ? {} : { "content-type": "application/json" }),
-			...headers,
-		},
-		body: body === undefined ? "" : JSON.stringify(body),
-		remoteAddress: "127.0.0.1",
-	};
-}
-
-/** The response one request answered. */
-async function reply(handler: ReturnType<typeof harness>["handler"], req: LoopbackRequest) {
-	const answered = (await handler(req)) as LoopbackReply;
-	return answered.result;
-}
+const temps = makeTempTracker();
+afterAll(() => temps.flush());
 
 /** The token the page was served with, read from the store it minted. */
 function tokenOf(store: ReturnType<typeof harness>["store"]): string {
@@ -283,7 +209,12 @@ describe("the envelope", () => {
 
 	test("answers 405 to a GET on a write route, and 404 to an unknown API route", async () => {
 		const harnessed = harness();
-		expect((await reply(harnessed.handler, request("GET", "/api/comment"))).status).toBe(405);
+		const refused = await reply(harnessed.handler, request("GET", "/api/comment"));
+		expect(refused.status).toBe(405);
+		// The per-route refusal survives the envelope: a read of a write route is told the method
+		// that route takes, not the page's whole allowlist.
+		expect(refused.headers.Allow).toBe("POST");
+		expect(JSON.parse(String(refused.body)).error).toBe("Use POST to change this review.");
 		expect((await reply(harnessed.handler, request("POST", "/api/nope", { token: "x" }))).status).toBe(404);
 	});
 });

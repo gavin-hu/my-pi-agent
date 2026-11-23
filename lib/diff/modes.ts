@@ -1,9 +1,10 @@
 /**
- * The three comparison scopes a git diff is taken in, and the argv for one.
+ * The three comparison scopes, and the argv for one.
  *
  * A page states a scope as one of these; the provider that runs git turns it into
- * revision arguments, and the parser never sees it. Value-only: one type, one
- * readonly table, two pure functions.
+ * revision arguments, and the parser never sees it. What names one is each page's own
+ * `ReviewScope`/`DiffMode` table now — nothing parses an untrusted mode here any more,
+ * since the last route that took one is gone. Value-only: one type, one pure function.
  *
  * A registration graph that needs only this imports the module, not the barrel: the
  * barrel also reaches `render.ts`, which loads the syntax tokenizer.
@@ -11,14 +12,6 @@
 
 /** The three comparison scopes the diff view offers. */
 export type DiffMode = "head" | "staged" | "worktree";
-
-/** Every valid mode, in segmented-control order. */
-export const DIFF_MODES: readonly DiffMode[] = ["head", "staged", "worktree"];
-
-/** Whether an untrusted query value names a mode. */
-export function isDiffMode(value: string | null | undefined): value is DiffMode {
-	return value === "head" || value === "staged" || value === "worktree";
-}
 
 /**
  * Revision arguments for `git diff` for a mode, placed before `--`.

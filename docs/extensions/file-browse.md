@@ -20,7 +20,7 @@ come from. Nothing on the page writes.
 | Jump to a file | `Ctrl+K` (`Cmd+K`), then type part of the path |
 | Read Markdown as a page | click the file; the toolbar has a raw view |
 | Look at an image | click it — thumbnails are inline in the listing |
-| Read a diff | the **changes** tag, or `/files/diff`, opens the review page |
+| See how much is uncommitted | the **changes** tag in the header, which counts the changed files and their totals |
 | Paste a line reference | select lines, then copy the `path:12-30` form |
 | Sort a folder | the Name / Size / Modified headers |
 | See every key on the page | `?` opens the shortcut sheet |
@@ -51,13 +51,12 @@ and the reload check. A path under `/files/api/` that matches nothing answers JS
 status, as those calls do; every other unmatched path answers the error page.
 `/files/events` carries the live status frames.
 
-`/files/diff[/<rel>]?mode=head|staged|worktree` is a `308` onto the review page —
-`/review/new?scope=<mode>` and, for the per-file shape, `&file=<rel>` — because the page
-that draws a diff is `code-review`'s, and one of the two drawing it was one too many. An
-unknown `mode` still answers `400`, and a page with `gitDiff` off or no git answers `404`:
-the route is not kept alive to advertise a page this extension cannot reach.
+`/files/diff[/<rel>]?mode=head|staged|worktree` is gone: it moved onto the review page
+when that page took over drawing a diff, and it is not kept alive to advertise a page this
+extension cannot reach. The review page is its own entry — `/review`, or the `code_review`
+tool — and nothing here links into it.
 
-In a repository with no commits yet there is no `HEAD` to compare against, so the tag opens
+In a repository with no commits yet there is no `HEAD` to compare against, so the tag counts
 **staged** if you have added something and **worktree** — the files you have written — if not.
 
 **Previews.** Markdown renders as headings, lists, tables, code, and links, with
@@ -83,8 +82,9 @@ moving — a worktree switch — reloads the page onto the new tree.
 - Live status patches what the page already has. A new file on disk needs the
   page's `⟳ reload`; the check covers the listed folder by name, not the folders
   inside it, or a listed file's contents.
-- The changes tag and a changed file's **changes** action are links into the review
-  page, so they need `code-review` serving: without it the address answers `404`.
+- The changes tag is a count: the changed files and their totals. It links nowhere, so
+  the page works with `code-review` switched off, and a diff is asked for where a diff
+  lives (`/review`).
 - Files over `maxFileBytes` show a download card; images over `maxThumbBytes` get
   an icon; long listings and diffs are truncated with the cap named.
 - It is not a static-file server: the root is confined to the session's working
@@ -100,7 +100,7 @@ moving — a worktree switch — reloads the page onto the new tree.
 | `autoOpen` | `true` | Open the browser on start; `false` keeps it headless and only prints the URL. |
 | `maxFileBytes` | `1048576` | Larger files show a download card instead of a view. |
 | `markdown` | `true` | Render Markdown files as pages. |
-| `gitDiff` | `true` | Offer the uncommitted-change tags: the changes tag, the row markers, and both links onto the review page. |
+| `gitDiff` | `true` | Offer the uncommitted-change markers: the changes tag's count and the row markers. |
 | `live` | `true` | Stream live status to open pages. |
 
 The rest — thumbnail, listing, and text caps, `maxIndexEntries`, and `liveIntervalMs` —

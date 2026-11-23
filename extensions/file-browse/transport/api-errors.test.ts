@@ -80,18 +80,14 @@ describe("a request that was refused before routing", () => {
 		expect(page.headers["Content-Type"]).toContain("text/html");
 	});
 
-	test("answers an unknown diff mode in the asker's shape", async () => {
-		// `?mode=` is read after the three `/api/` routes match, so an exact api route ignores a
-		// query it does not read — but any other path reaches the check, and that includes an api
-		// path that matches nothing. Both shapes are asserted because both are reachable.
+	test("ignores a `?mode=` no route reads any more", async () => {
+		// The diff routes took `?mode=`, and they are gone; a stale bookmark carrying one is just a
+		// query nobody reads, so it answers whatever its path answers.
 		const { ctx } = served();
 		const api = await handleRequest(ctx, "GET", "/api/nope?mode=nope", {});
-		expect(api.status).toBe(400);
-		expect(JSON.parse(String(api.body))).toEqual({ error: "Unknown diff mode." });
-
+		expect(api.status).toBe(404);
 		const page = await handleRequest(ctx, "GET", "/view/a.txt?mode=nope", {});
-		expect(page.status).toBe(400);
-		expect(page.headers["Content-Type"]).toContain("text/html");
+		expect(page.status).toBe(200);
 	});
 
 	test("keeps the method guard first when the target itself will not parse", async () => {
