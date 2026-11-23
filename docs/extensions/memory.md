@@ -67,8 +67,8 @@ rather than of either original.
 
 **Recall.** Notes are injected as a `[MEMORY]` context block before each run,
 newest first, bounded by a byte cap. Past the cap the **oldest** notes are the ones
-left out, and the block's last line counts them: `/memory doctor` reports the budget, which
-store overflowed, and any note past the 500-character per-note cap — characters, not bytes.
+left out, and the block's last line names the oldest of them and counts the rest. `/memory doctor`
+reports the budget, which store overflowed, and any note past the per-note character cap.
 
 **The picker.** `/memory` lists notes with their scope; add, edit, forget, merge
 and move are in place, `s`/Tab filters by scope, `r` reloads.

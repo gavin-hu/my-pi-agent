@@ -8,6 +8,7 @@
 
 import { noteLabel, type MemoryDetails, type MemoryNote, type MemoryScope } from "./types.ts";
 import { clip } from "../../lib/tui/columns.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { ARROW, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import type { NoteProblem } from "./store.ts";
 
@@ -15,8 +16,17 @@ import type { NoteProblem } from "./store.ts";
 export const MEMORY_CONTEXT_MARKER = "[MEMORY]";
 
 const INTRO = "Durable notes saved in earlier sessions. Treat them as facts the user asked you to remember.";
-/** Bytes kept in reserve so the omission tail always fits under the cap. */
+/** Byte reserve held back so the last line — names or the count alone — always has room. */
 const TAIL_RESERVE = 96;
+
+/**
+ * Columns of an omitted note's opening the tail quotes.
+ *
+ * The reserve is 96 bytes; `- (+12 more; oldest: ` and ` — call list)` spend about 40 of
+ * them, so 28 columns is what leaves room for one name and its UTF-8, and a wider clip
+ * would take the whole reserve for a single note. Two or three short names still fit.
+ */
+const TAIL_NAME_WIDTH = 28;
 /** Notes listed per scope in an unexpanded result or the command notice. */
 const LIST_CAP = 12;
 
@@ -161,6 +171,36 @@ export interface InjectionPlan {
 	omitted: Record<MemoryScope, number>;
 }
 
+/**
+ * The one line that says what the cap hid: the oldest omitted notes, named by their
+ * opening words, and the count for the rest.
+ *
+ * A note's text is a person's, so each name is sanitised to one terminal-safe line and
+ * stripped of `"` before it is quoted: an unescaped quote or a newline would turn a
+ * helpful tail into a malformed body. Names are added only while the line still fits
+ * `space`, so a store that overflows by hundreds keeps the oldest few and the count.
+ * When no name fits — a cap below the reserve, which keeps the body one line whatever
+ * it is handed — the sentence the page documents is returned as it always read.
+ */
+function tailLine(names: readonly string[], missing: number, space: number): string {
+	const fallback = `- (+${missing} more; call list — the store is past the injection cap)`;
+	const quote = (name: string): string => `"${clip(sanitizeLine(name).replaceAll('"', ""), TAIL_NAME_WIDTH)}"`;
+	const compose = (named: readonly string[]): string => {
+		if (named.length === 0) return fallback;
+		// One hidden note reads as a sentence; several read as a count with the oldest named.
+		return missing === 1
+			? `- 1 note not shown: ${named.join(", ")} — call list`
+			: `- (+${missing} more; oldest: ${named.join(", ")} — call list)`;
+	};
+	const named: string[] = [];
+	for (const name of names) {
+		const next = [...named, quote(name)];
+		if (bytes(compose(next)) + 1 > space) break;
+		named.push(next[named.length] as string);
+	}
+	return compose(named);
+}
+
 /** Plan the injected body, or `undefined` when nothing is stored. */
 export function injectionPlan(entries: MemoryEntries, maxBytes: number): InjectionPlan | undefined {
 	const project = noteLabels(entries.project);
@@ -174,6 +214,8 @@ export function injectionPlan(entries: MemoryEntries, maxBytes: number): Injecti
 	let used = lines.reduce((total, line) => total + bytes(line) + 1, 0);
 	const limit = Math.max(0, maxBytes - TAIL_RESERVE);
 	const omitted: Record<MemoryScope, number> = { project: 0, global: 0 };
+	/** The notes left out, in the order the loop met them: newest first, within each store. */
+	const hidden: Record<MemoryScope, string[]> = { project: [], global: [] };
 
 	for (const [scope, list] of sections) {
 		const header = `${scope}:`;
@@ -182,6 +224,7 @@ export function injectionPlan(entries: MemoryEntries, maxBytes: number): Injecti
 			const line = `- ${entry}`;
 			if (used + bytes(header) + 1 + bytes(line) + 1 > limit) {
 				omitted[scope] += 1;
+				hidden[scope].push(entry);
 				continue;
 			}
 			rendered.push(line);
@@ -193,7 +236,11 @@ export function injectionPlan(entries: MemoryEntries, maxBytes: number): Injecti
 		}
 	}
 	const missing = omitted.project + omitted.global;
-	if (missing > 0) lines.push(`- (+${missing} more; call list — the store is past the injection cap)`);
+	if (missing > 0) {
+		// Oldest first, project before global: the notes a cap hides are the founding ones.
+		const names = [...hidden.project].reverse().concat([...hidden.global].reverse());
+		lines.push(tailLine(names, missing, maxBytes - used));
+	}
 	return { lines, omitted };
 }
 

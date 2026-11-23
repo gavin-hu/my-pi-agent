@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `memory`: the `[MEMORY]` block's last line now names the notes recall left out instead of only counting them — the
+  oldest ones, by their opening words, with the count for the rest, because the notes a cap hides first are a
+  project's founding rules, the ones a session is likeliest to contradict. It is still one line inside the same byte
+  ceiling, spending only the reserve the count-only sentence already held, so which notes fit does not change; below
+  that reserve the documented sentence is what a body still ends in. A name is a person's text, so each is sanitised
+  to one line with its quotes stripped, and clipping counts the ellipsis inside its 28 columns.
+
 - `memory`: a note past the 500-character cap the tool enforces is named — by store, line and length — where it used
   to read, inject and update exactly as if the tool had written it. The session's load warning names the first three
   and counts the rest; `/memory doctor` gains a `problems` row naming each one beside its file and its opening words,
