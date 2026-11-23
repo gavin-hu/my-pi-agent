@@ -43,7 +43,7 @@ const USAGE = "Usage: /worktree [enter [name]|exit|prune]";
 
 /** Refuse a lifecycle change while plan mode is read-only, as `/agents` does. */
 async function refuseInPlanMode(ctx: ExtensionContext): Promise<boolean> {
-	const { isPlanModeEnabled } = await import("../../lib/plan-state.ts");
+	const { isPlanModeEnabled } = await import("../../lib/mode-state.ts");
 	if (!isPlanModeEnabled(ctx.sessionManager.getBranch())) return false;
 	const { planModeRefusal } = await import("../../lib/plan-entry.ts");
 	ctx.ui.notify(planModeRefusal("changing worktrees"), "warning");
@@ -101,7 +101,7 @@ async function showWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<v
 	// inside a mounted screen. Prune runs in place, so its verb stays on the screen.
 	const { withRailsSuppressed } = await import("../../lib/rails.ts");
 	const { WorktreeListComponent } = await import("./screen.ts");
-	const { isPlanModeEnabled } = await import("../../lib/plan-state.ts");
+	const { isPlanModeEnabled } = await import("../../lib/mode-state.ts");
 	const action = await withRailsSuppressed(pi, () =>
 		ctx.ui.custom<WorktreeAction | undefined>((tui, theme, _keybindings, done) => {
 			return new WorktreeListComponent({

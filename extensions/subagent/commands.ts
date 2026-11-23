@@ -8,7 +8,7 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { planModeRefusal } from "../../lib/plan-entry.ts";
-import { isPlanModeEnabled } from "../../lib/plan-state.ts";
+import { isPlanModeEnabled } from "../../lib/mode-state.ts";
 import type { BackgroundRuntime } from "./background.ts";
 import { formatAgentsList } from "./format.ts";
 

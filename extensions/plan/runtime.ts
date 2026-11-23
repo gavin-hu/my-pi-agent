@@ -21,7 +21,7 @@ import { realpathSync } from "node:fs";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
+import { PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { toolResultDetails } from "../../lib/tool-result.ts";
 import { PLAN_TOOL as PLAN_TOOL_NAME } from "../../lib/tool-names.ts";

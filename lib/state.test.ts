@@ -1,6 +1,6 @@
 /**
  * The published session state: the goal a branch carries, the todo list, and the
- * plan-mode flag.
+ * session's mode.
  *
  * All three are replayed from untrusted branch entries, so the cases here are
  * about which write counts (a rejected call does not), what a malformed entry
@@ -10,7 +10,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { GOAL_ENTRY_TYPE, isPursuedGoal, lastGoal, MAX_GOAL_OBJECTIVE } from "./goal-state.ts";
-import { PLAN_MODE_ENTRY_TYPE, isPlanModeEnabled } from "./plan-state.ts";
+import { LEAD_MODE_ENTRY_TYPE, PLAN_MODE_ENTRY_TYPE, isPlanModeEnabled, lastModeState, mayEnter, modeOf } from "./mode-state.ts";
 import { type ExistingTodo, lastTodos, MAX_CONTENT, MAX_TODOS, normalizeTodos, TODO_STATUSES } from "./todo-state.ts";
 import { GOAL_TOOL, TODO_TOOL } from "./tool-names.ts";
 import { toolResultEntry } from "../test/helpers/entries.ts";
@@ -372,5 +372,67 @@ describe("isPlanModeEnabled", () => {
 		);
 		expect(isPlanModeEnabled([state(true), { type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: {} }])).toBe(true);
 		expect(isPlanModeEnabled([state(true), null, "nonsense"])).toBe(true);
+	});
+});
+
+// --- The session mode -------------------------------------------------------
+
+describe("lastModeState", () => {
+	/** One persisted mode entry of either type. */
+	function entry(entryType: string, enabled: unknown, removed?: unknown): unknown {
+		return { type: "custom", customType: entryType, data: removed === undefined ? { enabled } : { enabled, removed } };
+	}
+	const plan = (enabled: unknown, removed?: unknown): unknown => entry(PLAN_MODE_ENTRY_TYPE, enabled, removed);
+	const lead = (enabled: unknown, removed?: unknown): unknown => entry(LEAD_MODE_ENTRY_TYPE, enabled, removed);
+
+	test("is auto for an empty or unrelated branch", () => {
+		expect(modeOf([])).toBe("auto");
+		expect(lastModeState([{ type: "custom", customType: "goal", data: { enabled: true } }])).toEqual({ mode: "auto" });
+	});
+
+	test("reads a lead entry, which nothing writes yet", () => {
+		expect(modeOf([lead(true)])).toBe("lead");
+		expect(lastModeState([lead(true, ["edit", "write"])])).toEqual({ mode: "lead", removed: ["edit", "write"] });
+	});
+
+	test("does not read a lead entry as planning", () => {
+		expect(isPlanModeEnabled([lead(true)])).toBe(false);
+	});
+
+	test("gives plan a branch that carries both", () => {
+		expect(modeOf([lead(true), plan(true)])).toBe("plan");
+		expect(modeOf([plan(false), lead(true)])).toBe("lead");
+		expect(lastModeState([lead(true, ["edit"]), plan(true, ["write"])])).toEqual({ mode: "plan", removed: ["write"] });
+	});
+
+	test("skips a malformed entry instead of reading it as off", () => {
+		expect(modeOf([lead(true), lead("yes")])).toBe("lead");
+		expect(modeOf([lead(true), { type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: null }])).toBe("lead");
+	});
+
+	test("keeps only the tool names a mode can put back", () => {
+		expect(lastModeState([lead(true, ["edit", 3, null])])).toEqual({ mode: "lead", removed: ["edit"] });
+	});
+});
+
+describe("mayEnter", () => {
+	test("allows every switch but a lead entering plan", () => {
+		expect(mayEnter("plan", "auto")).toBeUndefined();
+		expect(mayEnter("lead", "auto")).toBeUndefined();
+		expect(mayEnter("lead", "plan")).toBeUndefined();
+		expect(mayEnter("auto", "lead")).toBeUndefined();
+	});
+
+	test("allows a door re-entered in the mode already in force", () => {
+		expect(mayEnter("lead", "lead")).toBeUndefined();
+		expect(mayEnter("auto", "auto")).toBeUndefined();
+	});
+
+	test("refuses plan from a lead, and names the hatch", () => {
+		expect(mayEnter("plan", "lead")).toContain("/board exit");
+	});
+
+	test("refuses a mode it does not know", () => {
+		expect(mayEnter("surf", "auto")).toContain("is not a mode");
 	});
 });

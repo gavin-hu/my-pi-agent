@@ -170,7 +170,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			import("./host/chat.ts"),
 			import("../../lib/interaction.ts"),
 			import("./text/channel.ts"),
-			import("../../lib/plan-state.ts"),
+			import("../../lib/mode-state.ts"),
 			import("./state/media-sweep.ts"),
 		]);
 		// The phone-chat contract rides on the turns the chat started: the marker on the UI

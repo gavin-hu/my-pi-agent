@@ -12,7 +12,7 @@ import type { SingleResult } from "./types.ts";
 import { createSubagentUi } from "./ui.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
-import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
+import { PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir, useEnv, withEnv } from "../../test/helpers/env.ts";

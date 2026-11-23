@@ -18,7 +18,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { dialogLanguage, isRemoteTurn, type UIContextCarrier } from "./interaction.ts";
-import { isPlanModeEnabled } from "./plan-state.ts";
+import { isPlanModeEnabled } from "./mode-state.ts";
 import { PLAN_TOOL } from "./tool-names.ts";
 
 /** EventBus channel on which a caller asks `plan` to enable plan mode. */

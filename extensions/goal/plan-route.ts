@@ -20,7 +20,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isPursuedGoal } from "../../lib/goal-state.ts";
 import { planConsent, requestPlanMode } from "../../lib/plan-entry.ts";
-import { isPlanModeEnabled } from "../../lib/plan-state.ts";
+import { isPlanModeEnabled } from "../../lib/mode-state.ts";
 import { PLAN_TOOL } from "../../lib/tool-names.ts";
 import type { Goal, GoalStatus } from "./types.ts";
 

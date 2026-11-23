@@ -17,7 +17,7 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { isPursuedGoal } from "../../lib/goal-state.ts";
-import { isPlanModeEnabled } from "../../lib/plan-state.ts";
+import { isPlanModeEnabled } from "../../lib/mode-state.ts";
 import { registerCommands } from "./commands.ts";
 import { loadGoalConfig } from "./config.ts";
 import { createGoalRuntime } from "./runtime.ts";
