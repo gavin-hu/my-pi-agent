@@ -27,7 +27,7 @@ The model investigates, then saves the plan file:
 
 ```text
 plan write Add rate limiting
-✓ Saved plan ~/.pi/agent/plans/a1f9c02b3d4e/2026-10-09-1809-add-rate-limiting.md
+✓ Saved plan ~/.pi/agent/repos/a1f9c02b3d4e/plans/2026-10-09-1809-add-rate-limiting.md
 ```
 
 `plan exit` is what opens the review screen on that file. On the screen: `n`/`p`
@@ -117,7 +117,7 @@ approved.
 
 The list shows every saved plan with its title, when it last changed, and its
 step progress, newest first; `Enter` opens one in the browser to read. Plans live under
-`~/.pi/agent/plans/<repo-key>/`, so every worktree of a repository shares the same
+`~/.pi/agent/repos/<repo-id>/plans/`, so every worktree of a repository shares the same
 store.
 
 ## Where to go next
