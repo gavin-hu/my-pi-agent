@@ -10,7 +10,14 @@
 
 import { describe, expect, test } from "bun:test";
 import { GOAL_ENTRY_TYPE, isPursuedGoal, lastGoal, MAX_GOAL_OBJECTIVE } from "./goal-state.ts";
-import { LEAD_MODE_ENTRY_TYPE, PLAN_MODE_ENTRY_TYPE, isPlanModeEnabled, lastModeState, mayEnter, modeOf } from "./mode-state.ts";
+import {
+	LEAD_MODE_ENTRY_TYPE,
+	PLAN_MODE_ENTRY_TYPE,
+	isPlanModeEnabled,
+	lastModeState,
+	mayEnter,
+	modeOf,
+} from "./mode-state.ts";
 import { type ExistingTodo, lastTodos, MAX_CONTENT, MAX_TODOS, normalizeTodos, TODO_STATUSES } from "./todo-state.ts";
 import { GOAL_TOOL, TODO_TOOL } from "./tool-names.ts";
 import { toolResultEntry } from "../test/helpers/entries.ts";

@@ -13,7 +13,10 @@ const ALLOWED = ["read", "grep"];
 const policy = { isAllowed: (name: string) => ALLOWED.includes(name) };
 
 /** A host whose active set is the one array it is given. */
-function host(initial: string[]): { host: { getActiveTools(): string[]; setActiveTools(names: string[]): void }; active(): string[] } {
+function host(initial: string[]): {
+	host: { getActiveTools(): string[]; setActiveTools(names: string[]): void };
+	active(): string[];
+} {
 	let active = [...initial];
 	return {
 		host: {

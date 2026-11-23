@@ -1292,9 +1292,7 @@ describe("footer segments", () => {
 	});
 
 	test("never repeats a mode chip in the statuses segment", () => {
-		expect(
-			modesSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.leadMode, "lead"]]) }), fakeTheme),
-		).toBeNull();
+		expect(modesSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.leadMode, "lead"]]) }), fakeTheme)).toBeNull();
 	});
 
 	test("has no status slot when every status is routed elsewhere", () => {

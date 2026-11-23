@@ -19,7 +19,6 @@ const PLAN: ModePhrasing = { label: "plan mode", whileDoing: "while planning" };
 /** One command, judged as the planning mode asks. */
 const guard = (command: string) => readOnlyGitCommand(command, PLAN);
 
-
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 

@@ -336,7 +336,10 @@ function checkConfig(rest: string[], phrasing: ModePhrasing): GitCheck {
 		index += 1;
 	}
 	if (positionals.length > 1) {
-		return { ok: false, reason: `"git config <name> <value>" writes .git/config; ${phrasing.label} reads config only.` };
+		return {
+			ok: false,
+			reason: `"git config <name> <value>" writes .git/config; ${phrasing.label} reads config only.`,
+		};
 	}
 	if (!reads && positionals.length !== 1) {
 		return {
@@ -414,7 +417,10 @@ function checkSingleGitCommand(command: string, phrasing: ModePhrasing): GitChec
 		};
 	}
 	if (argv[0] !== "git") {
-		return { ok: false, reason: `only read-only git commands run in the shell ${phrasing.whileDoing} (got "${argv[0]}").` };
+		return {
+			ok: false,
+			reason: `only read-only git commands run in the shell ${phrasing.whileDoing} (got "${argv[0]}").`,
+		};
 	}
 	if (argv[1] === "--version") return { ok: true };
 	if (argv[1] === undefined) {
