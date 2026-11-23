@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `board`: lead mode. Serving the page is the seat — bare `/board` takes it, `/board exit` gives it back — and while
+  it is held `write`, `edit`, `worktree`, `job`, `watch` and any shell that is not read-only git are refused by a
+  sentence naming the hatch, `subagent` is pinned read-only, and `plan` keeps its `write` and `steps` verbs while
+  `enter` refuses. Every turn carries one `[LEAD MODE]` line — what is yours to sign, what nobody has taken, who is
+  listening — and the bar draws `⏵ lead`. The mode is one value shared with plan mode (`lib/mode-state.ts`), so the
+  two cannot both be on; the page keeps serving as the lead's name, so landing is an exit, land, and `/board` again.
+
 ## [0.30.0] - 2026-11-23
 
 ### Added

@@ -22,6 +22,8 @@ import { type Card, cardRef, holds } from "../../lib/workflow/card.ts";
 import { laneIndex } from "../../lib/workflow/lanes.ts";
 import { reasonFor } from "../../lib/workflow/reason.ts";
 import { plural } from "../../lib/format.ts";
+import { buildRound } from "../../lib/workflow/round.ts";
+import { SESSION_TTL_MS } from "../../lib/session-roster.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 
 /** The marker the model reads, and the custom type the session stores. */
@@ -122,6 +124,87 @@ function bulletOf(card: Card): string {
 	// one, and the formatter is the parameter `reason.ts` asks for.
 	const reason = reasonFor(card, () => "now");
 	return fitLine(`- ${cardRef(card.id)} (${card.lane})${reason === undefined ? "" : ` ${reason.text}`}`);
+}
+
+/** The marker the seat's block opens with, and its own ceilings. */
+export const LEAD_CONTEXT_MARKER = "[LEAD MODE]";
+export const MAX_LEAD_CHARS = 480;
+export const MAX_LEAD_LINES = 6;
+/**
+ * What one clause of the block may spend. The hatch is not shareable: a clause
+ * that ate the ceiling would cut the line that says how to leave, so each list
+ * clips at its own budget and the last line is always there.
+ */
+export const MAX_LEAD_CLAUSE_CHARS = 190;
+export const MAX_LEAD_PEERS_CHARS = 140;
+
+/** What the seat is owed, gathered once per turn. */
+export interface LeadFacts {
+	/** Contracts waiting for the seat's approval. */
+	approve: readonly string[];
+	/** Executions waiting for the seat's spot-check. */
+	review: readonly string[];
+	/** Cards nobody has taken. */
+	unclaimed: readonly string[];
+	/** One line per live peer: its label, whether it is quiet, and its unread mail. */
+	peers: readonly string[];
+}
+
+/**
+ * The round as the seat needs it: what it owes a signature, what nobody has taken,
+ * and who is listening — read from the same cards and roster the page draws, so the
+ * line and the page cannot disagree. A board or a bus that cannot be read is no
+ * line at all rather than a failed turn.
+ */
+export async function leadFacts(
+	session: Pick<BoardSession, "store" | "roster" | "now">,
+	ctx: ExtensionContext,
+): Promise<LeadFacts | undefined> {
+	try {
+		const store = await session.store(ctx.cwd);
+		const { cards } = await store.scan();
+		const round = buildRound(cards, session.now());
+		const roster = (await session.roster(ctx.cwd)) ?? [];
+		const now = session.now();
+		const self = ctx.sessionManager.getSessionId();
+		return {
+			approve: round.unapproved.map((card) => cardRef(card.id)),
+			review: round.unreviewed.map((card) => cardRef(card.id)),
+			unclaimed: round.unassigned.map((card) => cardRef(card.id)),
+			peers: roster
+				.filter((peer) => peer.id !== self)
+				.map((peer) => {
+					const quiet = now - peer.lastSeen > SESSION_TTL_MS ? " (quiet)" : "";
+					const mail = peer.mail > 0 ? ` ${peer.mail} unread` : "";
+					return `${peer.label}${quiet}${mail}`;
+				}),
+		};
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * The seat's block: what it owes, who is here, and the hatch.
+ *
+ * The hatch is on every turn, because the refusal the model meets names it and this
+ * is the line it reads before it acts. The ceiling is characters and lines, spent on
+ * whole clauses: a long list of ids clips rather than the line being cut, and the
+ * `unclaimed` clause folds into `Yours` when there is one, so a busy board costs a
+ * clause and not a line.
+ */
+export function buildLeadContext(facts: LeadFacts): string {
+	const owed: string[] = [];
+	if (facts.approve.length > 0) owed.push(`approve ${facts.approve.join(", ")}`);
+	if (facts.review.length > 0) owed.push(`review ${facts.review.join(", ")}`);
+	if (facts.unclaimed.length > 0) owed.push(`unclaimed ${facts.unclaimed.join(", ")}`);
+	const lines = [
+		`${LEAD_CONTEXT_MARKER} You hold the seat: sign, dispatch, and ticket; code is a card.`,
+		fitLine(owed.length === 0 ? "Yours: nothing to sign." : `Yours: ${owed.join(" · ")}.`, MAX_LEAD_CLAUSE_CHARS),
+		fitLine(`Peers: ${facts.peers.length === 0 ? "no peers live" : facts.peers.join(" · ")}.`, MAX_LEAD_PEERS_CHARS),
+		"`/board exit` to write; the page keeps serving.",
+	];
+	return lines.join("\n");
 }
 
 /** Whether a stored message is the line this module injected. */

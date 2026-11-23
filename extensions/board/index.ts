@@ -13,12 +13,13 @@
  * Load with:  pi --extension ./extensions/board
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/mount.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import type { Claims } from "../../lib/workflow/claims.ts";
-import { registerCommands } from "./commands.ts";
+import { type LeadDoor, registerCommands } from "./commands.ts";
+import type { LeadRuntime } from "./runtime.ts";
 import { createLazyBoardPage } from "./lazy-page.ts";
 import type { BoardPage } from "./page.ts";
 import { type BoardSession, openBoardSession } from "../../lib/workflow/session.ts";
@@ -64,8 +65,54 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 			mount: (spec) => requestMount(pi, spec),
 			session: () => sessionId,
 		});
+	/**
+	 * The seat, loaded on first use: `/board` taking it, or a branch that already says
+	 * `lead` on the session's first turn. The runtime is `import()`ed rather than
+	 * registered with, so a session that never serves a page pays nothing for the mode
+	 * and `board`'s registration graph keeps its size.
+	 */
+	let leadModule: Promise<typeof import("./runtime.ts")> | undefined;
+	let leadRuntime: LeadRuntime | undefined;
+	let branchState: Promise<typeof import("../../lib/mode-state.ts")> | undefined;
+	/** The session the runtime last replayed its branch for, so a `/tree` replays again. */
+	let restoredFor: string | undefined;
+	const lead = async (ctx: ExtensionContext): Promise<LeadRuntime> => {
+		leadRuntime ??= (await (leadModule ??= import("./runtime.ts"))).createLeadRuntime(pi);
+		const id = ctx.sessionManager.getSessionId();
+		if (restoredFor !== id) {
+			leadRuntime.restore(ctx);
+			restoredFor = id;
+		}
+		return leadRuntime;
+	};
+	/**
+	 * The seat, or undefined when the branch is not holding it — asked before the
+	 * runtime is loaded, because three of the four modes never need it.
+	 */
+	const seatHeld = async (ctx: ExtensionContext): Promise<LeadRuntime | undefined> => {
+		const { modeOf } = await (branchState ??= import("../../lib/mode-state.ts"));
+		return modeOf(ctx.sessionManager.getBranch()) === "lead" ? lead(ctx) : undefined;
+	};
+	const leadDoor: LeadDoor = {
+		async enter(ctx) {
+			// Planning strips the contract and the signature the seat exists for, so entering
+			// the seat leaves plan mode first: the one cross-mode sequence the table allows.
+			const { modeOf } = await (branchState ??= import("../../lib/mode-state.ts"));
+			if (modeOf(ctx.sessionManager.getBranch()) === "plan") {
+				const { requestPlanLeave } = await import("../../lib/mode-entry.ts");
+				await requestPlanLeave(pi, ctx);
+			}
+			(await lead(ctx)).enable(ctx);
+		},
+		async exit(ctx) {
+			const runtime = await lead(ctx);
+			const was = runtime.isEnabled();
+			if (was) runtime.disable(ctx);
+			return was;
+		},
+	};
 	registerTools(pi, session, { team });
-	registerCommands(pi, session, page, { team });
+	registerCommands(pi, session, page, { team, lead: leadDoor });
 
 	/** Whether the first turn has read this session's cards, so later turns do not read them again. */
 	let read = false;
@@ -73,12 +120,18 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	pi.on("session_start", async (_event, ctx) => {
 		sessionId = ctx.sessionManager.getSessionId();
 		read = false;
+		// The branch this session starts on may already hold the seat: the runtime replays
+		// it on the first turn rather than at registration, so nothing loads for a mode the
+		// branch does not name.
+		restoredFor = undefined;
 	});
 
 	// A tree jump rebuilds the history from the branch it landed on, so the line a jump went back
 	// behind is gone from the transcript: reading again is what puts it back, once.
 	pi.on("session_tree", () => {
 		read = false;
+		// The tree landed on another branch, which may or may not hold the seat.
+		restoredFor = undefined;
 	});
 
 	// What a session is told about its own cards, once, before its first turn: which they are, and
@@ -86,6 +139,18 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	// move, and the sign each say their own next step — and a board already parsed every turn on
 	// every session's behalf is a cost nobody chose.
 	pi.on("before_agent_start", async (_event, ctx) => {
+		// The seat's line is paid every turn, because the round moves and the hatch has to be
+		// in front of the model before it meets a refusal. It replaces the once-per-session
+		// line rather than stacking with it: one `board-context` message is kept.
+		const holding = await seatHeld(ctx);
+		if (holding !== undefined) {
+			const context = await (contextModule ??= import("./context.ts"));
+			const facts = await context.leadFacts(session, ctx);
+			if (facts === undefined) return undefined;
+			return {
+				message: { customType: context.BOARD_CONTEXT_TYPE, content: context.buildLeadContext(facts), display: false },
+			};
+		}
 		if (read) return undefined;
 		const context = await (contextModule ??= import("./context.ts"));
 		// The sweep writes first, because a card it hands back this turn is one this session holds:
@@ -114,6 +179,15 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		return content === undefined
 			? undefined
 			: { message: { customType: context.BOARD_CONTEXT_TYPE, content, display: false } };
+	});
+
+	// The seat's gate. The active set hides what the policy does not allow; this is the second
+	// layer for a call already in flight and the guard for a tool registered after the load. It
+	// denies by default: `runtime.ts` allows a list, so a tool nobody anticipated is refused.
+	pi.on("tool_call", async (event, ctx) => {
+		const holding = await seatHeld(ctx);
+		const reason = holding === undefined ? undefined : await holding.refusal(event.toolName, event.input);
+		return reason === undefined ? undefined : { block: true, reason };
 	});
 
 	// `before_agent_start` injects one per session; a `/resume` replays the old ones, so keep only

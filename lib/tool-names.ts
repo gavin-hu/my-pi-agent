@@ -24,6 +24,13 @@ export const GOAL_TOOL = "goal";
  */
 export const PLAN_TOOL = "plan";
 
+/**
+ * The `team` tool: the lead's half of the board. `team` registers it, and a session
+ * holding the seat lists it by name — a rename that missed the list would take
+ * dispatch away from the one mode built to dispatch.
+ */
+export const TEAM_TOOL = "team";
+
 /** The `subagent` tool, which plan mode pins to read-only delegation. */
 export const SUBAGENT_TOOL = "subagent";
 

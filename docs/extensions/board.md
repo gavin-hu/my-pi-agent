@@ -7,10 +7,9 @@ promises, and the notes that explain it — and two signatures are needed before
 <img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, the live state, theme and keyboard controls; Board and Team tabs, a ten-cell done gauge and a filter; five lane columns with counts and fold controls; and note-shaped cards as tall as they draw, tinted by the lane they sit in and separated by space rather than rules, each carrying its number and kind, its title, its path hints, the state it owes somebody, and on its last line whose it is with its age and history" width="1280" height="480">
 
 - **One board per repository**, one page: the first `/board` serves it, every other session opens it.
-- **The page is a view**, and it follows the files: nothing is claimed, moved, or signed from a
-  browser, and a card another session writes reaches an open tab as it lands, wearing a mark.
+- **The page is a view**: it follows the files, and nothing is claimed, moved, or signed from a browser.
 - **Two signatures**: the lead signs both gates — a contract before `execute`, the work before
-  `done` — with the `board` tool or `/board` in its own session.
+  `done` — with `board` or `/board`, and `/board` also takes the seat that refuses code (below).
 - **The lane is the record**, and a session is told once which cards are its own, with what each owes.
 - **Steps stay out of it** — they live in the owner's plan and `todo`.
 
@@ -19,6 +18,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | What you want | What to do |
 |---|---|
 | See the board | `/board` — Board and Team tabs, live |
+| Take the seat | `/board` in the session that serves the page: code edits are refused until `/board exit` |
 | Put a feature on it | `board({ action: "add", title, paths })` — a call, because `add` takes a title rather than a card id |
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
@@ -39,14 +39,11 @@ Put the billing webhook's order acceptance on the board, under src/billing.
 ```
 
 The model calls `board({ action: "add", … })` and then, when you say so, `board({ action: "claim", card: "1" })`.
-Those are tool actions, not commands: `Reference` below lists every `/board` word, and who may run one.
+Those are tool actions, not commands: `Reference` lists every `/board` word and who may run one. The claim names
+the next step, and `/board approve 1` refuses until the contract names a plan file in this repository's store.
 
-The claim's result names the next step, and `/board approve 1` refuses until the contract
-names a plan file in this repository's store. A claim also joins the team ([`team`](team.md)).
-
-A card is as tall as it draws: the line above its last one says what it owes or waits on, and is
-blank when it owes nothing. The row and `board list` print that gate in one word; a transcript row
-too narrow to hold it beside the number and title draws it on the next line instead of losing them.
+A card is as tall as it draws: the line above its last one says what it owes, and is blank when it owes
+nothing. The row and `board list` print that gate in one word, and a narrow transcript row draws it on the next line.
 
 ## Reference
 
@@ -54,34 +51,39 @@ too narrow to hold it beside the number and title draws it on the next line inst
 contract signed, `execute` is where the work happens, `blocked` waits on a person, and `done`
 is closed. Each move follows the one transition from where the card is; no lane is skipped.
 
-**The page.** A lane's width follows its work; five lanes sit side by side (one below 1180px, via the picker)
-and a lane of 24 cards folds. The pane is the one scroll box: a lane is as tall as the board, its head riding
-its edge. The Team tab draws the board's card and raises what needs a lead above it: a band shows five rows,
-folds the rest, pins its head, and leaves each row to say its own reason.
+**The page.** A lane's width follows its work; five sit side by side (one below 1180px, via the picker) and a
+lane of 24 folds. The pane is the one scroll box: a lane is as tall as the board, its head riding its edge. The
+Team tab raises what needs a lead: a band shows five rows, folds the rest, pins its head, and lets each row say why.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`, `approve`,
-`review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full; `assign` is `team`'s verb
-under that rule, and one session holds one card in flight by default (`board.wip.perOwner`). `reclaim` takes a card back: the
-person and the lead always, a peer only while its owner is quiet or gone. `move` into `execute` or `done` re-reads the plan, and
-one that is gone refuses it. An `execute` card claims the `paths` nobody else holds and names the rest a peer has; `edit`
-claims added paths and releases removed ones, claiming first so a conflict releases nothing. A contract names a `verify` command — the
-card's own check, not the repository's whole gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs
-it in the tree `root` names. `done` refuses a sign with no result or one older than the card's state (a note is not a change) and
-resolves the landing: an older tree (a merge before the work, past it, or rewriting the review's lines), a tip declaring another
-card, or a squashed branch named by the card id its subject ends with. A reviewed merge is its own landing only while it is the
-tip, so a checkout sign needs a re-sign; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
+`review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while a lane is full; `assign` is `team`'s verb under that
+rule, and one session holds one card in flight by default (`board.wip.perOwner`). `reclaim` takes a card back: the person and
+the lead always, a peer only while its owner is quiet or gone. `move` into `execute` or `done` re-reads the plan and refuses a
+card whose plan is gone. An `execute` card claims the `paths` nobody else holds; `edit` claims added paths and releases removed
+ones, claiming first so a conflict releases nothing. A contract names a `verify` command — the card's own check, not the
+repository's gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs it in the tree `root` names.
+`done` refuses a sign with no result or one older than the card's state, and resolves the landing: an older tree, a tip
+declaring another card, or a squashed branch named by the card id its subject ends with. A reviewed merge is its own landing
+only while it is the tip; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints
 the URL, and a remote turn says the browser needs this machine); `/board approve <id>` and `review <id>
-[--root <tree>]` sign, `archive` sweeps, `status` prints the seat, repository, port, and tabs; `stop` ends it.
+[--root <tree>]` sign, `archive` sweeps, `status` prints the seat, repository, port, and tabs, `exit` leaves
+the seat without closing the page, and `stop` ends it.
 
 **Who signs.** The lead is `team.lead` in `bytefly.json` (default `gavin`), and the page serves as that name; an
 empty lead lets only the person sign and serves no page. A session signs only while it is the lead, never while
-it holds the card — a lead releases its own card first — and the `/board` words gate on that same label, so they
-sign as the serving session. The sign says who heard it — quiet, not listening, or not told — and an untold one
-is sent again; a completed contract is told the same way, and a failed send is a line that asks again.
+it holds the card, and the `/board` words gate on that label. The sign says who heard it — quiet, not listening,
+or not told — and an untold one is sent again.
 
-**Where it lives.** `~/.pi/agent/repos/<repo-id>/board/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so a card set aside reads `done` like the rest and no file is ever rewritten. A card records its plan by the **name** it holds in this repository's plan store, not this host's path, so two machines sharing a store resolve it on either — and a card holding an older absolute path still executes. A store two machines share is compared on every write, so it converges rather than serializing — [two machines, one store](../multi-session.md#two-machines-one-store).
+**Lead mode.** Serving the page is the seat: `/board` turns the mode on in that session and the bar draws
+`⏵ lead`. While it holds, `write`, `edit`, `worktree`, `job`, `watch` and any shell that is not read-only git
+are refused by a sentence naming `/board exit`; `subagent` is pinned read-only, and `plan` keeps `write` and
+`steps` — a card's plan is the seat's to author — while `enter` refuses. Each turn carries one `[LEAD MODE]`
+line: what is yours to sign, what nobody has taken, who is listening. `/board exit` gives every tool back and
+leaves the page serving; landing is shell work, so it is an exit, land, and `/board` again.
+
+**Where it lives.** `~/.pi/agent/repos/<repo-id>/board/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so nothing is rewritten. A card records its plan by the **name** it holds in this repository's plan store, not this host's path, so two machines sharing a store resolve it on either — and a card holding an older absolute path still executes. A shared store is compared on every write, so it converges rather than serializing — [two machines, one store](../multi-session.md#two-machines-one-store).
 
 ## Limits
 
@@ -90,11 +92,8 @@ is sent again; a completed contract is told the same way, and a failed send is a
 - The lead is a name, not an authority: any session can join it, and a lead holding a card can release it, sign it and
   claim it again. A lead holding no card may still move it `plan` → `execute`, or close a signed card whose holder the
   bus lost — a close, not a signature; every other verb is the holder's. A gate is a reading.
-- Settle title, paths and contract before the sign: a write after the spot-check stops it speaking, and a branch is
-  proved against `main` as cut. Restart when board code lands — an old session's card reads a note as a message, and a `/reload` is not a restart: Bun keeps a `lib/` module another extension loaded, so a lazily-imported one calls a function its cached copy never had.
-- Ownership is a session id, not a lock — only `session-bus` path claims are. A card in `execute` holds its `paths`,
-  `edit` moves them with the hints and a lane change frees only the writer's; a dead owner's card is released by a
-  start, or re-seated to the session wearing that name and told on its first turn. Eight transitions are kept.
+- Settle title, paths and contract before the sign: a write after the spot-check stops it speaking, and a branch is proved against `main` as cut. Restart when board code lands — a `/reload` keeps a `lib/` module another extension loaded.
+- Ownership is a session id, not a lock — only `session-bus` path claims are. A card in `execute` holds its `paths`, a lane change frees only the writer's, and a dead owner's card is released by a start or re-seated to the session wearing that name.
 - The page asks the bus for a stamp every second — mail waiting, a peer's state, a turn starting — and sweeps every five for what no file announces; a page with no watch scans every second.
 
 ## Settings
