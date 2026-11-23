@@ -74,7 +74,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/session-bus/extension.test.ts": 411,
 	// #799's cases — the mark, the unmarked quiet, and the pair that holds the listing and the refusal
 	// together — took this suite past the bar, and they belong with the listing they assert.
-	"extensions/session-bus/format.test.ts": 433,
+	"extensions/session-bus/format.test.ts": 437,
 	"extensions/session-bus/runtime.test.ts": 959,
 	"extensions/subagent/agents.test.ts": 438,
 	"extensions/subagent/extension.test.ts": 760,
