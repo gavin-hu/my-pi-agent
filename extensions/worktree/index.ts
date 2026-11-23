@@ -90,6 +90,11 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 	// --- lifecycle ---------------------------------------------------------
 
 	pi.on("session_start", async (event, ctx) => {
+		// The three files of this extension that write an `import(`, checked against the tree
+		// they are sitting in: the guard rides its own import so registration saves nothing for
+		// it, and a module moved under this process fails here instead of in a tool call.
+		const { assertDeferredPresent } = await import("../../lib/lazy.ts");
+		assertDeferredPresent(import.meta.url, ["index.ts", "commands.ts", "registry.ts"]);
 		setBaseCwd(ctx.cwd);
 		setActive(null);
 		clearConfigCache();

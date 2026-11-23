@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { answerOn } from "../../lib/bus-request.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount, type MountSource } from "../../lib/http/mount.ts";
+import { assertDeferredPresent } from "../../lib/lazy.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
 import {
@@ -180,6 +181,10 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 	};
 
 	pi.on("session_start", (_event, ctx) => {
+		// A module moved since this process loaded plan leaves a deferred specifier below
+		// naming a file the tree no longer has: fail here, once, naming it, rather than in
+		// the tool call that would have loaded it.
+		assertDeferredPresent(import.meta.url, ["index.ts"]);
 		// `serve` keys the socket, the remembered port, and the pin by this id, and draws
 		// the port chip in the context it filed with it: a review that asks under another
 		// one gets a port nobody names.
