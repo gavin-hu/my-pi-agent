@@ -22,6 +22,7 @@
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { resolveEffectiveCwd } from "../env.ts";
 import { PLANS_DIR_NAME } from "../plans/paths.ts";
 import type { HostIdentity } from "../session-files.ts";
 import { agentLabel, defaultLabel, labelKey, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
@@ -252,6 +253,9 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 	const shared = host[SESSION_KEY];
 	if (shared !== undefined) return shared;
 	const stores = new Map<string, Promise<BoardStore>>();
+	// Filed by the cwd rather than the root, unlike the stores above: a bus directory and a plan
+	// directory are repository identity (`dirname(store.dir)`), so one repository's two roots answer
+	// one directory — only a store's `root()` moves with the worktree.
 	const busDirs = new Map<string, Promise<string>>();
 	const planDirs = new Map<string, Promise<string>>();
 	let seat: string | undefined;
@@ -266,7 +270,11 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 	const open = options.open ?? ((cwd: string) => openBoard(pi, cwd, agentDir === undefined ? {} : { agentDir }));
 	const session: BoardSession = {
 		store(cwd) {
-			return rememberLoad(stores, cwd, () => open(cwd));
+			// Keyed by the effective root, not the cwd: entering or leaving a worktree moves
+			// `PI_WORKTREE_ROOT`, and `worktreeRoot()` stops answering once the path is gone, so this
+			// key follows the exit by itself. Opening under the session cwd pinned the worktree's root
+			// for the session's life, and the close after an exit read git in a directory that was gone.
+			return rememberLoad(stores, resolveEffectiveCwd(cwd), () => open(cwd));
 		},
 		async who(ctx, cwd) {
 			const id = sessionIdOf(ctx);
