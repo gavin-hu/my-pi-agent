@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card moving into `execute` claims the paths nobody else holds and names the ones a peer has, where one held path
+  used to void the whole batch — so a card ran in `execute` with every other file unprotected, and the only record was a
+  "nothing claimed" line on that write. `edit` and the re-claim after a restart now take what they can the same way; an edit
+  whose added path is refused still releases nothing, because a half-applied edit would free a file the card names.
+
 - `plan`: `/plan prune`'s report names what a sweep can never remove — the files in a plan store that are
   not plans, by kind with count and bytes, beside the store's real size, so a bound on plans stops reading
   as a bound on bytes. A store the pass could not read is counted and named with its reason in the same

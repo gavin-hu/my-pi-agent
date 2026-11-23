@@ -96,6 +96,36 @@ describe("a claim request", () => {
 		await caller.bus.stop();
 	});
 
+	test("a second batch is a real claim, so a later reader sees what the first one could not take", async () => {
+		// The crossing asks twice when a peer holds one path: the first batch is voided all-or-nothing
+		// and the second is the rest. This is the bus's half — what a reader of `claims()` sees after
+		// it, which is the answer the card could not give before the rule changed.
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const holder = eventSession(dir, "s2", "billing-core");
+		const caller = eventSession(dir, "s1", "api-core");
+		await askClaim(holder.pi, holder.ctx, ["src/web"]);
+
+		const first = await askClaim(caller.pi, caller.ctx, ["src/api", "src/web", "src/db"]);
+		expect(first).toEqual({
+			ok: true,
+			claimed: [],
+			conflicts: [{ path: "src/web", owner: "s2", ownerLabel: "billing-core" }],
+		});
+		const second = await askClaim(caller.pi, caller.ctx, ["src/api", "src/db"]);
+		expect(second).toEqual({ ok: true, claimed: ["src/api", "src/db"], conflicts: [] });
+
+		// A later read, not the write's own line: the card's free paths are held, and the peer's is not.
+		const held = (await createBusStore({ dir }).claims()).map((claim) => [claim.path, claim.owner]);
+		expect(held).toEqual([
+			["src/api", "s1"],
+			["src/db", "s1"],
+			["src/web", "s2"],
+		]);
+
+		await holder.bus.stop();
+		await caller.bus.stop();
+	});
+
 	test("releases what it held and names the rest as not owned", async () => {
 		const dir = scratchDir(temps, "pi-session-bus-");
 		const caller = eventSession(dir, "s1", "api-core");
