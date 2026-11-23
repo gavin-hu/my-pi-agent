@@ -179,6 +179,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"context",
 		"commands",
 		"doctor",
+		"problems",
 		"cap",
 		"attribution",
 		"append",

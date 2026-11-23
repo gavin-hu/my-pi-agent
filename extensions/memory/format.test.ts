@@ -4,9 +4,12 @@ import {
 	formatCallText,
 	formatNotice,
 	formatResultText,
+	groupDigits,
 	injectionPlan,
 	MEMORY_CONTEXT_MARKER,
 	mutationNotice,
+	noteProblemDetail,
+	noteProblemText,
 } from "./format.ts";
 import { notesOf } from "../../test/helpers/fixtures/memory.ts";
 import type { MemoryDetails } from "./types.ts";
@@ -165,6 +168,32 @@ describe("memory text", () => {
 	test("formatNotice lists both stores", () => {
 		expect(formatNotice({ project: notesOf(["p"]), global: notesOf(["g"]) })).toBe(
 			"Memory:\nproject (1):\n- p\nglobal (1):\n- g",
+		);
+	});
+});
+
+describe("over-cap notes", () => {
+	const problem = { line: 12, length: 1539, note: { text: "x".repeat(1539) } };
+
+	test("groups a count the way the evidence wrote it", () => {
+		expect(groupDigits(1539)).toBe("1,539");
+		expect(groupDigits(500)).toBe("500");
+		expect(groupDigits(262144)).toBe("262,144");
+	});
+
+	test("names the store, the line, the length and the cap in one warning sentence", () => {
+		expect(noteProblemText("project", problem, 500)).toBe(
+			"project line 12 is 1,539 characters; the limit is 500 — /memory edit or /memory forget",
+		);
+	});
+
+	test("gives the doctor a line with the note's opening words", () => {
+		const long = noteProblemDetail(problem);
+		expect(long).toStartWith('line 12 · 1,539 characters · "');
+		// `clip` marks what it shortened, so the length of the quote is the kit's, not a literal's.
+		expect(long).toContain("…");
+		expect(noteProblemDetail({ line: 3, length: 501, note: { text: "tiny hook" } })).toBe(
+			'line 3 · 501 characters · "tiny hook"',
 		);
 	});
 });

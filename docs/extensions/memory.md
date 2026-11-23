@@ -22,7 +22,7 @@ read and edit, and they survive `/new`, `/resume`, and `/tree`.
 | Fold two notes into one | `m` in the picker, or the tool's `merge` with `first`, `second`, `merged` |
 | Clear a whole scope | `/memory clear` (behind a confirmation) |
 | Find where the files are | `/memory path` |
-| Check the store | `/memory doctor` — the file each store resolved to, counts, bytes, the injection budget, near-duplicates |
+| Check the store | `/memory doctor` — the file each store resolved to, counts, bytes, notes over the 500-character cap, the injection budget, near-duplicates |
 | Pick up a hand edit | `/memory reload` |
 
 ## Try it
@@ -44,7 +44,8 @@ corrected note at the end of the store, because position is age: a correction is
 newest thing known, not the oldest. `update`, `forget` and `merge` name a note by its exact
 stored text, and a name is not length-capped: it is collapsed to one line like a note, so a
 copied file line still matches, but the cap belongs to the note being written — a note
-longer than it, hand-written into the file, still reads, updates and forgets.
+longer than it, hand-written into the file, still reads, updates and forgets, and is
+reported rather than refused, with its line and length, by the load warning and `/memory doctor`.
 
 **The stores.** The global file is `~/.pi/agent/memory.md`. The project store is
 `~/.pi/agent/repos/<repo-id>/memory.md` — with the rest of the repository's state, under
@@ -55,8 +56,9 @@ session trusts.
 
 **Who wrote it.** A note written from a session carries its label and the moment after
 the text, as `<!-- by: jack @ 2026-11-18T05:12:00.000Z -->`; the text before it is the
-note, so `forget` and `update` match what you read. A note with no trailer — written by
-hand, or before this existed — reads as unattributed. An older build does not mistake the
+note, so `forget` and `update` match what you read. A note with no trailer — hand-written,
+or from before this existed — reads as unattributed, which is not a defect: the tool mints
+none when no session label resolves, and `/memory doctor` counts them. An older build does not mistake the
 file, but it does not understand this note either: the trailer shows as part of the text,
 and its `forget` and `update` are given the whole line, so a note written here has to be
 maintained here. An `update` or a `merge` refreshes it: whoever last wrote the note is the
@@ -65,8 +67,8 @@ rather than of either original.
 
 **Recall.** Notes are injected as a `[MEMORY]` context block before each run,
 newest first, bounded by a byte cap. Past the cap the **oldest** notes are the ones
-left out, and the block's last line counts them: `/memory doctor` reports the budget
-and which store overflowed.
+left out, and the block's last line counts them: `/memory doctor` reports the budget, which
+store overflowed, and any note past the 500-character per-note cap — characters, not bytes.
 
 **The picker.** `/memory` lists notes with their scope; add, edit, forget, merge
 and move are in place, `s`/Tab filters by scope, `r` reloads.
@@ -86,6 +88,8 @@ and move are in place, `s`/Tab filters by scope, `r` reloads.
   shrinks it always lands — so `forget`, `/memory clear` and a shorter `/memory edit` are the
   way back — while a store that reached the ceiling is still listed, read and injected.
   `/memory doctor` names it with the byte count; Pi never writes one that large.
+- A note's own ceiling is 500 characters, enforced only on what the tool writes: a longer
+  one put straight into the file still reads and still forgets, and both reports name it.
 - A checkout written by an older build may hold a `.pi/memory.md`; it is taken across to the
   repository's directory once, on the first read that misses the new one, and that older file
   is not read again. A worktree's own copy is debris from before this rule: it is not read.

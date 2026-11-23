@@ -12,7 +12,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { MAX_LABEL } from "../../lib/session-label.ts";
 import { DEFAULT_MEMORY_CONFIG, type MemoryConfig } from "./config.ts";
-import { type MemoryEntries, scopeLabel } from "./format.ts";
+import { noteProblemText, type MemoryEntries, scopeLabel } from "./format.ts";
+import { MAX_ENTRY_CHARS } from "./schema.ts";
 import {
 	appendMemoryNote,
 	applyClear,
@@ -21,12 +22,16 @@ import {
 	applyUpdate,
 	memoryFileStamp,
 	mutateMemoryFile,
+	noteProblems,
+	parseNoteLines,
 	parseNotes,
 	readMemoryFile,
 	resolveMemoryPaths,
 	sameStamp,
 	type MemoryFileStamp,
 	type MemoryPaths,
+	type NoteLine,
+	type NoteProblem,
 } from "./store.ts";
 import { MEMORY_SCOPES, noteLabel, type MemoryNote, type MemoryScope, type NoteStamp } from "./types.ts";
 
@@ -62,6 +67,13 @@ export interface MemoryRuntime {
 	trusted(): boolean;
 	/** Copies of the current notes, refreshed from disk first, safe to hold. */
 	entries(): MemoryEntries;
+	/**
+	 * The notes a write through the tool could not have produced, per store: over the
+	 * per-note character cap, each with the line it sits on and its length.
+	 */
+	problems(): Record<MemoryScope, NoteProblem[]>;
+	/** The label this pane's writes carry, or `undefined` when it mints no trailer at all. */
+	stampLabel(): string | undefined;
 	/** Re-read any store whose file changed on disk; never throws. */
 	refresh(): MemoryRefreshResult;
 	/** Read one store's raw text, for `/memory edit`. */
@@ -104,9 +116,12 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 	let config: MemoryConfig = DEFAULT_MEMORY_CONFIG;
 	let trusted = false;
 	let entries: MemoryEntries = { project: [], global: [] };
+	let problems: Record<MemoryScope, NoteProblem[]> = { project: [], global: [] };
 	let stamps: Record<MemoryScope, MemoryFileStamp | undefined> = { project: undefined, global: undefined };
 	/** The label this session's writes carry; unresolved until `setActor` lands. */
 	let actor: Promise<string | undefined> = Promise.resolve(undefined);
+	/** The same label once it resolved, for a report that cannot await one. */
+	let actorLabel: string | undefined;
 
 	const pathFor = (scope: MemoryScope): string => {
 		if (!paths) throw new Error("memory is not initialized yet.");
@@ -144,9 +159,37 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 
 	/** Adopt freshly read notes and record the stamp they were read at, so a
 	 * self-write is not mistaken for an external change. */
-	const commit = (scope: MemoryScope, next: MemoryNote[]): void => {
+	const commit = (scope: MemoryScope, next: MemoryNote[], found?: NoteProblem[]): void => {
 		setEntries(scope, next);
+		problems = { ...problems, [scope]: found ?? problemsOfFile(scope) };
 		stamps = { ...stamps, [scope]: stampOf(scope) };
+	};
+
+	/** The over-cap notes in a store as its file now reads; an unreadable one reports none. */
+	const problemsOfFile = (scope: MemoryScope): NoteProblem[] => {
+		try {
+			return noteProblems(parseNoteLines(readMemoryFile(pathFor(scope))), MAX_ENTRY_CHARS);
+		} catch {
+			return [];
+		}
+	};
+
+	/**
+	 * The over-cap notes as one warning sentence: three named, then a count.
+	 *
+	 * Three, because the note a person acts on is rare and the sentence is long by design
+	 * (it names the line, the length and the two commands that fix it); a store that broke
+	 * the cap twenty times still says so without spending the context the cap protects.
+	 */
+	const problemsWarning = (found: Record<MemoryScope, NoteProblem[]>): string => {
+		const sentences: string[] = [];
+		for (const scope of MEMORY_SCOPES) {
+			for (const problem of found[scope]) sentences.push(noteProblemText(scope, problem, MAX_ENTRY_CHARS));
+		}
+		if (sentences.length === 0) return "";
+		const named = sentences.slice(0, 3);
+		if (sentences.length > 3) named.push(`(+${sentences.length - 3} more)`);
+		return named.join("; ");
 	};
 
 	const refresh = (): MemoryRefreshResult => {
@@ -162,15 +205,20 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 			const stamp = stampOf(scope);
 			if (sameStamp(stamp, stamps[scope])) continue;
 			try {
-				const next = parseNotes(readMemoryFile(pathFor(scope)));
-				commit(scope, next);
+				const lines = parseNoteLines(readMemoryFile(pathFor(scope)));
+				commit(
+					scope,
+					lines.map((entry) => entry.note),
+					noteProblems(lines, MAX_ENTRY_CHARS),
+				);
 				changed.push(scope);
 			} catch (error) {
 				// Keep the last good view and its stamp, so the next read retries.
 				warnings.push(error instanceof Error ? error.message : String(error));
 			}
 		}
-		return warnings.length > 0 ? { changed, warning: warnings.join(" ") } : { changed };
+		const warning = [warnings.join(" "), problemsWarning(problems)].filter((part) => part !== "").join(" ");
+		return warning === "" ? { changed } : { changed, warning };
 	};
 
 	/**
@@ -186,18 +234,28 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 		const resolved = await resolveMemoryPaths(pi, cwd);
 		paths = resolved;
 		const warnings: string[] = [];
-		const read = (scope: MemoryScope): MemoryNote[] => {
+		const read = (scope: MemoryScope): NoteLine[] => {
 			const path = scope === "global" ? resolved.global : resolved.project;
 			try {
-				return parseNotes(readMemoryFile(path));
+				return parseNoteLines(readMemoryFile(path));
 			} catch (error) {
 				warnings.push(error instanceof Error ? error.message : String(error));
 				return [];
 			}
 		};
-		entries = { global: read("global"), project: trusted ? read("project") : [] };
+		const globalLines = read("global");
+		const projectLines = trusted ? read("project") : [];
+		entries = {
+			global: globalLines.map((entry) => entry.note),
+			project: projectLines.map((entry) => entry.note),
+		};
+		problems = {
+			global: noteProblems(globalLines, MAX_ENTRY_CHARS),
+			project: noteProblems(projectLines, MAX_ENTRY_CHARS),
+		};
 		stamps = { project: trusted ? stampOf("project") : undefined, global: stampOf("global") };
-		return warnings.length > 0 ? warnings.join(" ") : undefined;
+		const warning = [warnings.join(" "), problemsWarning(problems)].filter((part) => part !== "").join(" ");
+		return warning === "" ? undefined : warning;
 	}
 
 	return {
@@ -210,6 +268,12 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 		ready: () => reading.then(() => undefined),
 		setActor: (next) => {
 			actor = Promise.resolve(next);
+			void actor
+				.then((value) => {
+					const label = sanitizeLine(value ?? "").slice(0, MAX_LABEL);
+					actorLabel = label === "" ? undefined : label;
+				})
+				.catch(() => undefined);
 		},
 		setConfig: (next) => {
 			config = next;
@@ -234,6 +298,8 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 				global: entries.global.map((note) => ({ ...note })),
 			};
 		},
+		problems: () => ({ project: [...problems.project], global: [...problems.global] }),
+		stampLabel: () => actorLabel,
 		refresh,
 		raw: (scope) => readMemoryFile(pathFor(scope)),
 		async write(scope, content) {
@@ -300,8 +366,10 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 			config = DEFAULT_MEMORY_CONFIG;
 			trusted = false;
 			entries = { project: [], global: [] };
+			problems = { project: [], global: [] };
 			stamps = { project: undefined, global: undefined };
 			actor = Promise.resolve(undefined);
+			actorLabel = undefined;
 		},
 	};
 }

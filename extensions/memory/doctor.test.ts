@@ -9,7 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { duplicatePairs, formatHealth, memoryHealth } from "./doctor.ts";
 import { notesOf } from "../../test/helpers/fixtures/memory.ts";
-import { MAX_STORE_BYTES } from "./store.ts";
+import { MAX_STORE_BYTES, type NoteProblem } from "./store.ts";
 
 const CONFIG = { inject: true, maxInjectBytes: 8192 };
 /** Two resolved stores, so a row can be held to the file it names. */
@@ -23,6 +23,8 @@ describe("memory health", () => {
 			sizes?: { project?: number; global?: number };
 			trusted?: boolean;
 			config?: typeof CONFIG;
+			problems?: Partial<Record<"project" | "global", NoteProblem[]>>;
+			stamp?: string;
 		} = {},
 	) {
 		return memoryHealth({
@@ -31,6 +33,10 @@ describe("memory health", () => {
 			paths: PATHS,
 			trusted: over.trusted ?? true,
 			config: over.config ?? CONFIG,
+			...(over.problems === undefined
+				? {}
+				: { problems: { project: over.problems.project ?? [], global: over.problems.global ?? [] } }),
+			...(over.stamp === undefined ? {} : { stamp: over.stamp }),
 		});
 	}
 
@@ -142,5 +148,24 @@ describe("memory health", () => {
 		const text = formatHealth(health({ project: ["Use bun", "use bun."], sizes: { project: 40 } }));
 		expect(text).toContain("duplicates 1 pair (merge with m in /memory)");
 		expect(text).toContain('project  "Use bun" ≈ "use bun."');
+	});
+
+	test("says a clean store has no problems", () => {
+		// A validator that fires on a healthy store teaches people to ignore the row.
+		expect(formatHealth(health({ project: ["a"], global: ["b"] }))).toMatch(/problems\s+none/);
+	});
+
+	test("names an over-cap note by file, line and length", () => {
+		const note = { text: "Engine-led top-up tool that keeps me from re-deriving the fold" };
+		const text = formatHealth(health({ project: ["ok"], problems: { project: [{ line: 12, length: 1539, note }] } }));
+		expect(text).toContain("1 note over the 500-character limit");
+		expect(text).toMatch(/project line 12 · 1,539 characters · .* · \/repo\/\.pi\/memory\.md/);
+	});
+
+	test("the authors row says which side of the trailer line this pane is on", () => {
+		const stamped = formatHealth(health({ project: ["a"], stamp: "tom" }));
+		expect(stamped).toContain("this pane stamps as tom, so it is a hand edit or an older build");
+		const bare = formatHealth(health({ project: ["a"] }));
+		expect(bare).toContain("this pane mints no trailer either");
 	});
 });

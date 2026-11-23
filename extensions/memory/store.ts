@@ -73,14 +73,52 @@ function parseNote(line: string): MemoryNote | undefined {
 	return by ? { text, by, at: trailer[2] } : { text };
 }
 
-/** Every note in a store's text, in file order. */
-export function parseNotes(content: string): MemoryNote[] {
-	const notes: MemoryNote[] = [];
-	for (const line of content.split(/\r?\n/)) {
+/** A note with the line it was written on, 1-based, as a reader of the file counts. */
+export interface NoteLine {
+	line: number;
+	note: MemoryNote;
+}
+
+/** Every note in a store's text, in file order, with the line each came from. */
+export function parseNoteLines(content: string): NoteLine[] {
+	const notes: NoteLine[] = [];
+	for (const [index, line] of content.split(/\r?\n/).entries()) {
 		const note = parseNote(line);
-		if (note !== undefined) notes.push(note);
+		if (note !== undefined) notes.push({ line: index + 1, note });
 	}
 	return notes;
+}
+
+/** Every note in a store's text, in file order. */
+export function parseNotes(content: string): MemoryNote[] {
+	return parseNoteLines(content).map((entry) => entry.note);
+}
+
+/** A note the tool would have refused to write, with where in the file it sits. */
+export interface NoteProblem {
+	/** 1-based line in the store's file. */
+	line: number;
+	/** Characters in the note's text — the unit `MAX_ENTRY_CHARS` speaks. */
+	length: number;
+	note: MemoryNote;
+}
+
+/**
+ * The notes a write through the tool could not have produced: over the per-note
+ * character cap, measured on the sanitized text so a long trailer is never counted
+ * against the note.
+ *
+ * A missing `by:` trailer is deliberately not one of these. The tool writes an
+ * untrailered note itself whenever no session label resolves, so that alert would
+ * fire on the tool's own output; the doctor's authors row keeps that count instead.
+ */
+export function noteProblems(lines: readonly NoteLine[], cap: number): NoteProblem[] {
+	const problems: NoteProblem[] = [];
+	for (const entry of lines) {
+		const length = entry.note.text.length;
+		if (length > cap) problems.push({ line: entry.line, length, note: entry.note });
+	}
+	return problems;
 }
 
 /** Note text of every bullet line, sanitized to one terminal-safe line. */

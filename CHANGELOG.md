@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `memory`: a note past the 500-character cap the tool enforces is named — by store, line and length — where it used
+  to read, inject and update exactly as if the tool had written it. The session's load warning names the first three
+  and counts the rest; `/memory doctor` gains a `problems` row naming each one beside its file and its opening words,
+  and points at `/memory edit` or `/memory forget`. Nothing is refused, truncated or rewritten: the page already
+  promises that a hand-written long note still reads and can be forgotten, and a validator that dropped it would hide
+  what you wrote and break `forget` on the note most needing removal. A missing `by:` trailer is deliberately not one
+  of these — the tool mints none when no session label resolves — so that count stays in the authors row, which now
+  also says whether this pane could have minted one.
+
 ## [0.30.0] - 2026-11-23
 
 ### Added
