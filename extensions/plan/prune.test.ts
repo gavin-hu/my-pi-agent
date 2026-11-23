@@ -152,6 +152,38 @@ describe("sweepQuietly", () => {
 	});
 });
 
+describe("the protection set a sweep reads", () => {
+	test("an absent board protects nothing, so a plans-only repository is still swept", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = tempDir("plan-quiet-cwd-");
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
+			const store = storeOf(agentDir, cwd);
+			writePlan(store, "stale.md", 400);
+			// No board was ever opened: there is no card, so nothing records a plan and the store is
+			// sweepable. Absent is not the same answer as unreadable.
+			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
+			expect(await namesIn(store)).toEqual([]);
+		});
+	});
+
+	test("a board that is there and cannot be read declines, rather than deleting what it could not see", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = tempDir("plan-quiet-cwd-");
+			writeBound(cwd, { keep: 1, maxAgeDays: 180 });
+			const store = storeOf(agentDir, cwd);
+			writePlan(store, "stale.md", 400);
+			const pile = join(agentDir, "repos", storeIdOf(cwd), "board", "cards");
+			mkdirSync(pile, { recursive: true });
+			// A card the reader refuses may still record the plan in front of it, so the pass counts
+			// what it could read and leaves the rest alone.
+			writeFileSync(join(pile, "0004.json"), "{ not a card");
+			await sweepQuietly(createFakePi().pi, cwd, { nowMs: NOW });
+			expect(await namesIn(store)).toEqual(["stale.md"]);
+			expect(await pruneAll(createFakePi().pi, cwd, { nowMs: NOW })).toMatchObject({ stores: 0, removed: 0 });
+		});
+	});
+});
+
 describe("pruneText", () => {
 	test("names what a run did, and what a dry run would do", () => {
 		const report = { stores: 146, removed: 36_912, kept: 2_206, protected: 3, bytes: 385 * 1024 * 1024 };
