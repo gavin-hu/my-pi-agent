@@ -9,11 +9,12 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeBusRecord } from "../test/helpers/bus.ts";
 import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
+import { canCreateSymlinks } from "../test/helpers/platform.ts";
 import { BUS_DIR_NAME, SESSIONS_DIR_NAME } from "./session-files.ts";
 import {
 	agentLabel,
@@ -350,6 +351,25 @@ describe("readSessionLabel", () => {
 		write(flatKey(agentDir, "abc123"), "s-1.json", { id: "s-1", label: "flat", lastSeen: NOW, cwd, repoRoot: cwd });
 		writeBusRecord(storeUnder(agentDir), { id: "s-1", label: "billing-core", lastSeen: NOW });
 		expect(await readSessionLabel(agentDir, "s-1", { cwd })).toBe("billing-core");
+	});
+
+	const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
+
+	symlinkTest("takes a symlinked spelling of this directory as the same repository", async () => {
+		// A checkout reached through a link is the same repository, so the scope test compares real
+		// paths: a string comparison would refuse a session whose own directory is the link's target.
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const real = temps.track(tempDir("pi-repo-"));
+		const link = join(temps.track(tempDir("pi-link-")), "checkout");
+		symlinkSync(real, link, "dir");
+		write(flatKey(agentDir, "abc123"), "s-1.json", {
+			id: "s-1",
+			label: "billing-core",
+			lastSeen: NOW,
+			cwd: real,
+			repoRoot: real,
+		});
+		expect(await readSessionLabel(agentDir, "s-1", { cwd: link })).toBe("billing-core");
 	});
 
 	test("answers undefined for a session no record names, and with no bus at all", async () => {
