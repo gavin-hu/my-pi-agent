@@ -21,7 +21,9 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { resolveEffectiveCwd } from "../../lib/env.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import { FILE_MODE, ensurePrivateDir } from "../../lib/json.ts";
 import { registryPathFor } from "./paths.ts";
@@ -36,10 +38,40 @@ export function projectKey(cwd: string): string {
 	return `${base.replace(/[^\w.-]+/g, "_")}-${hash}`;
 }
 
-/** Directory holding the registry and log files for a working directory. */
+/** The store's name inside a repository's directory: `<agent-dir>/repos/<id>/jobs`. */
+export const JOBS_DIR_NAME = "jobs";
+
+/**
+ * The flat store an older build wrote: `<agent-dir>/jobs/<project>-<hash>`.
+ *
+ * It is the mover's `legacy` argument now — the spelling a store is taken across from once — and
+ * not a destination: every session files under `repos/`, so nothing writes this path.
+ */
 export function registryDirFor(cwd: string, override?: string): string {
 	if (override) return resolve(override);
 	return join(getAgentDir(), "jobs", projectKey(cwd));
+}
+
+/**
+ * Where this session's registry and logs live: `repos/<id>/jobs`, the sibling of the board (#771).
+ *
+ * One repository's state is one directory, so this is the last store to join it. With the host, the
+ * shared mover asks git which repository the directory is and takes the flat store across once;
+ * without one — a runtime built in a suite — the same layout is computed from the path alone, so a
+ * hostless session still files under `repos/local-<pathKey>/jobs` and never at the flat spelling the
+ * storage table no longer reserves. Both halves load in the call: `repo-key.ts` and `store-paths.ts`
+ * each bring the git cluster with them, and this entry's registration graph may not grow.
+ */
+export async function jobsDir(cwd: string, override?: string, pi?: Pick<ExtensionAPI, "exec">): Promise<string> {
+	if (override !== undefined) return resolve(override);
+	const agentDir = getAgentDir();
+	const base = resolveEffectiveCwd(cwd);
+	if (pi === undefined) {
+		const { repoKeyOf, repoStoreDir, storeIdOf } = await import("../../lib/repo-key.ts");
+		return repoStoreDir(agentDir, storeIdOf({}, repoKeyOf(base)), JOBS_DIR_NAME);
+	}
+	const { repoStoreDirFor } = await import("../../lib/store-paths.ts");
+	return (await repoStoreDirFor(pi, base, agentDir, JOBS_DIR_NAME, () => registryDirFor(cwd))).dir;
 }
 
 function isJobRecord(value: unknown): value is JobRecord {

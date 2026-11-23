@@ -66,9 +66,10 @@ its log opens, but it cannot be killed or cleared from here.
 reattached after its session died still reports its real code. `exec`-style
 commands and Windows jobs settle as `unknown` instead.
 
-**Where they live.** `~/.pi/agent/jobs/<project>/` holds the registry and one log
-per job, which is also why a job reattached after a session restart still has its
-output.
+**Where they live.** `~/.pi/agent/repos/<repo-id>/jobs/` — beside the board, so one repository's
+state is one directory — holds the registry and one log per job, which is also why a job reattached
+after a session restart still has its output. A store an older build left at
+`~/.pi/agent/jobs/<project>/` is taken across once, on the first read.
 
 **Logs.** `maxLogLines` bounds what `logs` returns; `maxLogBytes` rotates a
 segment to `<id>.log.1`. A detached job's own redirection cannot be rotated, so

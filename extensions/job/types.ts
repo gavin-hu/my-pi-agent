@@ -6,6 +6,10 @@
  * `owned`, which is true only while this process holds a live child handle.
  */
 
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { KillTreeFn, SpawnFn } from "../../lib/spawn.ts";
+import type { JobsConfig } from "./config.ts";
+
 export const JOB_STATUSES = ["running", "exited", "killed", "failed", "unknown"] as const;
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
@@ -156,4 +160,69 @@ export interface JobDetails {
 	sessionId?: string;
 	/** Model-readable validation message when the call was rejected. */
 	error?: string;
+}
+
+/** One session's job runtime, as the entry and its tools see it. */
+export interface RuntimeOptions {
+	/**
+	 * The host, for the one call that needs git: which repository's `repos/<id>` this store files
+	 * under. Absent is a runtime with no repository to ask about, and its directory is computed from
+	 * the path alone — the same layout, under `repos/local-<pathKey>/jobs`.
+	 */
+	pi?: Pick<ExtensionAPI, "exec">;
+	spawn?: SpawnFn;
+	liveness?: (pid: number) => boolean;
+	killTree?: KillTreeFn;
+	startToken?: (pid: number) => string | undefined;
+	now?: () => number;
+	/** Platform seam: whether this is Windows. Defaults to the running platform. */
+	isWindows?: () => boolean;
+	/** Fixed config, for tests; production loads it per cwd. */
+	config?: JobsConfig;
+	/** How long to wait before a shutdown's SIGKILL; the grace, injectable so a test need not sleep. */
+	sleep?: (ms: number) => Promise<void>;
+}
+
+export interface JobsRuntime {
+	readonly config: JobsConfig;
+	/** This session's id, so a caller can tell its own records from a peer's. */
+	readonly sessionId: string;
+	/** Effective working directory, honoring an active worktree root. */
+	effectiveCwd(ctx: ExtensionContext): string;
+	/** Load and reconcile the registry, then paint the UI; `ready` is the same work as a handle. */
+	load(ctx: ExtensionContext): Promise<void>;
+	ready(): Promise<void>;
+	start(options: StartOptions, ctx: ExtensionContext): Promise<Job>;
+	list(): JobRecord[];
+	get(id: string): Job | undefined;
+	logs(id: string, lines?: number): LogResult | undefined;
+	/**
+	 * Write to a running job's stdin. Throws a model-readable error when the job is
+	 * gone, was started without `stdin: true`, or belongs to another session.
+	 */
+	send(id: string, options: SendOptions): SendResult;
+	kill(id: string, signal?: KillSignal): Promise<Job | undefined>;
+	wait(
+		id: string,
+		timeoutMs: number | undefined,
+		signal: AbortSignal | undefined,
+		onUpdate?: () => void,
+	): Promise<WaitResult | undefined>;
+	clear(id: string | undefined, all: boolean): { cleared: number; refused?: string };
+	/** Finished, unreported jobs for this session; does not mark them. */
+	pendingCompletions(): JobRecord[];
+	/** Mark jobs as reported to the model. */
+	markReported(ids: Iterable<string>): void;
+	runningCount(): number;
+	/** Publish the footer status chips. */
+	setStatus(ctx: ExtensionContext): void;
+	/** Kill session-owned jobs (unless detached), stop the clock, persist. */
+	shutdown(): Promise<void>;
+	/** Called when a `wake` job finishes; the index triggers one turn. */
+	onFinish?: (job: JobRecord) => void;
+	/**
+	 * Called when any job reaches a terminal state, however it settled. The index bridges
+	 * it to the event bus; the runtime itself never reaches for a listener.
+	 */
+	onComplete?: (job: JobRecord) => void;
 }

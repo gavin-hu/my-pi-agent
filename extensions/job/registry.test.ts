@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { repoIdOf, repoKeyOf } from "../../lib/repo-key.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
 import {
 	loadRegistries,
 	mergeRecords,
@@ -8,6 +10,7 @@ import {
 	planReconcile,
 	projectKey,
 	REGISTRY_VERSION,
+	jobsDir,
 	registryDirFor,
 	removeLegacyRegistry,
 	removeRegistry,
@@ -138,6 +141,71 @@ describe("job registry", () => {
 		const a = jobRecord({ sessionId: "a", startedAt: 100 });
 		const b = jobRecord({ sessionId: "b", startedAt: 999 });
 		expect(mergeRecords(a, b, "a").sessionId).toBe("a");
+	});
+});
+
+describe("the store's placement", () => {
+	/** A host whose git answers one repository: its root, its common dir, and a remote to name it. */
+	function repoPi(root: string, remote = "git@github.com:gavin-hu/my-pi-agent.git") {
+		return createFakePi({
+			exec: async (_command: string, args: string[]) => {
+				const line = args.join(" ");
+				if (line.includes("--git-common-dir")) return { stdout: join(root, ".git"), stderr: "", code: 0 };
+				if (line.includes("--show-toplevel")) return { stdout: root, stderr: "", code: 0 };
+				if (line.includes("remote.origin.url")) return { stdout: remote, stderr: "", code: 0 };
+				return { stdout: "", stderr: "", code: 1 };
+			},
+		}).pi;
+	}
+
+	test("files inside the repository's own directory, and never inside the checkout", async () => {
+		await withAgentDir(async (agentDir) => {
+			const root = temps.track(tempDir("pi-jobs-repo-"));
+			const dir = await jobsDir(root, undefined, repoPi(root));
+			const id = repoIdOf("git@github.com:gavin-hu/my-pi-agent.git");
+			expect(dir).toBe(join(agentDir, "repos", id ?? "", "jobs"));
+			// The property the layout promises: a store is the agent directory's, never the checkout's.
+			expect(dir.startsWith(root)).toBe(false);
+			expect(dir.startsWith(join(agentDir, "repos"))).toBe(true);
+		});
+	});
+
+	test("computes the same layout with no host at all: repos/local-<pathKey>, never the flat spelling", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = temps.track(tempDir("pi-jobs-plain-"));
+			const dir = await jobsDir(cwd);
+			expect(dir).toBe(join(agentDir, "repos", `local-${repoKeyOf(cwd)}`, "jobs"));
+			// The table reserves `repos/` and not `jobs/`: a hostless session must not write there.
+			expect(dir.startsWith(join(agentDir, "jobs"))).toBe(false);
+		});
+	});
+
+	test("takes the flat store across once, and a second read changes nothing", async () => {
+		await withAgentDir(async () => {
+			const root = temps.track(tempDir("pi-jobs-repo-"));
+			const flat = registryDirFor(root);
+			mkdirSync(flat, { recursive: true });
+			writeFileSync(join(flat, "registry-old.json"), "{}");
+
+			const first = await jobsDir(root, undefined, repoPi(root));
+			expect(existsSync(join(first, "registry-old.json"))).toBe(true);
+			expect(existsSync(flat)).toBe(false);
+			// The second read answers the same directory and moves nothing: `already-moved`, not a
+			// re-derivation of the old spelling, which is the half a moved store can silently lose.
+			expect(await jobsDir(root, undefined, repoPi(root))).toBe(first);
+			expect(existsSync(join(first, "registry-old.json"))).toBe(true);
+		});
+	});
+
+	test("files an empty store without inventing one, and an override still wins", async () => {
+		await withAgentDir(async (agentDir) => {
+			const root = temps.track(tempDir("pi-jobs-repo-"));
+			const dir = await jobsDir(root, undefined, repoPi(root));
+			// Nothing was written yet: the placement answers a path and creates nothing.
+			expect(existsSync(dir)).toBe(false);
+			expect(await jobsDir(root, "/custom/dir", repoPi(root))).toBe(resolve("/custom/dir"));
+			expect(dir.startsWith(agentDir)).toBe(true);
+		});
 	});
 });
 
