@@ -563,7 +563,9 @@ export class PanelComponent implements Component {
 				state: {
 					expanded,
 					refreshing: this.refreshing,
-					projectScope: scope === "project",
+					// An override is what the key drops, so a Project scope alone does not offer it:
+					// every inherited row sits in that scope too.
+					projectOverride: scope === "project" && row?.item?.metadata.scope === "project",
 					dirty: this.dirty,
 					help: this.helpOpen,
 				},

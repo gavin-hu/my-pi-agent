@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `bytefly`: the `/bytefly` control center opens on **Project** scope in a trusted project — the layer the
+  session actually runs, and the file the repository keeps — so `Space` writes `<cwd>/.pi/` and the screen
+  shows the merged view without a mode to set first; an untrusted project still opens on Global, the only
+  scope it can write. Settings lists all seventeen rows in both scopes: the two app rows (Startup screen,
+  Theme) are Pi's `settings.json`, so under Project they are drawn disabled with a `· Global` tag and `Space`
+  answers `… is a Global setting.` instead of writing the wrong file — where before the scope hid them and a
+  reader had to know the rows existed. The Settings hint row names `s scope` at last, `x inherit` is offered
+  only for a row that carries an override rather than for every row in Project, and the text listing names the
+  scope it read. A trusted repository with no `.pi/` still creates the file on the first write: that is what
+  "write to the project" means, and the screen says `writes Project` before the key is pressed.
+
 - `job`: a job's registry and logs live in `~/.pi/agent/repos/<repo-id>/jobs/` now, beside the board, so one
   repository's state is one directory a sync client replicates; a store an older build left at
   `~/.pi/agent/jobs/<project>/` is taken across once, on the first read. Two consequences worth knowing: a

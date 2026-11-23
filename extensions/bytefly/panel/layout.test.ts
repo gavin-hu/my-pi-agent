@@ -9,7 +9,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { ListCursor } from "../../../lib/tui/cursor.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { enabledItem, pathRow } from "../../../test/helpers/fixtures/panel.ts";
-import { settingsSnapshot } from "../../../test/helpers/fixtures/settings.ts";
+import { settingsSnapshot, settingView } from "../../../test/helpers/fixtures/settings.ts";
 import { attentionSegments } from "./format.ts";
 import { buildPanelModel } from "./join.ts";
 import { resourceKey } from "../picker/resources.ts";
@@ -28,6 +28,7 @@ import {
 	totalRows,
 } from "./tui/frame.ts";
 import { clampSelection, firstRow, lastRow, moveRows, retainFocus } from "./tui/nav.ts";
+import { projectNote, settingRow } from "./tui/settings-view.ts";
 import { isWide } from "./tui/panes.ts";
 
 describe("panel entries", () => {
@@ -364,5 +365,31 @@ describe("the one height the sections share", () => {
 
 		expect(lines).toHaveLength(FRAME_ROWS + 16);
 		expect(lines.some((line) => line.includes("showing"))).toBe(true);
+	});
+});
+
+describe("the marked settings row", () => {
+	const snapshot = settingsSnapshot({ app: { quietStartup: true, theme: "bytefly-dark" } });
+
+	test("draws an app row as read-only, tagged with the file it is written to", () => {
+		const project = settingView(snapshot, "project", "byteflyUi");
+		const line = settingRow(coloringTheme, 80, project, false, undefined, 14);
+
+		expect(projectNote(fakeTheme, 80)).toContain("Change marked rows in Global scope.");
+		expect(project.readOnly).toBe(true);
+		expect(line).toContain("On · Global");
+		expect(line).toContain("[dim]");
+		expect(line).not.toContain("◼");
+
+		// At 40 columns the tag gives way, so the row still answers with its value.
+		const narrow = settingRow(fakeTheme, 40, project, false, undefined, 23);
+		expect(narrow).toContain("On");
+		expect(narrow).not.toContain("· Global");
+		expect(visibleWidth(narrow)).toBeLessThanOrEqual(40);
+
+		// Global scope is where the row can be changed: a checkbox and no tag.
+		const global = settingRow(fakeTheme, 80, settingView(snapshot, "global", "byteflyUi"), false, undefined, 14);
+		expect(global).toContain("◼");
+		expect(global).not.toContain("· Global");
 	});
 });

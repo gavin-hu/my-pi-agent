@@ -56,8 +56,11 @@ Three exceptions are worth knowing:
 
 - **Pi's own settings.** The **Startup screen** and **Theme** rows write Pi's
   `settings.json` rather than `bytefly.json`, and are Global only because Pi
-  exposes no project scope for them. The other Pi preferences the screen once
-  carried — output padding and the hardware cursor — stay in Pi's own `/settings`.
+  exposes no project scope for them. The screen keeps both rows listed in
+  **Project** and draws them disabled, tagged `· Global`, so the catalogue reads
+  the same in both scopes and `Space` says where the change belongs. The other Pi
+  preferences the screen once carried — output padding and the hardware cursor —
+  stay in Pi's own `/settings`.
 - **One key at a time.** The screen writes only the key you changed, preserving
   every sibling, other section, and metadata key.
 - **Metadata.** `$schema` and `version` are ignored by the loaders: `migrate:config`
@@ -90,7 +93,9 @@ the file for the scope you want, and the next session reads it.
 **From the settings screen.**
 
 1. Run `/bytefly settings` (`/bytefly`, then `→`, opens the same section).
-2. Press `s` to choose **Global** or **Project** scope.
+2. The scope opens on **Project** in a trusted project, and on **Global** in one
+   Pi does not trust — the only scope a project file can be written in. `s`
+   switches between them, and the tab row's right edge says which one writes.
 3. Move with `↑`/`↓`, then `Space` or `Enter` to change the value: a switch
    toggles, a choice cycles, and a text row opens an editor saved with `Enter`.
 4. `u` removes the key so its default applies again; it refuses for **Startup

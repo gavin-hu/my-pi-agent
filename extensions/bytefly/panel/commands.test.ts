@@ -133,7 +133,7 @@ describe("bytefly panel modes", () => {
 		await commands.get("bytefly").handler("skills", ctx);
 
 		const text = notifications.at(-1) ?? "";
-		expect(text.split("\n")[0]).toBe("bytefly: Global · 1 skill");
+		expect(text.split("\n")[0]).toBe("bytefly: Project · 1 skill");
 		expect(text).toContain("[x] pdf-tools");
 		expect(text).not.toContain("one.ts");
 	});
@@ -298,7 +298,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 17 settings");
+		expect(notifications.at(-1)).toContain("bytefly: Settings · Project · 17 settings");
 		expect(notifications.at(-1)).toContain("Startup screen: Off");
 		expect(notifications.at(-1)).toContain("Session budget: Off");
 		expect(notifications.at(-1)).toContain("Theme: system");

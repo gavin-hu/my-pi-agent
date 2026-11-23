@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { createPickerRuntime } from "./runtime.ts";
+import { createPickerRuntime, type PickerRuntime, type RuntimeDeps } from "./runtime.ts";
 import {
 	makeDiscovery,
 	makeItem,
@@ -20,11 +20,21 @@ import {
 /** A top-level personal extension: what `makeItem` is with no overrides. */
 const personal = (path: string) => makeItem({ path });
 
+/**
+ * The runtime opened on Global scope, where the personal document is written.
+ * Project is the default, so a test about the global write path says so.
+ */
+function openedGlobally(deps: RuntimeDeps): PickerRuntime {
+	const runtime = createPickerRuntime(deps);
+	runtime.setScope("global");
+	return runtime;
+}
+
 describe("runtime toggling", () => {
 	test("writes a top-level global disable pattern and flips the item", async () => {
 		const store = makeStore({ global: { extensions: [] } });
 		const { discovery } = makeDiscovery({ extensions: [personal("/agent/extensions/a.ts")], globalStore: store });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+		const runtime = openedGlobally({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		const row = runtime.items("extensions")[0];
 		await runtime.toggle("extensions", row);
@@ -39,7 +49,7 @@ describe("runtime toggling", () => {
 	test("writes a top-level skill pattern into the skills array", async () => {
 		const store = makeStore({ global: { skills: [] } });
 		const { discovery } = makeDiscovery({ skills: [skillItem("pdf")], globalStore: store });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+		const runtime = openedGlobally({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		const row = runtime.items("skills")[0];
 		await runtime.toggle("skills", row);
@@ -53,7 +63,7 @@ describe("runtime toggling", () => {
 	test("writes a package filter through setPackages", async () => {
 		const store = makeStore({ packages: ["npm:pkg"] });
 		const { discovery } = makeDiscovery({ extensions: [packageExtension("b", true)], globalStore: store });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+		const runtime = openedGlobally({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		await runtime.toggle("extensions", runtime.items("extensions")[0]);
 
@@ -63,7 +73,7 @@ describe("runtime toggling", () => {
 	test("writes a package skill into the entry's skills filter", async () => {
 		const store = makeStore({ packages: ["npm:pkg"] });
 		const { discovery } = makeDiscovery({ skills: [packageSkill("pdf")], globalStore: store });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
+		const runtime = openedGlobally({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		await runtime.toggle("skills", runtime.items("skills")[0]);
 
@@ -81,6 +91,7 @@ describe("runtime toggling", () => {
 			agentDir: "/agent",
 			onError: (message) => errors.push(message),
 		});
+		runtime.setScope("global");
 
 		const row = runtime.items("extensions")[0];
 		await runtime.toggle("extensions", row);
@@ -103,6 +114,7 @@ describe("runtime toggling", () => {
 			agentDir: "/agent",
 			onError: (message) => errors.push(message),
 		});
+		runtime.setScope("global");
 
 		const row = runtime.items("extensions")[0];
 		await runtime.toggle("extensions", row);
@@ -122,6 +134,7 @@ describe("runtime toggling", () => {
 			agentDir: "/agent",
 			onError: (message) => errors.push(message),
 		});
+		runtime.setScope("global");
 
 		const row = runtime.items("extensions")[0];
 		await runtime.toggle("extensions", row);
@@ -134,6 +147,14 @@ describe("runtime toggling", () => {
 });
 
 describe("runtime scope", () => {
+	test("opens on Project when the project is trusted, and on Global when it is not", () => {
+		const trusted = makeDiscovery({ extensions: [personal("/agent/extensions/a.ts")], trusted: true });
+		expect(createPickerRuntime({ ...trusted, cwd: "/proj", agentDir: "/agent" }).scope()).toBe("project");
+
+		const untrusted = makeDiscovery({ extensions: [personal("/agent/extensions/a.ts")], trusted: false });
+		expect(createPickerRuntime({ ...untrusted, cwd: "/proj", agentDir: "/agent" }).scope()).toBe("global");
+	});
+
 	test("switches between global and project views when trusted", () => {
 		const { discovery } = makeDiscovery({
 			extensions: [personal("/agent/extensions/a.ts")],
@@ -142,9 +163,9 @@ describe("runtime scope", () => {
 		});
 		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 
-		expect(runtime.items("extensions")[0].path).toBe("/agent/extensions/a.ts");
-		runtime.setScope("project");
 		expect(runtime.items("extensions")[0].path).toBe("/proj/extensions/p.ts");
+		runtime.setScope("global");
+		expect(runtime.items("extensions")[0].path).toBe("/agent/extensions/a.ts");
 	});
 
 	test("switches both kinds together, so one scope drives the screen", () => {
@@ -155,9 +176,9 @@ describe("runtime scope", () => {
 		});
 		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 
-		expect(runtime.items("skills")[0].path).toContain("global-skill");
-		runtime.setScope("project");
 		expect(runtime.items("skills")[0].path).toContain("project-skill");
+		runtime.setScope("global");
+		expect(runtime.items("skills")[0].path).toContain("global-skill");
 	});
 
 	test("refuses the project scope when the project is untrusted", () => {

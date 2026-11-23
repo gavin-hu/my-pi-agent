@@ -24,7 +24,7 @@ control center where extensions, skills, and settings are switched.
 | Switch an extension or skill on or off | `Space` on its row |
 | Change a setting | `/bytefly settings`, then `Space`/`Enter` on the value |
 | Pick a theme | the `Theme` row in Settings |
-| Write a change for this project only | `s` switches Global ↔ Project |
+| Write a change for this project only | `s` switches Global ↔ Project; Project is the default |
 | Drop a project override | `x` on the row |
 | See only what needs attention | `!` |
 | Find a row | `/`, then type |
@@ -60,10 +60,11 @@ report — a headline, each finding's `check`, `severity`, `detail`, and optiona
 mode allows it.
 
 **Keys.** `Space` toggles or edits; `Enter` expands findings or opens the editor;
-`/` filters; `!` shows what needs attention; `s` switches scope; `x` drops a
-project override; `u` deletes a setting's key so its default applies; `J` shows the
-row's whole `bytefly.json` section; `r` re-probes; `R` reloads; `?` lists keys;
-`Esc` closes (and clears a filter or editor first).
+`/` filters; `!` shows what needs attention; `s` switches scope — Project by
+default in a trusted project, Global in an untrusted one; `x` drops a project
+override, on a row that carries one; `u` deletes a setting's key so its default
+applies; `J` shows the row's whole `bytefly.json` section; `r` re-probes; `R`
+reloads; `?` lists keys; `Esc` closes (and clears a filter or editor first).
 
 **The surfaces.** The header replaces Pi's when `quietStartup` is on. The footer's
 left line carries location, mode, and alerts; the right carries a context gauge,
@@ -96,16 +97,13 @@ session is sent: [security](../security.md) says what leaves the machine.
 
 ## Settings
 
-The screen is the catalogue: the seventeen descriptors in screen order. Those are
-the preferences a session changes: seventeen preferences under six headings —
-Startup, Notifications, Session, Board, Team, Price — plus the fifteen
-`bytefly.json` rows it can write. The list is capped at seventeen rows so the
-screen fits a 30-row terminal, and the scope line reads
-`bytefly: Settings · Global · 17 settings`. The sections behind this page are
-[`chrome`](../configuration-reference.md#chrome--transcript-chrome),
-[`price`](../configuration-reference.md#price--cost-calculation),
-[`notify`](../configuration-reference.md#notify--os-notifications), and
-[`doctor`](../configuration-reference.md#doctor--diagnostics).
+The screen is the catalogue: the seventeen descriptors in screen order. Those are the
+preferences a session changes: seventeen preferences under six headings — Startup,
+Notifications, Session, Board, Team, Price — plus the fifteen `bytefly.json` rows it
+can write. All seventeen are listed in either scope: the two app rows, **Startup
+screen** and **Theme**, write Pi's `settings.json`, so Project draws them disabled and
+tagged `· Global`. The list is capped at seventeen rows so the screen fits a 30-row
+terminal, and the scope line reads `bytefly: Settings · Project · 17 settings`.
 
 To switch the extension off, toggle `bytefly` in `/bytefly`: Pi's own header,
 footer, and tool blocks take over, and every other extension keeps working.
@@ -113,6 +111,8 @@ footer, and tool blocks take over, and every other extension keeps working.
 ## Learn more
 
 - [Configuration keys](../configuration-reference.md) — every key, with its default.
+- The sections behind the screen: [`chrome`](../configuration-reference.md#chrome--transcript-chrome),
+  [`price`](../configuration-reference.md#price--cost-calculation), [`notify`](../configuration-reference.md#notify--os-notifications), and [`doctor`](../configuration-reference.md#doctor--diagnostics).
 - [`serve`](../extensions/serve.md) — the chip in the footer while a page is open.
 - [`plan`](../extensions/plan.md) — the `Shift+Tab` chord the editor binds.
 - [Install](../install.md) — `/bytefly doctor` after a fresh install.
