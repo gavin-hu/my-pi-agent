@@ -167,9 +167,10 @@ export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
  * same precedence the branch reader takes, so a stale chip cannot advertise the
  * weaker mode. Planning wears `warn`, the same role the composer's border takes
  * while it is on; the seat wears `accent`, because it is a place the session chose
- * rather than a warning. The mode leads the resource line, before the gauge, so it
- * is read before how much room is left. A session without either mode still reads
- * `auto`: that is the mode it is in.
+ * rather than a warning; and `auto` wears `meta`, so a coloured chip on this slot
+ * means a mode holds something and the resting default stays quiet. The mode leads
+ * the resource line, before the gauge, so it is read before how much room is left.
+ * A session without either mode still reads `auto`: that is the mode it is in.
  */
 export function modeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const [planKey, leadKey] = CONFIG.modeStatusKeys;
@@ -181,7 +182,7 @@ export function modeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | n
 		const lead = paint(theme, "accent", `${CONFIG.icons.leadMode} ${CONFIG.labels.leadMode}`);
 		return { id: "mode", weight: 1, droppable: false, separator: "", forms: [lead, compactStatus(lead)] };
 	}
-	const auto = paint(theme, "accent", `${CONFIG.icons.autoMode} ${CONFIG.labels.autoMode}`);
+	const auto = paint(theme, "meta", `${CONFIG.icons.autoMode} ${CONFIG.labels.autoMode}`);
 	return { id: "mode", weight: 1, droppable: false, separator: "", forms: [auto] };
 }
 

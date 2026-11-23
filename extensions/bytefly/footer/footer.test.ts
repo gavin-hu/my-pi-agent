@@ -1266,12 +1266,12 @@ describe("footer segments", () => {
 		expect(wechat?.forms).toEqual([`${GLYPHS.wechat} wechat`, GLYPHS.wechat]);
 	});
 
-	test("names auto in accent when no plan chip is published", () => {
+	test("names auto in meta when no plan chip is published", () => {
 		const theme = makeRecordingTheme() as any;
 		expect(modeSegment(fullSnapshot({ statuses: new Map() }), fakeTheme)?.forms).toEqual([`${GLYPHS.autoMode} auto`]);
 
 		modeSegment(fullSnapshot({ statuses: new Map() }), theme);
-		expect(theme.calls).toContainEqual(["accent", `${GLYPHS.autoMode} auto`]);
+		expect(theme.calls).toContainEqual(["muted", `${GLYPHS.autoMode} auto`]);
 	});
 
 	test("has no status slot when every status is routed elsewhere", () => {

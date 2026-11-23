@@ -24,6 +24,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of these — the tool mints none when no session label resolves — so that count stays in the authors row, which now
   also says whether this pane could have minted one.
 
+### Changed
+
+- `bytefly`: the footer's `▶ auto` mode chip is muted, so a colour on that slot now means the mode holds something —
+  `⏵ lead` keeps accent, because the seat is a place the session chose rather than a warning, and `≡ plan` keeps
+  warning. The composer's border is unchanged: it stays accent at rest, because that is the composer's own highlight
+  and not a third mode read.
+
 ## [0.30.0] - 2026-11-23
 
 ### Added
