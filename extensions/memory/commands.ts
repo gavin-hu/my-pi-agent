@@ -150,6 +150,8 @@ export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void
 								paths,
 								trusted: runtime.trusted(),
 								config: runtime.config(),
+								problems: runtime.problems(),
+								stamp: runtime.stampLabel(),
 							}),
 						),
 					);

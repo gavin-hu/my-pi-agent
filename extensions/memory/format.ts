@@ -7,7 +7,9 @@
  */
 
 import { noteLabel, type MemoryDetails, type MemoryNote, type MemoryScope } from "./types.ts";
+import { clip } from "../../lib/tui/columns.ts";
 import { ARROW, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import type { NoteProblem } from "./store.ts";
 
 /** Marker heading the hidden injected context message. */
 export const MEMORY_CONTEXT_MARKER = "[MEMORY]";
@@ -201,4 +203,25 @@ export function injectionPlan(entries: MemoryEntries, maxBytes: number): Injecti
  */
 export function buildInjection(entries: MemoryEntries, maxBytes: number): string | undefined {
 	return injectionPlan(entries, maxBytes)?.lines.join("\n");
+}
+
+/** `1539` as `1,539`, so a cap breach reads at a glance and one report uses one style. */
+export function groupDigits(value: number): string {
+	return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/** Columns of a note's opening the doctor quotes beside its line and length. */
+const PROBLEM_NOTE_WIDTH = 40;
+
+/**
+ * One over-cap note as the load warning says it: the store, the line, the length,
+ * the cap it broke, and the two commands that fix it without losing the note.
+ */
+export function noteProblemText(scope: MemoryScope, problem: NoteProblem, cap: number): string {
+	return `${scopeLabel(scope)} line ${problem.line} is ${groupDigits(problem.length)} characters; the limit is ${groupDigits(cap)} — /memory edit or /memory forget`;
+}
+
+/** The doctor's line for that note: where it is, how long it is, and its opening words. */
+export function noteProblemDetail(problem: NoteProblem): string {
+	return `line ${problem.line} · ${groupDigits(problem.length)} characters · "${clip(problem.note.text, PROBLEM_NOTE_WIDTH)}"`;
 }

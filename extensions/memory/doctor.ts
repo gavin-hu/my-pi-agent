@@ -16,8 +16,9 @@
 
 import { clip } from "../../lib/tui/columns.ts";
 import type { MemoryConfig } from "./config.ts";
-import { injectionPlan, type MemoryEntries } from "./format.ts";
-import { duplicateKey, MAX_STORE_BYTES, type MemoryPaths } from "./store.ts";
+import { groupDigits, injectionPlan, noteProblemDetail, type MemoryEntries } from "./format.ts";
+import { MAX_ENTRY_CHARS } from "./schema.ts";
+import { duplicateKey, MAX_STORE_BYTES, type MemoryPaths, type NoteProblem } from "./store.ts";
 import { noteLabel, type MemoryNote } from "./types.ts";
 import { MEMORY_SCOPES, type MemoryScope } from "./types.ts";
 
@@ -55,6 +56,10 @@ export interface MemoryHealth {
 	injection?: { bytes: number; omitted: Record<MemoryScope, number> };
 	/** How many notes each author wrote, most first, unattributed last. */
 	authors: AuthorCount[];
+	/** The notes a write through the tool could not have produced, per store. */
+	problems: Record<MemoryScope, NoteProblem[]>;
+	/** The label this pane's writes carry; `undefined` when it mints no trailer at all. */
+	stamp?: string;
 	duplicates: DuplicatePair[];
 }
 
@@ -65,6 +70,10 @@ export interface HealthInput {
 	paths: MemoryPaths;
 	trusted: boolean;
 	config: MemoryConfig;
+	/** The over-cap notes the read path found; absent means the report names none. */
+	problems?: Record<MemoryScope, NoteProblem[]>;
+	/** The pane's own stamp label, so the authors row can say which side of the line it is on. */
+	stamp?: string;
 }
 
 /** What a note with no label is counted under. */
@@ -108,7 +117,7 @@ export function duplicatePairs(entries: MemoryEntries): DuplicatePair[] {
 }
 
 /** Derive the report from the current stores and config. */
-export function memoryHealth({ entries, sizes, paths, trusted, config }: HealthInput): MemoryHealth {
+export function memoryHealth({ entries, sizes, paths, trusted, config, problems, stamp }: HealthInput): MemoryHealth {
 	const scope = (name: MemoryScope): ScopeHealth => {
 		const size = sizes[name];
 		return { notes: entries[name].length, path: paths[name], ...(size === undefined ? {} : { bytes: size }) };
@@ -122,6 +131,8 @@ export function memoryHealth({ entries, sizes, paths, trusted, config }: HealthI
 		global: scope("global"),
 		...(plan ? { injection: { bytes: Buffer.byteLength(plan.lines.join("\n"), "utf-8"), omitted: plan.omitted } } : {}),
 		authors: authorCounts(entries),
+		problems: { project: problems?.project ?? [], global: problems?.global ?? [] },
+		...(stamp === undefined ? {} : { stamp }),
 		duplicates: duplicatePairs(entries),
 	};
 }
@@ -155,7 +166,28 @@ function injectionText(health: MemoryHealth): string {
 /** The authors of a store, most first, or what an empty one says. */
 function authorText(health: MemoryHealth): string {
 	if (health.authors.length === 0) return "none";
-	return health.authors.map((author) => `${author.by} ${author.notes}`).join(" \u00b7 ");
+	const text = health.authors.map((author) => `${author.by} ${author.notes}`).join(" \u00b7 ");
+	if (!health.authors.some((author) => author.by === UNATTRIBUTED)) return text;
+	// The file cannot tell a hand edit from a pane that mints no trailer, so say which this one is.
+	const mine =
+		health.stamp === undefined
+			? "this pane mints no trailer either"
+			: `this pane stamps as ${health.stamp}, so it is a hand edit or an older build`;
+	return `${text} (${mine})`;
+}
+
+/** The over-cap notes: one row naming each, with the file, line and length it broke. */
+function problemsText(health: MemoryHealth): string[] {
+	const total = MEMORY_SCOPES.reduce((sum, name) => sum + health.problems[name].length, 0);
+	if (total === 0) return ["none"];
+	const limit = groupDigits(MAX_ENTRY_CHARS);
+	const lines = [`${total} note${total === 1 ? "" : "s"} over the ${limit}-character limit`];
+	for (const name of MEMORY_SCOPES) {
+		for (const problem of health.problems[name]) {
+			lines.push(`    ${name} ${noteProblemDetail(problem)} \u00b7 ${health[name].path}`);
+		}
+	}
+	return lines;
 }
 
 function pairLine(pair: DuplicatePair): string {
@@ -168,11 +200,14 @@ function pairLine(pair: DuplicatePair): string {
 export function formatHealth(health: MemoryHealth): string {
 	const count = health.duplicates.length;
 	const duplicates = count === 0 ? "none" : `${count} pair${count === 1 ? "" : "s"} (merge with m in /memory)`;
+	const problems = problemsText(health);
 	return [
 		"Memory health",
 		row("project", scopeText(health, "project")),
 		row("global", scopeText(health, "global")),
 		row("injection", injectionText(health)),
+		row("problems", problems[0] ?? "none"),
+		...problems.slice(1),
 		row("authors", authorText(health)),
 		row("duplicates", duplicates),
 		...health.duplicates.map(pairLine),
