@@ -126,9 +126,11 @@ describe("the dependency layers", () => {
 			{ owner: "code-review", foreign: "/files" },
 			{ owner: "file-browse", foreign: "/review" },
 		];
+		// Source can spell it with either quote or inside a template, so all three count.
+		const spellings = (foreign: string): string[] => [`"${foreign}`, `'${foreign}`, `\`${foreign}`];
 		const offenders = OWNED.flatMap(({ owner, foreign }) =>
 			sourceFiles(join(extensionsDir, owner))
-				.filter((file) => textOf(file).includes(`"${foreign}`))
+				.filter((file) => spellings(foreign).some((spelling) => textOf(file).includes(spelling)))
 				.map((file) => `${relative(file)} spells ${foreign}, which another page owns`),
 		);
 		expect(offenders).toEqual([]);

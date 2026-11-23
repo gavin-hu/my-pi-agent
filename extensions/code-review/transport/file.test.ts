@@ -47,6 +47,14 @@ describe("the whole-file route", () => {
 		expect((await reply(handler, request("GET", "/file?path=link.ts"))).status).toBe(403);
 	});
 
+	test("draws the page's comparison whatever the address asked with", async () => {
+		const { handler } = stage(root);
+		const response = await reply(handler, request("GET", "/file?scope=staged&path=a.ts"));
+		expect(response.status).toBe(200);
+		// The way back names the comparison the page is on, not the one a stale link carried.
+		expect(String(response.body)).toContain('href="/review/new?scope=base"');
+	});
+
 	test("answers a session with no page open before it reads anything", async () => {
 		const { handler } = reviewRoute({ scope: undefined });
 		expect((await reply(handler, request("GET", "/file?path=a.ts"))).status).toBe(409);

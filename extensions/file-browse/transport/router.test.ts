@@ -402,6 +402,8 @@ describe("the diff address", () => {
 		// No commit, one file added: the index.
 		const staged = await pageFor("A  a.txt\0", false);
 		expect(staged.mode).toBe("staged");
+		expect(staged.chip).toContain("1 change");
+		expect(staged.chip).not.toContain("href");
 		expect(staged.diffs.every((line) => line.includes("--cached"))).toBe(true);
 
 		// A commit exists: the comparison asked for.

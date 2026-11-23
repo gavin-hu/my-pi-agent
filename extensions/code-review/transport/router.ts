@@ -182,10 +182,11 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 	 * One file's whole text.
 	 *
 	 * Only a path the snapshot lists is served, so the address cannot name a file this review
-	 * does not cover, and only one that resolves inside the root. `scope` is the comparison the
-	 * link came from, which is where the way back lands.
+	 * does not cover, and only one that resolves inside the root. The view and its way back use
+	 * the comparison the page is on, never the one the address asked with: `?scope=` only records
+	 * where the link came from, and a stale one must not draw one comparison on another's page.
 	 */
-	const filePage = async (scope: ReviewScope, path: string | null): Promise<ServeResponse> => {
+	const filePage = async (path: string | null): Promise<ServeResponse> => {
 		const page = store.current();
 		if (page === undefined) return problem(409, "No review page is open", NO_PAGE);
 		const outcome = await current.snapshotOf(page);
@@ -209,7 +210,7 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 			headers: pageHeaders(),
 			body: renderReviewFile({
 				base,
-				scope,
+				scope: outcome.snapshot.scope,
 				rel,
 				lines: text.lines,
 				binary: text.binary,
@@ -288,7 +289,7 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		if (pathname === "/" || pathname === "/new" || pathname === "/new/" || pathname === "/index.html") {
 			return { result: await pageFor(scope, file) };
 		}
-		if (pathname === "/file") return { result: await filePage(scope, search.get("path")) };
+		if (pathname === "/file") return { result: await filePage(search.get("path")) };
 		const id = pathname.replace(/^\//, "").replace(/\/$/, "");
 		const token = search.get("token") ?? "";
 		const held = store.resume(id, token);
