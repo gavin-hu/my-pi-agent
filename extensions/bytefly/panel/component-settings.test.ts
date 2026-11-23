@@ -382,6 +382,14 @@ describe("PanelComponent theme setting", () => {
 		expect(text).toContain("Theme");
 		expect(text).toContain("system · Global");
 
+		// At 40 columns the tag gives way, so both marked rows still answer with their value.
+		const narrow = component.render(40);
+		expect(narrow.find((line) => line.includes("Theme")) ?? "").toContain("system");
+		expect(narrow.find((line) => line.includes("Startup screen")) ?? "").toContain("Off");
+		expect(narrow.join("\n")).not.toContain("· Global");
+		expect(narrow.join("\n")).toContain("Change marked rows in Global scope.");
+		expect(narrow.every((line) => visibleWidth(line) <= 40)).toBe(true);
+
 		// Global scope is where the row can be changed, so the tag goes away there.
 		component.handleInput("s");
 		const global = component.render(80).join("\n");
