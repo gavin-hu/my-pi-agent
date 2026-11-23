@@ -14,16 +14,18 @@
  * there.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import type { Page } from "playwright-core";
 import type { TestBrowser } from "../../test/helpers/browser.ts";
 import {
+	drawnReview,
 	launchReviewBrowser,
 	mountReview,
 	openReview,
 	REVIEW_CHROME,
-	REVIEW_PAGE,
 	REVIEW_PAINT_MS,
+	REVIEW_PAGE,
+	warmReviewBrowser,
 } from "../../test/helpers/plan-browser.ts";
 import type { ReviewPageData } from "./web-payload.ts";
 
@@ -63,6 +65,13 @@ const SECTIONS = ["s-0", "s-11", "s-22", "s-33", "s-44", "s-55"];
 
 /** How long one case may take: a boot, a six-section walk, and the trip back to the top. */
 const CASE_MS = 30_000;
+
+/**
+ * The budget the stall case gives the gate: enough for one attempt to poll, short enough that two
+ * of them stay well inside a case. It is a named constant because a budget bounds a failure and
+ * never makes a passing case faster.
+ */
+const STALL_MS = 1_000;
 
 /**
  * How far one step scrolls, in px.
@@ -183,6 +192,7 @@ let browser: TestBrowser;
 describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", () => {
 	beforeAll(async () => {
 		browser = await launchReviewBrowser();
+		await warmReviewBrowser(browser);
 	}, 30_000);
 
 	afterAll(async () => {
@@ -195,7 +205,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 		const page = await openReview(browser, local.url);
 		try {
 			await page.setViewportSize({ width, height });
-			await page.waitForSelector("#plan .bf-block[id]", { timeout: REVIEW_PAINT_MS });
+			await drawnReview(page);
 			return await jumpToEnd(page);
 		} finally {
 			await page.close();
@@ -209,7 +219,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 		const page = await openReview(browser, local.url);
 		try {
 			await page.setViewportSize({ width, height });
-			await page.waitForSelector("#plan .bf-block[id]", { timeout: REVIEW_PAINT_MS });
+			await drawnReview(page);
 			const seen = await walkDown(page);
 			await page.$eval("#plan", (node) => (node as unknown as Paneish).scrollTo(0, 0));
 			await marks(page, SECTIONS[0] ?? "");
@@ -248,4 +258,60 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 			CASE_MS,
 		);
 	}
+
+	/**
+	 * The half of the gate the flake never got: a page that does not draw names the state it kept.
+	 *
+	 * `about:blank` loads completely and holds no block, so it is the honest version of the red that
+	 * started this card — one attempt that polls the state, one retry, and a message saying the
+	 * document was complete and the rail empty, rather than "a selector was late".
+	 */
+	test(
+		"names the state a page that never drew left behind",
+		async () => {
+			const page = await browser.newPage();
+			try {
+				await page.goto("about:blank", { waitUntil: "load" });
+				const message = await drawnReview(page, STALL_MS).then(
+					() => "",
+					(error: unknown) => String(error),
+				);
+				expect(message).toContain("never drew");
+				expect(message).toContain('readyState "complete"');
+				expect(message).toContain('0 "#plan .bf-block[id]"');
+			} finally {
+				await page.close();
+			}
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * The retry, and the line that makes it visible: a first paint that misses its state and a
+	 * reload that draws prints what the first attempt saw, so a degrading paint shows up as lines
+	 * before it shows up as a failure.
+	 */
+	test(
+		"reports the retry when the first paint misses its state",
+		async () => {
+			let served = 0;
+			const local = await mountReview(() => {
+				served += 1;
+				return served === 1 ? { ...REVIEW_PAGE, blocks: [], outline: [] } : REVIEW_PAGE;
+			});
+			const page = await browser.newPage();
+			const warn = spyOn(console, "warn");
+			try {
+				await page.goto(local.url, { waitUntil: "load" });
+				await drawnReview(page, STALL_MS);
+				expect(warn).toHaveBeenCalled();
+				expect(String(warn.mock.calls[0]?.[0])).toContain("drew on attempt 2");
+			} finally {
+				warn.mockRestore();
+				await page.close();
+				await local.close();
+			}
+		},
+		CASE_MS,
+	);
 });
