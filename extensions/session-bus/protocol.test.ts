@@ -148,10 +148,17 @@ describe("addressing records that say whether they are alive", () => {
 		expect(resolveRecipients(rows, "api-core", "s-x")).toEqual({ recipients: [rows[1]] });
 	});
 
-	test("refuses a name only a stopped record holds", () => {
+	test("refuses a name only a stopped record holds, and says which of the two it is", () => {
 		const rows = [{ id: "s-dead", label: "api-core", state: "gone" as const }];
-		expect(resolveRecipients(rows, "s-dead", "s-x")).toEqual({ error: 'no active session "s-dead".' });
-		expect(resolveRecipients(rows, "api-core", "s-x")).toEqual({ error: 'no active session "api-core".' });
+		// A name no record holds and a record whose process stopped are different facts: one is a typo to
+		// retype, the other a name to drop. The listing marks the second, and this is the sentence that
+		// says the same thing when mail is written to it.
+		expect(resolveRecipients(rows, "s-dead", "s-x")).toEqual({
+			error: 'no active session "s-dead" — its process is gone.',
+		});
+		expect(resolveRecipients(rows, "api-core", "s-x")).toEqual({
+			error: 'no active session "api-core" — its process is gone.',
+		});
 	});
 
 	test("skips a gone peer in a broadcast", () => {

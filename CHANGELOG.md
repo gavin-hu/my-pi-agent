@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `session-bus`: the status listing names what the next call acts on — `· gone` on a record whose process
+  stopped, `· not listening` on one that reads its mail at its next turn — where both used to be drawn as an
+  ordinary row while `send` refused the first with `no active session`. The refusal says `— its process is
+  gone.` now for a name only a stopped record holds, by id or by label, and a name no record holds keeps its
+  sentence; `quiet` is deliberately unmarked, because it changes no outcome and every idle peer is quiet.
+
 - `bytefly`: the `/bytefly` control center opens on **Project** scope in a trusted project — the layer the
   session actually runs, and the file the repository keeps — so `Space` writes `<cwd>/.pi/` and the screen
   shows the merged view without a mode to set first; an untrusted project still opens on Global, the only
