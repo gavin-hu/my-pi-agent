@@ -17,6 +17,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   scope it read. A trusted repository with no `.pi/` still creates the file on the first write: that is what
   "write to the project" means, and the screen says `writes Project` before the key is pressed.
 
+- `board`: the store is opened per root rather than per session, so a close after `worktree exit remove:true`
+  resolves its landing in the checkout instead of throwing `spawn git ENOENT` for a directory that is gone. That
+  retires the workaround of re-creating the worktree path, moving the card and removing it again: the key follows
+  `PI_WORKTREE_ROOT`, which stops answering once the path is gone, so no event and no eviction is involved.
+  `busDirs` and `planDirs` keep the cwd key, because both are repository identity rather than a root.
+
 - `job`: a job's registry and logs live in `~/.pi/agent/repos/<repo-id>/jobs/` now, beside the board, so one
   repository's state is one directory a sync client replicates; a store an older build left at
   `~/.pi/agent/jobs/<project>/` is taken across once, on the first read. Two consequences worth knowing: a
