@@ -29,7 +29,6 @@ body.palette-open{overflow:hidden}
 /* The changes tag: the dot marks it, the words are the UI's face, and the totals are figures a
    reader compares, so they keep the same width from one tick to the next. */
 .browse-changes{gap:5px}
-.browse-changes:hover{color:var(--accent);text-decoration:none}
 .browse-changes__dot{color:var(--warn);font-size:9px;line-height:1}
 .browse-changes__totals{font-variant-numeric:tabular-nums}
 .browse-change{color:var(--warn);font-size:9px;line-height:1;flex:0 0 auto}

@@ -32,7 +32,9 @@ describe("the header", () => {
 		expect(live).toContain('class="bf-live bf-tone--accent" id="live-state"');
 		expect(live).toContain('<span class="bf-live__text">connecting</span>');
 		expect(live).toContain('id="reload-hint"');
-		expect(live).toContain('id="browse-changes" href="/review/new?scope=head"');
+		expect(live).toContain('id="browse-changes"');
+		// A count, not a way into the diff: the review page is its own entry.
+		expect(live).not.toContain('href="/review');
 
 		const off = directoryPage();
 		expect(off).not.toContain("live-state");

@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `code-review`: a file's head now has **view file**, which serves that file's whole text at
+  `/review/file?scope=<s>&path=<rel>` — only a path the current comparison lists, read under the
+  reviewed checkout so a symlink out of it is refused, drawn on the diff's own gutter with a way
+  back to the comparison, and saying so when the file is binary or past the byte cap. The read is
+  the reader's existing capped one, so "how much of a file is too much" still has a single owner.
+
 - `memory`: the `[MEMORY]` block's last line now names the notes recall left out instead of only counting them — the
   oldest ones, by their opening words, with the count for the rest, because the notes a cap hides first are a
   project's founding rules, the ones a session is likeliest to contradict. It is still one line inside the same byte
@@ -30,6 +36,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `⏵ lead` keeps accent, because the seat is a place the session chose rather than a warning, and `≡ plan` keeps
   warning. The composer's border is unchanged: it stays accent at rest, because that is the composer's own highlight
   and not a third mode read.
+
+### Removed
+
+- `file-browse`: the **changes** tag's link, a changed file's **changes** action, and `/files/diff`
+  with its `?mode=`. The tag stays — a dot, the count and the `+`/`−` totals — as a plain chip, so
+  the page is whole with `code-review` switched off.
+
+- `code-review`: **download** from a file's head, and every inbound link to `?file=<path>`. A page
+  now names only its own prefix — `/files` nowhere in the review, `/review` nowhere in the browse
+  page — which is what stops a cross-link from 404ing on a route the other page never mounted.
+  `lib/http/prefixes.ts` (`FILES_BASE`, `REVIEW_BASE`, `reviewHref`) is gone with them: each prefix
+  is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ## [0.30.0] - 2026-11-23
 

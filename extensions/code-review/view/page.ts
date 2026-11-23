@@ -29,8 +29,7 @@ import {
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { Review, ReviewComment } from "../review/store.ts";
 import { MAX_COMMENT_LENGTH, MAX_COMMENTS, MAX_QUOTE_LENGTH } from "../review/store.ts";
-import { FILES_BASE } from "../../../lib/http/prefixes.ts";
-import { encodePath } from "../../../lib/path.ts";
+import { fileHref, newHref } from "../links.ts";
 import { REVIEW_SCOPES, scopeArgs, type ReviewScope } from "../scope.ts";
 import { REVIEW_CSS } from "./styles.ts";
 
@@ -129,8 +128,8 @@ function railRow(
  * page that still names the file. It is not a `.rv-rail` row: the client's rail helpers are
  * keyed on those, and a link among them that names no file would be counted as one.
  */
-function backToAll(base: string, scope: ReviewScope, total: number): string {
-	return `<p class="rv-side__back"><a class="bf-btn" id="rv-all-files" href="${escapeHtml(base)}/new?scope=${scope}">all ${total} file${total === 1 ? "" : "s"}</a></p>`;
+function backToAll(scope: ReviewScope, total: number): string {
+	return `<p class="rv-side__back"><a class="bf-btn" id="rv-all-files" href="${escapeHtml(newHref(scope))}">all ${total} file${total === 1 ? "" : "s"}</a></p>`;
 }
 
 /** One file's head, its diff, and the two notes a cap leaves. */
@@ -139,6 +138,7 @@ function fileSection(
 	index: number,
 	comments: readonly ReviewComment[],
 	reviewed: ReadonlySet<string>,
+	scope: ReviewScope,
 ): string {
 	const state = fileState(file.rel, comments, reviewed);
 	const count = comments.filter((comment) => comment.rel === file.rel).length;
@@ -148,8 +148,7 @@ function fileSection(
   <span class="rv-file__path"><span class="rv-file__dir">${escapeHtml(dir ? `${dir}/` : "")}</span>${escapeHtml(name)}</span>
   <span class="rv-file__stats"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
   <span class="rv-file__acts">
-    <a class="bf-btn" href="${FILES_BASE}/view/${encodePath(file.rel)}" title="Open this file in the browse page">view file</a>
-    <a class="bf-btn" href="${FILES_BASE}/raw/${encodePath(file.rel)}" download title="Download this file">download</a>
+    <a class="bf-btn" href="${escapeHtml(fileHref(file.rel, scope))}" title="Read this file's whole text">view file</a>
     <span class="bf-tag" data-count>${count === 0 ? escapeHtml(stateWord(state)) : `${count} comment${count === 1 ? "" : "s"}`}</span>
     <label class="rv-file__check"><input type="checkbox" data-reviewed="${escapeHtml(file.rel)}" aria-label="Mark ${escapeHtml(file.rel)} reviewed"${reviewed.has(file.rel) ? " checked" : ""}> reviewed</label>
   </span>
@@ -182,10 +181,10 @@ function languageOf(rel: string): HighlightLanguage | undefined {
 }
 
 /** The scope switch: one link per comparison, the current one pressed. */
-function scopeSegments(base: string, scope: ReviewScope): string {
+function scopeSegments(scope: ReviewScope): string {
 	return `<div class="bf-tabs" role="group" aria-label="What the diff compares">${REVIEW_SCOPES.map(
 		(option) =>
-			`<a class="bf-tabs__item" href="${escapeHtml(base)}/new?scope=${option}" role="tab" aria-selected="${option === scope}" title="${escapeHtml(scopeArgs(option, "").title)}">${option}</a>`,
+			`<a class="bf-tabs__item" href="${escapeHtml(newHref(option))}" role="tab" aria-selected="${option === scope}" title="${escapeHtml(scopeArgs(option, "").title)}">${option}</a>`,
 	).join("")}</div>`;
 }
 
@@ -252,7 +251,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
 		chip({ label: snapshot.label, className: "bf-tag--mono", attrs: { id: "rv-scope" } }),
 		reloadChip({ title: "The diff moved — reload the page" }),
 	].join("\n    ");
-	const controls = `${scopeSegments(base, snapshot.scope)}
+	const controls = `${scopeSegments(snapshot.scope)}
   <div class="bf-app__group">
     ${button({ label: "wrap", id: "rv-wrap", pressed: false, title: "Toggle line wrapping" })}
     ${button({ label: "copy all", id: "rv-copy", title: "Copy every comment as Markdown" })}
@@ -261,7 +260,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const main =
 		files.length === 0
 			? `<div class="rv-empty"><p class="rv-empty__title">No changes in this scope.</p><p class="rv-empty__sub">Nothing differs between ${escapeHtml(snapshot.label)} and the tree. Switch the scope, or edit something first.</p></div>`
-			: files.map((file, index) => fileSection(file, index, comments, reviewed)).join("\n");
+			: files.map((file, index) => fileSection(file, index, comments, reviewed, snapshot.scope)).join("\n");
 	const omitted =
 		snapshot.omitted > 0
 			? `<p class="rv-banner" role="status"><b>${snapshot.omitted} more file${snapshot.omitted === 1 ? "" : "s"}</b> changed in this scope — the page lists the first ${all.length}. Review the rest in a narrower scope.</p>`
@@ -295,7 +294,7 @@ ${appHead({
     </div>
     <div class="rv-side-scroll">
       <div class="rv-side-head"><span>changed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
-      ${focused === undefined ? "" : backToAll(base, snapshot.scope, all.length)}
+      ${focused === undefined ? "" : backToAll(snapshot.scope, all.length)}
       <nav class="rv-files" id="rv-rail" aria-label="Changed files">${files.map((file, index) => railRow(file, index, comments, reviewed)).join("\n")}</nav>
       <p class="rv-side__empty" id="rv-rail-empty" hidden><span id="rv-rail-empty-text"></span> <button type="button" class="bf-btn" id="rv-rail-clear">Clear filter</button></p>
     </div>

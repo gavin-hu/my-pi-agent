@@ -19,7 +19,7 @@ is written to your tree.
 |---|---|
 | Serve a review of the branch | `/review`, or `code_review` with `action: "open"` |
 | Review the last commit, everything uncommitted, the index, or the tree | `/review last`, `/review head`, `/review staged`, `/review worktree` |
-| Read one file of it | open the page with `?file=<path>`; the changes tag on a `file-browse` page lands there |
+| Read one file of it | **view file** on a file's head, which serves its whole text from the review |
 | Comment on a line | click a gutter number, then **comment** — or `c` with a line selected |
 | Comment on a range | click one gutter, Shift-click another |
 | Copy a line reference | select lines, then **copy ref** — it copies `path:12-30` |
@@ -61,11 +61,10 @@ Run `code_review` action "comments" for all of them.
 **The five comparisons.** `base` reads `<base>...HEAD`, the branch against the
 line it left; `last` reads `HEAD~1...HEAD`; `head` (shown as **uncommitted**)
 reads the tree against `HEAD`, so the index and the working tree arrive together
-with untracked files, which is the comparison `file-browse`'s changes tag means;
-`staged` reads the index; and `worktree` reads the working tree alone, untracked
-files included. The base ref is `code-review.base`, else `origin/HEAD`, else
-`main` or `master`; a repository where none resolves is refused, naming the key
-to set.
+with untracked files; `staged` reads the index; and `worktree` reads the working
+tree alone, untracked files included. The base ref is `code-review.base`, else
+`origin/HEAD`, else `main` or `master`; a repository where none resolves is
+refused, naming the key to set.
 
 **The page.** A review is one page per session, at `/review/`. Its id is minted
 by the first write, so opening a page to look costs nothing; the query carries
@@ -73,16 +72,15 @@ the write token, and the first write puts the review's own id in the address. A
 comment is a draft until **Send feedback** marks it sent — after that it is the
 session's, and the page shows it as sent.
 
-**One file at a time.** `?file=<path>` turns the page into that one file's diff,
-which is what a changes tag on a `file-browse` page opens — and what that page's own
-`/files/diff` address now redirects to, a `308` with `scope` for `mode`. The rail
-shows the one file and an **all files** link back, and the comparison is still the
-whole scope, so nothing about the snapshot or its token changes. The file's head
-carries **view file** and **download**, which are `file-browse`'s own pages
-(`/files/view/<path>` and `/files/raw/<path>`) — they need that page serving, and
-answer `404` without it. `n` and `p` step between the focused file's hunks; the
-whole review keeps `[` and `]`. A reference copied from a selection is
-`path:12-30`, the same form `file-browse` copies.
+**One file at a time.** `?file=<path>` turns the page into that one file's diff:
+the rail shows that file and an **all files** link back, and the comparison is
+still the whole scope, so nothing about the snapshot or its token changes. It is
+typed, not linked — no other page has a way in here, and this page links nowhere
+else. The file's head carries **view file**, which serves the whole file at
+`/review/file?scope=<s>&path=<rel>`: only a path this comparison lists, read under
+the reviewed checkout, drawn on the diff's own gutter, with a way back to the
+comparison. `n` and `p` step between the focused file's hunks; the whole review
+keeps `[` and `]`. A reference copied from a selection is `path:12-30`.
 
 **What a comment anchors to.** A path, a side of the diff, and a line number on
 that side. The page posts the snapshot it rendered with every write, and the
@@ -94,7 +92,7 @@ reload sentence rather than a comment landing on a line nobody read.
 - The review is the session's. Its comments live as long as the page does;
   sending is what keeps them, in the transcript notice and in `code_review`.
 - One page per session. Changing scope is refused while a comment is on the page —
-  a `409` naming what would be lost. A `file-browse` reader reaches it via `/files/diff`.
+  a `409` naming what would be lost.
 - A focused page (`?file=`) hides the other files without forgetting them: a
   comment already written on one of them is still counted and still sent.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000

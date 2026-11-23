@@ -10,8 +10,7 @@
  * The page takes the namespace `/files`, beside `/board` and `/plan/<id>`: every URL it
  * emits is built from that `base` — the links, the scripts, the destinations it rewrites
  * out of Markdown, and the client's own fetches — so one prefix is all it needs, and the
- * origin's root stays free. `FILES_BASE` is that claim, shared with the review page that
- * links back into it.
+ * origin's root stays free. No other page spells it: what a page links to is its own.
  */
 
 import { realpathSync } from "node:fs";
@@ -22,18 +21,20 @@ import {
 	type ServeResponse,
 	textResponse,
 } from "../../../lib/http/index.ts";
-import { FILES_BASE } from "../../../lib/http/prefixes.ts";
 import { IDLE_STOP_MS, type ServeConfig } from "../config/config.ts";
 import { createFileIndex } from "../files/files.ts";
 import type { GitDiffProvider, GitStatusProvider } from "../git/git.ts";
 import { createLiveChannel, createLiveStatus, movedFrameOf } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 
+/** The prefix this page claims from the session's server, and every URL it emits uses. */
+export const FILES_BASE = "/files";
+
 /** The readers built for one root: the header's git context, and the change list's. */
 export interface RootReaders {
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
-	/** Read-only change list for the chip, the markers and the review link; omitted when unavailable. */
+	/** Read-only change list for the chip and the markers; omitted when unavailable. */
 	diff?: GitDiffProvider;
 }
 

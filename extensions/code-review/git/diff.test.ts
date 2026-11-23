@@ -13,7 +13,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RunGit } from "../../../lib/git/index.ts";
 import { execP, makeRepo, makeTempTracker } from "../../../test/helpers/git.ts";
-import { createReviewReaderFrom, NO_BASE, NO_COMMITS, NO_PARENT, NOT_A_REPOSITORY, parseNameStatusZ } from "./diff.ts";
+import {
+	createReviewReaderFrom,
+	NO_BASE,
+	NO_COMMITS,
+	NO_PARENT,
+	NO_TEXT,
+	NOT_A_REPOSITORY,
+	parseNameStatusZ,
+} from "./diff.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -155,6 +163,34 @@ describe("the other four scopes", () => {
 		const file = big.snapshot.files.find((entry) => entry.rel === "big.txt");
 		expect(file?.truncated).toBe(true);
 		expect(file?.lines.length).toBeLessThanOrEqual(5);
+	});
+});
+
+describe("a whole file's text", () => {
+	test("reads it as context lines, and names a binary file, a cut file and a missing one", async () => {
+		const repo = temps.track(await makeRepo());
+		writeFileSync(join(repo, "a.ts"), "one\ntwo\n");
+		writeFileSync(join(repo, "blob.bin"), Buffer.from([0x7f, 0x00, 0x01]));
+		writeFileSync(join(repo, "long.txt"), "line\n".repeat(40));
+		const reader = createReviewReaderFrom(run, repo, { maxFileBytes: 64 });
+		// Both gutter numbers are the file's own, so the diff renderer draws the numbers a
+		// reader compares against rather than a second numbering scheme.
+		expect(await reader.text("a.ts")).toEqual({
+			kind: "text",
+			lines: [
+				{ kind: "ctx", text: "one", oldNo: 1, newNo: 1 },
+				{ kind: "ctx", text: "two", oldNo: 2, newNo: 2 },
+			],
+			binary: false,
+			truncated: false,
+		});
+		expect(await reader.text("blob.bin")).toEqual({ kind: "text", lines: [], binary: true, truncated: false });
+		const long = await reader.text("long.txt");
+		if (long.kind !== "text") throw new Error("expected text");
+		expect(long.truncated).toBe(true);
+		expect(long.lines.length).toBeLessThan(40);
+		// A path the diff lists may be gone by the time the view asks for it.
+		expect(await reader.text("gone.ts")).toEqual({ kind: "failed", message: NO_TEXT });
 	});
 });
 

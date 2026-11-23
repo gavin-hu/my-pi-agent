@@ -9,8 +9,6 @@
  */
 
 import { escapeHtml } from "../../../lib/escape.ts";
-import { reviewHref } from "../../../lib/http/prefixes.ts";
-import type { DiffMode } from "../../../lib/diff/modes.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { chip, liveChip, reloadChip } from "../../../lib/web/index.ts";
 import type { GitStatus } from "../git/git.ts";
@@ -66,19 +64,15 @@ export function renderLiveChrome(live: LivePage | undefined): string {
 }
 
 /**
- * The header's changes chip, linking to the comparison its own numbers came from: the review page's
- * `head` — the tree against `HEAD` — or, on a repository's first commit, the index, because `HEAD`
- * does not exist to compare against. With live status on, a hidden shell is always rendered so the
- * chip can appear and disappear as the working tree changes, without the client inserting elements
- * into the header.
+ * The header's changes chip: the uncommitted change count and its totals. It is a count, not a
+ * way into the diff — the review page is its own entry — and with live status on a hidden shell
+ * is always rendered, so the chip can appear and disappear as the working tree changes without
+ * the client inserting elements into the header.
  */
-export function renderChanges(summary: ChangeIndex | undefined, live: LivePage | undefined, scope: DiffMode): string {
-	const href = reviewHref(scope);
+export function renderChanges(summary: ChangeIndex | undefined, live: LivePage | undefined): string {
 	const count = summary?.count ?? 0;
 	if (count <= 0) {
-		return live
-			? `<a class="bf-tag browse-changes" id="browse-changes" href="${href}" title="View uncommitted changes" hidden></a>`
-			: "";
+		return live ? `<span class="bf-tag browse-changes" id="browse-changes" hidden></span>` : "";
 	}
 	const label = `${count} change${count === 1 ? "" : "s"}`;
 	const insertions = summary?.insertions ?? 0;
@@ -88,5 +82,5 @@ export function renderChanges(summary: ChangeIndex | undefined, live: LivePage |
 			? ` <span class="browse-changes__totals"><span class="browse-diff-add">+${insertions}</span> <span class="browse-diff-del">−${deletions}</span></span>`
 			: "";
 	const aria = `${label} against HEAD${insertions + deletions > 0 ? `, ${insertions} insertions and ${deletions} deletions` : ""}`;
-	return `<a class="bf-tag browse-changes" id="browse-changes" href="${href}" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-changes__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
+	return `<span class="bf-tag browse-changes" id="browse-changes" aria-label="${escapeHtml(aria)}"><span class="browse-changes__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</span>`;
 }

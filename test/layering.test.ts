@@ -13,6 +13,9 @@
  * The second half is the runtime matrix. An allowed edge is a channel the lower extension
  * answers, so every `answerOn` registration has to live in the bus — a listener anywhere else
  * would be an upward call dressed as a request.
+ *
+ * The third is a served page's namespace: a prefix belongs to the page that claims it, and
+ * another page spelling it is a link into a route mounted only while that page is open.
  */
 
 import { join } from "node:path";
@@ -113,6 +116,24 @@ describe("the dependency layers", () => {
 		].filter((file) => file.endsWith(".ts") || file.endsWith(".md"));
 		const stale = files.filter((file) => textOf(file).includes(OLD_DOMAIN)).map(relative);
 		expect(stale).toEqual([]);
+	});
+
+	test("a served prefix is spelled only by the page that claims it", () => {
+		// Two pages answer on the session's one origin, and each prefix is mounted only while its
+		// own page is open: a link across them 404s whenever the other page is not serving. One row
+		// per pair — a page that starts naming a third prefix adds its line.
+		const OWNED: ReadonlyArray<{ owner: string; foreign: string }> = [
+			{ owner: "code-review", foreign: "/files" },
+			{ owner: "file-browse", foreign: "/review" },
+		];
+		// Source can spell it with either quote or inside a template, so all three count.
+		const spellings = (foreign: string): string[] => [`"${foreign}`, `'${foreign}`, `\`${foreign}`];
+		const offenders = OWNED.flatMap(({ owner, foreign }) =>
+			sourceFiles(join(extensionsDir, owner))
+				.filter((file) => spellings(foreign).some((spelling) => textOf(file).includes(spelling)))
+				.map((file) => `${relative(file)} spells ${foreign}, which another page owns`),
+		);
+		expect(offenders).toEqual([]);
 	});
 });
 

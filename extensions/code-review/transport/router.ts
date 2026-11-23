@@ -11,32 +11,28 @@
  * so the client has one shape to read and a refused write changes nothing.
  */
 
+import { join } from "node:path";
 import {
-	checkOrigin,
-	isLocalHostHeader,
+	envelopeRefusal,
 	jsonError,
 	jsonHeaders,
 	jsonResponse,
-	pageHeaders,
-	parseRequestUrl,
-	postOnly,
-	requireJsonBody,
-	scriptHeaders,
+	LOOPBACK_HOSTS,
 	type LoopbackHandler,
 	type LoopbackRequest,
+	pageHeaders,
+	parseRequestUrl,
+	requireJsonBody,
 	type ServeResponse,
+	scriptHeaders,
 } from "../../../lib/http/index.ts";
+import { isInsideReal } from "../../../lib/path.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
-import type { ReviewReader, ReviewSnapshot } from "../git/diff.ts";
-import {
-	type Review,
-	type ReviewComment,
-	type ReviewPageState,
-	type ReviewStore,
-	type WriteOp,
-} from "../review/store.ts";
+import type { ReviewCurrent } from "../review/current.ts";
+import { NO_PAGE, type Review, type ReviewComment, type ReviewStore, type WriteOp } from "../review/store.ts";
 import { parseScope, type ReviewScope } from "../scope.ts";
 import { REVIEW_CLIENT_JS } from "../view/client.ts";
+import { renderReviewFile } from "../view/file.ts";
 import { renderReviewPage, renderReviewProblem } from "../view/page.ts";
 
 /** The page's script, beside the shared theme. */
@@ -48,25 +44,12 @@ const NO_REVIEW = "that review is not open on this session — run /review";
 /** What the router needs of the session it serves. */
 export interface ReviewHandlerDeps {
 	store: ReviewStore;
-	reader: ReviewReader;
+	/** The session's root, reader and page, read per request. */
+	current: ReviewCurrent;
 	/** The mount prefix, `/review`. */
 	base: string;
-	/** The repository's name. */
-	repo: string;
-	/** The repository's path, for the header's hover. */
-	root: string;
-	/** The configured base ref. */
-	baseRef: string;
 	/** Called after a send has marked comments sent, so the session can be told. */
 	onSent?: (sent: ReadonlyArray<ReviewComment>, id: string) => void;
-}
-
-/** The snapshot an open page renders, or the sentence the page prints instead. */
-async function currentSnapshot(
-	reader: ReviewReader,
-	page: ReviewPageState,
-): Promise<{ kind: "snapshot"; snapshot: ReviewSnapshot } | { kind: "failed"; message: string }> {
-	return reader.snapshot(page.scope, page.base);
 }
 
 /** The state a write answers: the review, narrowed to what the page reads. */
@@ -139,7 +122,7 @@ export function scopeRefusal(review: Review, label: string): string {
 
 /** The handler for one mounted review page. */
 export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
-	const { store, reader, base } = deps;
+	const { store, current, base } = deps;
 
 	/**
 	 * The page's shell for a scope, minting a token when the scope changed. `file` narrows
@@ -162,9 +145,9 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		// has — its token, its review, and its comments — rather than minting a second one.
 		const page = held !== undefined && held.scope === scope ? held : store.open(scope, "", "");
 		if (scope === "base" && page.base === "") {
-			page.base = (await reader.baseRef()) ?? "";
+			page.base = (await current.reader().baseRef()) ?? "";
 		}
-		const outcome = await currentSnapshot(reader, page);
+		const outcome = await current.snapshotOf(page);
 		if (outcome.kind === "failed") {
 			return {
 				status: 200,
@@ -172,13 +155,14 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 				body: renderReviewProblem(base, "No diff to review", outcome.message),
 			};
 		}
+		const { repo, root } = current.place();
 		return {
 			status: 200,
 			headers: pageHeaders(),
 			body: renderReviewPage({
 				base,
-				repo: deps.repo,
-				root: deps.root,
+				repo,
+				root,
 				token: page.token,
 				snapshot: outcome.snapshot,
 				...(file === undefined ? {} : { file }),
@@ -187,18 +171,62 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		};
 	};
 
+	/** A refusal a person reads as a page: the reason, and the way back. */
+	const problem = (status: number, title: string, message: string): ServeResponse => ({
+		status,
+		headers: pageHeaders(),
+		body: renderReviewProblem(base, title, message),
+	});
+
+	/**
+	 * One file's whole text.
+	 *
+	 * Only a path the snapshot lists is served, so the address cannot name a file this review
+	 * does not cover, and only one that resolves inside the root. The view and its way back use
+	 * the comparison the page is on, never the one the address asked with: `?scope=` only records
+	 * where the link came from, and a stale one must not draw one comparison on another's page.
+	 */
+	const filePage = async (path: string | null): Promise<ServeResponse> => {
+		const page = store.current();
+		if (page === undefined) return problem(409, "No review page is open", NO_PAGE);
+		const outcome = await current.snapshotOf(page);
+		if (outcome.kind === "failed") return problem(409, "No diff to review", outcome.message);
+		const rel = path ?? "";
+		if (rel === "" || !outcome.snapshot.files.some((entry) => entry.rel === rel)) {
+			return problem(404, "That file is not in this review", "Only a file this comparison changes has a text view.");
+		}
+		const { root } = current.place();
+		if (!isInsideReal(root, join(root, rel))) {
+			return problem(
+				403,
+				"That path is outside the reviewed folder",
+				"The file resolves outside the checkout this review reads.",
+			);
+		}
+		const text = await current.reader().text(rel);
+		if (text.kind === "failed") return problem(404, "That file could not be read", text.message);
+		return {
+			status: 200,
+			headers: pageHeaders(),
+			body: renderReviewFile({
+				base,
+				scope: outcome.snapshot.scope,
+				rel,
+				lines: text.lines,
+				binary: text.binary,
+				truncated: text.truncated,
+			}),
+		};
+	};
+
 	/** One write: read the state, compare the snapshot, apply, answer. */
 	const write = async (pathname: string, request: LoopbackRequest): Promise<ServeResponse> => {
 		if (!WRITE_ROUTES.has(pathname)) return jsonError(404, "That route does not exist.");
-		const methodRefusal = postOnly(request.method, "change this review");
-		if (methodRefusal) return methodRefusal;
-		const origin = checkOrigin(request.headers);
-		if (origin) return origin;
 		const json = requireJsonBody(request.headers["content-type"]);
 		if (json) return json;
 		const page = store.current();
-		if (page === undefined) return jsonError(409, "this session has no review page open — run /review first");
-		const snapshot = await currentSnapshot(reader, page);
+		if (page === undefined) return jsonError(409, NO_PAGE);
+		const snapshot = await current.snapshotOf(page);
 		if (snapshot.kind === "failed") return jsonError(409, snapshot.message);
 		// The review records the comparison and its name when it is minted, so the
 		// page's own header and a later stale banner read one fact.
@@ -227,17 +255,11 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 
 	return async (request) => {
 		const method = request.method.toUpperCase();
-		if (method !== "GET" && method !== "HEAD" && method !== "POST") {
-			return {
-				result: {
-					...jsonError(405, "Only GET, HEAD, and POST are served."),
-					headers: { ...jsonHeaders(), Allow: "GET, HEAD, POST" },
-				},
-			};
-		}
-		if (!isLocalHostHeader(request.headers, { required: true })) {
-			return { result: jsonError(403, "Unexpected Host header.") };
-		}
+		// The envelope the other served pages use: the method allowlist, the fail-closed `Host`
+		// rule, and the origin check on a write — whose 405 and `Allow` are the ones this page
+		// answered before the two calls became one.
+		const refused = envelopeRefusal({ method, headers: request.headers, hosts: LOOPBACK_HOSTS });
+		if (refused) return { result: refused };
 		const parsed = parseRequestUrl(request.url);
 		if (parsed === undefined) return { result: jsonError(400, "Malformed request URL.") };
 		const { pathname, search } = parsed;
@@ -267,11 +289,12 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		if (pathname === "/" || pathname === "/new" || pathname === "/new/" || pathname === "/index.html") {
 			return { result: await pageFor(scope, file) };
 		}
+		if (pathname === "/file") return { result: await filePage(search.get("path")) };
 		const id = pathname.replace(/^\//, "").replace(/\/$/, "");
 		const token = search.get("token") ?? "";
 		const held = store.resume(id, token);
 		if (held === undefined) return { result: jsonError(403, NO_REVIEW) };
-		const outcome = await currentSnapshot(reader, held);
+		const outcome = await current.snapshotOf(held);
 		if (outcome.kind === "failed") {
 			return {
 				result: {
@@ -281,14 +304,15 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 				},
 			};
 		}
+		const { repo, root } = current.place();
 		return {
 			result: {
 				status: 200,
 				headers: pageHeaders(),
 				body: renderReviewPage({
 					base,
-					repo: deps.repo,
-					root: deps.root,
+					repo,
+					root,
 					token: held.token,
 					snapshot: outcome.snapshot,
 					...(file === undefined ? {} : { file }),

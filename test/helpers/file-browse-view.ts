@@ -69,7 +69,6 @@ export function directoryPage(overrides: Partial<DirectoryPage> = {}): string {
 		tree: TREE,
 		thumbnails: false,
 		maxThumbBytes: 0,
-		scope: "head",
 		...overrides,
 	});
 }

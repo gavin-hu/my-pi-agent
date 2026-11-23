@@ -18,8 +18,6 @@ import {
 	tabTitle,
 } from "../../../lib/web/index.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
-import { reviewHref } from "../../../lib/http/prefixes.ts";
-import type { DiffMode } from "../../../lib/diff/modes.ts";
 import { renderChanges, renderGit, renderLiveChrome, type LivePage } from "./chrome.ts";
 import { type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
 import { formatSize } from "../../../lib/format.ts";
@@ -94,8 +92,6 @@ interface Layout {
 	git?: GitStatus;
 	/** Changed-path index for the header chip and the tree markers; omitted when clean. */
 	summary?: ChangeSummary;
-	/** The comparison the summary was taken in, which the chip's link opens. */
-	scope: DiffMode;
 	/** Live status chrome; omitted when the channel is off. */
 	live?: LivePage;
 }
@@ -116,7 +112,7 @@ ${appHead({
 	product: "browse",
 	subject: { label: layout.rootLabel, title: layout.rootLabel },
 	facts: `${renderGit(layout.git)}
-    ${renderChanges(layout.summary, layout.live, layout.scope)}
+    ${renderChanges(layout.summary, layout.live)}
     ${renderLiveChrome(layout.live)}`,
 })}
 <div class="bf-app__body">
@@ -223,8 +219,6 @@ export interface DirectoryPage {
 	git?: GitStatus;
 	/** Changed-path index for the header chip and markers. */
 	summary?: ChangeSummary;
-	/** The comparison the summary was taken in, which the chip's link opens. */
-	scope: DiffMode;
 	/** Live status chrome; omitted when the channel is off. */
 	live?: LivePage;
 }
@@ -256,7 +250,6 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 		footerNote: `${page.listing.total} entr${page.listing.total === 1 ? "y" : "ies"}`,
 		git: page.git,
 		summary: page.summary,
-		scope: page.scope,
 		live: page.live,
 	});
 }
@@ -273,12 +266,8 @@ export interface FilePage {
 	markdownRaw?: boolean;
 	/** Re-emit sanitized raw HTML in rendered Markdown; `false` escapes it as text. */
 	markdownHtml?: boolean;
-	/** True when this file has uncommitted changes, for the changes action. */
-	changed?: boolean;
 	/** Changed-path index for the header chip and the tree markers. */
 	summary?: ChangeSummary;
-	/** The comparison the summary was taken in, which this file's action opens. */
-	scope: DiffMode;
 	/** Live status chrome; omitted when the channel is off. */
 	live?: LivePage;
 }
@@ -316,11 +305,6 @@ function renderFileActions(page: FilePage, download: string): string {
 	const rawHref = `${page.base}/raw/${encodePath(page.rel)}`;
 	const viewHref = `${page.base}/view/${encodePath(page.rel)}`;
 	const groups: string[] = [];
-	if (page.changed) {
-		groups.push(
-			`<a class="bf-btn" href="${escapeHtml(reviewHref(page.scope, page.rel))}" title="View this file's uncommitted changes">changes</a>`,
-		);
-	}
 	if (isMarkdown) {
 		const rendered = page.markdownRaw
 			? `<a class="bf-tabs__item" href="${viewHref}">rendered</a>`
@@ -406,7 +390,6 @@ export function renderFilePage(page: FilePage): string {
 		footerNote: page.rel,
 		git: page.git,
 		summary: page.summary,
-		scope: page.scope,
 		live: page.live,
 	});
 }
@@ -418,8 +401,6 @@ export interface ErrorPage {
 	message: string;
 	tree: TreeNode;
 	git?: GitStatus;
-	/** The comparison the page's live shell names; there is no list to take one from. */
-	scope: DiffMode;
 	/** Live status chrome; omitted when the channel is off. */
 	live?: LivePage;
 }
@@ -436,7 +417,6 @@ export function renderErrorPage(page: ErrorPage): string {
 		main: `    <div class="bf-empty"><div class="bf-empty__code">${page.status}</div><p class="bf-empty__title">${escapeHtml(page.message)}</p><p class="bf-empty__sub"><a href="${page.base}/browse/">back to the served folder</a></p></div>`,
 		footerNote: "error",
 		git: page.git,
-		scope: page.scope,
 		live: page.live,
 	});
 }

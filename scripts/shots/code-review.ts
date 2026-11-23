@@ -19,6 +19,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_REVIEW_CONFIG } from "../../extensions/code-review/config/config.ts";
+import { createReviewCurrent } from "../../extensions/code-review/review/current.ts";
+import { createReviewStore } from "../../extensions/code-review/review/store.ts";
 import { createReviewPage } from "../../extensions/code-review/transport/server.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
@@ -132,13 +134,17 @@ export async function capture(options: ShotOptions): Promise<void> {
 			};
 		}
 	};
-	const outcome = await createReviewPage({
+	const store = createReviewStore();
+	const current = createReviewCurrent({
+		store,
 		exec: { exec },
-		session: "screenshot",
-		root: dir,
-		repo: "aurora-gateway",
 		config: { ...DEFAULT_REVIEW_CONFIG, base: "main", maxFiles: 20, maxDiffLines: 400 },
-		scope: "base",
+		cwd: () => dir,
+	});
+	const outcome = await createReviewPage({
+		store,
+		current,
+		session: "screenshot",
 		mount: testMountSource(),
 	});
 	if (outcome.kind === "refused") {
@@ -146,6 +152,7 @@ export async function capture(options: ShotOptions): Promise<void> {
 		throw new Error(outcome.reason);
 	}
 	const page = outcome.page;
+	await current.openPage("base");
 	const held = page.store.current();
 	const snapshot = await page.snapshot();
 	if (held === undefined || snapshot.kind !== "snapshot") throw new Error("the fixture has no diff to review");

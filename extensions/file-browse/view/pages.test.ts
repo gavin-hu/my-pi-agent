@@ -104,7 +104,6 @@ function filePage(rel: string, file: FileView, overrides: Partial<FilePage> = {}
 		tree: TREE,
 		maxFileBytes: 1_000_000,
 		file,
-		scope: "head",
 		...overrides,
 	});
 }
@@ -343,19 +342,21 @@ describe("directory page", () => {
 
 	test("shows the changes chip with its totals, or a hidden shell when live", () => {
 		const two = directoryPage({ summary: summary([changed({ rel: "a.ts" }), changed({ rel: "b.ts" })], 12, 4) });
-		expect(two).toContain('class="bf-tag browse-changes" id="browse-changes" href="/review/new?scope=head"');
+		expect(two).toContain('class="bf-tag browse-changes" id="browse-changes"');
 		expect(two).toContain("2 changes");
 		expect(two).toContain("+12");
 		expect(two).toContain("−4");
+		// The chip is a count, not a way into the diff: the review page is its own entry.
+		expect(two).not.toContain('href="/review');
 
 		expect(directoryPage({ summary: summary([changed({ rel: "a.ts" })]) })).toContain("1 change");
 		expect(directoryPage({ summary: summary([]) })).not.toContain('class="bf-tag browse-changes"');
 		expect(directoryPage()).not.toContain('class="bf-tag browse-changes"');
 
 		const shell = directoryPage({ live: { intervalMs: 3000 } });
-		expect(shell).toContain('title="View uncommitted changes" hidden');
+		expect(shell).toContain('id="browse-changes" hidden');
 		expect(directoryPage({ live: { intervalMs: 3000 }, summary: summary([changed()]) })).not.toContain(
-			'title="View uncommitted changes" hidden',
+			'id="browse-changes" hidden',
 		);
 	});
 
@@ -468,14 +469,13 @@ describe("file page", () => {
 		expect(binary).toContain('href="/raw/bin.dat"');
 	});
 
-	test("renders a changes action only for a changed file", () => {
-		const html = filePage("a.txt", textView(["x"]), { changed: true });
-		expect(html).toContain('href="/review/new?scope=head&amp;file=a.txt"');
-		expect(filePage("a.txt", textView(["x"]))).not.toContain('href="/review/new?scope=head');
-		// The comparison is the page's, not a constant: on a repository's first commit the same
-		// action names the index the numbers came from.
-		const fresh = filePage("a.txt", textView(["x"]), { changed: true, scope: "staged" });
-		expect(fresh).toContain('href="/review/new?scope=staged&amp;file=a.txt"');
+	test("keeps a changed file's head free of a way into the diff", () => {
+		const html = filePage("a.txt", textView(["x"]), {});
+		expect(html).not.toContain('href="/review');
+		// The change itself is still marked on the row and counted in the header chip.
+		expect(filePage("a.txt", textView(["x"]), { summary: summary([changed()]) })).toContain(
+			'class="bf-tag browse-changes"',
+		);
 	});
 
 	test("drops the octet-stream metadata and escapes the footer path", () => {
@@ -495,7 +495,6 @@ describe("error page", () => {
 			status: 404,
 			message: "That page does not exist.",
 			tree: TREE,
-			scope: "head",
 		});
 		expect(html).toContain("browse · 404");
 		expect(html).toContain('<div class="bf-empty__code">404</div>');
@@ -510,7 +509,6 @@ describe("error page", () => {
 			status: 400,
 			message: '<script>alert("x")</script>',
 			tree: TREE,
-			scope: "head",
 		});
 		expect(html).not.toContain("<script>alert");
 		expect(html).toContain("&lt;script&gt;");
@@ -1178,21 +1176,15 @@ describe("a page served under a prefix", () => {
 		expect(image).toContain('src="/files/raw/sub/i.png"');
 	});
 
-	test("writes the changes chip onto the review page", () => {
+	test("writes the changes chip's count, and no address into another page", () => {
 		const changes = renderChanges(
 			{ count: 2, files: new Set(["a.ts"]), dirs: new Set(), insertions: 3, deletions: 1 },
 			undefined,
-			"head",
 		);
-		expect(changes).toContain('href="/review/new?scope=head"');
 		expect(changes).toContain("2 changes");
-		// The chip's link is the comparison its own list was taken in.
-		const fresh = renderChanges(
-			{ count: 1, files: new Set(["a.ts"]), dirs: new Set(), insertions: 1, deletions: 0 },
-			undefined,
-			"staged",
-		);
-		expect(fresh).toContain('href="/review/new?scope=staged"');
+		expect(changes).toContain("browse-changes__dot");
+		expect(changes).not.toContain("href=");
+		expect(changes).not.toContain("/review");
 	});
 
 	test("writes the error page's way back, and a Markdown link and raw-HTML tag under it", () => {
@@ -1203,7 +1195,6 @@ describe("a page served under a prefix", () => {
 				status: 404,
 				message: "gone",
 				tree: TREE,
-				scope: "head",
 			}),
 		).toContain('href="/files/browse/"');
 		expect(renderMarkdown("[x](docs/x.md)", "", { base: "/files" })).toContain('href="/files/view/docs/x.md"');
