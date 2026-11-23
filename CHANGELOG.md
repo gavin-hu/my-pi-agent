@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-23
+
 ### Added
 
 - `board`: lead mode. Serving the page is the seat — bare `/board` takes it, `/board exit` gives it back — and while
@@ -14,10 +16,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `enter` refuses. Every turn carries one `[LEAD MODE]` line — what is yours to sign, what nobody has taken, who is
   listening — and the bar draws `⏵ lead`. The mode is one value shared with plan mode (`lib/mode-state.ts`), so the
   two cannot both be on; the page keeps serving as the lead's name, so landing is an exit, land, and `/board` again.
-
-## [0.30.0] - 2026-11-23
-
-### Added
 
 - `code-review`: a branch, the index, or the working tree served as a review page at `/review/`, with a
   `code_review` tool (`open`, `status`, `comments`, `close`) and a `/review` command. A comment anchors to
@@ -310,6 +308,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   because its address is that page's.
 
 ### Fixed
+
+- `lib`: a deferred module that is not in the tree now fails once at session start, naming the file that wrote the
+  specifier and where it looked, instead of a tool call failing mid-turn with `Cannot find module` — `plan` and
+  `worktree` check the deferrals their own files write when a session starts (a source read and a few stats, never
+  an import, so registration pays nothing new). A specifier built from a variable is not checked, and a pane older
+  than the move still needs `/reload`.
 
 - `session-bus`: the status listing names what the next call acts on — `· gone` on a record whose process
   stopped, `· not listening` on one that reads its mail at its next turn — where both used to be drawn as
