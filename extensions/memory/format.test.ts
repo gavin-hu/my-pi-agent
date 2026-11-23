@@ -37,12 +37,13 @@ describe("injection body", () => {
 		expect(body).toContain("global:\n- g1");
 	});
 
-	test("caps the body and reports the omitted count", () => {
+	test("caps the body and names the oldest notes it hid", () => {
 		const entries = Array.from({ length: 200 }, (_, index) => `note ${index} ${"x".repeat(40)}`);
 		const body = buildInjection({ project: [], global: notesOf(entries) }, 512);
 		expect(body).toBeDefined();
 		expect(Buffer.byteLength(body ?? "", "utf-8")).toBeLessThanOrEqual(512);
-		expect(body).toMatch(/\(\+\d+ more; call list — the store is past the injection cap\)/);
+		// The tail names the store's oldest notes — the ones a cap always hides first.
+		expect(body).toMatch(/- \(\+\d+ more; oldest: "note 0 /);
 	});
 });
 
@@ -61,9 +62,10 @@ describe("injection plan", () => {
 		const plan = injectionPlan({ project: notesOf(entries.slice(0, 100)), global: notesOf(entries.slice(100)) }, 512);
 		expect(plan?.omitted.project).toBeGreaterThan(0);
 		expect(plan?.omitted.global).toBeGreaterThan(0);
-		// One tail names the total, not one line per scope.
+		// One tail names the total, not one line per scope, and it names the oldest note.
 		const missing = (plan?.omitted.project ?? 0) + (plan?.omitted.global ?? 0);
-		expect(plan?.lines.at(-1)).toBe(`- (+${missing} more; call list — the store is past the injection cap)`);
+		expect(plan?.lines.at(-1)).toMatch(new RegExp(`^- \\(\\+${missing} more; oldest: "`));
+		expect(plan?.lines.filter((line) => line.startsWith("- (")).length).toBe(1);
 	});
 
 	test("keeps the newest notes, counting the oldest as omitted", () => {
@@ -80,6 +82,35 @@ describe("injection plan", () => {
 				.map((entry) => `- ${entry}`),
 		);
 		expect(plan?.omitted.project).toBe(entries.length - kept.length);
+	});
+
+	test("names the oldest note the cap hid, clipped to 28 columns", () => {
+		// 28 because the tail reserve is 96 bytes and the scaffolding spends about 40 of them;
+		// a wider clip would take the whole reserve for one name.
+		const plan = injectionPlan({ project: notesOf(["a".repeat(60), "b".repeat(60)]), global: [] }, 300);
+		expect(plan?.omitted.project).toBe(1);
+		const tail = plan?.lines.at(-1) ?? "";
+		expect(tail).toStartWith('- 1 note not shown: "');
+		// The omitted one is the oldest — `a` — and its opening is clipped: the ellipsis is
+		// counted inside the 28 columns, so 27 characters and the marker fit the width.
+		expect(tail).toContain("a".repeat(27));
+		expect(tail).not.toContain("a".repeat(28));
+		expect(tail).toContain("— call list");
+	});
+
+	test("sanitises a name a person wrote, so the tail stays one line", () => {
+		const plan = injectionPlan({ project: notesOf([`he said "no" and left\nthen came back`]), global: [] }, 200);
+		const tail = plan?.lines.at(-1) ?? "";
+		expect(tail).not.toContain("\n");
+		expect(tail).not.toContain('""');
+		expect(tail).toContain("he said no and left");
+	});
+
+	test("keeps the documented sentence when the cap leaves no room for a name", () => {
+		// Below the 96-byte reserve, which is the only way `space` cannot hold a name; the
+		// page documents this sentence, so a body still ends in exactly it.
+		const plan = injectionPlan({ project: notesOf(["only note"]), global: [] }, 40);
+		expect(plan?.lines.at(-1)).toBe("- (+1 more; call list — the store is past the injection cap)");
 	});
 });
 
