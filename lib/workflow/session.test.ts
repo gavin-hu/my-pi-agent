@@ -11,7 +11,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { tempDir } from "../../test/helpers/env.ts";
+import { tempDir, withEnv } from "../../test/helpers/env.ts";
+import { ENV_ROOT } from "../env.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { billingCard } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -223,6 +224,21 @@ describe("store", () => {
 		const first = await runtime.store("/repo/billing");
 		const second = await runtime.store("/repo/billing");
 		expect(second).toBe(first);
+	});
+
+	test("opens again when the active worktree root moves, so root() follows the environment", async () => {
+		// The shape that broke a live close: the store is opened inside a worktree and keeps that root
+		// for the session's life, while `worktreeRoot()` stops answering the moment the path is gone. The
+		// key is the effective root, not the session cwd — which does not move as a worktree is left.
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-cwd-"));
+		const worktree = temps.track(tempDir("pi-worktree-"));
+		const runtime = runtimeFor(agentDir);
+		const inside = await withEnv({ [ENV_ROOT]: worktree }, () => runtime.store(cwd));
+		expect(inside.root()).toBe(worktree);
+		const back = await withEnv({ [ENV_ROOT]: undefined }, () => runtime.store(cwd));
+		expect(back.root()).toBe(cwd);
+		expect(back).not.toBe(inside);
 	});
 
 	test("asks again after an open that failed, instead of pinning the failure", async () => {
