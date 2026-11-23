@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: `/plan prune`'s report names what a sweep can never remove — the files in a plan store that are
+  not plans, by kind with count and bytes, beside the store's real size, so a bound on plans stops reading
+  as a bound on bytes. A store the pass could not read is counted and named with its reason in the same
+  line, rather than left out of a total that would then read as the store's own size.
+
 - `team`: `/team list` prints who is here as a listing rather than a paragraph — one row per session under
   `live (n)`, `quiet (n)`, `not on the bus (n)` and `gone (n)`, each with the card it holds, and nothing
   elided — where `/team`'s notify folds the same fact into one line and caps the round. Both build it from
