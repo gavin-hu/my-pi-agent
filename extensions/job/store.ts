@@ -12,7 +12,7 @@
  */
 
 import { join, resolve, sep } from "node:path";
-import { REGISTRY_VERSION, loadRegistries, registryDirFor, saveRegistry } from "./registry.ts";
+import { REGISTRY_VERSION, loadRegistries, saveRegistry } from "./registry.ts";
 import { listReservedIds, pruneReservations, releaseReservation, reserveId } from "./reservations.ts";
 import { statusPathFor } from "./paths.ts";
 import type { Job, JobRecord } from "./types.ts";
@@ -48,7 +48,15 @@ export interface JobStore {
 	safeStatusPath(job: JobRecord): string | undefined;
 }
 
-export function createJobStore(initialDir = registryDirFor(process.cwd())): JobStore {
+/**
+ * A store with no directory until its runtime places it.
+ *
+ * The empty default is deliberate: a store that resolved `process.cwd()` here would write into
+ * whatever checkout the process happened to start in — the leak #788 exists to close — and a session
+ * that uses the store before its load has no answer to give. `dir` is set by the runtime's load, and
+ * `start` places it first.
+ */
+export function createJobStore(initialDir = ""): JobStore {
 	let dir = initialDir;
 	let sessionId = "session";
 	let counter = 1;

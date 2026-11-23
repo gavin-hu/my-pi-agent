@@ -121,15 +121,7 @@ export const RESERVED_PATHS: readonly ReservedPath[] = [
 		owner: "package",
 		name: "repos/",
 		holds: "one directory per repository: its board, plans, session-bus, jobs, memory store and worktree registry",
-		written: ["board", "plan", "session-bus", "memory", "worktree"],
-		mode: DIR_MODE,
-	},
-	{
-		home: "agent",
-		owner: "package",
-		name: "jobs/",
-		holds: "a job's registry and its log",
-		written: ["job"],
+		written: ["board", "plan", "session-bus", "job", "memory", "worktree"],
 		mode: DIR_MODE,
 	},
 	{

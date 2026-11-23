@@ -70,7 +70,7 @@ export interface JobsDeps {
 
 export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 	if (!isExtensionEnabled("job")) return;
-	const runtime = deps.runtime ?? createJobsRuntime();
+	const runtime = deps.runtime ?? createJobsRuntime({ pi });
 
 	// Opt-in wake: a `wake` job finished. The reporter reports *all* pending
 	// completions, not just the waking one, so a job that finished earlier is not

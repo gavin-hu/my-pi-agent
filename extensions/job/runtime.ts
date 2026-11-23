@@ -21,92 +21,18 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { KILL_GRACE_MS } from "../../lib/child.ts";
 import { abortableSleep } from "../../lib/timer.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import type { KillTreeFn, SpawnFn } from "../../lib/spawn.ts";
 import { createJobChildren, type JobSeams } from "./child.ts";
 import { createExternalSweep, createRepaintClock } from "./clock.ts";
 import { DEFAULT_CONFIG, loadConfig, type JobsConfig } from "./config.ts";
 import { compareJobs } from "./format.ts";
-import {
-	loadRecords,
-	loadRegistries,
-	registryDirFor,
-	removeLegacyRegistry,
-	removeRegistry,
-	settleGone,
-} from "./registry.ts";
+import { jobsDir, loadRecords, loadRegistries, removeLegacyRegistry, removeRegistry, settleGone } from "./registry.ts";
 import { createOwnership, removeSessionMarker } from "./session.ts";
-import {
-	type Job,
-	type JobRecord,
-	type JobStatus,
-	type KillSignal,
-	type LogResult,
-	type SendOptions,
-	type SendResult,
-	type StartOptions,
-	type WaitResult,
-} from "./types.ts";
+import type { Job, JobRecord, JobStatus, JobsRuntime, RuntimeOptions, StartOptions, WaitResult } from "./types.ts";
 import { createUiController } from "./ui.ts";
 import { createJobStore, type JobStore, toRecord } from "./store.ts";
 import { createWaiters, waitFor } from "./waiters.ts";
 
-export interface RuntimeOptions {
-	spawn?: SpawnFn;
-	liveness?: (pid: number) => boolean;
-	killTree?: KillTreeFn;
-	startToken?: (pid: number) => string | undefined;
-	now?: () => number;
-	/** Platform seam: whether this is Windows. Defaults to the running platform. */
-	isWindows?: () => boolean;
-	/** Fixed config, for tests; production loads it per cwd. */
-	config?: JobsConfig;
-	/** How long to wait before a shutdown's SIGKILL; the grace, injectable so a test need not sleep. */
-	sleep?: (ms: number) => Promise<void>;
-}
-
-export interface JobsRuntime {
-	readonly config: JobsConfig;
-	/** This session's id, so a caller can tell its own records from a peer's. */
-	readonly sessionId: string;
-	/** Effective working directory, honoring an active worktree root. */
-	effectiveCwd(ctx: ExtensionContext): string;
-	/** Load and reconcile the registry, then paint the UI; `ready` is the same work as a handle. */
-	load(ctx: ExtensionContext): Promise<void>;
-	ready(): Promise<void>;
-	start(options: StartOptions, ctx: ExtensionContext): Promise<Job>;
-	list(): JobRecord[];
-	get(id: string): Job | undefined;
-	logs(id: string, lines?: number): LogResult | undefined;
-	/**
-	 * Write to a running job's stdin. Throws a model-readable error when the job is
-	 * gone, was started without `stdin: true`, or belongs to another session.
-	 */
-	send(id: string, options: SendOptions): SendResult;
-	kill(id: string, signal?: KillSignal): Promise<Job | undefined>;
-	wait(
-		id: string,
-		timeoutMs: number | undefined,
-		signal: AbortSignal | undefined,
-		onUpdate?: () => void,
-	): Promise<WaitResult | undefined>;
-	clear(id: string | undefined, all: boolean): { cleared: number; refused?: string };
-	/** Finished, unreported jobs for this session; does not mark them. */
-	pendingCompletions(): JobRecord[];
-	/** Mark jobs as reported to the model. */
-	markReported(ids: Iterable<string>): void;
-	runningCount(): number;
-	/** Publish the footer status chips. */
-	setStatus(ctx: ExtensionContext): void;
-	/** Kill session-owned jobs (unless detached), stop the clock, persist. */
-	shutdown(): Promise<void>;
-	/** Called when a `wake` job finishes; the index triggers one turn. */
-	onFinish?: (job: JobRecord) => void;
-	/**
-	 * Called when any job reaches a terminal state, however it settled. The index bridges
-	 * it to the event bus; the runtime itself never reaches for a listener.
-	 */
-	onComplete?: (job: JobRecord) => void;
-}
+export type { JobsRuntime, RuntimeOptions } from "./types.ts";
 
 export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	/**
@@ -426,6 +352,32 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		},
 	};
 
+	/**
+	 * Each working directory's store, resolved once per runtime.
+	 *
+	 * The identity is a git call and a load happens on every start and reload, so the answer is kept
+	 * — and a failure is not, because a store that could not be opened once is asked again rather
+	 * than filed as a truth.
+	 */
+	const stores = new Map<string, Promise<string>>();
+	function storeDirFor(cwd: string): Promise<string> {
+		const key = `${cwd}\u0000${config.registryDir ?? ""}`;
+		const kept = stores.get(key);
+		if (kept !== undefined) return kept;
+		const pending = jobsDir(cwd, config.registryDir, options.pi).catch((error: unknown) => {
+			stores.delete(key);
+			throw error;
+		});
+		stores.set(key, pending);
+		return pending;
+	}
+
+	/** Give the store its directory, once per working directory. */
+	async function placeStore(ctx: ExtensionContext): Promise<void> {
+		if (store().directory() !== "") return;
+		store().setDirectory(await storeDirFor(ctx.cwd));
+	}
+
 	async function loadRegistry(ctx: ExtensionContext): Promise<void> {
 		// The first path that asks whether a recorded pid is alive, and the only one needing `child_process`.
 		await openSeam();
@@ -443,7 +395,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		// out from under the records already collected here. Jobs still run in the
 		// effective root (`start` uses `effectiveCwd`).
 		config = options.config ?? loadConfig(ctx.cwd);
-		store().setDirectory(registryDirFor(ctx.cwd, config.registryDir));
+		store().setDirectory(await storeDirFor(ctx.cwd));
 		sessionId = ctx.sessionManager.getSessionId();
 		store().setSession(sessionId);
 		ui.attach(ctx);
@@ -487,6 +439,12 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	async function start(startOptions: StartOptions, ctx: ExtensionContext): Promise<Job> {
 		if (!config.enabled) throw new Error("jobs are disabled.");
 		ui.attach(ctx);
+		// A start that races the load waits for it: the load owns the table and the completion
+		// listeners, and a job started beside it would be cleared by the load that lands after. Then
+		// the store needs a directory — its default is empty, so a session that starts before any load
+		// takes the one its own working directory names rather than the process's.
+		await loading;
+		await placeStore(ctx);
 		const cwd = startOptions.cwd ? startOptions.cwd : effectiveCwd(ctx);
 		// A start before the registry load still needs the seam; open it rather than refusing.
 		await openSeam();

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { repoKeyOf } from "../../lib/repo-key.ts";
 import { projectKey } from "./registry.ts";
 import { listReservedIds } from "./reservations.ts";
 import { LOG_ENV } from "./status.ts";
@@ -359,7 +360,11 @@ describe("job runtime — detached output and registry root", () => {
 		expect(h.children[0].unrefed).toBe(false);
 	});
 
-	test("anchors the registry to the session cwd, not a worktree root set later", async () => {
+	test("files under repos/, following the same effective root every other store uses", async () => {
+		// The store's name is the repository's identity now, not a project key derived from the
+		// session's cwd — so a worktree session files with the effective root, exactly as the board,
+		// the plans, the bus and the memory store do, and nothing is ever written at the flat
+		// spelling the storage table no longer reserves.
 		await withAgentDir(async (agentDir) => {
 			const worktree = temps.track(tempDir("pi-jobs-wt-"));
 			const h = suite.makeHarness({ config: { registryDir: undefined } });
@@ -368,7 +373,8 @@ describe("job runtime — detached output and registry root", () => {
 				await h.runtime.load(ctx);
 				await h.runtime.start({ command: "sleep 1" }, ctx);
 			});
-			expect(existsSync(join(agentDir, "jobs", projectKey("/repo/main")))).toBe(true);
+			expect(existsSync(join(agentDir, "repos", `local-${repoKeyOf(worktree)}`, "jobs"))).toBe(true);
+			expect(existsSync(join(agentDir, "jobs", projectKey("/repo/main")))).toBe(false);
 			expect(existsSync(join(agentDir, "jobs", projectKey(worktree)))).toBe(false);
 		});
 	});
