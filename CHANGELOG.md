@@ -11,7 +11,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `~/.pi/agent/jobs/<project>/` is taken across once, on the first read. Two consequences worth knowing: a
   session in a worktree shares its repository's store rather than keeping a per-checkout one, and a session
   in a directory with no repository identity files under `repos/local-<pathKey>/jobs/` rather than at the
-  flat spelling. `job.registryDir` still wins where a person sets it.
+  flat spelling — there is no git to ask there, so that key is the directory's rather than the
+  repository's, which is the one difference between the two ways to the same layout. `job.registryDir`
+  still wins where a person sets it.
 
 - `board`: a card moving into `execute` claims the paths nobody else holds and names the ones a peer has, where one held path
   used to void the whole batch — so a card ran in `execute` with every other file unprotected, and the only record was a
