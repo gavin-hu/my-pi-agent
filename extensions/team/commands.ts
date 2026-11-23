@@ -7,6 +7,10 @@
  * reads the cards and the bus's records and writes nothing: acting on the round is
  * `team`'s tool (`assign`, `offer`, `ask`) or `board`'s own verbs.
  *
+ * `/team list` is the presence line on its own: one row per session and nothing elided, which is
+ * the shape of the question a paragraph answers badly. Both print one grouping — `whoIsHere` —
+ * so the round's last line and the listing cannot disagree about who is here.
+ *
  * `/team join` lives here too, and stays in this module: the entry's registration budget counts the
  * modules it loads, so a door of its own would cost a start for one command's words.
  */
@@ -27,14 +31,15 @@ import { formatJoined, formatNotJoined, joinNote } from "./format.ts";
 export const TEAM_COMMAND = "team";
 
 /** The words the command accepts besides the round itself. */
-export const TEAM_WORDS = ["join"] as const;
+export const TEAM_WORDS = ["join", "list"] as const;
 
 /**
  * How many of the round's own lines print before it says how many it left out.
  *
  * The work a dead owner left behind and the presence line print on top of it: those are the
  * reason a lead reads the round, and cutting them to hold a number would be the wrong trade.
- * The elision counts the rollup alone, so "… N more" is a count a reader can act on.
+ * The elision counts the rollup alone, so "… N more" is a count a reader can act on. The
+ * presence line is the one part of the round a reader can ask for whole: that is `/team list`.
  */
 export const MAX_ROUND_LINES = 10;
 
@@ -43,7 +48,7 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 	pi.registerCommand(TEAM_COMMAND, {
 		// The line and the guideline are the same sentence: `/team` is where a lead reads the round, and
 		// `lib/workflow/round-text.ts` owns what it is called.
-		description: `${LEAD_ROUND} \`/team join [<label>]\` joins the team`,
+		description: `${LEAD_ROUND} \`/team list\` names who is here; \`/team join [<label>]\` joins the team`,
 		getArgumentCompletions: (prefix: string) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
@@ -73,19 +78,20 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 				);
 				return;
 			}
-			if (word !== "") {
+			if (word !== "" && word !== "list") {
 				ctx.ui.notify(
-					`team: "${word}" is not a word this command knows — try /team, or /team join [<label>]`,
+					`team: "${word}" is not a word this command knows — try /team, /team list, or /team join [<label>]`,
 					"warning",
 				);
 				return;
 			}
+			// One read serves both words: the round needs the cards and the roster, and so does the
+			// listing — only what each prints differs. The roster is read as data, so a repository
+			// with no bus prints the round and says nothing about who is here rather than failing.
 			const store = await session.store(ctx.cwd);
-			const cards = await store.list();
-			// The roster is read as data, so a repository with no bus prints the round and
-			// says nothing about who is here rather than failing.
-			const roster = await session.roster(ctx.cwd);
-			ctx.ui.notify(roundText(cards, session.now(), roster), "info");
+			const [cards, roster] = await Promise.all([store.list(), session.roster(ctx.cwd)]);
+			const now = session.now();
+			ctx.ui.notify(word === "list" ? listText(cards, now, roster) : roundText(cards, now, roster), "info");
 		},
 	});
 }
@@ -164,9 +170,41 @@ export function roundText(cards: readonly Card[], now: number, roster?: readonly
 	const shown = lines.slice(0, MAX_ROUND_LINES);
 	if (lines.length > MAX_ROUND_LINES) shown.push(`… ${plural(lines.length - MAX_ROUND_LINES, "line")} more`);
 	for (const line of stalledLines(named, roster, now)) shown.push(line);
-	const who = presenceLine(roster, now, round);
+	// The presence line is the tail a reader can ask for whole as `/team list`, so the two build it
+	// from one grouping: `presenceGroups` is the only place this module asks `rosterStateOf`.
+	const who =
+		roster === undefined || roster.length === 0 ? undefined : presenceLine(presenceGroups(round, roster, now));
 	if (who !== undefined) shown.push(who);
 	return shown.join("\n");
+}
+
+/**
+ * `/team list`: the same grouping, one row per session, uncapped.
+ *
+ * `/team` is a notify, so its presence line is one paragraph and the round's cap decides what a
+ * reader sees. This answers the question a paragraph answers badly — who is here, and what each is
+ * holding — so no line is elided and every state prints, `- none` included: a group a reader has to
+ * infer from its absence is the one that gets forgotten.
+ */
+export function listText(cards: readonly Card[], now: number, roster?: readonly RosterSession[]): string {
+	// A bus directory that does not exist is a fact, not an empty board: nobody has joined, so there
+	// is nobody to list, and a word that printed nothing would look broken.
+	if (roster === undefined) return "team: no session bus on this repository — nobody has joined";
+	const here = whoIsHere(cards, now, roster);
+	return [
+		`team: ${plural(roster.length, "session")} on the bus`,
+		...section("live", here.live),
+		...section("quiet", here.quiet),
+		...section("not on the bus", here.absent),
+		...section("gone", here.gone),
+	].join("\n");
+}
+
+/** One state's rows: its head counts, and an empty group says so rather than vanishing. */
+function section(label: string, rows: readonly PresenceRow[]): string[] {
+	const head = `${label} (${rows.length})`;
+	if (rows.length === 0) return [head, "- none"];
+	return [head, ...rows.map((row) => `- ${row.line}${row.silent ? " · not listening" : ""}`)];
 }
 
 /**
@@ -199,9 +237,68 @@ function stalledLines(cards: readonly Card[], roster: readonly RosterSession[] |
 	});
 }
 
+/** One session as both listings print it. */
+export interface PresenceRow {
+	label: string;
+	/** `billing-core — #4 execute`, from `holdingLine`: the phrase both words print. */
+	line: string;
+	/** Its record says `watching.armed === false`, so mail waits for its next turn. */
+	silent: boolean;
+}
+
+/** Who is here, grouped by what a lead does about it. */
+export interface WhoIsHere {
+	live: PresenceRow[];
+	quiet: PresenceRow[];
+	gone: PresenceRow[];
+	/** Owners the board names, the bus has no record of, holding live cards. */
+	absent: PresenceRow[];
+}
+
 /**
- * `live: a — #2 execute · not listening: b · quiet: c — idle · gone: d — #4 plan`, or
- * nothing when nobody is here.
+ * Who is here, from the round and the bus: the one grouping both words print.
+ *
+ * The owner groups are where the board already decided which label a card belongs to, so a
+ * session's holding is the one its rollup line counted. `rosterStateOf` is asked here and nowhere
+ * else in this module, so the paragraph and the listing cannot read one record two ways.
+ */
+function presenceGroups(round: RoundSummary, roster: readonly RosterSession[], now: number): WhoIsHere {
+	const held = new Map(round.owners.map((group) => [labelKey(group.label), group.cards] as const));
+	const row = (label: string, silent = false): PresenceRow => ({
+		label,
+		line: holdingLine(label, held.get(labelKey(label)) ?? []),
+		silent,
+	});
+	const here: WhoIsHere = { live: [], quiet: [], gone: [], absent: [] };
+	const recorded = new Set(roster.map((record) => labelKey(record.label)));
+	for (const record of roster) {
+		const state = rosterStateOf(record, now);
+		if (state === "gone") here.gone.push(row(record.label));
+		else if (state === "live") here.live.push(row(record.label, record.watching?.armed === false));
+		else here.quiet.push(row(record.label));
+	}
+	// The owners the bus holds no record of, as the board knows them: only the ones holding work are
+	// worth a row, because an owner holding nothing is history and `formatRound` folds it.
+	here.absent = round.owners
+		.filter((group) => group.cards.length > 0 && !recorded.has(labelKey(group.label)))
+		.map((group) => row(group.label));
+	return here;
+}
+
+/**
+ * The same grouping, from the cards alone: the door `/team list` and this module's suite read.
+ *
+ * One body with {@link presenceGroups}, so a case that compares the two surfaces against it is
+ * comparing both to the grouping they actually print rather than to a restatement of its names.
+ */
+export function whoIsHere(cards: readonly Card[], now: number, roster: readonly RosterSession[]): WhoIsHere {
+	const named = cards.map((card) => withLiveOwner(card, roster));
+	return presenceGroups(buildRound(named, now), roster, now);
+}
+
+/**
+ * The sentence `/team` appends: `live: a — #2 execute · not listening: b · quiet: c — idle ·
+ * gone: d — #4 plan`, or nothing when nobody is here.
  *
  * Every state group names the session with what it is holding, from
  * `lib/workflow/round-text.ts`'s one phrase, so a line that says who is around also says what
@@ -219,45 +316,14 @@ function stalledLines(cards: readonly Card[], roster: readonly RosterSession[] |
  * page draws as `absent`. A session that never joined looks the same, so it states the fact
  * and offers no verb.
  */
-function presenceLine(
-	roster: readonly RosterSession[] | undefined,
-	now: number,
-	round: RoundSummary,
-): string | undefined {
-	if (roster === undefined || roster.length === 0) return undefined;
-	// The owner groups are where the board already decided which label a card belongs to, so
-	// the holding a session prints is the one its rollup line counted.
-	const held = new Map(round.owners.map((group) => [labelKey(group.label), group.cards] as const));
-	const session = (label: string): string => holdingLine(label, held.get(labelKey(label)) ?? []);
-	const live: string[] = [];
-	const quiet: string[] = [];
-	const dead: string[] = [];
-	const silent: string[] = [];
-	const recorded = new Set(roster.map((record) => labelKey(record.label)));
-	for (const record of roster) {
-		const state = rosterStateOf(record, now);
-		if (state === "gone") {
-			dead.push(session(record.label));
-			continue;
-		}
-		if (state !== "live") {
-			quiet.push(session(record.label));
-			continue;
-		}
-		live.push(session(record.label));
-		if (record.watching?.armed === false) silent.push(record.label);
-	}
-	// The owners the bus holds no record of, as the board knows them: only the ones holding work are
-	// worth a row, because an owner holding nothing is history and `formatRound` folds it.
-	const unrecorded = round.owners
-		.filter((group) => group.cards.length > 0 && !recorded.has(labelKey(group.label)))
-		.map((group) => holdingLine(group.label, group.cards));
+function presenceLine(here: WhoIsHere): string | undefined {
+	const silent = here.live.filter((row) => row.silent).map((row) => row.label);
 	const parts = [
-		live.length > 0 ? `live: ${live.join(", ")}` : "",
+		here.live.length > 0 ? `live: ${here.live.map((row) => row.line).join(", ")}` : "",
 		silent.length > 0 ? `not listening: ${silent.join(", ")}` : "",
-		quiet.length > 0 ? `quiet: ${quiet.join(", ")}` : "",
-		unrecorded.length > 0 ? `not on the bus: ${unrecorded.join(", ")}` : "",
-		dead.length > 0 ? `gone: ${dead.join(", ")}` : "",
+		here.quiet.length > 0 ? `quiet: ${here.quiet.map((row) => row.line).join(", ")}` : "",
+		here.absent.length > 0 ? `not on the bus: ${here.absent.map((row) => row.line).join(", ")}` : "",
+		here.gone.length > 0 ? `gone: ${here.gone.map((row) => row.line).join(", ")}` : "",
 	];
 	return parts.filter((part) => part !== "").join(" · ");
 }

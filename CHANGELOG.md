@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team`: `/team list` prints who is here as a listing rather than a paragraph — one row per session under
+  `live (n)`, `quiet (n)`, `not on the bus (n)` and `gone (n)`, each with the card it holds, and nothing
+  elided — where `/team`'s notify folds the same fact into one line and caps the round. Both build it from
+  one grouping (`whoIsHere`), so the paragraph and the listing cannot disagree; an empty group is drawn as
+  `- none`, a session on the bus that is not armed carries `· not listening` on its own row, and a
+  repository with no `session-bus` directory says so in a sentence instead of printing an empty team.
+
 - `board`, `plan`, `session-bus`, `memory` and `worktree`: a repository's own state now lives in one
   directory — `~/.pi/agent/repos/<repo-id>/`, keyed by the identity its remote gives it — so pointing a
   sync client at `~/.pi/agent/repos/` is enough for this machine and another one to read the same board,

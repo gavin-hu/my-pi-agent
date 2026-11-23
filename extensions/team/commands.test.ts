@@ -13,7 +13,15 @@ import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
-import { MAX_ROUND_LINES, registerCommands, roundText, TEAM_COMMAND } from "./commands.ts";
+import {
+	listText,
+	MAX_ROUND_LINES,
+	type PresenceRow,
+	registerCommands,
+	roundText,
+	TEAM_COMMAND,
+	whoIsHere,
+} from "./commands.ts";
 import { LEAD_ROUND } from "../../lib/workflow/round-text.ts";
 
 const temps = makeTempTracker();
@@ -32,6 +40,24 @@ function mate(label: string, lastSeen: number): RosterSession {
 /** A record whose process is gone: no host runs a pid that high. */
 function dead(label: string): RosterSession {
 	return { ...mate(label, NOW - 60_000), pid: 999_999_999 };
+}
+
+/** The `- ` rows under one section head, and nothing when the section is not there. */
+function rowsOf(listing: string, label: string): string[] {
+	const lines = listing.split("\n");
+	const at = lines.findIndex((line) => line.startsWith(`${label} (`));
+	if (at < 0) return [];
+	const rows: string[] = [];
+	for (const line of lines.slice(at + 1)) {
+		if (!line.startsWith("- ")) break;
+		rows.push(line);
+	}
+	return rows;
+}
+
+/** The rows a group prints, as the listing spells them. */
+function rowLines(group: readonly PresenceRow[]): string[] {
+	return group.map((row) => `- ${row.line}${row.silent ? " · not listening" : ""}`);
 }
 
 describe("roundText", () => {
@@ -174,6 +200,119 @@ describe("roundText", () => {
 	});
 });
 
+describe("listText", () => {
+	test("is one sentence when the repository has no bus at all", () => {
+		expect(listText([card("1")], NOW)).toBe("team: no session bus on this repository — nobody has joined");
+	});
+
+	test("prints a row per session, grouped, with a zero group drawn rather than left out", () => {
+		const cards = [
+			card("1", { lane: "execute", owner: { label: "billing-core" }, updatedAt: NOW - 2 * 60_000 }),
+			card("2", { lane: "blocked", owner: { label: "billing-core" } }),
+			card("3", { lane: "execute", owner: { label: "ops-core" }, updatedAt: NOW - 2 * 60_000 }),
+			card("4", { lane: "plan", owner: { label: "nobody-home" } }),
+			card("5"),
+		];
+		const roster = [mate("billing-lead", NOW), dead("billing-core"), mate("ops-core", NOW - 20 * 60_000)];
+		expect(listText(cards, NOW, roster).split("\n")).toEqual([
+			"team: 3 sessions on the bus",
+			"live (1)",
+			"- billing-lead — idle",
+			"quiet (1)",
+			"- ops-core — #3 execute",
+			"not on the bus (1)",
+			"- nobody-home — #4 plan",
+			"gone (1)",
+			"- billing-core — #1 execute +1",
+		]);
+	});
+
+	test("draws an empty group, so a missing state is not read as a clean team", () => {
+		expect(listText([], NOW, [mate("billing-lead", NOW)]).split("\n")).toEqual([
+			"team: 1 session on the bus",
+			"live (1)",
+			"- billing-lead — idle",
+			"quiet (0)",
+			"- none",
+			"not on the bus (0)",
+			"- none",
+			"gone (0)",
+			"- none",
+		]);
+	});
+
+	test("flags a peer that is not listening on its own row, and prints it once", () => {
+		const roster = [
+			mate("billing-lead", NOW),
+			{
+				id: "s-core",
+				label: "billing-core",
+				mode: "tui",
+				lastSeen: NOW,
+				mail: 0,
+				watching: { armed: false, wake: false },
+			},
+		];
+		const cards = [card("1", { lane: "execute", owner: { label: "billing-core" } })];
+		const listing = listText(cards, NOW, roster);
+		expect(rowsOf(listing, "live")).toEqual(["- billing-lead — idle", "- billing-core — #1 execute · not listening"]);
+		// The paragraph names a silent peer twice by design — under `live:` and under `not listening:` — but
+		// one row per session cannot: the flag rides the row that already names it.
+		expect(listing.split("\n").filter((line) => line.includes("billing-core"))).toHaveLength(1);
+	});
+
+	test("names an owner the bus has no record of, which the roster cannot answer", () => {
+		// The group that regresses the first time somebody simplifies the read to the roster alone:
+		// these owners come from `round.owners`, a session holding cards the bus has never heard of.
+		const cards = [card("2", { lane: "plan", owner: { label: "nobody-home" } })];
+		const listing = listText(cards, NOW, [mate("billing-lead", NOW)]);
+		expect(rowsOf(listing, "not on the bus")).toEqual(["- nobody-home — #2 plan"]);
+	});
+
+	test("elides nothing, however long the team", () => {
+		const roster = Array.from({ length: 30 }, (_, index) => mate(`session-${index}`, NOW));
+		const listing = listText([], NOW, roster);
+		expect(rowsOf(listing, "live")).toHaveLength(30);
+		// The word exists because `/team`'s notify cannot say this: no cap, and no "… N more".
+		expect(listing.split("\n").some((line) => line.endsWith("more"))).toBe(false);
+	});
+
+	test("reads the grouping the round's paragraph reads, so the two cannot disagree", () => {
+		// The assertion is against the grouping itself — `whoIsHere` — not a restatement of its group
+		// names: a change to one surface that stops reading it fails the other's rows here.
+		const cards = [
+			card("1", { lane: "execute", owner: { label: "billing-core" }, updatedAt: NOW - 2 * 60_000 }),
+			card("2", { lane: "blocked", owner: { label: "billing-core" } }),
+			card("3", { lane: "execute", owner: { label: "ops-core" }, updatedAt: NOW - 2 * 60_000 }),
+			card("4", { lane: "plan", owner: { label: "nobody-home" } }),
+			card("5", { lane: "execute", owner: { label: "ops-helper" }, updatedAt: NOW - 2 * 60_000 }),
+		];
+		const roster = [
+			mate("billing-lead", NOW),
+			{
+				id: "s-helper",
+				label: "ops-helper",
+				mode: "tui",
+				lastSeen: NOW,
+				mail: 0,
+				watching: { armed: false, wake: false },
+			},
+			mate("ops-core", NOW - 20 * 60_000),
+			dead("billing-core"),
+		];
+		const here = whoIsHere(cards, NOW, roster);
+		const listing = listText(cards, NOW, roster);
+		expect(rowsOf(listing, "live")).toEqual(rowLines(here.live));
+		expect(rowsOf(listing, "quiet")).toEqual(rowLines(here.quiet));
+		expect(rowsOf(listing, "not on the bus")).toEqual(rowLines(here.absent));
+		expect(rowsOf(listing, "gone")).toEqual(rowLines(here.gone));
+		const paragraph = roundText(cards, NOW, roster).split("\n").at(-1) ?? "";
+		for (const row of [...here.live, ...here.quiet, ...here.absent, ...here.gone]) {
+			expect(paragraph).toContain(row.line);
+		}
+	});
+});
+
 describe("the command", () => {
 	test("is registered under its own name, and prints the board it reads", async () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
@@ -190,6 +329,18 @@ describe("the command", () => {
 		await command.handler("", ctx);
 		expect(notifications.at(-1)).toBe("team: nothing to report — the board is empty");
 	});
+	test("prints the listing, which says so when this repository has no bus", async () => {
+		const board = boardHarness({ now: NOW, track: temps.track });
+		const fake = createFakePi();
+		registerCommands(fake.pi, board.runtime);
+		const command = fake.commands.get(TEAM_COMMAND);
+		if (!command) throw new Error("the team command was not registered");
+		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+		await command.handler("list", ctx);
+		// The word reads the same store and roster the round does, through the shipped readers: a
+		// harness with no bus directory is the fact the word must state rather than a failure.
+		expect(notifications.at(-1)).toBe("team: no session bus on this repository — nobody has joined");
+	});
 });
 
 describe("its words", () => {
@@ -201,16 +352,17 @@ describe("its words", () => {
 		if (!command) throw new Error("the team command was not registered");
 		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 		await command.handler("leave", ctx);
-		expect(notifications.at(-1)).toContain("try /team, or /team join [<label>]");
+		expect(notifications.at(-1)).toContain("try /team, /team list, or /team join [<label>]");
 	});
 
-	test("completes join, and stops once an argument starts", () => {
+	test("completes join and list, and stops once an argument starts", () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
 		const fake = createFakePi();
 		registerCommands(fake.pi, board.runtime);
 		const command = fake.commands.get(TEAM_COMMAND);
 		if (!command) throw new Error("the team command was not registered");
 		expect(command.getArgumentCompletions?.("j")).toEqual([{ value: "join", label: "join" }]);
+		expect(command.getArgumentCompletions?.("l")).toEqual([{ value: "list", label: "list" }]);
 		expect(command.getArgumentCompletions?.("join ")).toBeNull();
 		expect(command.getArgumentCompletions?.("x")).toBeNull();
 	});
