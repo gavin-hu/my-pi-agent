@@ -34,18 +34,28 @@ import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 export const BOARD_COMMAND = "board";
 
 /** The words the command accepts, in the order a user is likely to want them. */
-const BOARD_WORDS = ["archive", "approve", "review", "status", "stop", "team"] as const;
+const BOARD_WORDS = ["archive", "approve", "exit", "review", "status", "stop", "team"] as const;
+
+/**
+ * The seat's two moves, as the command needs them: taking it when the page it just
+ * served is this session's own, and leaving it. Both live in `index.ts`, which is
+ * where the runtime is loaded on first use — the command stays a parser.
+ */
+export interface LeadDoor {
+	enter(ctx: ExtensionCommandContext): Promise<void>;
+	exit(ctx: ExtensionCommandContext): Promise<boolean>;
+}
 
 export function registerCommands(
 	pi: ExtensionAPI,
 	session: BoardSession,
 	page: BoardPage,
-	deps: { team?: TeamJoin; notify?: Deliver; verify?: VerifyRun } = {},
+	deps: { team?: TeamJoin; notify?: Deliver; verify?: VerifyRun; lead?: LeadDoor } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, sign its two gates as the lead, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+			"Open the shared board in a local browser, sign its two gates as the lead, take the lead's seat, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | exit | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
@@ -127,6 +137,16 @@ export function registerCommands(
 				ctx.ui.notify(stopped ? "board: stopped" : "board: not running", "info");
 				return;
 			}
+			if (word === "exit") {
+				// Leaving the seat is the page's neighbour, not its opposite: the server keeps
+				// running and the round keeps arriving, because `/board` again is one keystroke.
+				const left = deps.lead === undefined ? false : await deps.lead.exit(ctx);
+				ctx.ui.notify(
+					left ? "board: lead mode off — every tool is back; the page is still serving" : "board: lead mode is not on",
+					"info",
+				);
+				return;
+			}
 			if (word !== "" && word !== "team") {
 				ctx.ui.notify(`board: "${word}" is not a word this command knows — try ${wordHelp()}`, "warning");
 				return;
@@ -152,6 +172,13 @@ export function registerCommands(
 					: `board: ${started.seat} serving ${started.repo} on :${started.port} · open ${started.url}${teamLine(joined)}`,
 				"info",
 			);
+			// Serving the page is the seat: the page answers under this session's name, so
+			// the pane takes the mode the name already implies. An `attached` start stands
+			// the session down — someone else's page is serving — and changes no tool.
+			if (started.kind === "served" && deps.lead !== undefined) {
+				await deps.lead.enter(ctx);
+				ctx.ui.notify("lead mode on: sign and dispatch; /board exit to write.", "info");
+			}
 		},
 	});
 }

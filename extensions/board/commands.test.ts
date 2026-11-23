@@ -253,7 +253,7 @@ describe("/board", () => {
 	test("warns about a word it does not know, and lists the ones it does", async () => {
 		const { calls, notifications } = await run("scrub");
 		expect(calls).toEqual([]);
-		expect(notifications.at(-1)).toContain("try /board archive, /board approve <id>, /board review <id>");
+		expect(notifications.at(-1)).toContain("try /board archive, /board approve <id>, /board exit, /board review <id>");
 	});
 
 	test("completes only the words it has, whatever case it is typed in", async () => {
@@ -280,7 +280,7 @@ describe("/board", () => {
 		// lead's session is for: a description that offers a peer the sign contradicts the gate.
 		expect(description).toContain("sign its two gates as the lead");
 		expect(description).toContain(
-			"/board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+			"/board [archive [--older-than <age>] | team | status | stop | exit | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		);
 	});
 });

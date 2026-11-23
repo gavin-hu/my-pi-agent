@@ -21,6 +21,7 @@ import { TEAM_DESCRIPTION, TEAM_GUIDELINES, TEAM_SNIPPET } from "../extensions/t
 import { LEAD_ROUND } from "../lib/workflow/round-text.ts";
 import { TeamParams } from "../extensions/team/schema.ts";
 import { buildBoardContext, MAX_CONTEXT_CHARS, MAX_CONTEXT_CARDS } from "../extensions/board/context.ts";
+import { buildLeadContext, LEAD_CONTEXT_MARKER, MAX_LEAD_CHARS, MAX_LEAD_LINES } from "../extensions/board/context.ts";
 import { numberedCard } from "./helpers/fixtures/board.ts";
 import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
 import { planModeContext, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
@@ -248,6 +249,20 @@ describe("the board tool surface", () => {
 			expect(guideline.endsWith(".")).toBe(true);
 			expect(guideline.length).toBeLessThanOrEqual(170);
 		}
+	});
+
+	test("the seat's line stays inside its own ceiling, every turn", () => {
+		// Paid on every turn while the seat is held, so the ceiling is the price of the mode: the
+		// literals are here as well as in the constant, so lowering the constant cannot lower the
+		// budget the mode is held to.
+		const many = Array.from({ length: 40 }, (_, index) => `#${100 + index}`);
+		const line = buildLeadContext({ approve: many, review: many, unclaimed: many, peers: many });
+		expect(MAX_LEAD_CHARS).toBe(480);
+		expect(MAX_LEAD_LINES).toBe(6);
+		expect(line.length).toBeLessThanOrEqual(480);
+		expect(line.split("\n").length).toBeLessThanOrEqual(6);
+		expect(line.startsWith(LEAD_CONTEXT_MARKER)).toBe(true);
+		expect(line).toContain("/board exit");
 	});
 
 	test("the first-turn line stays inside its own ceiling", () => {

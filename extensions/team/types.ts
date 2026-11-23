@@ -23,7 +23,7 @@ import type { DeliveryFailure } from "../../lib/session-tool.ts";
 import { memberOf } from "../../lib/json.ts";
 
 /** The tool's name. `board` owns the cards; `team` owns the round. */
-export const TEAM_TOOL = "team";
+export { TEAM_TOOL } from "../../lib/tool-names.ts";
 
 /** The three actions that reach another session: hand a card out, offer one, ask a question. */
 export const TEAM_ACTIONS = ["assign", "offer", "ask"] as const;
