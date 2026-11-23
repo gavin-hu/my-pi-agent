@@ -150,11 +150,12 @@ describe("bytefly panel probing", () => {
 	});
 
 	test("shows a runtime toggle failure in the frame", async () => {
+		// Project is the scope the screen opens on, so the store that refuses is its own.
 		const store = makeStore({ global: { extensions: [] } });
 		store.failFlush(new Error("settings locked"));
 		const built = makeDiscovery({
 			extensions: [pathRow("/agent/extensions/one.ts")],
-			globalStore: store,
+			projectStore: store,
 		}).discovery;
 		const { pi, commands } = makeFakePi();
 		registerPanel(pi, {

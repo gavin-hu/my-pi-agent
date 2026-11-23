@@ -9,7 +9,7 @@
  * The catalogue is the shortlist a session changes, not the whole document: every
  * row is one a workflow differs on, and each states its own rule so a value the
  * screen accepts is a value the loader keeps. The catalogue order is the screen's
- * order, and it is capped — sixteen rows and their six headings want a 30-row
+ * order, and it is capped — seventeen rows and their six headings want a 30-row
  * terminal, and a shorter one scrolls the list rather than the frame
  * (`settings.test.ts` holds the ceiling); a new row has to displace one. Everything else stays
  * `bytefly.json` — a list (`doctor.skip`), a table (`price.rates`), a schedule
@@ -119,6 +119,11 @@ export interface SettingView extends SettingDescriptor {
 	/** The display label for {@link value}. */
 	valueLabel: string;
 	origin: SettingOrigin;
+	/**
+	 * This scope cannot write the row: an app row is Pi's personal file only. Project
+	 * states it, refuses the write, and draws it as a row to read rather than churn.
+	 */
+	readOnly: boolean;
 }
 
 /** The two config documents and the personal settings a render reads. */
@@ -138,9 +143,12 @@ const ON_OFF: readonly SettingOption[] = [
 /**
  * The catalogue, in screen order.
  *
- * Global scope lists all sixteen; Project lists the fourteen `bytefly.json` rows,
- * because Pi's setters write the personal `settings.json` only. The list is
- * capped, and the cap with its reason is stated where the screen's height is.
+ * Every scope lists all seventeen rows: the screen is the catalogue, and hiding a
+ * row from a scope is how a reader loses the way to reach it. The two app rows
+ * keep Pi's personal file whatever the write scope, so `settings-runtime.ts`
+ * refuses a Project write to them and the screen draws them disabled instead. The
+ * list is capped, and the cap with its reason is stated where the screen's height
+ * is.
  */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
@@ -371,14 +379,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 export const UNTRUSTED_SETTINGS_NOTE = "Project is not trusted; settings can only be changed in Global scope.";
 
 /**
- * The rows a scope can write: app rows are personal-file only, and Project shows
- * the rows backed by `bytefly.json` — whichever extension owns the section.
- */
-export function rowsForScope(scope: WriteScope): readonly SettingDescriptor[] {
-	return scope === "global" ? SETTING_ROWS : SETTING_ROWS.filter((row) => row.config !== undefined);
-}
-
-/**
  * Why a text row cannot store `raw`, or `undefined` when it can.
  *
  * The limits are the loaders' own (the budget is clamped to `MAX_BUDGET`) so the
@@ -535,10 +535,10 @@ function byteflyValue(
 
 /** Build the rows for `scope` from a snapshot. */
 export function settingViews(snapshot: SettingsSnapshot, scope: WriteScope): SettingView[] {
-	return rowsForScope(scope).map((row) => {
+	return SETTING_ROWS.map((row) => {
 		const options = row.id === "theme" ? themeOptions(snapshot.themes) : row.options;
 		const { value, origin } = row.source === "app" ? appValue(snapshot, row) : byteflyValue(snapshot, row, scope);
-		const view = { ...row, options, value };
+		const view = { ...row, options, value, readOnly: row.source === "app" && scope !== "global" };
 		const valueLabel = row.id === "price.budget" ? budgetLabel(value, snapshot, scope) : labelFor(view, value);
 		return { ...view, valueLabel, origin };
 	});

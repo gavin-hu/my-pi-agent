@@ -19,7 +19,7 @@ import {
 } from "../../../test/helpers/fixtures/settings.ts";
 import type { PanelRow } from "./types.ts";
 import { resourceRow, verdictColumn } from "./tui/list-view.ts";
-import { editHints, projectNote, settingLabelColumn, settingRow } from "./tui/settings-view.ts";
+import { editHints, settingLabelColumn, settingRow } from "./tui/settings-view.ts";
 import { sideRows } from "./tui/side-pane.ts";
 
 const PATHS = { scope: "global" as const, cwd: "/proj", agentDir: "/agent" };
@@ -287,10 +287,6 @@ describe("the settings row", () => {
 		expect(line).toContain("Session budget");
 		expect(line).toContain("▏");
 		expect(visibleWidth(line)).toBeLessThanOrEqual(40);
-	});
-
-	test("notes that app settings are Global only", () => {
-		expect(projectNote(fakeTheme, 80)).toContain("App settings are Global only.");
 	});
 
 	test("names the editor's keys", () => {

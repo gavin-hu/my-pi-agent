@@ -81,12 +81,16 @@ export function sectionCounts(source: ViewSource): Record<PanelSection, number> 
  * pad their body to it, which is what keeps the dock from resizing when the tabs
  * change. Counted through `groupedEntryCount`, so measuring Skills never reads a
  * `SKILL.md`.
+ *
+ * The Project scope's note above the Settings list is a body row of its own, so a
+ * body sized from the entries alone would scroll a catalogue that fits.
  */
 export function tallestBody(source: ViewSource): number {
 	const lists = (["extensions", "skills"] as const).map((kind) =>
 		groupedEntryCount(source.items(kind), source.agentDir, kind),
 	);
-	const settings = settingEntries(source.settings.views(source.scope)).length;
+	const note = source.scope === "project" ? 1 : 0;
+	const settings = settingEntries(source.settings.views(source.scope)).length + note;
 	return Math.max(1, ...lists, settings);
 }
 

@@ -102,7 +102,10 @@ function copies(items: readonly ResourceItem[]): ResourceItem[] {
 
 export function createPickerRuntime(deps: RuntimeDeps): PickerRuntime {
 	const { discovery, cwd, agentDir } = deps;
-	let scope: WriteScope = "global";
+	// A trusted project is where a change belongs: it is the layer the session runs and
+	// the one the repository keeps. An untrusted project has no store to write to, so
+	// Global is the only scope there.
+	let scope: WriteScope = discovery.trusted ? "project" : "global";
 	let dirty = false;
 	const listeners = new Set<() => void>();
 	const views: Record<WriteScope, Record<ResourceKind, ResourceItem[]>> = {
@@ -211,7 +214,7 @@ export function createPickerRuntime(deps: RuntimeDeps): PickerRuntime {
 		},
 		clearOverride: async (kind, item) => {
 			if (scope !== "project") {
-				deps.onError?.("Overrides are cleared in Project scope; switch with Tab.");
+				deps.onError?.("Overrides are cleared in Project scope; switch with s.");
 				return;
 			}
 			const store = storeFor(discovery, "project");

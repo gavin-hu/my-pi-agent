@@ -140,7 +140,7 @@ describe("PanelComponent text editing", () => {
 		await settle();
 		await settle();
 
-		expect(settings.changes).toContain("global:price.budget=5");
+		expect(settings.changes).toContain("project:price.budget=5");
 		expect(component.render(80).join("\n")).toContain("unsaved changes");
 		expect(selectedLine(component)).toContain("¥5.00");
 		// The block names the reload the change asks for once it has the height for it.
@@ -208,6 +208,6 @@ describe("PanelComponent text editing", () => {
 		component.handleInput("\r");
 		await settle();
 		await settle();
-		expect(settings.changes).toContain("global:price.budget=4.5");
+		expect(settings.changes).toContain("project:price.budget=4.5");
 	});
 });

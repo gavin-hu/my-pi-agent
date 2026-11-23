@@ -83,24 +83,25 @@ describe("PanelComponent sections", () => {
 	test("keeps the scope switch working in Settings", () => {
 		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings" });
 
+		expect(component.render(80).join("\n")).toContain("Change marked rows in Global scope.");
+
 		component.handleInput("s");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("writes Project");
-		expect(text).toContain("Settings 15");
-		expect(text).toContain("App settings are Global only.");
-		expect(text).not.toContain("Startup screen");
+		expect(text).toContain("writes Global");
+		expect(text).not.toContain("Change marked rows in Global scope.");
+		expect(text).toContain("Startup screen");
 	});
 
-	test("keeps the focus near the dropped row when a scope switch removes it", () => {
+	test("keeps the focus on a settings row across a scope switch", () => {
 		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings" });
 
 		component.render(80);
 		focusPanel(component, "Theme");
 
 		component.handleInput("s");
-		expect(component.render(80).join("\n")).toContain("Settings 15");
-		expect(selectedLine(component)).toContain("When a turn ends");
+		expect(component.render(80).join("\n")).toContain("writes Global");
+		expect(selectedLine(component)).toContain("Theme");
 	});
 
 	test("refuses the project scope in Settings when the project is untrusted", () => {
@@ -166,6 +167,8 @@ describe("PanelComponent sections", () => {
 			settings: settings.surface,
 		});
 
+		component.render(80);
+		focusPanel(component, "Desktop notifications");
 		component.handleInput(" ");
 		await settle();
 		await settle();
@@ -179,11 +182,12 @@ describe("PanelComponent sections", () => {
 		const settings = fakeSettingsSurface();
 		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings", settings: settings.surface });
 
+		focusPanel(component, "Desktop notifications");
 		component.handleInput(" ");
 		await settle();
 		await settle();
 
-		expect(settings.changes).toEqual(["global:byteflyUi"]);
+		expect(settings.changes).toEqual(["project:notify.enabled"]);
 		expect(settings.isDirty()).toBe(true);
 		const text = component.render(80).join("\n");
 		expect(text).toContain("On");
@@ -199,8 +203,22 @@ describe("PanelComponent sections", () => {
 		await settle();
 		await settle();
 
-		expect(settings.changes).toEqual(["global:notify.enabled"]);
+		expect(settings.changes).toEqual(["project:notify.enabled"]);
 		expect(component.render(80).join("\n")).toContain("On");
+	});
+
+	test("writes nothing for an app row in Project scope, and keeps it listed", async () => {
+		const settings = fakeSettingsSurface();
+		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings", settings: settings.surface });
+
+		component.handleInput(" ");
+		await settle();
+
+		// The focused row is Startup screen, which only Pi's personal file can hold.
+		expect(settings.changes).toEqual([]);
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Startup screen");
+		expect(text).not.toContain("unsaved changes");
 	});
 
 	test("hints the section switch and the change key, and lists the scope key in the key table", () => {

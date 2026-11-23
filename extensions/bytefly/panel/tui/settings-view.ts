@@ -24,6 +24,8 @@ const ROW_PREFIX_WIDTH = 4;
 const MIN_VALUE_WIDTH = 8;
 /** Columns between the label column and its value. */
 const VALUE_GAP = 2;
+/** Columns the `· Global` tag takes, including the gap before it. */
+const TAG_WIDTH = 9;
 
 /**
  * The editing cell: the buffer around the caret, scrolled so the caret is always
@@ -71,22 +73,28 @@ export function settingRow(
 	const label = sanitizeLine(view.label);
 	const available = Math.max(1, width - ROW_PREFIX_WIDTH - VALUE_GAP - labelColumn);
 	const rawValue = editing ? editingCell(editing.buffer, editing.caret, available) : view.valueLabel;
+	// The tag names the file the row is written to, and it gives way to the value: a
+	// row whose value is an ellipsis answers nothing, and the faint paint and the
+	// missing checkbox already say the row is not written here.
+	const tag = view.readOnly && available - TAG_WIDTH >= MIN_VALUE_WIDTH ? " · Global" : "";
 	return listRow(theme, width, {
 		selected,
-		leading: view.kind === "boolean" ? checkbox(theme, view.value === "true") : " ",
+		// A row this scope cannot write has nothing to toggle here, so a checkbox would be a
+		// promise the key cannot keep. Its value column still states the setting.
+		leading: view.kind === "boolean" && !view.readOnly ? checkbox(theme, view.value === "true") : " ",
 		label: padTo(label, labelColumn),
-		labelRole: selected ? "accent" : "label",
-		trailing: clip(sanitizeLine(rawValue), available),
-		trailingRole: editing ? "accent" : "meta",
+		labelRole: view.readOnly ? "faint" : selected ? "accent" : "label",
+		trailing: `${clip(sanitizeLine(rawValue), Math.max(1, available - visibleWidth(tag)))}${tag}`,
+		trailingRole: editing ? "accent" : view.readOnly ? "faint" : "meta",
 		// The value sits in its own column rather than at the far edge, so a wide
 		// terminal does not put the label and its value at opposite ends of the row.
 		align: "inline",
 	});
 }
 
-/** The project note: app rows are absent because Pi has no project setter. */
+/** The Project note: the marked rows are written to Pi's personal file, which has no project scope. */
 export function projectNote(theme: Theme, width: number): string {
-	return clip(`${INDENT}${paint(theme, "faint", "App settings are Global only.")}`, Math.max(1, width));
+	return clip(`${INDENT}${paint(theme, "faint", "Change marked rows in Global scope.")}`, Math.max(1, width));
 }
 
 /** The editor's key hints: `Esc` cancels the edit, it does not close the screen. */
