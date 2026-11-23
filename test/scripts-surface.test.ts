@@ -24,10 +24,10 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { posix, walkFiles } from "./helpers/files.ts";
+import { posixPath, walkFiles } from "./helpers/files.ts";
 import { extensionsDir, libDir, relative, scriptsDir, testDir } from "./helpers/scan.ts";
 
-const repo = posix(join(import.meta.dir, ".."));
+const repo = posixPath(join(import.meta.dir, ".."));
 /** Every declared script and what it runs, so a failure can name the ones the docs forgot. */
 const DECLARED: Record<string, string> = (
 	JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as { scripts: Record<string, string> }

@@ -17,7 +17,7 @@
 
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { posix } from "./helpers/files.ts";
+import { posixPath } from "./helpers/files.ts";
 import {
 	dirsOf,
 	extensionsDir,
@@ -57,7 +57,7 @@ function edgesOf(root: string): Edge[] {
 			.forEach((line, index) => {
 				const spec = SPEC.exec(line)?.[1];
 				if (spec === undefined || !spec.startsWith(".")) return;
-				const resolved = posix(join(dir, spec));
+				const resolved = posixPath(join(dir, spec));
 				edges.push({ file: relative(file), line: index + 1, to: resolved.slice(repo.length + 1) });
 			});
 	}

@@ -24,6 +24,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { posixPath } from "../lib/path.ts";
 import {
 	createSourceFile,
 	forEachChild,
@@ -460,9 +461,9 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	"file-browse": 2,
 };
 
-/** A repo-relative path with forward slashes, the form the maps use. */
+/** A repo-relative path, in the spelling the maps use. */
 function repoRelative(file: string): string {
-	return relative(REPO, file).replaceAll("\\", "/");
+	return posixPath(relative(REPO, file));
 }
 
 /** Every `.ts` module under `extensions/` and `lib/`, for the rule and map checks. */
@@ -549,15 +550,14 @@ describe("registration module budget", () => {
 		// watch, and the five extensions that only prune their own injected message must not pay
 		// it at registration — a static import put back would still pass every row (#658).
 		const viaHandler = ["goal", "todo", "plan", "memory", "board"];
-		const paying = ENTRIES.filter((entry) => viaHandler.includes(extensionOf(entry))).filter((entry) =>
-			[...staticGraph(entry)].some((file) => file.endsWith("lib/notice.ts")),
-		);
+		const notice = join(REPO, "lib", "notice.ts");
+		const paying = ENTRIES.filter((entry) => viaHandler.includes(extensionOf(entry)) && staticGraph(entry).has(notice));
 		expect(paying.map(extensionOf), "load the rule inside the context handler that calls it").toEqual([]);
 		// The four entries that already paid it are the premise of no row moving.
 		const loaders = ["bytefly", "job", "session-bus", "watch"];
 		const missing = loaders.filter((name) => {
 			const entry = ENTRIES.find((candidate) => extensionOf(candidate) === name);
-			return entry === undefined || ![...staticGraph(entry)].some((file) => file.endsWith("lib/notice.ts"));
+			return entry === undefined || !staticGraph(entry).has(notice);
 		});
 		expect(missing, "the notice's own loaders are what make the zero-raise shape work").toEqual([]);
 	});
@@ -570,14 +570,12 @@ describe("registration module budget", () => {
 		// its store and mail stores are synchronous factories whose methods close over `busPaths`,
 		// so an async factory would be the price of its row falling.
 		const carriers = ENTRIES.filter((entry) => !["session-bus"].includes(extensionOf(entry)));
-		const reached = carriers.filter((entry) =>
-			[...staticGraph(entry)].some((file) => file.endsWith("lib/session-files.ts")),
-		);
+		const reached = carriers.filter((entry) => staticGraph(entry).has(join(REPO, "lib", "session-files.ts")));
 		expect(reached.map(extensionOf), "load the layer inside the read that spells a path").toEqual([]);
 		const owner = ENTRIES.find((entry) => extensionOf(entry) === "session-bus");
 		expect(owner, "the bus's own entry is the layer's owner").toBeDefined();
 		expect(
-			[...staticGraph(owner as string)].some((file) => file.endsWith("lib/session-files.ts")),
+			staticGraph(owner as string).has(join(REPO, "lib", "session-files.ts")),
 			"session-bus keeps the layer: its factories are synchronous",
 		).toBe(true);
 	});

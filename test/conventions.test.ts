@@ -8,9 +8,35 @@
  * content rather than a shortcut.
  */
 
+import { win32 } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { allowsAt } from "./helpers/comments.ts";
 import { SCANNED_DIRS, SOURCE_DIRS, sourceFiles, filesIn, repo, textOf } from "./helpers/scan.ts";
+
+/**
+ * The two backslashes a separator escape is written with, and the one on either side that
+ * would make a longer run — the fixture that *shows* the pattern is one string deeper, so
+ * it is not a conversion. The separator comes from `node:path`, so the ban spells none.
+ */
+const ESCAPE = win32.sep.repeat(4);
+const ONE = win32.sep.repeat(2);
+const NOT_LONGER = `(?<!${ONE})${ESCAPE}(?!${ONE})`;
+const TYPED_PAIR = new RegExp(`replaceAll\\(\\s*["'\`]${NOT_LONGER}["'\`]`);
+
+/**
+ * A native path converted to the POSIX spelling by hand, where `lib/path.ts`'s
+ * `posixPath` owns that conversion for the whole package.
+ *
+ * A character class holding both separators (`[\\/]`) is deliberately not matched: it is
+ * the "either separator" idiom, correct on every platform, and the tree has thirteen of
+ * them — five of which are `lastSegment`'s own rule restated. Folding those is a
+ * refactor, not a red case, and a ban that lands red or with thirteen allows holds nothing.
+ */
+const TYPED_SEPARATOR: Ban = {
+	name: "hand-typed separator",
+	matches: (line) => TYPED_PAIR.test(line),
+	reason: "use posixPath() from lib/path.ts, or join() the segments",
+};
 
 /** Files whose violations are accepted with a stated reason. Keep this tiny. */
 const EXEMPT_FILES = new Set<string>([]);
@@ -55,6 +81,7 @@ const BANS: Ban[] = [
 		matches: (line) => /\bfg\s*:/.test(line),
 		reason: "use fakeTheme from test/helpers/fakes.ts",
 	},
+	TYPED_SEPARATOR,
 ];
 
 /**
@@ -89,6 +116,7 @@ const SOURCE_BANS: Ban[] = [
 			/^\s*\/\/\s*\}/.test(line),
 		reason: "delete it; git has the version that worked",
 	},
+	TYPED_SEPARATOR,
 ];
 
 /**

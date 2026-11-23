@@ -32,7 +32,7 @@ import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
 import ts from "typescript";
-import { walkFiles } from "./helpers/files.ts";
+import { posixPath, walkFiles } from "./helpers/files.ts";
 
 const repo = join(import.meta.dir, "..");
 const MIN_TOKENS = 10;
@@ -364,7 +364,7 @@ function repoSources(): Source[] {
 		...walkFiles(join(repo, "scripts")),
 	].filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
 	repoSourcesCache = files.map((file) => {
-		const path = relative(repo, file).replaceAll("\\", "/");
+		const path = posixPath(relative(repo, file));
 		return sourceOf(path, readFileSync(file, "utf-8"));
 	});
 	return repoSourcesCache;
@@ -381,7 +381,7 @@ function testSources(): Source[] {
 		...walkFiles(join(repo, "test")),
 	].filter((file) => file.endsWith(".test.ts"));
 	testSourcesCache = files.map((file) => ({
-		path: relative(repo, file).replaceAll("\\", "/"),
+		path: posixPath(relative(repo, file)),
 		surface: "test" as const,
 		text: readFileSync(file, "utf-8"),
 	}));
@@ -397,7 +397,7 @@ function helperSources(): Source[] {
 		(file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
 	);
 	helperSourcesCache = files.map((file) => ({
-		path: relative(repo, file).replaceAll("\\", "/"),
+		path: posixPath(relative(repo, file)),
 		surface: "test" as const,
 		text: readFileSync(file, "utf-8"),
 	}));

@@ -9,7 +9,7 @@
 
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { posix } from "./helpers/files.ts";
+import { posixPath } from "./helpers/files.ts";
 import { dirsOf, extensionsDir, filesIn, libDir, repo, sourceFiles, textOf } from "./helpers/scan.ts";
 
 describe("extension boundaries", () => {
@@ -29,7 +29,7 @@ describe("extension boundaries", () => {
 					.forEach((line, index) => {
 						const spec = MODULE_SPEC.exec(line)?.[1];
 						if (spec === undefined || !spec.startsWith(".")) return;
-						const target = posix(join(dir, spec));
+						const target = posixPath(join(dir, spec));
 						const owner = names.find((other) => other !== name && target.startsWith(`${extensionsDir}/${other}/`));
 						if (owner !== undefined) {
 							offenders.push(`${relative}:${index + 1}: imports extensions/${owner} (${spec}); share it through lib/`);

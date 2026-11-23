@@ -15,6 +15,7 @@
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { posixPath } from "../lib/path.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 
@@ -61,7 +62,7 @@ function sitePages(siteDir: string): string[] {
 				if (!name.startsWith("_")) walk(path);
 				continue;
 			}
-			if (/\.(?:md|html)$/.test(name)) pages.push(relative(siteDir, path).replaceAll("\\", "/"));
+			if (/\.(?:md|html)$/.test(name)) pages.push(posixPath(relative(siteDir, path)));
 		}
 	};
 	walk(siteDir);
@@ -125,7 +126,7 @@ function siteAssets(siteDir: string): string[] {
 		for (const name of readdirSync(dir)) {
 			const path = join(dir, name);
 			if (statSync(path).isDirectory()) walk(path);
-			else if (IMAGE.test(name)) files.push(relative(siteDir, path).replaceAll("\\", "/"));
+			else if (IMAGE.test(name)) files.push(posixPath(relative(siteDir, path)));
 		}
 	};
 	walk(assets);

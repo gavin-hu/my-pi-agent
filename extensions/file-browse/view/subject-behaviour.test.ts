@@ -143,18 +143,23 @@ describe.skipIf(CHROME === undefined)("the identity row's subject", () => {
 		if (base !== "") rmSync(base, { recursive: true, force: true });
 	}, CASE_MS);
 
-	test("paints the path's slash at the head of the row, where the reader put it", async () => {
-		const wide = await subjectAt(WIDE);
-		// The label is still the whole served root, slash and all, and the hover still carries it.
-		expect(wide.text).toBe(wide.title);
-		expect(wide.text.startsWith("/")).toBe(true);
-		// A clipped run starts off-screen, which would put both boxes outside together and make
-		// the comparison below true by accident: the wide row says nothing is clipped first.
-		expect(wide.clipped).toBe(0);
-		// The defect: an rtl paragraph moves that neutral "/" behind the last letter, which the
-		// shipped page measured at x=572 against a label starting at 165.
-		expect(Math.abs(wide.first - wide.run)).toBeLessThanOrEqual(1);
-	});
+	// A served root on Windows opens with a drive letter, not a neutral `/`, so there is no
+	// leading character for the rtl paragraph to move; the row's other half runs everywhere.
+	test.skipIf(process.platform === "win32")(
+		"paints the path's slash at the head of the row, where the reader put it",
+		async () => {
+			const wide = await subjectAt(WIDE);
+			// The label is still the whole served root, slash and all, and the hover still carries it.
+			expect(wide.text).toBe(wide.title);
+			expect(wide.text.startsWith("/")).toBe(true);
+			// A clipped run starts off-screen, which would put both boxes outside together and make
+			// the comparison below true by accident: the wide row says nothing is clipped first.
+			expect(wide.clipped).toBe(0);
+			// The defect: an rtl paragraph moves that neutral "/" behind the last letter, which the
+			// shipped page measured at x=572 against a label starting at 165.
+			expect(Math.abs(wide.first - wide.run)).toBeLessThanOrEqual(1);
+		},
+	);
 
 	test("keeps the head truncation the row exists for when the row is narrow", async () => {
 		const wide = await subjectAt(WIDE);

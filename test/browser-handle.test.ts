@@ -32,10 +32,17 @@ describe.skipIf(CHROME === undefined)("a headless browser that dies", () => {
 			process.kill(pid as number, "SIGKILL");
 			const deadline = Date.now() + EXIT_BUDGET_MS;
 			while (browser.exited() === undefined && Date.now() < deadline) await Bun.sleep(20);
-			expect(browser.exited()).toEqual({ code: null, signal: "SIGKILL" });
+			const exit = browser.exited();
+			// POSIX reports the signal, Windows the code the browser went down with: the sentence is
+			// built from whichever this platform answers, so the case reads the death `browserDeath`
+			// writes rather than one platform's shape.
+			expect(exit).toBeDefined();
+			if (process.platform === "win32") expect(exit).toEqual({ code: expect.any(Number), signal: null });
+			else expect(exit).toEqual({ code: null, signal: "SIGKILL" });
+			const how = exit?.signal === null ? `code ${exit?.code}` : `signal ${exit?.signal}`;
 			// What a suite asks at the top of a reload path, and the sentence it gets: the exit, the
 			// judgement, and the one action that would change the judgement.
-			expect(() => alive(browser)).toThrow(/headless browser exited \(signal SIGKILL\)/);
+			expect(() => alive(browser)).toThrow(`headless browser exited (${how})`);
 			expect(() => alive(browser)).toThrow(/the machine, not the case/);
 			expect(() => alive(browser)).toThrow(/run it alone before calling it a defect/);
 		} finally {

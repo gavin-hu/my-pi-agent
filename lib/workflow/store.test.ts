@@ -10,7 +10,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, readdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { type Card, signatureOf } from "./card.ts";
@@ -594,7 +594,7 @@ describe("openBoard", () => {
 		expect(store.root()).toBe(cwd);
 		expect(store.name()).toBe(basename(cwd));
 		// The directory names the identity; `key` stays the path key, which only one host has.
-		expect(store.dir.split("/").slice(-2, -1)[0]).toBe(`local-${store.key}`);
+		expect(basename(dirname(store.dir))).toBe(`local-${store.key}`);
 		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
 		expect(await store.read(card.id)).toEqual(card);
 	});

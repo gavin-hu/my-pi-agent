@@ -23,13 +23,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { walkFiles } from "./helpers/files.ts";
+import { posixPath, walkFiles } from "./helpers/files.ts";
 import { RESERVED_PATHS, type StorageHome } from "../lib/storage.ts";
 import { dirsOf, extensionsDir, relative } from "./helpers/scan.ts";
 
 // `join` resolves the `..` on every platform, including Windows, where the
 // backslashed absolute path is one long name to `posix.join`.
-const repo = join(import.meta.dir, "..").replaceAll("\\", "/");
+const repo = posixPath(join(import.meta.dir, ".."));
 const libDir = join(repo, "lib");
 
 /**
@@ -38,7 +38,7 @@ const libDir = join(repo, "lib");
  * platform story, so it is a named function the test below can hold to it.
  */
 function relativeTo(root: string, file: string): string {
-	return file.slice(root.length + 1).replaceAll("\\", "/");
+	return posixPath(file.slice(root.length + 1));
 }
 
 /** Every non-test TypeScript module under `lib/`. */
