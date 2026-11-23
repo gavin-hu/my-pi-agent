@@ -16,8 +16,12 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { SESSION_LABEL_CHANNEL, type SessionLabelEvent, sessionIdOf } from "../../../../lib/session-label.ts";
-import { readSessionLabel } from "../../../../lib/session-roster.ts";
+import {
+	readSessionLabel,
+	SESSION_LABEL_CHANNEL,
+	type SessionLabelEvent,
+	sessionIdOf,
+} from "../../../../lib/session-label.ts";
 
 /** What to draw: the label a join settled for this session. No record draws no chip at all. */
 export type RosterLabelSink = (label: string) => void;

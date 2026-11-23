@@ -72,6 +72,13 @@ export interface ServedBoardPageOptions {
 	/** The bus's records to draw, or nothing at all for a page with no bus here. */
 	roster?: (now: number) => RosterSession[];
 	/**
+	 * This machine's host id, for a page that draws another machine's sessions as elsewhere.
+	 *
+	 * Omitted, the frame names no machine of its own, which reads every record that names a host as
+	 * foreign — the honest answer for a fixture that never made an identity.
+	 */
+	host?: string;
+	/**
 	 * Mail waiting on the bus, read the way the page reads it: never consumed.
 	 *
 	 * The page draws this queue from files, so a caller that seeds one passes the rows the
@@ -110,7 +117,7 @@ export interface ServedBoardPage {
 
 /** Serve the shipped page over `store`, with a snapshot re-read for every frame. */
 export async function serveBoardPage(options: ServedBoardPageOptions): Promise<ServedBoardPage> {
-	const { store, now, display = {}, roster, waiting, bus, retryMs } = options;
+	const { store, now, display = {}, roster, waiting, bus, host, retryMs } = options;
 	// What the page prints for its repository, resolved once so the document and every frame
 	// name the same board: the toolbar is named before the first frame rather than after it.
 	const repo = display.repo ?? store.name();
@@ -132,6 +139,8 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 				cards,
 				now: at,
 				...(sessions === undefined ? {} : { roster: sessions }),
+				...(team?.hosts === undefined ? {} : { hosts: team.hosts }),
+				...(host === undefined ? {} : { host }),
 				...(queue === undefined ? {} : { waiting: queue }),
 				// The page is served as the seat, which the board's own config names: the lead flag
 				// is the config's, and a fixture that renamed its lead must see the rename.

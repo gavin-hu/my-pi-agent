@@ -38,6 +38,7 @@ describe("a plan that is gone", () => {
 				actor: () => ME,
 				now: () => NOW,
 				bus: async () => ({ roster: undefined, waiting: { messages: [], dropped: 0 } }),
+				host: async () => undefined,
 				planDir: () => Promise.resolve(planDir),
 			});
 
@@ -70,6 +71,7 @@ describe("a plan that is gone", () => {
 			actor: () => ME,
 			now: () => NOW,
 			bus: async () => ({ roster: undefined, waiting: { messages: [], dropped: 0 } }),
+			host: async () => undefined,
 			planDir: () => Promise.resolve(planDir),
 		});
 		expect(drawnOf(view, card.id)?.lane).toBe("done");

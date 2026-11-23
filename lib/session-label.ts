@@ -10,9 +10,12 @@
  * either extension because a label is a shared vocabulary: it is displayed, it is a
  * send target, and it is stored in a card file that outlives one session.
  *
- * Value-only: no state, no I/O.
+ * No state: one read answers one caller, and the only I/O is {@link readSessionLabel}'s walk of the
+ * bus when a footer asks for a name it was not told.
  */
 
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { pageSource, sanitizeLine } from "./format.ts";
 
@@ -250,4 +253,65 @@ export function checkoutNames(trees: Iterable<Checkout>): Set<string> {
 		if (branch.startsWith(WORKTREE_BRANCH_PREFIX)) names.add(branch.slice(WORKTREE_BRANCH_PREFIX.length));
 	}
 	return names;
+}
+
+/**
+ * The label one record names, when the record is that session's and is a bus record at all.
+ *
+ * The strictness is the roster's: a file missing the fields the bus writes is debris, and a
+ * `half` record that happened to sit in front of the real one must not name the session. The id
+ * is compared here rather than by the caller, so "which session" and "what it is called" are one
+ * question over one file.
+ */
+function labelIn(value: unknown, id: string): string | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const record = value as Record<string, unknown>;
+	const { label, mode, lastSeen } = record;
+	if (record.id !== id || typeof label !== "string" || typeof mode !== "string" || typeof lastSeen !== "number") {
+		return undefined;
+	}
+	return label;
+}
+
+/**
+ * One session's own label, found by the id it belongs to.
+ *
+ * The record is filed under the repository's key, which a caller without a board store
+ * would have to resolve with git first — and a footer asking for a name that may not
+ * exist should not cost two subprocesses at every session start. So the bus root is
+ * walked instead and the record is matched on its id: a session id belongs to one
+ * session, so the first record that names it is the answer wherever the bus filed it.
+ *
+ * Every miss is ordinary: a machine with no bus, or with records for other sessions
+ * only, answers `undefined` rather than an error.
+ */
+export async function readSessionLabel(agentDir: string, id: string): Promise<string | undefined> {
+	const { BUS_DIR_NAME, JSON_SUFFIX, SESSIONS_DIR_NAME } = await import("./session-files.ts");
+	const root = join(agentDir, BUS_DIR_NAME);
+	let keys: string[];
+	try {
+		keys = await readdir(root);
+	} catch {
+		return undefined;
+	}
+	for (const key of keys) {
+		const dir = join(root, key, SESSIONS_DIR_NAME);
+		let names: string[];
+		try {
+			names = await readdir(dir);
+		} catch {
+			continue;
+		}
+		for (const name of names) {
+			if (!name.endsWith(JSON_SUFFIX)) continue;
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
+			} catch {
+				continue;
+			}
+			if (labelIn(parsed, id) !== undefined) return labelIn(parsed, id);
+		}
+	}
+	return undefined;
 }

@@ -10,13 +10,12 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
-import { BUS_DIR_NAME, INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "./session-files.ts";
-import { presenceOf, readRoster, readSessionLabel, rosterStateOf, SESSION_TTL_MS, stampBus } from "./session-roster.ts";
-import { settle } from "../test/helpers/process.ts";
+import { BUS_DIR_NAME, HOSTS_DIR_NAME, INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "./session-files.ts";
+import { recordFacts, presenceOf, readRoster, readTeam, rosterStateOf, SESSION_TTL_MS } from "./session-roster.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -192,41 +191,6 @@ describe("readRoster", () => {
 	});
 });
 
-describe("readSessionLabel", () => {
-	test("finds this session's record under whichever key filed it", async () => {
-		const agentDir = temps.track(tempDir("pi-bus-agent-"));
-		const ours = join(agentDir, BUS_DIR_NAME, "first");
-		mkdirSync(join(ours, SESSIONS_DIR_NAME), { recursive: true });
-		writeSession(ours, "aaa", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
-		// A second repository's bus sits beside it: the id decides, not the directory.
-		const other = join(agentDir, BUS_DIR_NAME, "second");
-		mkdirSync(join(other, SESSIONS_DIR_NAME), { recursive: true });
-		writeSession(other, "bbb", { id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW });
-		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
-		expect(await readSessionLabel(agentDir, "s-2")).toBe("billing-lead");
-	});
-
-	test("answers undefined for a session no record names, and with no bus at all", async () => {
-		const empty = temps.track(tempDir("pi-bus-agent-"));
-		expect(await readSessionLabel(empty, "s-1")).toBeUndefined();
-		const agentDir = temps.track(tempDir("pi-bus-agent-"));
-		const dir = join(agentDir, BUS_DIR_NAME, "key");
-		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
-		writeSession(dir, "aaa", { id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW });
-		expect(await readSessionLabel(agentDir, "s-1")).toBeUndefined();
-	});
-
-	test("skips a record that will not parse, and one that is not a record", async () => {
-		const agentDir = temps.track(tempDir("pi-bus-agent-"));
-		const dir = join(agentDir, BUS_DIR_NAME, "key");
-		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
-		writeFileSync(join(dir, SESSIONS_DIR_NAME, "broken.json"), "{ not json\n", "utf-8");
-		writeSession(dir, "half", { id: "s-1", label: "half" });
-		writeSession(dir, "good", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
-		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
-	});
-});
-
 describe("rosterStateOf", () => {
 	const session = { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 };
 
@@ -318,67 +282,50 @@ describe("presenceOf", () => {
 	});
 });
 
-describe("stampBus", () => {
-	test("a bus that is not there answers a stamp, and one that appears moves it", async () => {
-		const dir = join(temps.track(tempDir("pi-bus-stamp-")), BUS_DIR_NAME);
-		// Every path an absent bus lacks reads `-`, so the answer is a value a later stamp moves.
-		expect(await stampBus(dir)).toBe("-|-|-");
-		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
-		expect(await stampBus(dir)).not.toBe("-|-|-");
+describe("another machine's record", () => {
+	const HERE = "aaaaaaaaaaaaaaa1";
+	const THERE = "bbbbbbbbbbbbbbb2";
+	const facts = { lastSeen: NOW, pid: 4242 };
+
+	test("is judged by its heartbeat, and the same pid here is still judged gone", () => {
+		// Both halves, because a gate that skipped everything would pass the first alone: the pid is
+		// a local process on *this* machine's record and nothing of the sort on the other's.
+		const dead = { alive: () => false };
+		const foreign = recordFacts({ ...facts, host: THERE }, HERE);
+		expect(foreign.foreign).toBe(true);
+		expect(rosterStateOf(foreign, NOW, SESSION_TTL_MS, dead)).toBe("live");
+		// Aged out it is `quiet`, never `gone`: this machine cannot tell, and cannot tell is not a death.
+		expect(rosterStateOf(foreign, NOW + SESSION_TTL_MS + 1, SESSION_TTL_MS, dead)).toBe("quiet");
+		const own = recordFacts({ ...facts, host: HERE }, HERE);
+		expect(own.foreign).toBeUndefined();
+		expect(rosterStateOf(own, NOW, SESSION_TTL_MS, dead)).toBe("gone");
 	});
 
-	test("nothing written keeps the stamp identical", async () => {
-		const dir = busDir();
-		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
-		const once = await stampBus(dir);
-		// The page compares two of these: an answer that drifted on its own would be a read per tick.
-		expect(await stampBus(dir)).toBe(once);
+	test("is this machine's when the record names no host, and foreign when the caller cannot say", () => {
+		// A record an older build wrote was necessarily this machine's; a caller with no identity of
+		// its own cannot vouch for a named one, so it falls to the heartbeat rather than to `ps`.
+		expect(recordFacts(facts, HERE)).toEqual(facts);
+		expect(recordFacts({ ...facts, host: HERE }, undefined).foreign).toBe(true);
 	});
 
-	test("a session joining moves it", async () => {
+	test("is drawn with its machine beside it, and not called foreign on its own machine", async () => {
 		const dir = busDir();
-		const before = await stampBus(dir);
-		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
-		expect(await stampBus(dir)).not.toBe(before);
-	});
-
-	test("a message landing moves it, in a new inbox and in one already there", async () => {
-		const dir = busDir();
-		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
-		// A message lands one level below `inbox/`, so the listing of its dirs is what makes it news.
-		const before = await stampBus(dir);
-		writeMail(dir, storedName("s-1"), "1");
-		const one = await stampBus(dir);
-		expect(one).not.toBe(before);
-		await settle(2);
-		writeMail(dir, storedName("s-1"), "2");
-		expect(await stampBus(dir)).not.toBe(one);
-	});
-
-	test("moves for a join, and for a message, with the directory's own clock held still", async () => {
-		// Windows updates a directory's mtime lazily, so an entry can land beside it and leave the
-		// parent's clock exactly where it was: the two windows-latest reds printed the same `sessions/`
-		// part either side of a join. A whole second is a value `utimesSync` can put back to the
-		// millisecond, which is that state on any platform — the entry name is the fact that moved.
-		const dir = busDir();
-		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
-		const sessions = join(dir, SESSIONS_DIR_NAME);
-		utimesSync(sessions, 1_000, 1_000);
-		const before = await stampBus(dir);
-		writeSession(dir, storedName("s-2"), { id: "s-2", label: "billing-web", mode: "tui", lastSeen: NOW });
-		utimesSync(sessions, 1_000, 1_000);
-		// The premise, so a pass cannot come from the clock having moved after all.
-		expect(statSync(sessions).mtimeMs).toBe(1_000_000);
-		expect(await stampBus(dir)).not.toBe(before);
-		// The same trust ran through the inbox parts: `inbox/<id>` was stamped by its own clock too, so
-		// a message landing in an inbox that already existed had the same exposure.
-		writeMail(dir, storedName("s-1"), "1");
-		const inbox = join(dir, INBOX_DIR_NAME, storedName("s-1"));
-		utimesSync(inbox, 1_000, 1_000);
-		const one = await stampBus(dir);
-		writeMail(dir, storedName("s-1"), "2");
-		utimesSync(inbox, 1_000, 1_000);
-		expect(statSync(inbox).mtimeMs).toBe(1_000_000);
-		expect(await stampBus(dir)).not.toBe(one);
+		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW, host: THERE });
+		mkdirSync(join(dir, HOSTS_DIR_NAME), { recursive: true });
+		writeFileSync(
+			join(dir, HOSTS_DIR_NAME, `${THERE}.json`),
+			JSON.stringify({ host: THERE, name: "studio", lastSeen: NOW }),
+		);
+		// A client's copy of the same row is not a second machine: the name must be the id.
+		writeFileSync(
+			join(dir, HOSTS_DIR_NAME, `${THERE} (conflicted copy).json`),
+			JSON.stringify({ host: THERE, name: "studio", lastSeen: 1 }),
+		);
+		const here = await readTeam(dir, { host: HERE });
+		expect(here.hosts).toEqual([{ host: THERE, name: "studio", lastSeen: NOW }]);
+		expect(here.roster?.[0]?.foreign).toBe(true);
+		expect(here.roster?.[0]?.host).toBe(THERE);
+		const there = await readTeam(dir, { host: THERE });
+		expect(there.roster?.[0]?.foreign).toBeUndefined();
 	});
 });

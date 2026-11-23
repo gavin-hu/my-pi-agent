@@ -528,6 +528,7 @@ describe("the class contract", () => {
 		"data-at-title": "a stamp's own wording, which the ticker fills from the same stamp",
 		"data-card": "the open card is found by its id",
 		"data-fold": "a fold control names its key, so focus finds it again after the repaint it caused",
+		"data-host": "a machine's row carries the machine it is about, which a rendered case reads",
 		"data-lane": "a lane section and a card carry the lane they are in",
 		"data-picker-lane": "the narrow picker reads which lane a button selects",
 		"data-rev": "the revision a lane's signature carries, so a face is drawn once per move",
@@ -602,7 +603,6 @@ describe("the class contract", () => {
 	});
 
 	test("styles no attribute the page does not wear, and hooks every one it does", () => {
-		// The drift a capture found: an attribute emitted with no rule to act on it.
 		const styled = new Set([...ownRules().matchAll(/\[(data-[a-z-]+)/g)].map((match) => match[1] ?? ""));
 		// The kit styles some attributes of its own — `data-theme` is the theme layer's — so
 		// "is it drawn at all" is asked of the whole stylesheet a page ships.

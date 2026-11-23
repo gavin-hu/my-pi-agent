@@ -15,6 +15,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `job` follows in #788, and a managed checkout stays where `worktree.dir` says — relocating a live
   worktree is `git worktree move`, which is its own card.
 
+- `session-bus`, `board`: a store a sync client replicates can hold two machines' sessions, and
+  until now this one judged all of them by its own pids — so another machine's live session read
+  `gone`, `session send` refused it, and the prune released its path claims. A record and a claim
+  now name the machine that wrote them: a record from elsewhere is judged by its heartbeat alone
+  and reads `quiet` rather than `gone` once that ages, and its claim lapses when *that machine's*
+  row in `session-bus/hosts/<host>.json` stops beating rather than on a local pid. Each machine's
+  identity is `presence/host.json` — 16 hex characters made once, and the hostname it was made
+  under, so a rename does not move it and two machines sharing a name cannot collide. The Team tab
+  draws the result: a row per machine with how long ago it was last here, and the machine's name on
+  a session that is not on this one. Mail still reaches only sessions on this machine.
+
 - `board`, `plan`: the board and the `plan` tool resolve one plan store again —
   `~/.pi/agent/repos/<repo-id>/plans/` — so `board contract` records a plan `plan write` has just
   saved instead of refusing it as outside the store, which is what a second resolver still pointing

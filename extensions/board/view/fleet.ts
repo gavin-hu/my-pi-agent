@@ -129,6 +129,13 @@ __HISTORY_LINE__
     // would make a renamed lead undetectable — the row would still say "you" and nothing else.
     if (agent.lead) chips.appendChild(chipNode({ label: "lead", tone: "accent" }));
     if (agent.you) chips.appendChild(chipNode({ label: "you" }));
+    // Where the session is, when it is not here: a card that looks addressable otherwise, and a
+    // lead reading "free" off a session whose process is on another machine.
+    if (agent.machine !== undefined) {
+      var machine = chipNode({ label: "on " + agent.machine });
+      machine.title = "This session is on " + agent.machine + ", not on this machine.";
+      chips.appendChild(machine);
+    }
     // A live peer whose watch is off reads a handoff at its next turn instead of being woken.
     if (agent.state === "live" && agent.listening === false) {
       var silent = chipNode({ label: "not listening" });
@@ -172,6 +179,37 @@ __HISTORY_LINE__
     }
     body.appendChild(missions);
     return card;
+  }
+
+  /**
+   * One machine's row: its name, and how long ago it last beat.
+   *
+   * A machine is not a session, so its row carries no state pill and no missions: the one fact it
+   * has that a lead can act on is its age, which is what "last seen 3h ago" says. Its data-state
+   * is the age's own reading, so the dot agrees with the sentence beside it.
+   */
+  function machineRow(machine) {
+    var row = el("li", "bf-row " + N.agent);
+    row.setAttribute("data-state", machine.state);
+    row.setAttribute("data-host", machine.name);
+    var mark = el("span", "bf-row__mark " + N.monogram, monogram(machine.name));
+    mark.setAttribute("aria-hidden", "true");
+    row.appendChild(mark);
+    var body = el("div", N.agentBody);
+    row.appendChild(body);
+    var head = el("div", N.agentHead);
+    head.appendChild(el("span", N.agentName, machine.name));
+    body.appendChild(head);
+    var chips = el("div", N.agentChips);
+    chips.appendChild(chipNode({ label: "another machine" }));
+    body.appendChild(chips);
+    var lines = el("ul", N.missions);
+    var line = el("li", N.agentNone);
+    line.appendChild(document.createTextNode("last seen "));
+    line.appendChild(board.stamp(machine.seen));
+    lines.appendChild(line);
+    body.appendChild(lines);
+    return row;
   }
 
   /**
@@ -260,6 +298,7 @@ __HISTORY_LINE__
     var joined = board.rosterOf(view);
     var agents = joined.agents;
     var history = joined.history;
+    var machines = joined.machines;
     var folded = historyFolded(history.length);
     var needs = decisions.length;
     var sig = [folded ? "folded" : "open", joined.roster === null ? "no bus" : "bus", String(needs)];
@@ -276,6 +315,9 @@ __HISTORY_LINE__
     for (var i = 0; i < agents.length; i++) sig.push(row(agents[i]));
     sig.push("--");
     for (var j = 0; j < history.length; j++) sig.push(row(history[j]));
+    // A machine's row moves on its name and its state, never on its age: the age is drawn by the
+    // ticker, and a signature that carried it would repaint the column every second.
+    for (var m = 0; m < machines.length; m++) sig.push("@" + machines[m].name + ":" + machines[m].state);
 
     return {
       sig: sig.join("|"),
@@ -288,6 +330,9 @@ __HISTORY_LINE__
         }
         var list = el("ul", N.agents);
         for (var k = 0; k < agents.length; k++) list.appendChild(agentCard(agents[k], view, needs));
+        // The machines after the sessions and before the history: a reader scans who is here, then
+        // where else here is, then what has finished.
+        for (var m = 0; m < machines.length; m++) list.appendChild(machineRow(machines[m]));
         if (history.length > 0) {
           list.appendChild(historyRow(history, folded));
           if (folded) {

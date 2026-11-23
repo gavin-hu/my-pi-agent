@@ -75,6 +75,8 @@ export interface BoardBrowserOptions {
 	 * what those rows *count* has to read files, because a stub cannot disagree with itself.
 	 */
 	bus?: string;
+	/** This machine's host id, so a foreign record is drawn as being elsewhere. */
+	host?: string;
 }
 
 /** One board in one browser: the store behind it, and fresh tabs on it. */
@@ -148,6 +150,7 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 		...(options.display === undefined ? {} : { display: options.display }),
 		...(options.roster === undefined ? {} : { roster: options.roster }),
 		...(options.bus === undefined ? {} : { bus: options.bus }),
+		...(options.host === undefined ? {} : { host: options.host }),
 	});
 	const browser = await launchBrowser(BOARD_CHROME);
 	const tab = async (url: string): Promise<Page> =>

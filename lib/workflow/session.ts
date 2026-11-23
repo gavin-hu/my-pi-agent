@@ -23,6 +23,7 @@ import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { PLANS_DIR_NAME } from "../plans/paths.ts";
+import type { HostIdentity } from "../session-files.ts";
 import { agentLabel, defaultLabel, labelKey, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
 import { presenceOf, type RosterSession, readRoster, readTeam, type TeamRead } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
@@ -128,6 +129,16 @@ export interface BoardSession {
 	 * unremembered as a failed store.
 	 */
 	planDir(cwd: string): Promise<string>;
+	/**
+	 * This machine's host id, from the agent directory's `presence/host.json`.
+	 *
+	 * The board draws which sessions are elsewhere and which machines are awake, and both questions
+	 * start here: the identity names this machine, so the other machine's records are the ones that
+	 * do not carry it. `undefined` is a machine no session here has joined from yet — a miss is not
+	 * remembered, because the bus makes the file on its first join and a page that cached the
+	 * absence would read its own records as another machine's until it restarted.
+	 */
+	host(): Promise<string | undefined>;
 	/** The seat this session serves the page as, or undefined when it is not serving. */
 	serving(): string | undefined;
 	/** Serve the page under `seat`, or stand it down when the page stops. */
@@ -244,6 +255,8 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 	const busDirs = new Map<string, Promise<string>>();
 	const planDirs = new Map<string, Promise<string>>();
 	let seat: string | undefined;
+	/** This machine's identity, once one is there to read: a miss is asked again, not remembered. */
+	let identity: Promise<HostIdentity | undefined> | undefined;
 	let standing: JoinResult | undefined;
 	// The crossing's rule, loaded on the first lane change: a session that never moves a card pays
 	// nothing for it, and the deferral is what keeps both entries' registration graphs where they are.
@@ -295,6 +308,13 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			const roster = await session.roster(cwd).catch(() => undefined);
 			const state = presenceOf(roster, owner, session.now());
 			return state === undefined ? undefined : { owner, state };
+		},
+		async host() {
+			const found = await (identity ??= import("../session-files.ts").then((module) =>
+				module.readHostIdentity(agentDir ?? getAgentDir()),
+			));
+			if (found === undefined) identity = undefined;
+			return found?.id;
 		},
 		planDir(cwd) {
 			return rememberLoad(planDirs, cwd, () =>

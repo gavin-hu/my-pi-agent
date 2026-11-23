@@ -197,6 +197,8 @@ export function stubSession(): BoardSession {
 		},
 		who: async () => ({ label: "billing-lead" }),
 		now: () => 0,
+		// No identity: a stub answers for a machine that never joined a bus.
+		host: async () => undefined,
 		busDir: async () => {
 			throw new Error("the factory must not read the bus");
 		},

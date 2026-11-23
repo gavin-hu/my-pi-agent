@@ -12,15 +12,19 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { BUS_DIR_NAME, INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-files.ts";
+import { writeBusRecord } from "../../test/helpers/bus.ts";
+import { tempDir } from "../../test/helpers/env.ts";
+import { settle } from "../../test/helpers/process.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
 import { UNWRITTEN_MS } from "../../lib/workflow/round.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { drawnOf } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createSnapshot, PILE_RESYNC_FRAMES } from "./snapshot.ts";
+import { createSnapshot, PILE_RESYNC_FRAMES, stampBus } from "./snapshot.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -54,6 +58,7 @@ async function page() {
 		actor: () => ME,
 		now: () => clock.at,
 		bus: async () => ({ roster: undefined, waiting: { messages: [], dropped: 0 } }),
+		host: async () => undefined,
 		planDir: () => board.runtime.planDir(board.cwd),
 	});
 	return { board, store, snapshot, reads, clock };
@@ -136,5 +141,92 @@ describe("the page's snapshot", () => {
 		// The rollup names its cards, so the wire entry is the id itself.
 		expect(after.round.unwritten).toEqual([card.id]);
 		expect(after.sig).not.toBe(before.sig);
+	});
+});
+
+/** A bus directory under the suite's temp root, with the `sessions/` a record lands in. */
+function busDir(): string {
+	const dir = temps.track(tempDir("pi-bus-stamp-"));
+	mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
+	return dir;
+}
+
+/** One message file in an inbox the case names, so a landing moves the inbox's own entries. */
+function mailIn(dir: string, inbox: string, id: string): void {
+	mkdirSync(join(dir, INBOX_DIR_NAME, inbox), { recursive: true });
+	writeFileSync(join(dir, INBOX_DIR_NAME, inbox, `${id}.json`), JSON.stringify({ id }), "utf-8");
+}
+
+describe("stampBus", () => {
+	test("a bus that is not there answers a stamp, and one that appears moves it", async () => {
+		const dir = join(temps.track(tempDir("pi-bus-stamp-absent-")), BUS_DIR_NAME);
+		// Every path an absent bus lacks reads `-`, so the answer is a value a later stamp moves.
+		expect(await stampBus(dir)).toBe("-|-|-|-");
+		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
+		expect(await stampBus(dir)).not.toBe("-|-|-|-");
+	});
+
+	test("nothing written keeps the stamp identical", async () => {
+		const dir = busDir();
+		writeBusRecord(dir, { id: "s-1", label: "billing-core", lastSeen: NOW });
+		const once = await stampBus(dir);
+		// The page compares two of these: an answer that drifted on its own would be a read per tick.
+		expect(await stampBus(dir)).toBe(once);
+	});
+
+	test("a session joining moves it", async () => {
+		const dir = busDir();
+		const before = await stampBus(dir);
+		writeBusRecord(dir, { id: "s-1", label: "billing-core", lastSeen: NOW });
+		expect(await stampBus(dir)).not.toBe(before);
+	});
+
+	test("a machine appearing moves it", async () => {
+		// The hosts directory is drawn on the Team tab, so a machine that arrives is news whether or
+		// not it has written a session yet.
+		const dir = busDir();
+		const before = await stampBus(dir);
+		mkdirSync(join(dir, "hosts"), { recursive: true });
+		expect(await stampBus(dir)).not.toBe(before);
+	});
+
+	test("a message landing moves it, in a new inbox and in one already there", async () => {
+		const dir = busDir();
+		writeBusRecord(dir, { id: "s-1", label: "billing-core", lastSeen: NOW });
+		// A message lands one level below `inbox/`, so the listing of its dirs is what makes it news.
+		const before = await stampBus(dir);
+		mailIn(dir, "one", "1");
+		const one = await stampBus(dir);
+		expect(one).not.toBe(before);
+		await settle(2);
+		mailIn(dir, "one", "2");
+		expect(await stampBus(dir)).not.toBe(one);
+	});
+
+	test("moves for a join, and for a message, with the directory's own clock held still", async () => {
+		// Windows updates a directory's mtime lazily, so an entry can land beside it and leave the
+		// parent's clock exactly where it was: the two windows-latest reds printed the same `sessions/`
+		// part either side of a join. A whole second is a value `utimesSync` can put back to the
+		// millisecond, which is that state on any platform — the entry name is the fact that moved.
+		const dir = busDir();
+		writeBusRecord(dir, { id: "s-1", label: "billing-core", lastSeen: NOW });
+		const sessions = join(dir, SESSIONS_DIR_NAME);
+		utimesSync(sessions, 1_000, 1_000);
+		const before = await stampBus(dir);
+		writeBusRecord(dir, { id: "s-2", label: "billing-web", lastSeen: NOW });
+		utimesSync(sessions, 1_000, 1_000);
+		// The premise, so a pass cannot come from the clock having moved after all.
+		expect(statSync(sessions).mtimeMs).toBe(1_000_000);
+		expect(await stampBus(dir)).not.toBe(before);
+		// The same trust ran through the inbox parts: `inbox/<id>` was stamped by its own clock too, so
+		// a message landing in an inbox that already existed had the same exposure.
+		mailIn(dir, "one", "1");
+		const inbox = join(dir, INBOX_DIR_NAME, "one");
+		utimesSync(inbox, 1_000, 1_000);
+		const one = await stampBus(dir);
+		mailIn(dir, "one", "2");
+		utimesSync(inbox, 1_000, 1_000);
+		expect(statSync(inbox).mtimeMs).toBe(1_000_000);
+		expect(await stampBus(dir)).not.toBe(one);
 	});
 });
