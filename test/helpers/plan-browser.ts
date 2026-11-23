@@ -163,6 +163,95 @@ export async function launchReviewBrowser(): Promise<TestBrowser> {
 export async function openReview(browser: TestBrowser, url: string): Promise<Page> {
 	const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 	await page.goto(url, { waitUntil: "load" });
-	await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
+	await drawnReview(page);
 	return page;
+}
+
+/**
+ * Take the browser's first navigation before any case does.
+ *
+ * The cold start — a fresh Chrome's first page, its first load — is what a case would otherwise
+ * pay inside its own paint budget, and it is the one part of that budget the case cannot see.
+ */
+export async function warmReviewBrowser(browser: TestBrowser): Promise<void> {
+	const page = await browser.newPage();
+	try {
+		await page.goto("about:blank", { waitUntil: "load" });
+	} finally {
+		await page.close();
+	}
+}
+
+/** What the page said when the gate gave up, named so a red does not have to be re-derived. */
+export interface DrawnState {
+	readyState: string;
+	blocks: number;
+	outline: boolean;
+}
+
+/**
+ * The state the gate polls: the document finished and the rail's blocks in it.
+ *
+ * Serialized into the page, so the document arrives through `globalThis` by name — this project's
+ * TypeScript has no DOM lib (`Doc` above is the same shape for the same reason).
+ */
+function drawnState(): boolean {
+	const page = globalThis as unknown as {
+		document: { readyState: string; querySelectorAll(selector: string): { length: number } };
+	};
+	return page.document.readyState === "complete" && page.document.querySelectorAll("#plan .bf-block[id]").length > 0;
+}
+
+/** Read the state the gate is waiting on, so a timeout can report it rather than a selector. */
+async function readState(page: Page): Promise<DrawnState> {
+	return page.evaluate(() => {
+		const viewed = globalThis as unknown as {
+			document: {
+				readyState: string;
+				querySelector(selector: string): unknown;
+				querySelectorAll(selector: string): { length: number };
+			};
+		};
+		return {
+			readyState: viewed.document.readyState,
+			blocks: viewed.document.querySelectorAll("#plan .bf-block[id]").length,
+			outline: viewed.document.querySelector("#outline-list") !== null,
+		};
+	});
+}
+
+/** One state as the message states it: the three facts a stalled paint is diagnosed by. */
+function describeState(state: DrawnState): string {
+	const outline = state.outline ? "present" : "absent";
+	return `readyState "${state.readyState}", ${state.blocks} "#plan .bf-block[id]", outline-list ${outline}`;
+}
+
+/**
+ * Wait until the page has drawn the rail, and say what it saw when it has not.
+ *
+ * The gate this replaces was `waitForSelector("#plan .bf-block")` on the same ten seconds, which
+ * named a selector and nothing else: when `windows-latest` missed it once on a first paint, the red
+ * could not say whether the document was still loading, the script had not run, or the rail was
+ * empty. Polling the state through `waitForFunction` is the same wait carrying the page's own
+ * answer, and one retry absorbs the cold first navigation behind that red.
+ *
+ * The retry is reported, because a flake that is absorbed silently is indistinguishable from a paint
+ * that is getting worse: a second attempt prints a line naming what the first one saw, so the suite
+ * shows the event before it shows a failure. The budget stays `REVIEW_PAINT_MS` for both attempts —
+ * the number was never the subject — and a page that never draws fails naming the state it kept.
+ */
+export async function drawnReview(page: Page, budgetMs: number = REVIEW_PAINT_MS): Promise<void> {
+	const seen: string[] = [];
+	for (let attempt = 1; attempt <= 2; attempt++) {
+		const started = Date.now();
+		try {
+			await page.waitForFunction(drawnState, undefined, { timeout: budgetMs });
+			if (attempt > 1) console.warn(`the plan review drew on attempt ${attempt}: ${seen.join("; ")}`);
+			return;
+		} catch {
+			seen.push(`attempt ${attempt} waited ${Date.now() - started}ms and saw ${describeState(await readState(page))}`);
+			if (attempt === 2) throw new Error(`the plan review never drew: ${seen.join("; ")}`);
+			await page.reload({ waitUntil: "load" }).catch(() => undefined);
+		}
+	}
 }
