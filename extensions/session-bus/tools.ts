@@ -45,15 +45,15 @@ const REFERENCE_SCHEMA = { maxLength: MAX_REFERENCE, pattern: REFERENCE_PATTERN.
 
 export const SessionParams = Type.Object({
 	action: StringEnum(["status", "send", "inbox", "read", "claim", "release", "join"] as const, {
-		description: "`status` reads without joining; every other action joins.",
+		description: "`status` joins nothing; `inbox` consumes, `read` keeps.",
 	}),
 	to: Type.Optional(
 		Type.String({
 			maxLength: MAX_LABEL,
-			description: 'Target label/id, or `*` for a broadcast — needs `kind: "event"`.',
+			description: '`send`: required. Target label/id, or `*` for a broadcast — needs `kind: "event"`.',
 		}),
 	),
-	text: Type.Optional(Type.String({ maxLength: MAX_MESSAGE_TEXT, description: "Text to send." })),
+	text: Type.Optional(Type.String({ maxLength: MAX_MESSAGE_TEXT, description: "`send`: required. Plain text." })),
 	kind: Type.Optional(
 		StringEnum(["message", "event", "ask", "handoff"] as const, {
 			description: "Kind; defaults to message.",
@@ -68,14 +68,14 @@ export const SessionParams = Type.Object({
 	replyTo: Type.Optional(Type.String({ description: "With send: the id this answers.", ...REFERENCE_SCHEMA })),
 	about: Type.Optional(
 		Type.String({
-			description: "With send: what it is about — a card's `#673`, a branch, a phrase; one line.",
+			description: "With `send`: the card, branch, or phrase; one line.",
 			maxLength: MAX_REFERENCE,
 		}),
 	),
 	paths: Type.Optional(
 		Type.Array(Type.String(), {
 			maxItems: MAX_PATHS,
-			description: "Repo-relative paths to claim or release.",
+			description: "`claim`/`release`: required. Repo-relative.",
 		}),
 	),
 	limit: Type.Optional(
@@ -102,7 +102,7 @@ type SessionArgs = Static<typeof SessionParams>;
 /** What the tool is and what it guarantees: the verbs and their objects. */
 export const SESSION_DESCRIPTION =
 	"Coordinate parallel Pi sessions: `status` (sessions, unread, claims), " +
-	"`send` (a label/id, or `*` for an event), `inbox`/`read` (consume/show), `claim`/`release` (paths), " +
+	"`send` (a label/id, or `*` for an event), `inbox`/`read`, `claim`/`release` (paths), " +
 	"`join` (listening; `wake` raises a turn).";
 
 /** The one line in the system prompt's tools list, not a copy of the description. */

@@ -16,14 +16,22 @@ export const MAX_OPTIONS = 4;
 export const HEADER_MAX_WIDTH = 12;
 
 const OptionSchema = Type.Object({
-	label: Type.String({ description: "Text shown to the user and returned as the answer" }),
+	label: Type.String({
+		description: "Text shown to the user and returned as the answer; unique within its question, ignoring case",
+	}),
 	description: Type.Optional(Type.String({ description: "Optional second line explaining the option" })),
 });
 
 const QuestionSchema = Type.Object({
 	question: Type.String({ description: "The question to ask the user" }),
 	header: Type.Optional(
-		Type.String({ description: `Short label (≤ ${HEADER_MAX_WIDTH} chars) for the tab bar, e.g. "Auth"` }),
+		Type.String({
+			// The bound is `normalizeHeader`'s own clip, published: the host refuses a longer label
+			// before the call runs, where the clip only shortened it. It counts UTF-16 units, so a
+			// header of astral characters is refused here and still clipped on the programmatic path.
+			maxLength: HEADER_MAX_WIDTH,
+			description: 'Short label for the tab bar, e.g. "Auth"; headers must be unique, ignoring case.',
+		}),
 	),
 	options: Type.Optional(
 		Type.Array(OptionSchema, {
