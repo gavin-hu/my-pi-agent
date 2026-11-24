@@ -150,6 +150,86 @@ gated("the review page's writes", () => {
 	);
 
 	/**
+	 * A draft whose line the diff stopped drawing but whose file it still draws: the text comes back
+	 * on the file's first drawn row and says which line it was typed on, rather than moving silently.
+	 */
+	test(
+		"a draft whose line moved comes back on a drawn line and says where it was typed",
+		async () => {
+			await withPage(
+				async (page, fixture) => {
+					await startComment(page, "note typed on 19");
+					fixture.reshape({ start: 40 });
+					await page.reload({ waitUntil: "networkidle" });
+
+					await page.waitForSelector(".rv-compose", { timeout: REVIEW_PAINT_MS });
+					expect(await page.locator(".rv-compose__head").textContent()).toContain("a.ts:40");
+					expect(await page.locator(".rv-compose__note").textContent()).toContain("was a.ts:19 — the diff moved");
+					expect(await page.locator(".rv-compose__area").inputValue()).toBe("note typed on 19");
+
+					// It saves without a reload: the write carries the page's rev, so the line it lands on is
+					// the one the page drew, not the one the record was typed on.
+					await page.locator(".rv-compose__acts .bf-btn--primary").click();
+					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+					expect(await page.locator(".rv-thread .bf-comment__body").textContent()).toBe("note typed on 19");
+					expect(await page.locator(".rv-compose").count()).toBe(0);
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * A draft whose file the page no longer draws has nowhere to stand: it is listed above the diff
+	 * with the word that says what it is, and only its reviewer's discard takes it away.
+	 */
+	test(
+		"a draft for a file the page does not draw is listed, and only a discard clears it",
+		async () => {
+			await withPage(
+				async (page, fixture) => {
+					await page
+						.locator('.rv-file[data-path="b.ts"] .bf-diff-line--add .browse-diff-no')
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click();
+					await page.locator("#rv-sel-comment").click();
+					await page.locator(".rv-compose__area").fill("note typed on b.ts");
+					fixture.reshape({ start: 40 });
+					await page.reload({ waitUntil: "networkidle" });
+
+					await page.waitForFunction(
+						() => (globalThis as unknown as ReviewDom).document.querySelector("#rv-orphans")?.hidden === false,
+						undefined,
+						{
+							timeout: REVIEW_PAINT_MS,
+						},
+					);
+					expect(await page.locator(".rv-compose").count()).toBe(0);
+					expect(await page.locator(".rv-orphans__ref").textContent()).toBe("b.ts:42 · unsent");
+					expect(await page.locator(".rv-orphans__body").textContent()).toBe("note typed on b.ts");
+					expect(await page.locator(".rv-orphans__item .bf-btn").textContent()).toBe("discard");
+
+					await page.locator(".rv-orphans__item .bf-btn").click();
+					await page.waitForFunction(
+						() => (globalThis as unknown as ReviewDom).document.querySelector("#rv-orphans")?.hidden === true,
+						undefined,
+						{
+							timeout: REVIEW_PAINT_MS,
+						},
+					);
+					await page.reload({ waitUntil: "networkidle" });
+					expect(await page.locator(".rv-compose").count()).toBe(0);
+					expect(await page.locator("#rv-orphans").isVisible()).toBe(false);
+				},
+				{ start: 17, second: true },
+			);
+		},
+		CASE_MS,
+	);
+
+	/**
 	 * The mint-then-write guard, and the words that come with it: the first save mints the review
 	 * and writes a comment, and the second save on the same page must land — if the shas had moved
 	 * the snapshot's fingerprint, the page's own next write would be refused as SNAPSHOT_MOVED.

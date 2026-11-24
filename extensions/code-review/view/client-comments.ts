@@ -66,19 +66,38 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     forgetDraft(wrap.getAttribute("data-path"), Number(wrap.getAttribute("data-line")), wrap.getAttribute("data-side"));
     closeComposer(wrap);
   }
-  /** Every draft still drawn comes back unfocused, and the toast names the lines that did. */
+  /** Every draft comes back where it can: at its line, on a drawn line with the old one named, or listed. */
   function restoreDrafts() {
     var all = storedDrafts();
     var back = [];
+    var moved = [];
+    unplaceableDrafts = [];
     Object.keys(all).forEach(function (key) {
       var kept = all[key];
       if (!kept || typeof kept.text !== "string" || kept.text === "") { delete all[key]; return; }
-      if (!rowFor(kept.path, kept.line, kept.side)) return;
-      composer(kept.path, kept.line, kept.side, { seed: kept.text, moved: kept.rev !== rev, focus: false });
-      back.push(kept.path + ":" + kept.line);
+      if (rowFor(kept.path, kept.line, kept.side)) {
+        composer(kept.path, kept.line, kept.side, { seed: kept.text, moved: kept.rev !== rev, focus: false });
+        back.push(kept.path + ":" + kept.line);
+        return;
+      }
+      // The line is gone from this render. Its file may still be drawn, and then the text opens on
+      // the file's first drawn row saying which line it was typed on: nothing moves silently.
+      var rows = numberedRows(sectionFor(kept.path));
+      var at = rows.length > 0 ? rowAnchor(rows[0]) : null;
+      if (at) {
+        composer(kept.path, at.line, at.side, { seed: kept.text, moved: true, was: kept.path + ":" + kept.line, focus: false });
+        moved.push(kept.path + ":" + kept.line);
+        return;
+      }
+      // Neither is drawn: it is listed above the diff and stays stored until its reviewer lets it go.
+      unplaceableDrafts.push({ key: key, path: kept.path, line: kept.line, side: kept.side, text: kept.text });
     });
     writeDrafts(all);
-    if (back.length > 0) toast("Unsent " + plural(back.length, "comment") + " restored — " + back.join(", "));
+    var said = [];
+    if (back.length > 0) said.push("Unsent " + plural(back.length, "comment") + " restored — " + back.join(", "));
+    if (moved.length > 0) said.push(plural(moved.length, "comment") + " moved to a line this diff draws");
+    if (said.length > 0) toast(said.join("; "));
+    paintOrphans();
   }
 
   // ── threads ───────────────────────────────────────────────────────────────
@@ -105,52 +124,90 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     return wrap;
   }
 
+  /** The comments this render has no row for; the list above the diff is their only home. */
+  var unplaceableComments = [];
+  /** The unsent drafts whose file this render does not draw: no composer can stand for them. */
+  var unplaceableDrafts = [];
+
   function paintThreads() {
     nodeList(".rv-thread").forEach(function (el) { el.remove(); });
-    var unplaced = [];
+    unplaceableComments = [];
     (data.comments || []).forEach(function (comment) {
       var row = rowFor(comment.rel, comment.line, comment.side);
       if (row) { row.parentNode.insertBefore(threadNode(comment), row.nextSibling); return; }
       // Only a comment on a file this page draws is unplaced: one on a file a focused page hides is
       // out of view by the reader's own request, and the page says so.
-      if (sectionFor(comment.rel)) unplaced.push(comment);
+      if (sectionFor(comment.rel)) unplaceableComments.push(comment);
     });
-    paintOrphans(unplaced);
+    paintOrphans();
+  }
+
+  /** One line above the diff: a reference, the text, and the one action that removes it. */
+  function orphanItem(ref, body, action, aria, press) {
+    var item = el("span", "rv-orphans__item");
+    item.appendChild(el("span", "rv-orphans__ref", ref));
+    item.appendChild(el("span", "rv-orphans__body", body));
+    var button = el("button", "bf-btn bf-btn--ghost", action);
+    button.type = "button";
+    button.setAttribute("aria-label", aria);
+    button.addEventListener("click", press);
+    item.appendChild(button);
+    return item;
   }
 
   /**
-   * The comments this render has no line for: the diff moved under the line they named, so their
-   * thread cannot be drawn. The list is the only place they can be read and the only place they
-   * can be deleted — and a draft nobody can delete is what keeps the page from closing.
+   * The comments and the unsent drafts this render has no line for: the diff moved under the line
+   * they named, so neither a thread can be drawn nor a composer stood up. The list is the only
+   * place they can be read and let go — a stored comment's delete, a draft's discard — and a draft
+   * nobody can remove is what keeps the page from closing.
    */
-  function paintOrphans(comments) {
+  function paintOrphans() {
     var box = byId("rv-orphans");
     var list = byId("rv-orphans-list");
     if (!box || !list) return;
     list.replaceChildren();
-    box.hidden = comments.length === 0;
-    if (comments.length === 0) return;
-    var one = comments.length === 1;
+    var total = unplaceableComments.length + unplaceableDrafts.length;
+    box.hidden = total === 0;
+    if (total === 0) return;
     var head = byId("rv-orphans-head");
     if (head) {
       head.textContent =
-        (one ? "1 comment is" : comments.length + " comments are") +
-        " not on a line this page draws — the diff moved since " +
-        (one ? "it was" : "they were") +
-        " written";
+        "Not on a line this page draws — the diff moved since " + (total === 1 ? "it was" : "they were") + " written";
     }
-    comments.forEach(function (comment) {
-      var item = el("span", "rv-orphans__item");
-      item.appendChild(el("span", "rv-orphans__ref", comment.rel + ":" + comment.line));
-      item.appendChild(el("span", "rv-orphans__body", comment.body));
-      var drop = el("button", "bf-btn bf-btn--ghost", "delete");
-      drop.type = "button";
-      drop.setAttribute("aria-label", "Delete the comment on " + comment.rel + ":" + comment.line);
-      drop.addEventListener("click", function () { dropComment(comment.id); });
-      item.appendChild(drop);
-      list.appendChild(item);
+    unplaceableComments.forEach(function (comment) {
+      list.appendChild(
+        orphanItem(
+          comment.rel + ":" + comment.line,
+          comment.body,
+          "delete",
+          "Delete the comment on " + comment.rel + ":" + comment.line,
+          function () { dropComment(comment.id); },
+        ),
+      );
+    });
+    unplaceableDrafts.forEach(function (draft) {
+      list.appendChild(
+        orphanItem(
+          draft.path + ":" + draft.line + " · unsent",
+          draft.text,
+          "discard",
+          "Discard the unsent comment on " + draft.path + ":" + draft.line,
+          function () { discardDraft(draft.key); },
+        ),
+      );
     });
   }
+
+  /** Let one unplaceable draft go: it is the reviewer's text, so only they can decide that. */
+  function discardDraft(key) {
+    unplaceableDrafts = unplaceableDrafts.filter(function (draft) { return draft.key !== key; });
+    var all = storedDrafts();
+    delete all[key];
+    writeDrafts(all);
+    paintOrphans();
+    toast("Unsent comment discarded");
+  }
+
 
   // ── chrome ────────────────────────────────────────────────────────────────
   function paintStates() {
