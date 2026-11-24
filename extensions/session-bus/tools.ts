@@ -9,13 +9,13 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Type, type Static } from "typebox";
-import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { notDeliveredLine, sendOutcome, MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
-import { StringEnum } from "../../lib/tool-schema.ts";
+import { type Static, Type } from "typebox";
+import { MAX_MESSAGE_TEXT, notDeliveredLine, sendOutcome } from "../../lib/session-tool.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
-import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
+import { StringEnum } from "../../lib/tool-schema.ts";
+import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatClaim, formatInbox, formatJoin, formatRead, formatRelease, formatSend, formatStatus } from "./format.ts";
 import {
 	MAX_LABEL,
@@ -26,9 +26,9 @@ import {
 	REFERENCE_PATTERN,
 	TOOL_NAME,
 } from "./protocol.ts";
-import type { SessionBus } from "./runtime.ts";
 import { collapsedLine, resultSections } from "./result.ts";
 import type { BusRow } from "./rows.ts";
+import type { SessionBus } from "./runtime.ts";
 import type { SessionDetails } from "./types.ts";
 
 export { TOOL_NAME };
@@ -61,14 +61,14 @@ export const SessionParams = Type.Object({
 	),
 	key: Type.Optional(
 		Type.String({
-			description: "With send: the same key, kind and text folds into the copy still waiting.",
+			description: "With `send`: a name for the body — a resend folds into the copy still waiting.",
 			...REFERENCE_SCHEMA,
 		}),
 	),
 	replyTo: Type.Optional(Type.String({ description: "With send: the id this answers.", ...REFERENCE_SCHEMA })),
 	about: Type.Optional(
 		Type.String({
-			description: "With `send`: the card, branch, or phrase; one line.",
+			description: "With `send`: the card, branch, or phrase.",
 			maxLength: MAX_REFERENCE,
 		}),
 	),
@@ -76,6 +76,12 @@ export const SessionParams = Type.Object({
 		Type.Array(Type.String(), {
 			maxItems: MAX_PATHS,
 			description: "`claim`/`release`: required. Repo-relative.",
+		}),
+	),
+	holder: Type.Optional(
+		Type.String({
+			maxLength: MAX_LABEL,
+			description: "`release`: the peer whose claims move to the seat; needs the seat.",
 		}),
 	),
 	limit: Type.Optional(
