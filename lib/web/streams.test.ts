@@ -14,9 +14,9 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { EventSink } from "../http/index.ts";
 import { graceTimer } from "../../test/helpers/fixtures/http.ts";
-import { createStreams, type StreamRegistry } from "./streams.ts";
+import type { EventSink } from "../http/index.ts";
+import { createStreams, eventFrame, type StreamRegistry } from "./streams.ts";
 
 /** A page: the frames it was sent, the frames it was ended with, and how often it was closed. */
 function page(): { sink: EventSink; frames: string[]; ended: string[]; closed: { count: number } } {
@@ -28,12 +28,12 @@ function page(): { sink: EventSink; frames: string[]; ended: string[]; closed: {
 		ended,
 		closed,
 		sink: {
-			write: (frame) => {
-				frames.push(frame);
+			write: (written) => {
+				frames.push(written);
 			},
-			end: (frame) => {
+			end: (last) => {
 				closed.count += 1;
-				if (frame !== undefined) ended.push(frame);
+				if (last !== undefined) ended.push(last);
 			},
 		},
 	};
@@ -210,5 +210,29 @@ describe("the stream registry", () => {
 		expect(streams.pageOpen()).toBe(1);
 		streams.clear();
 		expect(streams.pageOpen()).toBe(0);
+	});
+});
+
+/**
+ * The bytes, against hand-typed literals rather than against the helper twice.
+ *
+ * Every case here is written out in full — a space after the colon, no space before the blank line —
+ * because these are what an `EventSource` parses, and a case that compares `eventFrame(x)` with `eventFrame(x)`
+ * or with a template built from the same expression proves nothing about them (#846).
+ */
+describe("a frame's bytes", () => {
+	test("an unnamed frame is one data line and a blank line", () => {
+		expect(eventFrame("tick")).toBe("data: tick\n\n");
+	});
+
+	test("a named frame puts the event line first", () => {
+		expect(eventFrame("{}", "status")).toBe("event: status\ndata: {}\n\n");
+	});
+
+	test("a payload whose text holds a newline is still one data line", () => {
+		// JSON.stringify escapes it, which is the shape every page sends: the helper neither splits
+		// the payload nor escapes it, so the spec's per-line `data:` prefix is deliberately not
+		// what this writes.
+		expect(eventFrame(JSON.stringify({ text: "a\nb" }))).toBe('data: {"text":"a\\nb"}\n\n');
 	});
 });
