@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { duplicateDeclarations, duplicateFunctions, unfilledPlaceholders } from "../../../test/helpers/bundle.ts";
 import { REVIEW_CLIENT_JS } from "./client.ts";
 import { REVIEW_COMMENTS_JS } from "./client-comments.ts";
+import { REVIEW_DRAFTS_JS } from "./client-drafts.ts";
 import { REVIEW_KEYS_JS } from "./client-keys.ts";
 import { REVIEW_LIVE_JS } from "./client-live.ts";
 import { REVIEW_PLACE_JS } from "./client-place.ts";
@@ -94,7 +95,8 @@ describe("the review bundle", () => {
 	 * reads. A fragment left out is a `ReferenceError` on the first paint, and two fragments
 	 * declaring one name is which body a caller reaches decided by concatenation order.
 	 */
-	test("assembles all four fragments, each name once", () => {
+	test("assembles all five fragments, each name once", () => {
+		expect(REVIEW_CLIENT_JS).toContain(REVIEW_DRAFTS_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_COMMENTS_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_PLACE_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_KEYS_JS);

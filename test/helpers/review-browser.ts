@@ -32,10 +32,27 @@ export const REVIEW_MOUNT = "/review";
 
 /**
  * One file: a hunk head, then `lines` context rows and one added line. With `lines` absent it
- * is three numbered rows (two context and an add) — the shape the cursor cases count on.
+ * is three numbered rows (two context and an add) — the shape the cursor cases count on. `paired`
+ * replaces the context rows with one removed and one added row, so a case can select across the
+ * two sides of a change.
  */
-function fileRows(rel: string, start: number, lines = 0): ReviewSnapshot["files"][number] {
+function fileRows(rel: string, start: number, lines = 0, paired = false): ReviewSnapshot["files"][number] {
 	const body: DiffLine[] = [];
+	if (paired) {
+		body.push(
+			{ kind: "del", text: "const gone = 0;", oldNo: start },
+			{ kind: "add", text: "const here = 1;", newNo: start },
+		);
+		return {
+			rel,
+			status: "M",
+			add: 1,
+			del: 1,
+			binary: false,
+			truncated: false,
+			lines: [{ kind: "hunk", text: `@@ -${start} +${start} @@` }, ...body],
+		};
+	}
 	if (lines > 0) {
 		for (let index = 0; index < lines; index++) {
 			body.push({ kind: "ctx", text: `const v${index} = ${index};`, oldNo: start + index, newNo: start + index });
@@ -65,6 +82,8 @@ export interface SnapshotOptions {
 	start?: number;
 	/** Append a second file, so a move can cross into it. */
 	second?: boolean;
+	/** One removed row and one added row instead of the context rows: two sides of one change. */
+	paired?: boolean;
 	/** Context rows per file (plus the added line); absent keeps the three-row shape. */
 	lines?: number;
 	/** How many files; overrides `second` when given. */
@@ -78,7 +97,7 @@ export function reviewSnapshot(fingerprint: string, options: SnapshotOptions = {
 	const files: ReviewSnapshot["files"] = [];
 	for (let index = 0; index < count; index++) {
 		const rel = options.files === undefined ? (index === 0 ? "a.ts" : "b.ts") : `f${index + 1}.ts`;
-		files.push(fileRows(rel, index === 0 ? start : 40 + (index - 1) * 40, options.lines ?? 0));
+		files.push(fileRows(rel, index === 0 ? start : 40 + (index - 1) * 40, options.lines ?? 0, options.paired === true));
 	}
 	return {
 		scope: "base",
