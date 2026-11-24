@@ -259,7 +259,10 @@ async function releasedClause(
 	// so a peer wearing the holder's name reads as the holder and stays silent.
 	if (holder === undefined || sameLabel(holder.label, card.by)) return undefined;
 	const verb = answer.notOwned.length === 1 ? "stays" : "stay";
-	return `${plural(answer.notOwned.length, "path")} ${verb} held by ${sanitizeLine(holder.label)} until it stops`;
+	// The duration is the fact and the action is the reader's: a lead that reads "until it stops" learns
+	// the paths outlive the card but not that the holder can free them, which is the one thing it can
+	// ask for (#831). `it` is the holding, so the sentence stays true for one path or many.
+	return `${plural(answer.notOwned.length, "path")} ${verb} held by ${sanitizeLine(holder.label)} until it stops; only \`session release\` in that session frees it`;
 }
 
 /**

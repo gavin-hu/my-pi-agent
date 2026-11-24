@@ -141,7 +141,10 @@ const CEILINGS: readonly Ceiling[] = [
 	// `override`; 6,378 after every union became a string enum; 6,284 when the two note fields
 	// merged; 6,282 after #821, where `lane` gave up the transition clause `move`'s own doc states
 	// and `root` gained the tree it names, paid out of that deletion.
-	{ tool: "board", max: 6_282, guidelines: 361, longest: 150 },
+	// 6,282 → 6,225 after #831: `contract`'s doc gave up the four field names its own parameters state
+	// (−46), and `reclaim` gained the claim it leaves behind (+29, less than the deletion, so the
+	// ceiling falls with the surface rather than staying where it was).
+	{ tool: "board", max: 6_225, guidelines: 361, longest: 150 },
 	// 3,111 before the verb list stopped being written twice; 2,349 after `claim`/`reclaim` left;
 	// 2,335 when `action` became a string enum and the bus's bounds moved into the schema.
 	{ tool: "team", max: 2_335, guidelines: 662, longest: 167 },

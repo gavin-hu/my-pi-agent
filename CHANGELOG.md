@@ -38,6 +38,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: `reclaim` says what it leaves behind. The verb returns the card and keeps the holder's path claims, and the
+  action's own line now reads that way instead of only "returns it to `backlog`"; the clause a lead sees names the one
+  door that frees them (`session release` in that session). The page also records the third face — a release on a path
+  whose card is still in `execute` lasts until the next turn, when the card claims it back — so the exits that last are
+  `paths: []` on a card that writes no code, or the card leaving the lane. No behaviour changed: the gate was already
+  honest, only its description was quiet.
+
 - `code-review`: a rail row spends its lines on the path. The state word — `no comment`, `marked reviewed`
   — leaves the visible line for the row's `title`, where it costs no height, and the comment count keeps
   the name's line; two rows more fit the rail at 1280px, one at 900 and one at 420, on a rail that is

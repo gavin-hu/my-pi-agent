@@ -22,7 +22,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | Put a feature on it | `board({ action: "add", title, paths })` — a call, because `add` takes a title rather than a card id |
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
-| Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back — the lead from anyone, a peer only once that owner's record says it stopped |
+| Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back — the lead from anyone, a peer only once that owner's record says it stopped. The claims it took stay with the session that took them: only that session's `session release` frees them, or its stopping, and a release inside `execute` waits only for the next turn, so `paths: []` and the lane are the exits that last |
 | Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut … verify …` — all four lines, and the `verify` command is required |
 | Approve the contract | `/board approve 4` in the lead's session, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
@@ -94,7 +94,7 @@ leaves the page serving; landing is shell work, so it is an exit, land, and `/bo
   claim it again. A lead holding no card may still move it `plan` → `execute`, or close a signed card whose holder the
   bus lost — a close, not a signature; every other verb is the holder's. A gate is a reading.
 - Settle title, paths and contract before the sign: a write after the spot-check stops it speaking, and a branch is proved against `main` as cut. Restart when board code lands — a `/reload` keeps a `lib/` module another extension loaded.
-- Ownership is a session id, not a lock — only `session-bus` path claims are. A card in `execute` holds its `paths`, a lane change frees only the writer's, and a dead owner's card is released by a start or re-seated to the session wearing that name.
+- Ownership is a session id, not a lock — only `session-bus` path claims are. A card in `execute` holds its `paths`, a lane change frees only the writer's, and a card whose owner's record reads `gone` is pooled by the next start's sweep — but `gone` is a reading of a record, not a death: a pruned or aged-out one says it about a live session, and the sweep that pools the card clears the spot-check when that session is its signer.
 - The page asks the bus for a stamp every second — mail waiting, a peer's state, a turn starting — and sweeps every five for what no file announces; a page with no watch scans every second.
 
 ## Settings
