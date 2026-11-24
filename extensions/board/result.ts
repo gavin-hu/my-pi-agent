@@ -7,17 +7,27 @@
  * transcript hands back.
  */
 
-import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Card, cardRef } from "../../lib/workflow/card.ts";
+import type { Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { type Card, cardRef, cardRefOf } from "../../lib/workflow/card.ts";
 import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import { plural, sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import type { TailResultInput, TailSection, TailRowLine } from "../../lib/tui/tool.ts";
+import {
+	callLine,
+	detailsOrLine,
+	isTailResult,
+	type TailResultInput,
+	type TailSection,
+	type TailRowLine,
+	TailResult,
+} from "../../lib/tui/tool.ts";
+import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { boardRowLineFor } from "./rows.ts";
 import { TONE_ROLE } from "./tone.ts";
 import { toolError } from "../../lib/tool-result.ts";
-import type { ArchiveOutcome, BoardAction, BoardDetails } from "./types.ts";
+import { BOARD_TOOL, type ArchiveOutcome, type BoardAction, type BoardDetails, normalizeBoardAction } from "./types.ts";
+import { BoardParams } from "./schema.ts";
 
 /** One section of the expanded block, drawn as the session that asked for it. */
 function section(label: string | undefined, cards: readonly Card[], rowLine: TailRowLine<Card>): TailSection<Card> {
@@ -168,3 +178,53 @@ function cardLine(theme: Theme, card: Card): string {
 	const title = paint(theme, "label", sanitizeLine(card.title));
 	return `${id} ${lane} ${SEPARATORS.item} ${title}`;
 }
+
+function callSubject(action: BoardAction, args: Record<string, unknown>): string {
+	const card = cardRefOf(args.card);
+	if (action === "add") {
+		const title = typeof args.title === "string" ? args.title.trim() : "";
+		return title === "" ? "add" : `add ${title}`;
+	}
+	if (action === "list") {
+		const parts = ["list"];
+		if (args.round === true) parts.push("round");
+		if (typeof args.lane === "string") parts.push(args.lane);
+		if (typeof args.query === "string" && args.query.trim() !== "") parts.push(`"${args.query.trim()}"`);
+		if (card !== "") parts.push(card);
+		return parts.join(" ");
+	}
+	if (card === "") return action;
+	const lane = typeof args.lane === "string" ? ` ${args.lane}` : "";
+	return `${action} ${card}${lane}`;
+}
+
+/** The two transcript hooks the board's tool registers, typed from the definition they belong to. */
+type BoardRenderers = Required<
+	Pick<ToolDefinition<typeof BoardParams, BoardDetails, Card>, "renderCall" | "renderResult">
+>;
+
+export const renderBoardCall: BoardRenderers["renderCall"] = (args, theme, context) => {
+	const action = normalizeBoardAction(args.action) ?? "list";
+	return callLine(theme, context.lastComponent, BOARD_TOOL, callSubject(action, args as Record<string, unknown>));
+};
+
+export const renderBoardResult: BoardRenderers["renderResult"] = (result, options, theme, context) => {
+	const text = reuseText(context?.lastComponent);
+	const details = toolDetails<BoardDetails>(result.details);
+	const outcome = detailsOrLine(theme, result, options.expanded, details);
+	if ("line" in outcome) {
+		text.setText(outcome.line);
+		return text;
+	}
+	// A `list` is the one action with rows, so a collapsed block is the line that counts
+	// them: the rows are what expanding adds, not a second copy of the line's answer.
+	const input = options.expanded ? resultInput(outcome.details) : undefined;
+	if (!input) {
+		text.setText(collapsedLine(theme, outcome.details));
+		return text;
+	}
+	const previous = context?.lastComponent;
+	const view = isTailResult<Card>(previous) ? previous : new TailResult<Card>(input, theme);
+	view.setInput(input, theme);
+	return view;
+};
