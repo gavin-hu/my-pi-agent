@@ -129,6 +129,14 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 		}
 	};
 
+	/** End the review: the one close `/review stop`, the session's end and an abandoned page share. */
+	const closePage = async (): Promise<void> => {
+		const page = running;
+		running = undefined;
+		store.close();
+		await page?.close();
+	};
+
 	return {
 		async open(input) {
 			const { repo } = current.place();
@@ -162,6 +170,8 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 				current,
 				session: sessionId,
 				mount: deps.mount ?? ((spec) => requestMount(deps.pi, spec)),
+				// The last tab leaving ends the review, through the same close a person's stop runs.
+				onAbandoned: () => void closePage(),
 				onSent: (comments, id) => {
 					sent = [...sent, ...comments];
 					deps.onSent?.(comments, id);
@@ -188,11 +198,6 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 		},
 		status: describe,
 		sent: () => sent,
-		async close() {
-			const page = running;
-			running = undefined;
-			store.close();
-			await page?.close();
-		},
+		close: closePage,
 	};
 }

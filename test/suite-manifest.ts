@@ -142,6 +142,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"review/session",
 		"transport/file",
 		"transport/router",
+		"transport/stream",
 		"transport/write",
 		"view/file",
 		"view/page",

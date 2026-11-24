@@ -26,7 +26,7 @@ is written to your tree.
 | Mark a file read | its **reviewed** box, or `m` |
 | Send the notes to the session | **Send feedback** |
 | Read what was sent | `code_review` with `action: "comments"` |
-| Close the page | `/review stop`, or `code_review` with `action: "close"` |
+| Close the page | `/review stop`, `code_review` with `action: "close"`, or the last tab leaving |
 
 ## Try it
 
@@ -73,15 +73,16 @@ sent — which also writes the one you are typing. The changed files are the
 shell's sidebar — a search, **All** / **Commented**, and one row per file —
 folding below 900px; `wrap` wraps at any width, and narrowing hides rows and never
 sections. The rail's head carries the facts and the progress; the footer the comparison.
+It follows its own stream: a write in one tab repaints the others, a frame under an
+open comment box waits for it, and its last tab leaving ends the page 1.5 s later, so
+a reload fits. Nothing watches the tree — the next write discovers a moved diff.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff:
 the rail shows that file and an **all files** link back, and the comparison is
 still the whole scope, so nothing about the snapshot or its token changes. It is
-typed, not linked — no other page has a way in here, and this page links nowhere
-else. The file's head carries **view file**, which serves the whole file at
-`/review/file?scope=<s>&path=<rel>`: only a path this comparison lists, read under
-the reviewed checkout, drawn on the diff's own gutter, with a way back to the
-comparison. `n` and `p` step between the focused file's hunks; the whole review
+typed, not linked. The file's head carries **view file**, which serves the whole
+file at `/review/file?scope=<s>&path=<rel>`: only a listed path, read under the
+reviewed checkout, drawn on the diff's gutter, with a way back. `n` and `p` step between the focused file's hunks; the whole review
 keeps `[` and `]`. A reference copied from a selection is `path:12-30`.
 
 **What a comment anchors to.** A path, a side, and a line the comparison draws,
@@ -102,9 +103,8 @@ moves, while a send, a delete and a mark name no line and land anyway.
 - In a repository with no commits yet, `staged` and `worktree` still render a page;
   `base`, `last` and `head` say the commit they compare is missing — `head` too,
   since `git diff HEAD` needs one where `git diff --cached` does not.
-- The page needs `git`, `serve`, and a local browser; without `serve` the tool
-  says the session has no port, and a launcher that cannot start is reported with
-  the address to paste.
+- The page needs `git`, `serve`, and a local browser; without `serve` the tool says
+  the session has no port, and a launcher that cannot start is reported with the address.
 
 ## Settings
 
