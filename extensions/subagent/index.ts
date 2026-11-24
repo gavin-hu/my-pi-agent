@@ -47,7 +47,7 @@ const AGENT_NAMES = formatAgentNames(BUILTIN_AGENTS);
 
 const DESCRIPTION = [
 	"Delegate tasks to specialized subagents with isolated context windows.",
-	"Modes: single (`agent` + `task`), parallel (`tasks`), chain (sequential, `{previous}` placeholder).",
+	"Provide exactly one mode — single (`agent` + `task`), parallel (`tasks`), or chain (sequential, `{previous}` placeholder).",
 	"Each runs in its own process, inheriting the current model and thinking level.",
 	"A single run can start in the background (`background: true`) and is managed with `/agents`.",
 	`Built-in agents: ${AGENT_NAMES}.`,

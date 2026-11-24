@@ -44,6 +44,12 @@ a batch is answered in one pass — `Submit` refuses until every question has an
 answer and names the missing ones. A single question submits on `Enter` without a
 `Submit` tab.
 
+**Labels.** A tab's header is at most 12 characters — UTF-16 units, so an emoji
+costs two — and the tool's own schema carries that bound, which means a longer
+header is refused before the call runs rather than shortened. Two headers in one
+batch, or two options in one question, cannot share a name: the refusal names the
+pair, ignoring case.
+
 **Where it appears.** The TUI shows the dialog and waits for the editor's focus;
 RPC and remote turns use the same dialog through Pi's own `select`/`input`/`editor`
 fallbacks; a `print` or `json` run with no dialog channel gets `unavailable`

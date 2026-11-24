@@ -51,6 +51,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `question`: a tab header past 12 characters is refused by the tool's schema — UTF-16 units, so an
+  emoji costs two — where it used to be shortened silently; the same schema now names the rule that two
+  headers in one batch, or two options in one question, cannot share a name.
+
+- `send_wechat`: a call that names none of `text`, `image`, and `file` — or more than one — is refused
+  before the bridge is touched, because the tool's schema carries `minProperties`/`maxProperties`; the
+  runtime refusal stays for callers that bypass the schema.
+
+- `session`: the `action` description now says which reader keeps the mail (`inbox` consumes, `read`
+  keeps), and `board`'s `root` names the tree a spot-check runs in — a card's worktree or a checkout at
+  its commit, not a store path — so a call stops being shaped by a parenthesis.
+
+- `job`, `watch`, `plan`, `subagent`, `session`: each verb's required fields are stated in the field they
+  constrain rather than only in the paragraph above it, and three always-on surfaces now hold a measured
+  ceiling: `plan` at 5,575 characters (lower than yesterday, its description no longer repeating its own
+  `plan_path`), and the bound a tool may cost on every request is one table rather than one constant's copy.
+
 - `code-review`: a comment's thread renders in the page's UI face, so prose reads as prose instead of
   as the code face it inherited from the `<code>` it sits in. The line a thread quotes and the path in
   the send dialog keep the code face — the mono stays on what is code.

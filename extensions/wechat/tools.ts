@@ -28,30 +28,46 @@ import type { Bridge, OwnerMessage } from "./bridge.ts";
 
 export const TOOL_NAME = "send_wechat";
 
-const WechatSendParams = Type.Object({
-	text: Type.Optional(
-		Type.String({
-			minLength: 1,
-			maxLength: 4000,
-			description: "The message to send to the WeChat owner. Plain text.",
-		}),
-	),
-	image: Type.Optional(
-		Type.String({
-			minLength: 1,
-			maxLength: 4096,
-			description: "Path to a local image to send instead, as a picture. One of text, image, or file.",
-		}),
-	),
-	file: Type.Optional(
-		Type.String({
-			minLength: 1,
-			maxLength: 4096,
-			description:
-				"Path to a local file to send instead, as a document. One of text, image, or file; a file that is an image still arrives as a document.",
-		}),
-	),
-});
+/**
+ * How many of `text`, `image`, and `file` one call carries.
+ *
+ * The rule is "exactly one", so it is a bound at both ends: the schema publishes it as
+ * `minProperties`/`maxProperties`, which Pi refuses before `execute`, and {@link ownerMessage}
+ * holds the same number for a programmatic caller such as `codemode`, which bypasses the schema.
+ * One constant, so the two cannot disagree about what "one message" means.
+ */
+export const MESSAGE_FIELDS = 1;
+
+export const WechatSendParams = Type.Object(
+	{
+		text: Type.Optional(
+			Type.String({
+				minLength: 1,
+				maxLength: 4000,
+				description: "The message to send to the WeChat owner. Plain text.",
+			}),
+		),
+		image: Type.Optional(
+			Type.String({
+				minLength: 1,
+				maxLength: 4096,
+				description: "Path to a local image to send instead, as a picture. One of text, image, or file.",
+			}),
+		),
+		file: Type.Optional(
+			Type.String({
+				minLength: 1,
+				maxLength: 4096,
+				description:
+					"Path to a local file to send instead, as a document. One of text, image, or file; a file that is an image still arrives as a document.",
+			}),
+		),
+	},
+	{
+		minProperties: MESSAGE_FIELDS,
+		maxProperties: MESSAGE_FIELDS,
+	},
+);
 type WechatSendArgs = Static<typeof WechatSendParams>;
 
 const WechatSendResult = Type.Object({
@@ -79,7 +95,7 @@ function sendResult(sent: boolean, error?: string) {
 /** The one shape this call carries, or undefined when it names none or several. */
 function ownerMessage(args: WechatSendArgs): OwnerMessage | undefined {
 	const given = [args.text, args.image, args.file].filter((value) => value !== undefined);
-	if (given.length !== 1) return undefined;
+	if (given.length !== MESSAGE_FIELDS) return undefined;
 	if (args.file !== undefined) return { file: args.file };
 	if (args.image !== undefined) return { image: args.image };
 	return args.text === undefined ? undefined : { text: args.text };
@@ -96,7 +112,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		promptSnippet: "Send a WeChat text, image, or file to the account owner.",
 		promptGuidelines: [
 			"Use send_wechat only to message the owner proactively, not to answer an inbound WeChat message (the bridge replies automatically).",
-			"Give one of text, image, or file: a plot or screenshot goes as an image path and arrives as a picture, while any other file goes as a file path and arrives as a document.",
+			"Give exactly one of text, image, or file: a plot or screenshot goes as an image path and arrives as a picture, while any other file goes as a file path and arrives as a document.",
 			"Keep messages concise and do not include secrets unless the user asked for them.",
 		],
 		parameters: WechatSendParams,
