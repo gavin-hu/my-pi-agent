@@ -75,6 +75,9 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
 
   function closeComposer(wrap) {
     if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    // A frame that arrived while the reader was typing was held rather than applied; the box is
+    // gone now, so it lands. This is what makes that drop a delay and not a loss.
+    liveFlush();
   }
   /** Throw away one composer and its record; the others are not this one's business. */
   function cancelComposer(wrap) {

@@ -1,17 +1,22 @@
 /**
  * The review page's server: one mount on the session's own port.
  *
- * Nothing binds here — the page asks `serve`'s registry for a prefix, as every
- * served page does — so the review answers on the session's one origin and
- * closes with its last mount. Idle is not armed: a review waits for the person
- * who opened it, and `/review stop` or the session's end is the way it closes.
+ * Nothing binds here — the page asks `serve`'s registry for a prefix, as every served page does —
+ * so the review answers on the session's one origin.
  *
- * The root, the reader and the page are the session's (`review/current.ts`), not
- * this mount's: a page that lives for an opening would read the tree it opened on
- * after a worktree switch.
+ * **A review ends in three ways, and all three run through this page's `close()`**: its last tab
+ * leaving and the grace running out (the page is the stream's lifetime, so an abandoned page is a
+ * decision rather than silence), `/review stop`, and the session's end. The close stands a pending
+ * grace down, ends every stream with a `closed` frame so a reader is told why it stops updating,
+ * clears them, and only then releases the prefix — a tab never sees a socket close without a word.
+ *
+ * The root, the reader and the page are the session's (`review/current.ts`), not this mount's: a
+ * page that lives for an opening would read the tree it opened on after a worktree switch.
  */
 
 import type { MountOutcome, MountSpec } from "../../../lib/http/index.ts";
+import { type ArmTimer, defaultTimer } from "../../../lib/timer.ts";
+import { createStreams } from "../../../lib/web/streams.ts";
 import type { SnapshotOutcome } from "../git/diff.ts";
 import { REVIEW_BASE } from "../links.ts";
 import type { ReviewCurrent } from "../review/current.ts";
@@ -21,6 +26,14 @@ import { createReviewHandler, type ReviewHandlerDeps } from "./router.ts";
 
 /** The largest write body the page accepts. */
 export const MAX_BODY_BYTES = 256 * 1024;
+
+/**
+ * How long the page may be gone before the review ends.
+ *
+ * It races a reload: a tab that comes back inside this window attaches again before the grace
+ * fires, and the registry stands the drop down.
+ */
+export const DROP_GRACE_MS = 1500;
 
 /** What a mount needs of the session it serves. */
 export interface ReviewServerDeps {
@@ -33,6 +46,12 @@ export interface ReviewServerDeps {
 	mount: (spec: MountSpec) => Promise<MountOutcome>;
 	/** Told after a send, so the session reads the comments at its next turn. */
 	onSent?: ReviewHandlerDeps["onSent"];
+	/** The review is over because its page went away; the session ends it through this. */
+	onAbandoned?: () => void;
+	/** The timer the grace is armed on. */
+	schedule?: ArmTimer;
+	/** How long the page may be gone before the review ends; `DROP_GRACE_MS` by default. */
+	dropGraceMs?: number;
 }
 
 /** A running review page. */
@@ -59,10 +78,26 @@ export interface ReviewServer {
 export async function createReviewPage(
 	deps: ReviewServerDeps,
 ): Promise<{ kind: "page"; page: ReviewServer } | { kind: "refused"; reason: string }> {
+	const streams = createStreams({
+		// The page is the lifetime: this mount serves one review, so every stream on it belongs to
+		// the page whose departure ends the session. The kit asks a question; the answer is "all".
+		lifetime: () => true,
+		graceMs: deps.dropGraceMs ?? DROP_GRACE_MS,
+		schedule: deps.schedule ?? defaultTimer,
+		// A page already closing arms nothing, so its teardown's own detach is silent.
+		settled: () => closed,
+		...(deps.onAbandoned === undefined ? {} : { onAbandoned: deps.onAbandoned }),
+	});
+	let closed = false;
 	const handler = createReviewHandler({
 		store: deps.store,
 		current: deps.current,
 		base: REVIEW_BASE,
+		streams,
+		notify: {
+			review: (review) => streams.broadcast(JSON.stringify({ review })),
+			moved: () => streams.broadcast(JSON.stringify({ moved: true })),
+		},
 		...(deps.onSent === undefined ? {} : { onSent: deps.onSent }),
 	});
 	const outcome = await deps.mount({
@@ -73,7 +108,6 @@ export async function createReviewPage(
 	});
 	if (outcome.kind === "refused") return { kind: "refused", reason: outcome.reason };
 	const mount = outcome.mount;
-	let closed = false;
 	return {
 		kind: "page",
 		page: {
@@ -86,6 +120,12 @@ export async function createReviewPage(
 			close: async () => {
 				if (closed) return;
 				closed = true;
+				// In this order, and for these reasons: the drop is stood down first so a teardown is not
+				// read as an abandonment, the frame is written before the sockets close so a reader is told
+				// why the page stopped, and the prefix is released only once nothing is left to write to.
+				streams.cancelDrop();
+				streams.end("closed");
+				streams.clear();
 				await mount.release();
 			},
 		},

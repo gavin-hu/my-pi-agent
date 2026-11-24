@@ -21,6 +21,7 @@ import {
 	button,
 	docHead,
 	keysSheet,
+	liveChip,
 	pageFooter,
 	pageSheet,
 	reloadChip,
@@ -257,8 +258,11 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const stale = input.review !== undefined && input.review.rev !== snapshot.fingerprint;
 	// One home per fact: the rail's head carries everything about files (shown/total, the totals and
 	// how far the review has got), the footer carries only the comparison, and the draft count is on
-	// the Send button. What is left here is the way out of a page the tree moved under.
-	const facts = reloadChip({ title: "The diff moved — reload the page" });
+	// the Send button. The facts zone is the page's state, which is two things now: the stream it
+	// follows, and the way out of a page the tree moved under — the live chip took its place beside
+	// the reload because the kit puts the live state in the header, and a sixth slot for one cell
+	// would be a row for a fact this row already holds.
+	const facts = `${liveChip({ id: "rv-live", label: "connecting…" })}${reloadChip({ title: "The diff moved — reload the page" })}`;
 	const controls = `<div class="bf-app__group">
     ${scopeSegments(snapshot.scope)}
   </div>

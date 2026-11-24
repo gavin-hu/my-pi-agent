@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `code-review`: the page is live. Its mount serves an event stream on `/events` with the page's own
+  token, so a write in one tab repaints the others without a reload, and a write refused because the
+  tree moved warns **every** tab through the header's reload chip rather than only the one that
+  wrote. The header carries the kit's live chip, a frame that lands under an open comment box waits
+  for the box instead of closing it, and the review ends a second and a half after its last tab
+  leaves — through the same close `/review stop` runs, ending the streams with a `closed` frame
+  before the prefix is released. A moved tree is still discovered by a write: nothing polls the diff.
+
 - `board`: `move` to `done` takes `landed`, the merge a card's work shipped in — a folded card, whose merge is older than
   its own `execute` and so cannot be named by the chain. The argument is checked on the branch (a prefix, resolved, and
   never one matching two commits), at or below the card's spot-check, and refused when the chain can name a landing of its

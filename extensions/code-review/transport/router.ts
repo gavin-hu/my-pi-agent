@@ -14,6 +14,7 @@
 import { join } from "node:path";
 import {
 	envelopeRefusal,
+	eventHeaders,
 	jsonError,
 	jsonHeaders,
 	jsonResponse,
@@ -29,9 +30,17 @@ import {
 import { tokenMatches } from "../../../lib/http/token.ts";
 import { isInsideReal } from "../../../lib/path.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
+import type { StreamRegistry } from "../../../lib/web/streams.ts";
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { ReviewCurrent } from "../review/current.ts";
-import { NO_PAGE, type Review, type ReviewComment, type ReviewStore, type WriteOp } from "../review/store.ts";
+import {
+	NO_PAGE,
+	SNAPSHOT_MOVED,
+	type Review,
+	type ReviewComment,
+	type ReviewStore,
+	type WriteOp,
+} from "../review/store.ts";
 import { parseScope, type ReviewScope } from "../scope.ts";
 import { REVIEW_CLIENT_JS } from "../view/client.ts";
 import { renderReviewFile } from "../view/file.ts";
@@ -40,10 +49,13 @@ import { renderReviewPage, renderReviewProblem } from "../view/page.ts";
 /** The page's script, beside the shared theme. */
 export const CLIENT_JS_PATH = "/client.js";
 
+/** Where the page follows this review: one stream, one page, the same token its writes carry. */
+export const EVENTS_PATH = "/events";
+
 /** The page's refusal when a scope names no review to show. */
 const NO_REVIEW = "that review is not open on this session — run /review";
 
-/** What the router needs of the session it serves. */
+/** What the handler needs of the session it serves. */
 export interface ReviewHandlerDeps {
 	store: ReviewStore;
 	/** The session's root, reader and page, read per request. */
@@ -52,6 +64,20 @@ export interface ReviewHandlerDeps {
 	base: string;
 	/** Called after a send has marked comments sent, so the session can be told. */
 	onSent?: (sent: ReadonlyArray<ReviewComment>, id: string) => void;
+	/**
+	 * The page's live streams, or none: a mount without one serves a page that learns only by
+	 * reloading. The registry is the kit's, so the keys and the grace are its business, not this
+	 * module's.
+	 */
+	streams?: Pick<StreamRegistry, "add" | "remove">;
+	/**
+	 * News for every open tab, after the write that produced it: the review as the writer left
+	 * it, or the fact that the tree moved under all of them.
+	 */
+	notify?: {
+		review: (review: ReturnType<typeof reviewView>) => void;
+		moved: () => void;
+	};
 }
 
 /** The state a write answers: the review, narrowed to what the page reads. */
@@ -267,10 +293,17 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 			return jsonError(400, "a comment anchors to a line this diff draws");
 		}
 		const outcome = store.write(token, typeof body.rev === "string" ? body.rev : "", snapshot.snapshot.fingerprint, op);
-		if (!outcome.ok) return jsonError(outcome.status, outcome.message);
+		if (!outcome.ok) {
+			// The tree moving is news for every tab, not only for the one that wrote and was refused:
+			// this is the fact the page could not learn before without a reload.
+			if (outcome.status === 409 && outcome.message === SNAPSHOT_MOVED) deps.notify?.moved();
+			return jsonError(outcome.status, outcome.message);
+		}
 		if (op.kind === "send" && outcome.sent.length > 0) {
 			deps.onSent?.(outcome.sent, outcome.id);
 		}
+		// The write landed, so this tab repaints from its own answer and every other one from this.
+		deps.notify?.review(reviewView(outcome.review));
 		return jsonResponse(200, { id: outcome.id, review: reviewView(outcome.review) });
 	};
 
@@ -290,6 +323,29 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		}
 		if (pathname === THEME_JS_PATH) {
 			return { result: { status: 200, headers: scriptHeaders(), body: THEME_JS } };
+		}
+		// The page's stream: the same token every write carries, because a tab that can write can
+		// listen, and a caller without one learns nothing about this review.
+		if (pathname === EVENTS_PATH) {
+			if (method !== "GET") {
+				return {
+					result: { ...jsonError(405, "Use GET to follow this review."), headers: { ...jsonHeaders(), Allow: "GET" } },
+				};
+			}
+			const held = store.current();
+			if (held === undefined) return { result: jsonError(403, NO_PAGE) };
+			if (!tokenMatches(held.token, search.get("token") ?? "")) {
+				return { result: jsonError(403, "Invalid or missing token.") };
+			}
+			const streams = deps.streams;
+			if (streams === undefined) return { result: { status: 200, headers: eventHeaders(), body: "", stream: true } };
+			return {
+				result: { status: 200, headers: eventHeaders(), body: "", stream: true },
+				openSink: (sink) => {
+					streams.add(sink, { key: "page", token: held.token });
+					return () => streams.remove(sink);
+				},
+			};
 		}
 		if (pathname.startsWith("/api/")) {
 			if (method !== "POST") {
