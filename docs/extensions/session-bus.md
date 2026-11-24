@@ -12,8 +12,7 @@ messages, consume an inbox, and claim paths before editing them.
   `/team join` join too.
 - **Listening is a mode**: mail reported at the next turn, or — with `wake` — one raised turn when
   idle. A board or team join asks for `wake`, and `listen: false` is the one opt-out.
-- **Waiting mail**: a listening session's turn starts with the count until `inbox` clears it.
-- **Claims are all-or-nothing**, on a file or a directory prefix, and they expire
+- **Waiting mail**: a listening session's turn starts with the count until `inbox` clears it.- **Claims are all-or-nothing**, on a file or a directory prefix, and they expire
   with the session.
 
 ## What you can do
@@ -27,8 +26,7 @@ messages, consume an inbox, and claim paths before editing them.
 | Read your mail | `session inbox`, or `session read` to show it and keep it (the waiting line counts files, so `read` leaves it) |
 | See mail no session holds, and clear one | the board's summary counts it; `/sessions drop` names each, and `<id>` clears one |
 | Claim files before editing | `session claim paths ["src/api"]` |
-| Release a claim | `session release paths ["src/api"]`, or `x` on the board |
-| Free a stopped peer's claims | `session release paths ["src/api"] holder tom`, from the seat |
+| Release a claim, or take a peer's | `session release paths ["src/api"]`, or `x` on the board; with `holder tom`, from the seat |
 | Be woken by mail | a board/team join asks for it; `session join wake: true` for a bare session |
 | Stop listening | `w`, on the board |
 
@@ -46,17 +44,9 @@ releases a claim you hold — after a confirmation. It joins nothing by itself.
 
 **Actions.** `session status` reads without joining; `session send` writes one message per
 recipient — `key` folds a resend into the waiting copy, `replyTo` names the message it answers, and
-`about` is what it concerns (a card's `#673`); `session claim`/`release` hold and drop claims;
+`about` is what it concerns (a card's `#673`); `session claim`/`release` hold and drop claims — with
+`holder`, the seat moves a live peer's claims instead ([`multi-session`](../multi-session.md#a-stopped-owner));
 `session join` puts this session on the bus, with `wake` and `listen`.
-
-**A release with `holder` is the seat's, and it moves a claim rather than dropping one.** The claims
-become the caller's in one store call, so nothing is free in between for a third session to take, and
-the peer's own next claim is refused by a conflict naming who holds them — a forgotten transfer blocks
-that peer as firmly as a deletion did, only the refusal says whose they are. The board prints the
-state this answers, over a card whose owner stopped: `9 paths stay held by jack until it stops`. A card
-whose owner has stopped is not a card whose paths are free, and until this door the seat could only
-describe that. A caller with no seat is refused; `/board` can start a session attached to one, and an
-attached session holds no seat.
 
 **Message kinds.** `message`, `event`, `ask`, and `handoff`. An `ask` does not
 block the sender; a `handoff` names the work it assigns. A message may carry the
