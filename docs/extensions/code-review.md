@@ -85,9 +85,14 @@ comparison. `n` and `p` step between the focused file's hunks; the whole review
 keeps `[` and `]`. A reference copied from a selection is `path:12-30`.
 
 **What a comment anchors to.** A path, a side of the diff, and a line number on
-that side. The page posts the snapshot it rendered with every write, and the
-server re-reads the diff: a tree that moved under the page is refused with the
-reload sentence rather than a comment landing on a line nobody read.
+that side — a line the comparison draws, which the server checks against the
+snapshot rather than trusting the page. A comment carries the snapshot it was
+written on and is refused, with the reload sentence, once the tree moves; a
+send, a delete and a mark name no line, so they land whatever the tree did.
+When a moved diff leaves a comment on a line no hunk shows, the page lists it
+above the diff — its file, its line, what was written, and a delete — because
+that list is the only place it can be removed from, and a draft keeps
+`code_review close` refusing until it goes.
 
 ## Limits
 

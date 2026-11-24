@@ -78,6 +78,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: a send, a delete and a file marked reviewed land even when the diff moved under the page — only a
+  comment names a line, so only a comment carries the snapshot it was written on, and only a comment on a line the
+  comparison actually draws is stored. A comment a moved diff leaves without a row is listed above the diff with a
+  delete, so the draft no longer keeps `code_review close` refusing, and a refused write repaints the controls it
+  rolled back rather than leaving a reviewed box ticked against the server's state.
+
 - `check`: the format gate stops at `.pi`. `biome.json` now carries `!.pi/**` in `files.includes`, so
   `biome format .` no longer descends into `.pi/worktrees/`, where each managed checkout's own
   `biome.json` made biome refuse the tree with "Found a nested root configuration" — `bun run check`

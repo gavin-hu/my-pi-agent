@@ -294,7 +294,11 @@ describe("a write", () => {
 		const token = await opened(harnessed);
 		const comment = await reply(
 			harnessed.handler,
-			request("POST", "/api/comment", { token, rev: "rev-1", comment: { rel: "a.ts", line: 1, side: "old", body: "x" } }),
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "old", body: "x" },
+			}),
 		);
 		expect(comment.status).toBe(200);
 	});

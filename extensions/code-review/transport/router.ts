@@ -104,12 +104,7 @@ const WRITE_ROUTES: ReadonlySet<string> = new Set(["/api/comment", "/api/drop", 
  * front of the reviewer, so this is where an anchor that names no row is refused: the store
  * keeps the shape of a comment, not the diff it was written against.
  */
-export function anchorDrawn(
-	files: ReviewSnapshot["files"],
-	rel: string,
-	side: "new" | "old",
-	line: number,
-): boolean {
+export function anchorDrawn(files: ReviewSnapshot["files"], rel: string, side: "new" | "old", line: number): boolean {
 	const file = files.find((entry) => entry.rel === rel);
 	if (file === undefined) return false;
 	return file.lines.some((entry) => (side === "new" ? entry.newNo === line : entry.oldNo === line));
@@ -263,15 +258,14 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		const token = typeof body.token === "string" ? body.token : "";
 		// The token is read first, so a caller without one learns nothing about the diff; then the
 		// anchor, which is the one thing a comment names and the page's rows are the only proof of.
-		if (op.kind === "comment" && tokenMatches(page.token, token) && !anchorDrawn(snapshot.snapshot.files, op.rel.trim(), op.side, op.line)) {
+		if (
+			op.kind === "comment" &&
+			tokenMatches(page.token, token) &&
+			!anchorDrawn(snapshot.snapshot.files, op.rel.trim(), op.side, op.line)
+		) {
 			return jsonError(400, "a comment anchors to a line this diff draws");
 		}
-		const outcome = store.write(
-			token,
-			typeof body.rev === "string" ? body.rev : "",
-			snapshot.snapshot.fingerprint,
-			op,
-		);
+		const outcome = store.write(token, typeof body.rev === "string" ? body.rev : "", snapshot.snapshot.fingerprint, op);
 		if (!outcome.ok) return jsonError(outcome.status, outcome.message);
 		if (op.kind === "send" && outcome.sent.length > 0) {
 			deps.onSent?.(outcome.sent, outcome.id);
