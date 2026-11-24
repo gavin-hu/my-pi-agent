@@ -13,6 +13,7 @@ import { useEnv } from "../../test/helpers/env.ts";
 import { repoKeyOf } from "../../lib/repo-key.ts";
 import { shortenPath } from "../../lib/format.ts";
 import { PLAN_CONSENT_SHORT } from "../../lib/mode-entry.ts";
+import { LEAD_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
@@ -26,6 +27,12 @@ import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
 
 /** One agent directory for this file: plans land outside the project now. */
 const AGENT = mkdtempSync(join(tmpdir(), "pi-plan-tools-agent-"));
+
+/** The sentence the gate hands a branch that holds the seat, which every door must say the same way. */
+const LEAD_REFUSAL = "Lead mode holds the seat: `/board exit` before planning.";
+
+/** A branch holding the seat: the state where `board` may not be registered to refuse the call first. */
+const leadEntry = (): unknown => ({ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } });
 let scoped: { restore: () => void } | undefined;
 beforeEach(() => {
 	scoped = useEnv({ PI_CODING_AGENT_DIR: AGENT });
@@ -237,6 +244,22 @@ describe("plan enter", () => {
 		expect(result.isError).toBe(true);
 		expect(result.details.unavailable).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
+	});
+
+	test("refuses the entry a branch will not give, and says the gate's own sentence", async () => {
+		const { enter, runtime, root } = setup();
+		// The seat on the branch, with no board registered to refuse the call before it arrives — the
+		// state bob reproduced, where the gate is the only thing between the call and a green result.
+		const { ctx, notices } = planCtx({ confirm: true, cwd: root, branch: [leadEntry()] });
+		const result = await callTool(enter, {}, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(result.details).toEqual({ refused: "enter", error: LEAD_REFUSAL });
+		expect(result.content[0].text).toBe(`Error: ${LEAD_REFUSAL}`);
+		expect(runtime.isEnabled()).toBe(false);
+		// One sentence, read by two readers: the runtime's warning is the only copy in the transcript,
+		// so a refusal cannot be worded twice and disagree with itself.
+		expect(notices.filter((notice) => notice.message === LEAD_REFUSAL)).toHaveLength(1);
 	});
 });
 

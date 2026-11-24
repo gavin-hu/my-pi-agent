@@ -28,11 +28,19 @@ export function planModeNotice(enabled: boolean): string {
 	return enabled ? ENABLED_NOTICE : DISABLED_NOTICE;
 }
 
-/** Enter plan mode when needed, with the same notice `/plan <task>` shows. */
-function ensurePlanMode(runtime: PlanRuntime, ctx: ExtensionContext): void {
-	if (runtime.isEnabled()) return;
-	runtime.enable(ctx);
+/**
+ * Enter plan mode when needed, with the same notice `/plan <task>` shows, and answer whether the mode
+ * is on afterwards.
+ *
+ * A branch that refuses the entry has already been told why by the runtime — the sentence is its own —
+ * so this adds nothing to it. What the answer is for is the caller: a task sent into a mode that never
+ * came on runs with write access, which is the door this returns `false` to close.
+ */
+function ensurePlanMode(runtime: PlanRuntime, ctx: ExtensionContext): boolean {
+	if (runtime.isEnabled()) return true;
+	if (runtime.enable(ctx) !== undefined) return false;
 	ctx.ui.notify(ENABLED_NOTICE, "info");
+	return true;
 }
 
 /**
@@ -211,8 +219,10 @@ export function registerCommands(
 				return;
 			}
 
-			// A task always means "plan this": enter if needed, then send.
-			ensurePlanMode(runtime, ctx);
+			// A task always means "plan this": enter if needed, then send. A refused entry says why and
+			// sends nothing, because the task would run with write access on — the half of this door a
+			// notice alone never fixed.
+			if (!ensurePlanMode(runtime, ctx)) return;
 			if (ctx.isIdle()) await pi.sendUserMessage(prompt);
 			else await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 		},

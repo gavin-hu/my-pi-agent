@@ -8,11 +8,12 @@
 import type { AgentToolResult, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../../lib/interaction.ts";
 import { planConsent, READ_ONLY_SUMMARY } from "../../../lib/mode-entry.ts";
-import { failedResult } from "../../../lib/tool-result.ts";
+import { failedResult, type ToolFailure } from "../../../lib/tool-result.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, type ToolCallText } from "../../../lib/tui/tool.ts";
 import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
-import type { EnterPlanModeDetails } from "../types.ts";
+import type { EnterPlanModeDetails, RefusedPlanDetails } from "../types.ts";
+import { planRefusal } from "./refusal.ts";
 
 const ENTERED_TEXT =
 	"You are now in plan mode. Explore read-only, then save the full plan with `plan` action `write` (a short title and the " +
@@ -22,7 +23,7 @@ const ENTERED_TEXT =
 export async function executeEnter(
 	runtime: PlanRuntime,
 	ctx: ExtensionToolContext,
-): Promise<AgentToolResult<EnterPlanModeDetails>> {
+): Promise<ToolFailure<RefusedPlanDetails> | AgentToolResult<EnterPlanModeDetails>> {
 	if (runtime.isEnabled()) {
 		return {
 			content: [{ type: "text", text: "Already in plan mode." }],
@@ -44,7 +45,12 @@ export async function executeEnter(
 			details: { action: "enter", entered: false } satisfies EnterPlanModeDetails,
 		};
 	}
-	runtime.enable(ctx);
+	const refusal = runtime.enable(ctx);
+	if (refusal !== undefined) {
+		// The runtime has already notified this sentence, and the result carries the same one: the person
+		// hears why, and the model is told not to proceed rather than that it is planning.
+		return planRefusal("enter", refusal);
+	}
 	if (isRemoteTurn(ctx)) {
 		// The peer UI has no footer chip; say the mode and its exit in the chat.
 		ctx.ui.notify("Plan mode on — write access is off. Say “exit plan mode” to leave without approving.", "info");
