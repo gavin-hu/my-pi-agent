@@ -19,6 +19,14 @@ describe("the notice a send reaches the model with", () => {
 		expect(notice.display).toBe(true);
 	});
 
+	test("names a span where the comment names one", () => {
+		const notice = reviewNotice([
+			{ id: "r1", at: 1, comments: [{ rel: "a.ts", line: 4, endLine: 9, body: "these six" }] },
+		]);
+		expect(notice.content.split("\n")[2]).toBe("a.ts:4-9 — these six");
+		expect(notice.details.items?.[0].label).toBe("a.ts:4-9");
+	});
+
 	test("caps the rows and counts the rest", () => {
 		const comments = Array.from({ length: NOTICE_ROWS + 3 }, (_, index) => ({
 			rel: "a.ts",

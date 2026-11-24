@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { pathRef } from "../../../lib/format.ts";
 import {
 	BAD_TOKEN,
-	commentRef,
 	createReviewStore,
 	MAX_COMMENT_LENGTH,
 	MAX_COMMENTS,
@@ -25,12 +25,12 @@ function countingStore() {
 const REV = "snap-1";
 
 /** A comment op on `a.ts:4`. */
-function comment(body = "this needs a guard"): WriteOp {
+function comment(body = "this needs a guard"): Extract<WriteOp, { kind: "comment" }> {
 	return { kind: "comment", rel: "a.ts", line: 4, side: "new", body };
 }
 
 /** A reply to `parent`, on the line `comment()` names. */
-function replyTo(parent: string, body = "and a test"): WriteOp {
+function replyTo(parent: string, body = "and a test"): Extract<WriteOp, { kind: "comment" }> {
 	return { kind: "comment", rel: "a.ts", line: 4, side: "new", parent, body };
 }
 
@@ -137,8 +137,8 @@ describe("the review page", () => {
 		if (!span.ok) throw new Error(span.message);
 		const [written] = span.review.comments;
 		expect(written).toMatchObject({ line: 4, endLine: 9 });
-		expect(commentRef(written)).toBe("a.ts:4-9");
-		expect(commentRef({ rel: "a.ts", line: 4 })).toBe("a.ts:4");
+		expect(pathRef(written.rel, written.line, written.endLine)).toBe("a.ts:4-9");
+		expect(pathRef("a.ts", 4)).toBe("a.ts:4");
 	});
 
 	test("refuses a span that ends where it starts, and a reply that carries one", () => {

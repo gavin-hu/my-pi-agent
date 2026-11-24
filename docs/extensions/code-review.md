@@ -41,7 +41,7 @@ its next turn:
 ```text
 [CODE REVIEW]
 1 review comment sent:
-gateway.ts:6 — Name the bound where the caller can read it…
+gateway.ts:6-7 — Name the bound where the caller can read it…
 Run `code_review` action "comments" for all of them.
 ```
 
@@ -85,9 +85,9 @@ checkout, drawn on the diff's gutter, with a way back. `n` and `p` step between 
 focused file's hunks; the whole review keeps `[` and `]`. A reference copied from a
 selection is `path:12-30`.
 
-**What a comment anchors to.** A path, a side, and a line the comparison draws,
-which the server checks against the snapshot; a comment is refused once the tree
-moves, while a send, a delete and a mark name no line and land anyway.
+**What a comment anchors to.** A path, a side, and a line the comparison draws — a
+span's end and the rows it quotes — checked against the snapshot; a comment is refused
+once the tree moves, and a send, a delete and a mark name no line and land anyway.
 
 ## Limits
 

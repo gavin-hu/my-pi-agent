@@ -16,12 +16,6 @@ import { tokenMatches } from "../../../lib/http/token.ts";
 import { mintToken as defaultMint } from "../../../lib/http/token.ts";
 import type { ReviewScope } from "../scope.ts";
 
-/** How a comment's anchor reads: `path:12`, or `path:12-30` for the span it names. */
-export function commentRef(comment: { rel: string; line: number; endLine?: number }): string {
-	const span = comment.endLine === undefined ? "" : `-${comment.endLine}`;
-	return `${comment.rel}:${comment.line}${span}`;
-}
-
 /** One comment a reviewer wrote on a line. */
 export interface ReviewComment {
 	id: string;

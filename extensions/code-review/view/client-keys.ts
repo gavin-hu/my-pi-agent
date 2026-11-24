@@ -60,10 +60,7 @@ export const REVIEW_KEYS_JS = String.raw`  function setWrap(on) {
   byId("rv-send-cancel").addEventListener("click", closeSend);
   byId("rv-send-confirm").addEventListener("click", sendNow);
   byId("rv-sel-clear").addEventListener("click", clearSelection);
-  byId("rv-sel-comment").addEventListener("click", function () {
-    var at = cursorAnchor();
-    if (cursor && at) composer(cursor.path, at.line, at.side);
-  });
+  byId("rv-sel-comment").addEventListener("click", commentOnSelection);
   byId("rv-sel-copy").addEventListener("click", function () {
     var ref = byId("rv-selbar-ref").getAttribute("data-ref");
     var done = function () { toast("Copied " + ref); };
@@ -143,14 +140,12 @@ export const REVIEW_KEYS_JS = String.raw`  function setWrap(on) {
     if (event.key === "[" || event.key === "p") { moveHunk(-1); return; }
     if (event.key === "Enter" && cursor && actsOnCursor(event.target)) {
       event.preventDefault();
-      var atEnter = cursorAnchor();
-      if (atEnter) composer(cursor.path, atEnter.line, atEnter.side);
+      commentOnSelection();
       return;
     }
     if (event.key === "c" && cursor) {
       event.preventDefault();
-      var atKey = cursorAnchor();
-      if (atKey) composer(cursor.path, atKey.line, atKey.side);
+      commentOnSelection();
       return;
     }
     if (event.key === "m") {

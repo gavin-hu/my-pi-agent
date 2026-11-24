@@ -92,6 +92,16 @@ describe("code_review", () => {
 		expect(result.details.list).toHaveLength(2);
 	});
 
+	test("comments names the span a comment covers", async () => {
+		const sent: ReviewComment[] = [
+			{ id: "c1", rel: "a.ts", line: 4, endLine: 9, side: "new", body: "these six", state: "sent", at: 1 },
+		];
+		const { session } = fakeSession({ sent });
+		const result = await toolFor(session).execute("c1", { action: "comments" }, undefined, undefined, fakeCtx().ctx);
+		expect(result.content[0].text).toContain("a.ts:4-9 (new) — these six");
+		expect(result.details.list?.[0]).toMatchObject({ rel: "a.ts", line: 4, endLine: 9, side: "new" });
+	});
+
 	test("comments says so when nothing was sent", async () => {
 		const { session } = fakeSession();
 		const result = await toolFor(session).execute("c1", { action: "comments" }, undefined, undefined, fakeCtx().ctx);
