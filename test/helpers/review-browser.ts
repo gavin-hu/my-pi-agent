@@ -109,15 +109,43 @@ export interface ReviewPageFixture {
 }
 
 /**
+ * One comment a case starts the page with.
+ *
+ * Written through the store before the page is served, so a case can read the state a reviewer
+ * reaches when a diff moves: a comment on a line an earlier render drew, and this one does not.
+ */
+export interface SeedComment {
+	rel: string;
+	line: number;
+	side?: "new" | "old";
+	body: string;
+}
+
+/**
  * Serve one review page over a stub reader and the real store and routes.
  *
  * `testMountSource()` is the server `serve` runs, so the prefix stripping, the body cap and
  * the close path are the real ones; only the diff is a fixture.
  */
-export async function mountReviewPage(options: SnapshotOptions = {}): Promise<ReviewPageFixture> {
+export async function mountReviewPage(
+	options: SnapshotOptions = {},
+	seed: readonly SeedComment[] = [],
+): Promise<ReviewPageFixture> {
 	let fingerprint = "rev-1";
 	let minted = 0;
 	const store = createReviewStore({ mint: () => `token${++minted}`.padEnd(32, "a"), now: () => 1 });
+	if (seed.length > 0) {
+		const page = store.open("base", "", "");
+		for (const entry of seed) {
+			store.write(page.token, "rev-1", "rev-1", {
+				kind: "comment",
+				rel: entry.rel,
+				line: entry.line,
+				side: entry.side ?? "new",
+				body: entry.body,
+			});
+		}
+	}
 	const reader = {
 		baseRef: async () => "main",
 		text: async () => ({ kind: "text" as const, lines: [], binary: false, truncated: false }),
@@ -172,8 +200,9 @@ export async function withReviewPage(
 	browser: TestBrowser,
 	run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
 	options: SnapshotOptions = {},
+	seed: readonly SeedComment[] = [],
 ): Promise<void> {
-	const fixture = await mountReviewPage(options);
+	const fixture = await mountReviewPage(options, seed);
 	const page = await openReviewPage(browser, fixture);
 	try {
 		await run(page, fixture);

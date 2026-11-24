@@ -23,6 +23,7 @@ import {
 	REVIEW_PAINT_MS,
 	type ReviewDom,
 	type ReviewPageFixture,
+	type SeedComment,
 	type SnapshotOptions,
 	startComment,
 	withReviewPage,
@@ -45,7 +46,8 @@ gated("the review page's interactions", () => {
 	const withPage = (
 		run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
 		options: SnapshotOptions = {},
-	): Promise<void> => withReviewPage(browser, run, options);
+		seed: readonly SeedComment[] = [],
+	): Promise<void> => withReviewPage(browser, run, options, seed);
 
 	test(
 		"an unsent draft survives the diff moving, and saves on a current line",
@@ -430,6 +432,37 @@ gated("the review page's interactions", () => {
 					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 2");
 				},
 				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * The comment the page cannot place: written on a line an earlier render drew, still stored, and
+	 * drawn nowhere — so its thread is gone and this list is the only way to read or delete it. The
+	 * draft count is the fact `code_review close` reads, which is why the case ends on it.
+	 */
+	test(
+		"a comment the diff no longer draws is listed, and deleting it empties the review",
+		async () => {
+			await withPage(
+				async (page) => {
+					expect(await page.locator("#rv-orphans").isVisible()).toBe(true);
+					expect(await page.locator(".rv-orphans__ref").textContent()).toBe("a.ts:3");
+					expect(await page.locator(".rv-thread").count()).toBe(0);
+					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 1");
+
+					await page.locator(".rv-orphans__item .bf-btn").click();
+					await page.waitForFunction(
+						() => (globalThis as unknown as ReviewDom).document.querySelector("#rv-orphans")?.hidden === true,
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
+					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 0");
+					expect(await page.locator("#rv-facts").textContent()).toContain("0 drafts");
+				},
+				{ start: 17 },
+				[{ rel: "a.ts", line: 3, body: "a line this hunk stopped drawing" }],
 			);
 		},
 		CASE_MS,

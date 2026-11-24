@@ -317,6 +317,10 @@ ${appHead({
     <div class="rv-files-scroll" id="rv-diff">
       <p class="rv-filter-note" id="rv-filter-note" hidden><span id="rv-filter-note-text"></span> <button type="button" class="bf-btn" id="rv-filter-clear">Clear</button></p>
       ${banner}
+      <div class="rv-orphans" id="rv-orphans" hidden>
+        <p class="rv-orphans__head" id="rv-orphans-head" role="status"></p>
+        <div class="rv-orphans__list" id="rv-orphans-list"></div>
+      </div>
       ${omitted}
       ${main}
     </div>

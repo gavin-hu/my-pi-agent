@@ -59,6 +59,16 @@ export const REVIEW_CSS = `
 .rv-files-scroll{min-height:0}
 .rv-banner{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--warn);background:var(--search-soft);border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm)}
 .rv-banner b{color:var(--text)}
+/* A comment this render has no row for: the diff moved under the line it named, so its thread
+   cannot be drawn. The list is the only way to read it and the only way to delete it — and an
+   undeletable draft is what keeps the page from closing. */
+.rv-orphans{margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--warn);background:var(--search-soft);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
+.rv-orphans__head{margin:0;color:var(--muted)}
+.rv-orphans__list{display:flex;flex-direction:column;gap:var(--space-1);margin:var(--space-1) 0 0}
+.rv-orphans__item{display:flex;align-items:baseline;gap:var(--space-2)}
+.rv-orphans__ref{font-family:var(--font-mono);color:var(--muted)}
+.rv-orphans__body{min-width:0;overflow-wrap:anywhere;color:var(--text)}
+.rv-orphans__item .bf-btn{margin-left:auto}
 .rv-file{margin-top:var(--space-4)}
 /* The head is outside the diff's own scroll box, so the page is its scrollport: it pins while
    the reader scrolls the file, and a hunk jump lands below it (scroll-margin-top, measured). */
