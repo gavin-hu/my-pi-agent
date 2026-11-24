@@ -17,8 +17,8 @@ the site under [`docs/`](./docs/), which GitHub Pages builds.
 
 ```bash
 bun install             # once per worktree
-bun run check           # the landing gate: format, types, this branch's suites, the sweeps
-bun run check:all       # the full sweep: what CI and publish.yml run, and a release owes
+bun run check           # the landing gate
+bun run check:all       # the full sweep: what CI and a release owe
 ```
 
 | Command | What it does |
@@ -30,12 +30,10 @@ bun run check:all       # the full sweep: what CI and publish.yml run, and a rel
 | `bun test --changed=main` | What this branch changes, by Bun's own graph |
 | `PI_SLOW_TESTS=1 bun test` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
 
-Selection is Bun's: a slice is a directory and a change is `--changed=<ref>`.
-[`test/README.md`](./test/README.md#running) covers what each invocation leaves out —
-the package-level contracts read the tree, so the landing gate adds `bun test test/`, and widens
-to `check:all` by itself when the change is the runner's, when there is no branch to
-narrow against, or when `git` cannot say; CI and `publish.yml` run `check:all` because they
-owe the sweep a landing is spared. [`scripts/README.md`](./scripts/README.md) owns the surface.
+The landing gate adds `bun test test/` — the package-level contracts read the tree — and widens to
+`check:all` when the change is the runner's or `git` cannot narrow it.
+[`test/README.md`](./test/README.md#running) covers what each invocation leaves out;
+[`scripts/README.md`](./scripts/README.md) owns the surface.
 
 ## Branch flow
 
@@ -73,9 +71,14 @@ the commits ahead plus the merge command; merge on the main checkout with
 type(scope): summary
 ```
 
-`scope` is the extension name (`plan`, `worktree`, `bytefly`, …) or the shared
-area (`lib`, `docs`, `test`, `ci`). Keep the summary imperative, add a short why-body
-for non-trivial changes, and use no emojis.
+`scope` names the surface a reader looks for, not the module a change happens to live
+in. An extension name whenever one extension owns the change — even if all its code sits
+in `lib/`; a change to the review page reads `code-review`, never `view`. A
+shared area only when no extension owns it: `lib` for kit plumbing several pages
+consume, `docs` for prose no extension owns, `test` for suite scaffolding, `ci` for the
+workflows. The changelog bullet takes the same scope, so one landing reads
+`merge(board): …` carrying a `- board: …` bullet. Keep the summary imperative, add a
+short why-body for non-trivial changes, and use no emojis.
 
 ## Conventions
 
@@ -123,8 +126,7 @@ shape, and refuses a contributor section, a missing section, or a page past 120 
 7. `## Learn more` — at least one relative link onward.
 
 A flow that needs a walkthrough gets one page in `docs/tutorials/` and a link, rather
-than growing the page into a manual. A doc states no total for the pack's tools: the
-catalog is compared with the registered set by `test/naming.test.ts`.
+than growing the page into a manual.
 
 ## Adding a packaged skill
 
@@ -142,8 +144,7 @@ Do not duplicate across these:
 
 - `README.md` — the end-user front door: what the package is, install, the grouped
   catalog, configuration, and links onward. `README.zh-CN.md` mirrors it section for
-  section, and `test/docs-parity.test.ts` enforces the shared headings, table rows and
-  relative links; deep docs stay English until a translation owner exists.
+  section; deep docs stay English until a translation owner exists.
 - `docs/` — the documentation site GitHub Pages builds: one walkthrough per flow in
   `tutorials/`, the concepts no extension owns, and one page per extension and skill on
   the template above. Navigation is `docs/_data/docs.json`, so a new page is a row
