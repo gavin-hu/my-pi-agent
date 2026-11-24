@@ -83,11 +83,15 @@ export const REVIEW_CSS = `
 .rv-diff .bf-diff-line--note{color:var(--muted);font-style:italic}
 .rv-diff[data-wrap="true"] .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}
 .rv-diff .bf-diff-line[data-picked="true"]{box-shadow:inset 2px 0 0 var(--accent);background:var(--accent-soft)}
-/* A thread is the page's width, not the diff's: it ends the row it follows. */
-.rv-thread{display:block;margin:0 var(--space-4) var(--space-1) 132px;max-width:820px;background:var(--raised);border-left:2px solid var(--accent);border-radius:var(--radius-md)}
+/* A thread is the page's width, not the diff's: it ends the row it follows. It names its own face
+   because it sits inside that row's <code>, whose browser rule is a generic monospace — prose in a
+   thread has to read like the composer it was typed in. */
+.rv-thread{display:block;margin:0 var(--space-4) var(--space-1) 132px;max-width:820px;background:var(--raised);border-left:2px solid var(--accent);border-radius:var(--radius-md);font-family:var(--font-ui)}
 .rv-thread .bf-comment{display:block;border:0;background:none;padding:var(--space-2) var(--space-3)}
 .rv-thread .bf-comment__label{display:block;margin-bottom:2px}
 .rv-thread .bf-comment__quote,.rv-thread .bf-comment__body{display:block}
+/* The one thing in a thread that is code: the lines it quotes, in the face a diff line wears. */
+.rv-thread .bf-comment__quote{font-family:var(--font-mono)}
 .rv-thread[data-state="sent"]{border-left-color:var(--success);opacity:.86}
 .rv-compose{display:block;margin:0 var(--space-4) var(--space-1) 132px;max-width:820px;background:var(--raised);border:1px solid var(--accent);border-radius:var(--radius-md);overflow:hidden}
 .rv-compose__area{display:block;width:100%;min-height:74px;resize:vertical;border:0;outline:0;background:transparent;color:var(--text);padding:var(--space-3);font:var(--fs-sm)/1.6 var(--font-ui);box-sizing:border-box}

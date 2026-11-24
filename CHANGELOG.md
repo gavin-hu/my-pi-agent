@@ -51,6 +51,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: a comment's thread renders in the page's UI face, so prose reads as prose instead of
+  as the code face it inherited from the `<code>` it sits in. The line a thread quotes and the path in
+  the send dialog keep the code face — the mono stays on what is code.
+
 - `code-review`: the review page counts its drafts — "1 draft", "2 drafts" — in the header chip, the tab
   title, and the footer, where every count but one read "2 draft" and the served chip disagreed with the
   page that repainted it a frame later.

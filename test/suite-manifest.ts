@@ -144,6 +144,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/file",
 		"view/page",
 		"view/client",
+		"view/face",
 		"view/interaction",
 		"report",
 		"tools",
