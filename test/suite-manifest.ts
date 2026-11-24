@@ -217,6 +217,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"tools",
 		"tool-identity",
 		"tool-registration",
+		"refused-entry",
 		"review-lazy",
 		"review-mount",
 		"review-prompt",
