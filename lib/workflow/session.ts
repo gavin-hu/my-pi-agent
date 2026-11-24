@@ -28,8 +28,9 @@ import type { HostIdentity } from "../session-files.ts";
 import { agentLabel, defaultLabel, labelKey, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
 import { presenceOf, type RosterSession, readRoster, readTeam, type TeamRead } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
-import type { Card } from "./card.ts";
+import { type Card, normalizeCardId } from "./card.ts";
 import type { Claims } from "./claims.ts";
+import { liveLabelOf } from "./round-text.ts";
 import type { HolderFact } from "./signs.ts";
 import type { Actor } from "./rules.ts";
 import { type BoardStore, type MutateResult, openBoard } from "./store.ts";
@@ -119,6 +120,19 @@ export interface BoardSession {
 	 * that cannot report that failure is the caller that catches it.
 	 */
 	holder(cwd: string, card: Card): Promise<HolderFact | undefined>;
+	/**
+	 * The name the bus shows for the holder of the card a call names, or undefined when it cannot say.
+	 *
+	 * The sibling of {@link holder} for the half a sentence reads: a card records the label its claim
+	 * captured, and a session renamed since leaves that record holding a name nobody answers to. The
+	 * roster is the one a listing maps its rows through (`liveLabelOf`), so there is no second chain,
+	 * and `raw` is the caller's own spelling because the id is its argument rather than this read's.
+	 *
+	 * An empty name is no answer either: `heldBy` prints the id when even the record has none, and a
+	 * caller handed `""` would print an empty name instead. A bus that cannot answer leaves the
+	 * sentence as it is, which is why every read here is caught rather than raised.
+	 */
+	holderLabel(cwd: string, raw: string | undefined): Promise<string | undefined>;
 	/**
 	 * This repository's plan store, where a card's plan file has to live.
 	 *
@@ -327,6 +341,16 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			const roster = await session.roster(cwd).catch(() => undefined);
 			const state = presenceOf(roster, owner, session.now());
 			return state === undefined ? undefined : { owner, state };
+		},
+		async holderLabel(cwd, raw) {
+			const id = raw === undefined ? undefined : normalizeCardId(raw);
+			if (id === undefined) return undefined;
+			const card = await (await session.store(cwd)).read(id).catch(() => undefined);
+			const owner = card?.owner;
+			if (owner === undefined) return undefined;
+			const roster = await session.roster(cwd).catch(() => undefined);
+			const label = roster === undefined ? owner.label : liveLabelOf(owner, roster);
+			return label === "" ? undefined : label;
 		},
 		async host() {
 			const found = await (identity ??= import("../session-files.ts").then((module) =>

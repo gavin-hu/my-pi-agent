@@ -46,6 +46,7 @@ function board() {
 		roster: (cwd: string) => harness.runtime.roster(cwd),
 		bus: (cwd: string) => harness.runtime.bus(cwd),
 		holder: (cwd: string, card: Card) => harness.runtime.holder(cwd, card),
+		holderLabel: (cwd: string, raw: string | undefined) => harness.runtime.holderLabel(cwd, raw),
 		now: () => NOW,
 		host: () => harness.runtime.host(),
 		who: async () => ({ id: ME.id, label: seat ?? ME.label }),

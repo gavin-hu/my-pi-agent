@@ -120,6 +120,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the sentence that names a card's holder prints the name the bus shows for that session id, falling back to the
+  label the card's record kept and then to the id. A session renamed since it claimed a card left the record holding a
+  name nobody answers to: a lead refused a `done` read "held by" a name the session had stopped using, for a holder that
+  was alive, because the door compared the id the whole time. The record is not rewritten — the card keeps the label its
+  claim captured, and a reader gets the live one.
+
 - `code-review`: a comment can name a span, which is what the guide's **Comment on a range** promised and the page could not
   write. A selection's second gutter and the rows it covers become the comment's `endLine` and `quote`: the composer head,
   the send dialog, the notice and `code_review comments` all name `path:17-19`, the thread shows the rows it quotes, and a
