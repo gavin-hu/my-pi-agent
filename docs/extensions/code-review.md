@@ -41,9 +41,8 @@ its next turn:
 
 ```text
 [CODE REVIEW]
-2 review comments sent:
+1 review comment sent:
 gateway.ts:6 — Name the bound where the caller can read it…
-limits.ts:2 — Say which port was refused.
 Run `code_review` action "comments" for all of them.
 ```
 
@@ -69,16 +68,17 @@ refused, naming the key to set.
 **The page.** One page per session, at `/review/`. Its id is minted by the first
 write, so opening a page to look costs nothing; the query carries the token, and
 the address gains the id. A comment is a draft until **Send feedback** marks it
-sent — which also writes the one you are typing. The changed files are the
-shell's sidebar — a search, **All** / **Commented**, and one row per file —
-folding below 900px; `wrap` wraps at any width, and narrowing hides rows and never
-sections. The rail's head carries the facts and the progress; the footer the comparison.
+sent — which also writes the one you are typing, and **reply** keeps a comment
+under the one it answers, one level deep. The changed files are the shell's
+sidebar — a search, **All** / **Commented**, and one row per file — folding below
+900px; `wrap` wraps at any width, and narrowing hides rows, never sections. The
+rail's head carries the facts and the progress; the footer the comparison.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff:
 the rail shows that file and an **all files** link back, and the comparison is
 still the whole scope, so nothing about the snapshot or its token changes. It is
-typed, not linked — no other page has a way in here, and this page links nowhere
-else. The file's head carries **view file**, which serves the whole file at
+typed, not linked: nothing links in here, and this page links nowhere else. The
+file's head carries **view file**, which serves the whole file at
 `/review/file?scope=<s>&path=<rel>`: only a path this comparison lists, read under
 the reviewed checkout, drawn on the diff's own gutter, with a way back to the
 comparison. `n` and `p` step between the focused file's hunks; the whole review

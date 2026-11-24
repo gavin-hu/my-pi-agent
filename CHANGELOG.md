@@ -103,6 +103,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: a comment can answer another. **reply** keeps it under the comment it answers, one level deep — the
+  store refuses a reply to a reply, so the page never has to draw one — a row's threads read oldest first with each
+  reply under its parent, a reply whose comment was deleted stands on its own, and both buttons name the line and the
+  comment they act on instead of reading "reply"/"delete" four times. The relationship rides the draft record, so a
+  reload restores a reply as a reply.
+
 - `code-review`: a send, a delete and a file marked reviewed land even when the diff moved under the page — only a
   comment names a line, so only a comment carries the snapshot it was written on, and only a comment on a line the
   comparison actually draws is stored. A comment a moved diff leaves without a row is listed above the diff with a

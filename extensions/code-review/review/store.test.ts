@@ -29,7 +29,7 @@ function comment(body = "this needs a guard"): WriteOp {
 }
 
 /** A reply to `parent`, on the line `comment()` names. */
-function reply(parent: string, body = "and a test"): WriteOp {
+function replyTo(parent: string, body = "and a test"): WriteOp {
 	return { kind: "comment", rel: "a.ts", line: 4, side: "new", parent, body };
 }
 
@@ -87,13 +87,13 @@ describe("the review page", () => {
 		const first = store.write(page.token, REV, REV, comment());
 		if (!first.ok) throw new Error(first.message);
 		const parent = first.review.comments[0].id;
-		const answered = store.write(page.token, REV, REV, reply(parent));
+		const answered = store.write(page.token, REV, REV, replyTo(parent));
 		if (!answered.ok) throw new Error(answered.message);
 		const child = answered.review.comments[1].id;
 		expect(answered.review.comments.map((entry) => entry.parent ?? null)).toEqual([null, parent]);
 		// One level: the review refuses to hold a reply to a reply, so the page's order rule can
 		// only ever meet roots and their own replies.
-		expect(store.write(page.token, REV, REV, reply(child))).toEqual({
+		expect(store.write(page.token, REV, REV, replyTo(child))).toEqual({
 			ok: false,
 			status: 400,
 			message: "a reply answers a comment, not another reply",
@@ -121,7 +121,7 @@ describe("the review page", () => {
 			status: 400,
 			message: "a reply answers a comment on its own line — a.ts:4 (new) is not a.ts:9 (new)",
 		});
-		expect(store.write(page.token, REV, REV, reply("not-a-comment"))).toEqual({
+		expect(store.write(page.token, REV, REV, replyTo("not-a-comment"))).toEqual({
 			ok: false,
 			status: 400,
 			message: "a reply answers a comment on this review",
