@@ -132,7 +132,7 @@ function fakeMount() {
 }
 
 /** A served page over a fake mount, its store and token, and the timer a case drives. */
-async function harness(options: { schedule?: ArmTimer } = {}) {
+async function harness(options: { schedule?: ArmTimer; onAbandoned?: () => void } = {}) {
 	const state = { rev: "rev-1" };
 	const store: ReviewStore = createReviewStore({ mint: () => "tok-1", now: () => 1 });
 	const reader = readerOf(state);
@@ -159,6 +159,7 @@ async function harness(options: { schedule?: ArmTimer } = {}) {
 		mount: mount.source,
 		onSent: (comments) => sent.push(comments),
 		...(options.schedule === undefined ? {} : { schedule: options.schedule }),
+		...(options.onAbandoned === undefined ? {} : { onAbandoned: options.onAbandoned }),
 	});
 	if (started.kind !== "page") throw new Error(started.reason);
 	const page: ReviewServer = started.page;
@@ -256,5 +257,32 @@ describe("the page's stream", () => {
 		expect(stale.result.status).toBe(409);
 		expect(frameOf(first.tab.frames[1])).toEqual({ moved: true });
 		expect(frameOf(second.tab.frames[1])).toEqual({ moved: true });
+	});
+
+	test("the last tab leaving arms the grace, and firing it ends the review", async () => {
+		const clock = timer();
+		const abandoned: number[] = [];
+		const page = await harness({ schedule: clock.arm, onAbandoned: () => abandoned.push(1) });
+		const opened = await page.attach();
+		opened.detach();
+
+		expect(clock.armed).toEqual([1500]);
+		expect(abandoned).toEqual([]);
+		clock.fire();
+		expect(abandoned).toEqual([1]);
+	});
+
+	test("a tab that comes back inside the grace is not a departure", async () => {
+		const clock = timer();
+		const abandoned: number[] = [];
+		const page = await harness({ schedule: clock.arm, onAbandoned: () => abandoned.push(1) });
+		const first = await page.attach();
+		first.detach();
+		// A reload: the page attaches again before the grace runs out, and the drop stands down.
+		await page.attach();
+
+		expect(clock.cancel).toBe(1);
+		clock.fire();
+		expect(abandoned).toEqual([]);
 	});
 });

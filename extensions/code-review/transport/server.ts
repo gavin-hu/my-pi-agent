@@ -12,6 +12,7 @@
  */
 
 import type { MountOutcome, MountSpec } from "../../../lib/http/index.ts";
+import { type ArmTimer, defaultTimer } from "../../../lib/timer.ts";
 import { createStreams } from "../../../lib/web/streams.ts";
 import type { SnapshotOutcome } from "../git/diff.ts";
 import { REVIEW_BASE } from "../links.ts";
@@ -22,6 +23,14 @@ import { createReviewHandler, type ReviewHandlerDeps } from "./router.ts";
 
 /** The largest write body the page accepts. */
 export const MAX_BODY_BYTES = 256 * 1024;
+
+/**
+ * How long the page may be gone before the review ends.
+ *
+ * It races a reload: a tab that comes back inside this window attaches again before the grace
+ * fires, and the registry stands the drop down.
+ */
+export const DROP_GRACE_MS = 1500;
 
 /** What a mount needs of the session it serves. */
 export interface ReviewServerDeps {
@@ -34,6 +43,12 @@ export interface ReviewServerDeps {
 	mount: (spec: MountSpec) => Promise<MountOutcome>;
 	/** Told after a send, so the session reads the comments at its next turn. */
 	onSent?: ReviewHandlerDeps["onSent"];
+	/** The review is over because its page went away; the session ends it through this. */
+	onAbandoned?: () => void;
+	/** The timer the grace is armed on. */
+	schedule?: ArmTimer;
+	/** How long the page may be gone before the review ends; `DROP_GRACE_MS` by default. */
+	dropGraceMs?: number;
 }
 
 /** A running review page. */
@@ -60,7 +75,17 @@ export interface ReviewServer {
 export async function createReviewPage(
 	deps: ReviewServerDeps,
 ): Promise<{ kind: "page"; page: ReviewServer } | { kind: "refused"; reason: string }> {
-	const streams = createStreams({});
+	const streams = createStreams({
+		// The page is the lifetime: this mount serves one review, so every stream on it belongs to
+		// the page whose departure ends the session. The kit asks a question; the answer is "all".
+		lifetime: () => true,
+		graceMs: deps.dropGraceMs ?? DROP_GRACE_MS,
+		schedule: deps.schedule ?? defaultTimer,
+		// A page already closing arms nothing, so its teardown's own detach is silent.
+		settled: () => closed,
+		...(deps.onAbandoned === undefined ? {} : { onAbandoned: deps.onAbandoned }),
+	});
+	let closed = false;
 	const handler = createReviewHandler({
 		store: deps.store,
 		current: deps.current,
@@ -80,7 +105,6 @@ export async function createReviewPage(
 	});
 	if (outcome.kind === "refused") return { kind: "refused", reason: outcome.reason };
 	const mount = outcome.mount;
-	let closed = false;
 	return {
 		kind: "page",
 		page: {
