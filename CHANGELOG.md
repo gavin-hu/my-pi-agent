@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: `move` to `done` takes `landed`, the merge a card's work shipped in — a folded card, whose merge is older than
+  its own `execute` and so cannot be named by the chain. The argument is checked on the branch (a prefix, resolved, and
+  never one matching two commits), at or below the card's spot-check, and refused when the chain can name a landing of its
+  own, so only the shape that resolves to nothing is answered by a declaration. The lead's review is what says the merge
+  carried the work; an `override` still answers no bad declaration.
+
 - `code-review`: a file's head now has **view file**, which serves that file's whole text at
   `/review/file?scope=<s>&path=<rel>` — only a path the current comparison lists, read under the
   reviewed checkout so a symlink out of it is refused, drawn on the diff's own gutter with a way

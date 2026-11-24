@@ -58,7 +58,7 @@ export interface LandingProof {
 export type LandingCheck = { sha: string } | { error: string; shape: LandingShape };
 
 /** Why no merge could be named: what a refusal may offer, in the one place both read it. */
-export type LandingShape = "moved" | "ancestor" | "unlanded" | "before-execute";
+export type LandingShape = "moved" | "ancestor" | "unlanded" | "before-execute" | "declared";
 
 /** The card as a refusal names it, spelled here so this module reads no card. */
 function ref(id: string): string {
@@ -110,7 +110,8 @@ function namesCard(subject: string | undefined, id: string): boolean {
  * nobody merged. A repository that lands by **squashing** has no merge to read at all, so a subject
  * ending with the card's id names the landing instead (#440).
  */
-export function resolveLanding(proof: LandingProof, reviewed: string, id: string): LandingCheck {
+export function resolveLanding(proof: LandingProof, reviewed: string, id: string, declared?: string): LandingCheck {
+	if (declared !== undefined) return declaredLanding(proof, reviewed, id, declared);
 	const tipCommit = proof.chain.at(-1);
 	const tip = tipCommit?.sha;
 	const candidates = proof.chain.filter((commit) => commit.at >= proof.since);
@@ -187,6 +188,65 @@ export function beforeExecute(branch: string, reviewed: string, id: string): str
 	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, which is on \`${branch}\` and was committed before this card entered \`execute\`: the board reads a landing as the work committed after the card began (its \`since\`), so this commit cannot be named for it. Move the card to \`execute\` before landing — if it already landed, relocate the landing; an instruction does not fix an order.`;
 }
 
+/**
+ * The landing a caller named, when the chain cannot name one for itself.
+ *
+ * A folded card's work ships inside another card's merge, which is older than the card's own entry
+ * into `execute`: nothing resolves, and the refusal that shape earns offers no instruction. The lead
+ * who spot-checked the tree is the one who can say which merge carried the work, so the card names it
+ * and this checks the name — never the code.
+ *
+ * Three refusals, and each is closed to an instruction because the caller named a commit rather than
+ * a shape: a sha the branch does not carry (a prefix that matches more than one commit is not a
+ * name), a merge that landed after the review it is supposed to carry, and a merge other than the
+ * one the chain itself names. The last is the anti-bypass clause: only a card whose landing resolves
+ * to nothing may be answered by a declaration.
+ */
+function declaredLanding(proof: LandingProof, reviewed: string, id: string, declared: string): LandingCheck {
+	const matches = proof.chain.filter((commit) => commit.sha.startsWith(declared));
+	if (matches.length !== 1) {
+		return { error: declaredAbsent(proof.branch, declared, matches.length, id), shape: "declared" };
+	}
+	const named = matches[0] as LandingCommit;
+	const reviewAt = proof.chain.findIndex((commit) => commit.sha === reviewed);
+	if (reviewAt >= 0 && proof.chain.indexOf(named) > reviewAt) {
+		return { error: declaredAfterReview(proof.branch, named.sha, reviewed, id), shape: "declared" };
+	}
+	const resolved = resolveLanding(proof, reviewed, id);
+	if ("sha" in resolved && resolved.sha !== named.sha) {
+		return { error: declaredContradicts(named.sha, resolved.sha, id), shape: "declared" };
+	}
+	return { sha: named.sha };
+}
+
+/**
+ * What `done` is refused with when the sha a card names is not on the branch, or names more than one
+ * commit there.
+ */
+export function declaredAbsent(branch: string, declared: string, matches: number, id: string): string {
+	const why =
+		matches > 1
+			? `\`${declared}\` matches ${matches} commits on \`${branch}\``
+			: `no commit on \`${branch}\` has that sha`;
+	return `${ref(id)} names \`${declared}\`, and ${why}: a card can only name a landing the branch carries, and the review is what says that merge carried its work.`;
+}
+
+/**
+ * What `done` is refused with when the merge a card names landed after its own spot-check: a review
+ * carries only the landings at or below the tree it read.
+ */
+export function declaredAfterReview(branch: string, landed: string, reviewed: string, id: string): string {
+	return `${ref(id)} names \`${shortSha(landed)}\`, which landed on \`${branch}\` after its spot-check of \`${shortSha(reviewed)}\`: a review carries only the landings at or below the tree it read. Sign the merged tree, or name the merge the review came after.`;
+}
+
+/**
+ * What `done` is refused with when the chain can name a merge of its own, and the card named a
+ * different one: the declaration answers only what nothing else can.
+ */
+export function declaredContradicts(declared: string, resolved: string, id: string): string {
+	return `${ref(id)} names \`${shortSha(declared)}\`, and the merge that carried its review is \`${shortSha(resolved)}\`: a card whose landing the branch can name records that one, so \`landed\` answers only a card whose work shipped before it could be named.`;
+}
+
 /** What `done` is refused with when the merge rewrote the review's own lines. */
 export function movedTree(
 	branch: string,
@@ -215,10 +275,11 @@ export function landingGate(
 	reviewed: string | undefined,
 	proof: LandingProof | undefined,
 	instruction?: string,
+	declared?: string,
 ): string | undefined {
 	if (reviewed === undefined) return undefined;
 	if (proof === undefined) return unprovedLanding(id, reviewed);
-	const check = resolveLanding(proof, reviewed, id);
+	const check = resolveLanding(proof, reviewed, id, declared);
 	if (!("error" in check)) return undefined;
 	const open = check.shape === "ancestor" || check.shape === "moved";
 	return open && instruction !== undefined ? undefined : check.error;
@@ -230,10 +291,46 @@ export function landingFor(
 	reviewed: string | undefined,
 	proof: LandingProof | undefined,
 	now: number,
+	declared?: string,
 ): Landing | undefined {
 	if (reviewed === undefined || proof === undefined) return undefined;
-	const check = resolveLanding(proof, reviewed, id);
+	const check = resolveLanding(proof, reviewed, id, declared);
 	return "error" in check ? undefined : { sha: check.sha, at: now };
+}
+
+/**
+ * The landing a `done` move may declare, or the sentence refusing it.
+ *
+ * `undefined` is nobody naming one; `{ error }` is one refused — by its own shape, by a session that
+ * cannot close this card, or by a move that is not a close; `{ sha }` is the prefix the chain will
+ * resolve. It exists for the one rule a card cannot answer for itself: a landing that shipped before
+ * its own `execute`, where the review is the only thing that can say which merge carried the work.
+ */
+export function declarationFor(options: {
+	card: Card;
+	raw: unknown;
+	actor: { id?: string; label: string };
+	lead: string;
+	target: Lane;
+}): { error: string } | { sha: string } | undefined {
+	const { card, actor } = options;
+	if (options.raw === undefined) return undefined;
+	const raw = String(options.raw).trim().toLowerCase();
+	if (!/^[0-9a-f]{7,40}$/.test(raw)) {
+		return {
+			error: `${cardRef(card.id)} takes a commit sha as \`landed\` — seven to forty hexadecimal characters, not "${raw}".`,
+		};
+	}
+	const allowed = holds(card, actor) || isLead(actor, options.lead) || isPerson(actor);
+	if (!allowed) {
+		return {
+			error: `${cardRef(card.id)} lands a card by the holder, the lead or the person; this session is ${actor.label}.`,
+		};
+	}
+	if (options.target !== "done") {
+		return { error: `a landing closes a card; it has nothing to say about a move to ${options.target}.` };
+	}
+	return { sha: raw };
 }
 
 /**
@@ -283,7 +380,7 @@ export function instructionFor(options: {
 export type LandingVerdict = { landing: { sha: string } } | { refusal: string };
 
 /** The verdict for a proof the caller already read. */
-export function landingVerdict(proof: LandingProof, reviewed: string, id: string): LandingVerdict {
-	const check = resolveLanding(proof, reviewed, id);
+export function landingVerdict(proof: LandingProof, reviewed: string, id: string, declared?: string): LandingVerdict {
+	const check = resolveLanding(proof, reviewed, id, declared);
 	return "error" in check ? { refusal: check.error } : { landing: { sha: check.sha } };
 }

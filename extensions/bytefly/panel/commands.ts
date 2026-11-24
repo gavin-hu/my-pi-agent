@@ -425,8 +425,8 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		if (mode === "update" || mode === "upgrade") return updateAnswer(deps, mode, ctx);
 
 		// The project document is the repository's, not the tree the shell sits in: a worktree's
-		// `.pi/` is gitignored, so a setting written there is one nothing reads. One resolution,
-		// before the screen and before the listing.
+		// `.pi/bytefly.json` is not tracked, so a setting written there is one nothing reads. One
+		// resolution, before the screen and before the listing.
 		const { settingsRootFor } = await import("../../../lib/repo-key.ts");
 		run.settingsRoot = await settingsRootFor(pi, cwd);
 

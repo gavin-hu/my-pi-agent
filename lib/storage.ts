@@ -90,7 +90,13 @@ export const RESERVED_PATHS: readonly ReservedPath[] = [
 		written: ["worktree"],
 	},
 	{ home: "project", owner: "you", name: "agents/", holds: "project agents, read-only", written: [] },
-	{ home: "project", owner: "package", name: "cache/", holds: "the last red run's JUnit report", written: [] },
+	{
+		home: "project",
+		owner: "package",
+		name: "cache/",
+		holds: "the typecheck's build info and the gate's lock",
+		written: [],
+	},
 	{
 		home: "agent",
 		owner: "package",

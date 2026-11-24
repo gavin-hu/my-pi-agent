@@ -237,12 +237,14 @@ writes, and whether it can be deleted:
 | `bytefly.json` | this project's overrides, one section per extension | `bytefly`'s settings screen (**Project** scope), `team`'s `/team join`, or a hand edit | no |
 | `worktrees/` | managed checkouts, each on its own branch | [`worktree`](./extensions/worktree.md) | not while one is live; it prunes its own |
 | `agents/` | project agents, read-only | you | no |
-| `cache/` | the last red run's JUnit report | `bun run check` | yes — the next run rewrites it |
+| `cache/` | the typecheck's build info and the gate's lock | `bun run check` | yes — the next run rewrites it |
 
 An extension that needs state adds a directory named for its concept and creates it on first
-use, so a listing of `.pi` is a manifest of who wrote what; `bytefly.json` and `memory.md` are
-the only root-level files this package adds, and neither grows. Nothing hand-authored belongs
-in it: a one-off probe script belongs to the checkout it probes, or to a temporary directory.
+use, so a listing of `.pi` is a manifest of who wrote what; `bytefly.json` is the only root-level
+file this package adds, and it does not grow. A project decides for itself which of these it
+shares, in its own `.pi/.gitignore` — the documents above are the ones to keep out of a commit.
+Nothing hand-authored belongs in it: a one-off probe script belongs to the checkout it probes, or
+to a temporary directory.
 
 ## Related docs
 

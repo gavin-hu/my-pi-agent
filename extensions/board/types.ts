@@ -34,19 +34,16 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	list:
 		"shows the board — `lane` filters one lane, `mine` only what this session holds, `card` reads that one " +
 		"card, and `round` also prints the lead's rollup: owners, unassigned, unplanned, awaiting approval, " +
-		"awaiting review, untold, blocked, unwritten, done, archivable — and an unlaned listing hides " +
-		"`done`, with a count",
+		"awaiting review, untold, blocked, unwritten, done, archivable",
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
 	release: "gives it back to `backlog`; an `execute` card re-claims paths, so edit it to hand one over",
-	reclaim:
-		"returns it to `backlog` (a holder's is its own `release`); the lead from anyone, a peer only from a stopped owner",
-	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store, and a `done` with no merge to name takes `override` and the reason",
+	reclaim: "returns it to `backlog`; the lead from anyone, a peer only from a stopped owner",
+	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store, and a `done` whose merge cannot be named takes `override`, or `landed` naming it",
 	note: "appends to its history",
 	contract:
 		"records the plan file and the four lines a card promises — `goal`, `acceptance`, `scopeOut`, and `verify`, the command the spot-check runs — and drops any approval, because the wording changed",
-	approve:
-		"approves the contract and the plan it names: the lead, who does not hold the card, says both are right, and `note` records what the signer saw",
+	approve: "approves the contract and the plan it names: the lead, who does not hold the card, says both are right",
 	review:
 		"records a spot-check of the finished work: the same lead, in `execute`; the sign is announced to the owner's inbox (`session send` asks the lead). `override` instead signs a finished card nobody signed",
 	edit: "fixes what the card says",
@@ -72,7 +69,7 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	claim: ["card"],
 	release: ["card"],
 	reclaim: ["card"],
-	move: ["card", "lane", "blockedBy", "blocker", "override"],
+	move: ["card", "lane", "blockedBy", "blocker", "override", "landed"],
 	note: ["card", "note"],
 	contract: ["card", "path", "goal", "acceptance", "scopeOut", "verify"],
 	approve: ["card", "note"],

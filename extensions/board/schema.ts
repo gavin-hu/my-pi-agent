@@ -83,6 +83,12 @@ export const BoardParams = Type.Object({
 			description: "`move` to `done`: why, when no merge can be named.",
 		}),
 	),
+	landed: Type.Optional(
+		Type.String({
+			maxLength: 40,
+			description: "`move` to `done`: the merge the chain cannot name.",
+		}),
+	),
 	root: Type.Optional(
 		Type.String({
 			description: "`review`: the card's worktree, or a checkout at its commit — not a store or plan path.",

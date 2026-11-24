@@ -1,8 +1,5 @@
 node_modules/
 
-# Pi runtime state: session settings, plans, memory, and the managed worktrees.
-.pi/
-
 # Secrets kept locally; `.worktreeinclude` is how one crosses into a worktree.
 .env
 .env.*

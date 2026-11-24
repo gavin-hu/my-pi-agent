@@ -1,10 +1,10 @@
 /**
  * Where a worktree session reads its settings: the repository's checkout, not the worktree.
  *
- * `.pi/` is gitignored, so a fresh worktree has no `bytefly.json` and the defaults would answer
- * every question — a lane cap the repository never stated, a team it never named. The identity
- * `repoKeyFor` already resolves knows the checkout (the common git directory's parent), so the
- * config read takes its root from there; this suite proves the read, and `one-card.test.ts`
+ * A worktree materialises tracked files only, so `.pi/bytefly.json` is not there and the defaults
+ * would answer every question — a lane cap the repository never stated, a team it never named. The
+ * identity `repoKeyFor` already resolves knows the checkout (the common git directory's parent), so
+ * the config read takes its root from there; this suite proves the read, and `one-card.test.ts`
  * proves what the numbers then do.
  *
  * It is its own suite because `store.test.ts` is named at its height in `test/suite-sizes.test.ts`,

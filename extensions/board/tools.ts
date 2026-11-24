@@ -141,6 +141,26 @@ async function closingInstruction(
 	});
 }
 
+/**
+ * The landing a close may name, or the reason it is refused.
+ *
+ * Its other half is `proof.ts`'s: the shape and the permission are decided here because only this
+ * side knows who is asking, and the chain's three checks are the rule's, where the branch was read.
+ */
+async function closingDeclaration(
+	store: BoardStore,
+	rawCard: string | undefined,
+	raw: string,
+	actor: BoardDetails["me"],
+	lane: Lane,
+): Promise<{ sha: string } | { error: string } | undefined> {
+	const { declarationFor } = await import("../../lib/workflow/landing.ts");
+	const arg = cardArg(rawCard);
+	const card = "error" in arg ? undefined : await store.read(arg.id);
+	if (card === undefined) return undefined;
+	return declarationFor({ card, raw, actor, lead: store.config().lead, target: lane });
+}
+
 export function registerTools(
 	pi: ExtensionAPI,
 	runtime: BoardSession,
@@ -184,8 +204,10 @@ export function registerTools(
 			if ("error" in known) return refusal(action, { label: BOARD_TOOL }, known.error);
 			const me = known.value;
 			/** What `store.mutate` should be told about the card's plan, proved the way the tool proves it. */
-			const proofOf = (store: BoardStore, rawCard: string | undefined, lane?: Lane) =>
-				(proofModule ??= import("./proof.ts")).then((m) => m.moveProofs(runtime, ctx.cwd, store, rawCard, lane, pi));
+			const proofOf = (store: BoardStore, rawCard: string | undefined, lane?: Lane, declared?: string) =>
+				(proofModule ??= import("./proof.ts")).then((m) =>
+					m.moveProofs(runtime, ctx.cwd, store, rawCard, lane, pi, declared),
+				);
 			/** The crossing this call can make, bound to its context once. */
 			const cross = (result: MutateResult) => runtime.cross(ctx, result).catch(() => undefined);
 			/**
@@ -308,8 +330,15 @@ export function registerTools(
 						if (lane === undefined) {
 							return refusal(action, me, `move needs a target lane: ${listOf(movableLanes())}.`);
 						}
+						// A landing the card names is validated before the chain is read: a bad argument costs no git
+						// call, and the check that needs the branch stays in the rule.
+						const declaration =
+							args.landed === undefined ? undefined : await closingDeclaration(store, args.card, args.landed, me, lane);
+						if (declaration !== undefined && "error" in declaration) return refusal(action, me, declaration.error);
 						const { artifact: proved, landed } =
-							lane === "execute" || lane === "done" ? await proofOf(store, args.card, lane) : {};
+							lane === "execute" || lane === "done"
+								? await proofOf(store, args.card, lane, declaration === undefined ? undefined : declaration.sha)
+								: {};
 						// Decided here, not in `applyOp`: the write must not import the landing module, so the
 						// instruction arrives as an answer beside the verdict it answers for.
 						const instruction =
