@@ -9,10 +9,27 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
 import { request, reply, reviewRoute as harness } from "../../../test/helpers/review-route.ts";
+import type { ReviewSnapshot } from "../git/diff.ts";
 import { SNAPSHOT_MOVED } from "../review/store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
+
+/** One changed file drawing a single added line, which is all an anchor case needs. */
+function fileOf(rel: string): ReviewSnapshot["files"][number] {
+	return {
+		rel,
+		status: "M",
+		add: 1,
+		del: 0,
+		binary: false,
+		truncated: false,
+		lines: [
+			{ kind: "hunk", text: "@@ -1 +1 @@" },
+			{ kind: "add", text: `// ${rel}`, newNo: 1 },
+		],
+	};
+}
 
 /** The token the page was served with, read from the store it minted. */
 function tokenOf(store: ReturnType<typeof harness>["store"]): string {
@@ -85,7 +102,7 @@ describe("the page's GETs", () => {
 	});
 
 	test("accepts a write a focused page posts about a file it does not draw", async () => {
-		const harnessed = harness();
+		const harnessed = harness({ files: [fileOf("a.ts"), fileOf("b.ts")] });
 		await reply(harnessed.handler, request("GET", "/new?scope=base"));
 		const token = tokenOf(harnessed.store);
 		// The rev a focused page carries is the scope's, so the request it posts is the same
@@ -96,7 +113,7 @@ describe("the page's GETs", () => {
 		if (rev === undefined) throw new Error("no rev in the island");
 		const comment = await reply(
 			harnessed.handler,
-			request("POST", "/api/comment", { token, rev, comment: { rel: "b.ts", line: 2, side: "new", body: "hi" } }),
+			request("POST", "/api/comment", { token, rev, comment: { rel: "b.ts", line: 1, side: "new", body: "hi" } }),
 		);
 		expect(comment.status).toBe(200);
 		expect(harnessed.store.current()?.review?.comments.map((entry) => entry.rel)).toEqual(["b.ts"]);
@@ -244,6 +261,72 @@ describe("a write", () => {
 		expect(stale.status).toBe(409);
 		expect(JSON.parse(String(stale.body)).error).toBe(SNAPSHOT_MOVED);
 		expect(harnessed.store.current()?.review).toBeUndefined();
+	});
+
+	test("refuses a comment on a line or a file the snapshot does not draw", async () => {
+		const harnessed = harness();
+		const token = await opened(harnessed);
+		const offHunk = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 2, side: "new", body: "a line nobody read" },
+			}),
+		);
+		expect(offHunk.status).toBe(400);
+		expect(JSON.parse(String(offHunk.body)).error).toBe("a comment anchors to a line this diff draws");
+		const otherFile = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "b.ts", line: 1, side: "new", body: "a file this diff does not carry" },
+			}),
+		);
+		expect(otherFile.status).toBe(400);
+		// A refusal mints nothing: the page a reviewer opened to look still costs no identity.
+		expect(harnessed.store.current()?.review).toBeUndefined();
+	});
+
+	test("accepts a comment on the old side's line, which has no new number", async () => {
+		const harnessed = harness();
+		const token = await opened(harnessed);
+		const comment = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", { token, rev: "rev-1", comment: { rel: "a.ts", line: 1, side: "old", body: "x" } }),
+		);
+		expect(comment.status).toBe(200);
+	});
+
+	test("sends, drops and marks a page whose snapshot moved", async () => {
+		const harnessed = harness();
+		const token = await opened(harnessed);
+		const commented = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", body: "x" },
+			}),
+		);
+		const id = JSON.parse(String(commented.body)).review.comments[0].id;
+		harnessed.state.rev = "rev-2";
+		const marked = await reply(
+			harnessed.handler,
+			request("POST", "/api/reviewed", { token, rev: "rev-1", rel: "a.ts", reviewed: true }),
+		);
+		expect(marked.status).toBe(200);
+		const sent = await reply(harnessed.handler, request("POST", "/api/send", { token, rev: "rev-1" }));
+		expect(sent.status).toBe(200);
+		expect(harnessed.sent).toHaveLength(1);
+		// A drop on a stale page is the one a reviewer has no other way out of: the thread is still
+		// drawn, and the tree moving is not the comment's problem.
+		const dropped = await reply(harnessed.handler, request("POST", "/api/drop", { token, rev: "rev-1", id }));
+		expect(dropped.status).toBe(200);
+		expect(harnessed.store.current()?.review?.comments).toEqual([]);
+		// The review keeps the page's revision, so the stale banner still fires on the next render.
+		expect(harnessed.store.current()?.review?.rev).toBe("rev-1");
 	});
 
 	test("mints the review on the first write and answers the state it produced", async () => {
