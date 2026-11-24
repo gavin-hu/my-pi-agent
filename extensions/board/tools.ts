@@ -16,7 +16,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
 import { planForContract } from "../../lib/workflow/artifact.ts";
-import { type Card, cardArg, cardRefOf, normalizeCardId } from "../../lib/workflow/card.ts";
+import { type Card, cardArg, normalizeCardId } from "../../lib/workflow/card.ts";
 import { type Lane, movableLanes } from "../../lib/workflow/lanes.ts";
 import type { LandingVerdict } from "../../lib/workflow/landing.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
@@ -29,11 +29,9 @@ import { listOf } from "../../lib/format.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { textResult } from "../../lib/tool-result.ts";
-import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { CLAIM_NEXT, formatCard } from "./format.ts";
 import { createDeliver, createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import { collapsedLine, refusal, resultInput } from "./result.ts";
+import { refusal, renderBoardCall, renderBoardResult } from "./result.ts";
 import { dropCard, holderFact, mutate, reclaimOp } from "./write.ts";
 import type { Deliver } from "../../lib/session-tool.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
@@ -43,7 +41,6 @@ import {
 	BOARD_ACTION_DOCS,
 	BOARD_ACTIONS,
 	BOARD_TOOL,
-	type BoardAction,
 	type BoardDetails,
 	normalizeBoardAction,
 } from "./types.ts";
@@ -93,25 +90,6 @@ export const BOARD_SNIPPET = `The shared feature list for this repository: ${BOA
  * created; every other action names the card it touches, which is what a reader
  * scanning the transcript is looking for.
  */
-function callSubject(action: BoardAction, args: Record<string, unknown>): string {
-	const card = cardRefOf(args.card);
-	if (action === "add") {
-		const title = typeof args.title === "string" ? args.title.trim() : "";
-		return title === "" ? "add" : `add ${title}`;
-	}
-	if (action === "list") {
-		const parts = ["list"];
-		if (args.round === true) parts.push("round");
-		if (typeof args.lane === "string") parts.push(args.lane);
-		if (typeof args.query === "string" && args.query.trim() !== "") parts.push(`"${args.query.trim()}"`);
-		if (card !== "") parts.push(card);
-		return parts.join(" ");
-	}
-	if (card === "") return action;
-	const lane = typeof args.lane === "string" ? ` ${args.lane}` : "";
-	return `${action} ${card}${lane}`;
-}
-
 /**
  * The instruction a close may carry, or the reason it is refused.
  *
@@ -492,31 +470,8 @@ export function registerTools(
 			}
 		},
 
-		renderCall(args, theme, context) {
-			const action = normalizeBoardAction(args.action) ?? "list";
-			return callLine(theme, context.lastComponent, BOARD_TOOL, callSubject(action, args as Record<string, unknown>));
-		},
-
-		renderResult(result, options, theme, context) {
-			const text = reuseText(context?.lastComponent);
-			const details = toolDetails<BoardDetails>(result.details);
-			const outcome = detailsOrLine(theme, result, options.expanded, details);
-			if ("line" in outcome) {
-				text.setText(outcome.line);
-				return text;
-			}
-			// A `list` is the one action with rows, so a collapsed block is the line that counts
-			// them: the rows are what expanding adds, not a second copy of the line's answer.
-			const input = options.expanded ? resultInput(outcome.details) : undefined;
-			if (!input) {
-				text.setText(collapsedLine(theme, outcome.details));
-				return text;
-			}
-			const previous = context?.lastComponent;
-			const view = isTailResult<Card>(previous) ? previous : new TailResult<Card>(input, theme);
-			view.setInput(input, theme);
-			return view;
-		},
+		renderCall: renderBoardCall,
+		renderResult: renderBoardResult,
 	});
 }
 
