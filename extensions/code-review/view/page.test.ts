@@ -114,6 +114,40 @@ describe("the review page", () => {
 		expect(html).toContain("Send feedback 1");
 	});
 
+	test("counts the drafts as one or many, in the chip, the title and the footer", () => {
+		// Three places print it — the `rv-state` chip, the tab title, and the footer — and
+		// `toContain("1 draft")` is green on "1 drafts", so each count is counted with its
+		// boundary rather than found.
+		const many = renderReviewPage(
+			input({
+				review: review({
+					comments: [
+						...review().comments,
+						{
+							id: "c2",
+							rel: "lib/http/mount.ts",
+							line: 2,
+							side: "new",
+							body: "and the floor",
+							state: "draft",
+							at: 2,
+						},
+					],
+				}),
+			}),
+		);
+		expect(many).toContain("· 2 drafts ·");
+		expect(many).toContain("<title>review · my-pi-agent · 2 drafts</title>");
+		expect(many.match(/2 drafts/g)?.length).toBe(3);
+		expect(many.match(/2 draft(?!s)/g)).toBeNull();
+
+		const one = renderReviewPage(input({ review: review() }));
+		expect(one).toContain("· 1 draft ·");
+		expect(one).toContain("<title>review · my-pi-agent · 1 draft</title>");
+		expect(one.match(/1 draft(?!s)/g)?.length).toBe(3);
+		expect(one.match(/1 drafts/g)).toBeNull();
+	});
+
 	test("says a binary change has no text, and that a cap cut a file short", () => {
 		const binary = snapshot();
 		binary.files[0] = { ...binary.files[0], binary: true, lines: [], add: 0, del: 0 };

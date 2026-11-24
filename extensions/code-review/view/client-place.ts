@@ -353,8 +353,8 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
       " · " +
       files +
       " · " +
-      drafts().length +
-      " draft · " +
+      plural(drafts().length, "draft") +
+      " · " +
       reviewedSet().size +
       " of " +
       total +

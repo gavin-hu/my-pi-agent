@@ -49,6 +49,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `lib/http/prefixes.ts` (`FILES_BASE`, `REVIEW_BASE`, `reviewHref`) is gone with them: each prefix
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
+### Fixed
+
+- `code-review`: the review page counts its drafts — "1 draft", "2 drafts" — in the header chip, the tab
+  title, and the footer, where every count but one read "2 draft" and the served chip disagreed with the
+  page that repainted it a frame later.
+
 ## [0.30.0] - 2026-11-23
 
 ### Added

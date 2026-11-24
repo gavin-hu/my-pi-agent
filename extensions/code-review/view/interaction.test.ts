@@ -472,7 +472,10 @@ gated("the review page's interactions", () => {
 						{ timeout: REVIEW_PAINT_MS },
 					);
 					expect(await page.locator(".rv-thread").count()).toBe(2);
-					expect(await page.locator("#rv-state").textContent()).toContain("2 draft");
+					// The count is read exactly: `toContain("2 draft")` is green on "2 drafts" too,
+					// and the chip is repainted by the client while the footer is rebuilt by it.
+					expect(await page.locator("#rv-state").textContent()).toBe("2 drafts");
+					expect(await page.locator("#rv-facts").textContent()).toContain("2 drafts");
 				},
 				{ start: 17 },
 			);
