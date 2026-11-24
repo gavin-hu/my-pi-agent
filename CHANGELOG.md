@@ -120,6 +120,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the lead's seat now ends when the page does, and the off-switch holds. `/board exit` stops the leash for the
+  next call whatever the branch still records, `/board stop` and an `attached` `/board` leave the seat, a `/tree` or
+  `/resume` reconciles the tool set and the chip instead of leaving a hidden `write` behind, and a resumed lead branch
+  arms nothing until a page is served in that session.
+
 - `code-review`: a comment can name a span, which is what the guide's **Comment on a range** promised and the page could not
   write. A selection's second gutter and the rows it covers become the comment's `endLine` and `quote`: the composer head,
   the send dialog, the notice and `code_review comments` all name `path:17-19`, the thread shows the rows it quotes, and a

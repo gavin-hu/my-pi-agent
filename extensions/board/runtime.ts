@@ -3,7 +3,10 @@
  *
  * The mode is one value on the branch, shared with plan mode (`lib/mode-state.ts`):
  * `/board` turns it on when the page started under this session's own seat, and
- * `/board exit` turns it off. While it is on, the tool set is narrowed to the
+ * `/board exit` turns it off. Turning it off is the process's answer as well as the
+ * branch's: `disable` latches the exit for the session id, and `reconcile` never
+ * re-arms over that latch, so an off-switch that said it worked cannot be undone by
+ * a branch write that did not land. While it is on, the tool set is narrowed to the
  * coordination surface — the board, the team, the session bus, the trackers, the
  * readers, `bash` for read-only git, and a `subagent` pinned read-only — and every
  * other call is refused by a sentence that names the hatch. The gate denies by
@@ -81,10 +84,16 @@ export interface LeadRuntime {
 	isEnabled(): boolean;
 	/** Take the seat: narrow the tool set, publish the chip, record it on the branch. */
 	enable(ctx: ExtensionContext): void;
-	/** Leave the seat: put the tool set back, clear the chip, record it on the branch. */
+	/**
+	 * Leave the seat: put the tool set back, clear the chip, record it on the branch, and latch the
+	 * exit for this session, so no reconcile re-arms over it.
+	 */
 	disable(ctx: ExtensionContext): void;
-	/** Adopt the branch's own answer, for a resumed or `/tree`-moved session. */
-	restore(ctx: ExtensionContext): void;
+	/**
+	 * Adopt what the branch and the page say together: the door every turn, `/tree`, `/resume` and
+	 * the page's own close asks, so the mode cannot outlive either half.
+	 */
+	reconcile(ctx: ExtensionContext, serving: boolean): void;
 	/** Why a call is refused while holding the seat, or undefined when it may proceed. */
 	refusal(toolName: string, input: unknown): Promise<string | undefined>;
 }
@@ -100,6 +109,14 @@ export function createLeadRuntime(pi: ExtensionAPI): LeadRuntime {
 	// Tools this leave has to put back; a branch carries the list it hid, so a resumed
 	// seat restores the user's set rather than the mode's own.
 	let removed: string[] = [];
+	/**
+	 * The session whose `/board exit` latched the seat off.
+	 *
+	 * The process answers for itself here: a branch write that did not land would otherwise let the
+	 * next reconcile re-arm the leash the user just took off. Cleared by `/board` and by a new
+	 * session id, so a resumed session asks the branch again.
+	 */
+	let latchedFor: string | undefined;
 
 	const setStatus = (ctx: ExtensionContext): void => {
 		ctx.ui.setStatus(STATUS_KEYS.leadMode, enabled ? `${GLYPHS.lead} lead` : undefined);
@@ -128,17 +145,46 @@ export function createLeadRuntime(pi: ExtensionAPI): LeadRuntime {
 
 	return {
 		isEnabled: () => enabled,
-		enable: (ctx) => setEnabled(true, ctx, true),
-		disable: (ctx) => setEnabled(false, ctx, true),
-		restore: (ctx) => {
+		// Taking the seat is the user's move, and it clears the latch: the page is served again.
+		enable: (ctx) => {
+			latchedFor = undefined;
+			setEnabled(true, ctx, true);
+		},
+		// Leaving it is the user's move too, and the fact this process keeps even when the branch
+		// write does not land: `reconcile` asks the latch before it asks the branch.
+		disable: (ctx) => {
+			latchedFor = ctx.sessionManager.getSessionId();
+			setEnabled(false, ctx, true);
+		},
+		reconcile: (ctx, serving) => {
+			const id = ctx.sessionManager.getSessionId();
+			// A new session is a new role: the latch was one session's answer to one exit.
+			if (latchedFor !== undefined && latchedFor !== id) latchedFor = undefined;
 			const branch = lastModeState(ctx.sessionManager.getBranch());
-			const next = branch.mode === "lead";
-			removed = next ? [...(branch.removed ?? [])] : [];
-			enabled = next;
-			// Never re-add hidden tools on a restore: the host has already put the target
-			// branch's base set back, and only a user's own leave should undo the hide.
-			if (next) tools.enter();
-			else tools.leave([], { reAdd: false });
+			const next = branch.mode === "lead" && serving && latchedFor !== id;
+			if (next === enabled) {
+				setStatus(ctx);
+				return;
+			}
+			if (next) {
+				removed = [...(branch.removed ?? [])];
+				enabled = true;
+				tools.enter();
+				setStatus(ctx);
+				return;
+			}
+			// The branch decides whether the user's set comes back: a page that ended the seat puts it
+			// back, while a branch that moved on leaves it to the host, which has already restored the
+			// base set of the branch it landed on — the assumption a restore made, kept.
+			const pageEnded = branch.mode === "lead";
+			tools.leave(removed, { reAdd: pageEnded });
+			removed = [];
+			enabled = false;
+			// A page that ended the seat is a fact the branch should carry too; a branch that moved on
+			// already says its own answer.
+			if (pageEnded) {
+				pi.appendEntry(LEAD_MODE_ENTRY_TYPE, { enabled: false } satisfies { enabled: boolean; removed?: string[] });
+			}
 			setStatus(ctx);
 		},
 		refusal: async (toolName, input) => {

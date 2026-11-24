@@ -74,15 +74,17 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	let leadModule: Promise<typeof import("./runtime.ts")> | undefined;
 	let leadRuntime: LeadRuntime | undefined;
 	let branchState: Promise<typeof import("../../lib/mode-state.ts")> | undefined;
-	/** The session the runtime last replayed its branch for, so a `/tree` replays again. */
-	let restoredFor: string | undefined;
+	/**
+	 * The runtime, reconciled with what the branch and the page say together.
+	 *
+	 * Every door that reaches the runtime comes through here, so no turn or branch change can leave
+	 * the mode, the tool set and the chip telling three stories: `reconcile` is the one place that
+	 * decides, and it is idempotent — which is why there is no "restored once per session" note left
+	 * to go stale when the branch moves under it.
+	 */
 	const lead = async (ctx: ExtensionContext): Promise<LeadRuntime> => {
 		leadRuntime ??= (await (leadModule ??= import("./runtime.ts"))).createLeadRuntime(pi);
-		const id = ctx.sessionManager.getSessionId();
-		if (restoredFor !== id) {
-			leadRuntime.restore(ctx);
-			restoredFor = id;
-		}
+		leadRuntime.reconcile(ctx, session.serving() !== undefined);
 		return leadRuntime;
 	};
 	/**
@@ -96,8 +98,15 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	 * two more questions cost the entry nothing until a door is asked.
 	 */
 	const seatHeld = async (ctx: ExtensionContext): Promise<LeadRuntime | undefined> => {
-		const { holdsSeat } = await (branchState ??= import("../../lib/mode-state.ts"));
-		return holdsSeat(ctx.sessionManager.getBranch()) ? lead(ctx) : undefined;
+		// A session that never served a page pays nothing for the seat: the reader is deferred, and
+		// the runtime is loaded only when the branch asks for it or one already exists to answer for
+		// itself — a branch that lost the seat still has a tool set and a chip to put back.
+		if (leadRuntime === undefined) {
+			const { holdsSeat } = await (branchState ??= import("../../lib/mode-state.ts"));
+			if (!holdsSeat(ctx.sessionManager.getBranch())) return undefined;
+		}
+		const runtime = await lead(ctx);
+		return runtime.isEnabled() ? runtime : undefined;
 	};
 	const leadDoor: LeadDoor = {
 		async enter(ctx) {
@@ -111,9 +120,13 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 			(await lead(ctx)).enable(ctx);
 		},
 		async exit(ctx) {
+			// The reconcile may have already stood the seat down — a page that closed, a branch that
+			// moved on — so the answer is whether it was on when the line was typed. `/board exit`
+			// reports a seat it ended rather than one it found already off.
+			const before = leadRuntime?.isEnabled() ?? false;
 			const runtime = await lead(ctx);
-			const was = runtime.isEnabled();
-			if (was) runtime.disable(ctx);
+			const was = before || runtime.isEnabled();
+			if (runtime.isEnabled()) runtime.disable(ctx);
 			return was;
 		},
 	};
@@ -124,20 +137,25 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	let read = false;
 
 	pi.on("session_start", async (_event, ctx) => {
-		sessionId = ctx.sessionManager.getSessionId();
+		const next = ctx.sessionManager.getSessionId();
+		// The seat is a role this process serves a page as, so a name kept in this closure must not
+		// outlive the session that earned it: `/resume` switches sessions in-process.
+		if (sessionId !== "" && next !== sessionId) session.serve(undefined);
+		sessionId = next;
 		read = false;
-		// The branch this session starts on may already hold the seat: the runtime replays
-		// it on the first turn rather than at registration, so nothing loads for a mode the
-		// branch does not name.
-		restoredFor = undefined;
+		// A branch this session starts on may already hold the seat, or may have lost it: a runtime
+		// that is loaded reconciles now rather than at the next turn, so the chip cannot describe a
+		// mode that is not on. Nothing loads for a branch that never named the seat.
+		if (leadRuntime !== undefined) await lead(ctx);
 	});
 
 	// A tree jump rebuilds the history from the branch it landed on, so the line a jump went back
 	// behind is gone from the transcript: reading again is what puts it back, once.
-	pi.on("session_tree", () => {
+	pi.on("session_tree", async (_event, ctx) => {
 		read = false;
-		// The tree landed on another branch, which may or may not hold the seat.
-		restoredFor = undefined;
+		// The tree landed on another branch, which may or may not hold the seat: reconcile now, so
+		// the tool set and the chip follow the branch actually in force rather than the one left.
+		if (leadRuntime !== undefined) await lead(ctx);
 	});
 
 	// What a session is told about its own cards, once, before its first turn: which they are, and

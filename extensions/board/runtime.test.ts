@@ -82,24 +82,13 @@ describe("lead runtime — the tool set", () => {
 		expect(activeTools().sort()).toEqual(["bash", "read", "write"]);
 	});
 
-	test("records the seat on the branch, and adopts it again on restore", () => {
-		const first = setup({ active: ["read", "write"] });
-		first.runtime.enable(first.ctx);
-		const entry = first.entries.at(-1);
+	test("records the seat on the branch when the user takes it", () => {
+		const { runtime, ctx, entries } = setup({ active: ["read", "write"] });
+		runtime.enable(ctx);
+		const entry = entries.at(-1);
 		expect(entry?.customType).toBe(LEAD_MODE_ENTRY_TYPE);
 		expect((entry?.data as { enabled?: unknown }).enabled).toBe(true);
 		expect((entry?.data as { removed?: unknown }).removed).toEqual(["write"]);
-
-		// A resumed session reads the list the branch carries rather than capturing a new one.
-		const resumed = setup({
-			active: ["read", "plan"],
-			branch: [{ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true, removed: ["write"] } }],
-		});
-		resumed.runtime.restore(resumed.ctx);
-		expect(resumed.runtime.isEnabled()).toBe(true);
-		expect(resumed.activeTools()).toEqual(["read", "plan"]);
-		resumed.runtime.disable(resumed.ctx);
-		expect(resumed.activeTools()).toContain("write");
 	});
 
 	test("publishes the seat's chip, and clears it on the way out", () => {
@@ -110,11 +99,104 @@ describe("lead runtime — the tool set", () => {
 		expect(statusCalls.at(-1)).toEqual({ key: STATUS_KEYS.leadMode, text: undefined });
 	});
 
-	test("a different branch that does not hold the seat restores nothing", () => {
+	test("a branch that does not hold the seat restores nothing", () => {
 		const { runtime, ctx, activeTools } = setup({ active: ["read", "write"], branch: [] });
-		runtime.restore(ctx);
+		runtime.reconcile(ctx, true);
 		expect(runtime.isEnabled()).toBe(false);
 		expect(activeTools()).toEqual(["read", "write"]);
+	});
+});
+
+/** A branch the seat is recorded on, as one entry. */
+function seatBranch(removed: string[] = ["write"]): unknown[] {
+	return [{ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true, removed } }];
+}
+
+/**
+ * The one reconcile: what the branch and the page say together, and the exit that outranks both.
+ *
+ * The five states are the arms and disarms the mode had no door for, and the last two cases are
+ * tonight's defect: an off-switch that said it worked while the gate kept the leash.
+ */
+describe("lead runtime — reconcile", () => {
+	test("arms from a lead branch while the page is served here, and records nothing", () => {
+		const { runtime, ctx, activeTools, entries } = setup({ active: ["read", "write", "bash"], branch: seatBranch() });
+		runtime.reconcile(ctx, true);
+		expect(runtime.isEnabled()).toBe(true);
+		expect(activeTools()).toContain("read");
+		expect(activeTools()).not.toContain("write");
+		// The branch already says it: arming is an adoption, not a second write.
+		expect(entries).toHaveLength(0);
+	});
+
+	test("a lead branch with no page here stays off, and clears the chip", () => {
+		const { runtime, ctx, activeTools, entries, statusCalls } = setup({
+			active: ["read", "write"],
+			branch: seatBranch(),
+		});
+		runtime.reconcile(ctx, false);
+		expect(runtime.isEnabled()).toBe(false);
+		expect(activeTools()).toEqual(["read", "write"]);
+		expect(entries).toHaveLength(0);
+		expect(statusCalls.at(-1)).toEqual({ key: STATUS_KEYS.leadMode, text: undefined });
+	});
+
+	test("a page that stops puts the user's set back and says so on the branch", () => {
+		const { runtime, ctx, activeTools, entries } = setup({ active: ["read", "write"], branch: seatBranch() });
+		runtime.reconcile(ctx, true);
+		runtime.reconcile(ctx, false);
+		expect(runtime.isEnabled()).toBe(false);
+		expect(activeTools()).toContain("write");
+		const entry = entries.at(-1);
+		expect(entry?.customType).toBe(LEAD_MODE_ENTRY_TYPE);
+		expect((entry?.data as { enabled?: unknown }).enabled).toBe(false);
+	});
+
+	test("a branch that moved on disarms without re-adding the host's set", () => {
+		const branch = seatBranch();
+		const { runtime, ctx, activeTools, entries } = setup({ active: ["read", "write"], branch });
+		runtime.reconcile(ctx, true);
+		branch.splice(0);
+		runtime.reconcile(ctx, true);
+		expect(runtime.isEnabled()).toBe(false);
+		// The host put the target branch's base set back; re-adding would widen it.
+		expect(activeTools()).not.toContain("write");
+		expect(entries).toHaveLength(0);
+	});
+
+	test("asking the same question twice changes nothing", () => {
+		const { runtime, ctx, activeTools, entries, statusCalls } = setup({
+			active: ["read", "write"],
+			branch: seatBranch(),
+		});
+		runtime.reconcile(ctx, true);
+		const narrowed = activeTools();
+		const drawn = statusCalls.length;
+		runtime.reconcile(ctx, true);
+		expect(activeTools()).toEqual(narrowed);
+		expect(entries).toHaveLength(0);
+		// The chip is redrawn and nothing else moves: no entry, no second hide.
+		expect(statusCalls.length).toBe(drawn + 1);
+	});
+
+	test("an exit holds for the session even when the branch still says lead", () => {
+		const { runtime, ctx } = setup({ active: ["read", "write"], branch: seatBranch() });
+		runtime.reconcile(ctx, true);
+		runtime.disable(ctx);
+		expect(runtime.isEnabled()).toBe(false);
+		// The branch this double carries never took the write — tonight's lost-write state.
+		runtime.reconcile(ctx, true);
+		expect(runtime.isEnabled()).toBe(false);
+	});
+
+	test("a new session is a new role: the latch does not carry over", () => {
+		const branch = seatBranch();
+		const { runtime, ctx } = setup({ active: ["read", "write"], branch });
+		runtime.reconcile(ctx, true);
+		runtime.disable(ctx);
+		const next = fakeCtx({ mode: "tui", hasUI: true, branch, sessionId: "s2" }).ctx;
+		runtime.reconcile(next, true);
+		expect(runtime.isEnabled()).toBe(true);
 	});
 });
 
