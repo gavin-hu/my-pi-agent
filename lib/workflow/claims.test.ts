@@ -9,14 +9,14 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { Card } from "./card.ts";
 import {
+	CLAIMS_CTX as CTX,
 	claimsBus,
 	claimsCard,
 	claimsWrite,
-	CLAIMS_CTX as CTX,
 	CLAIMS_OTHER as OTHER_LABEL,
 } from "../../test/helpers/claims.ts";
+import type { Card } from "./card.ts";
 import { holdPaths, reclaimHeld } from "./claims.ts";
 
 describe("the lane crossing", () => {
@@ -103,6 +103,21 @@ describe("the lane crossing", () => {
 		});
 		expect(await holdPaths(claims, CTX, claimsWrite(claimsCard("plan"), claimsCard("execute")))).toBe(
 			"nothing claimed — 2 paths already held by billing-core",
+		);
+	});
+
+	test("a peer's turn start names the seat, so a handed-over path reads as one", async () => {
+		// The state a transfer leaves (#835): the paths are still held, by the seat that took them,
+		// so the refusal has to say whose they are — the reading a deletion never had.
+		const claims = claimsBus({
+			claim: {
+				ok: true,
+				claimed: [],
+				conflicts: [{ path: "src/api", owner: "s-1", ownerLabel: "gavin" }],
+			},
+		});
+		expect(await holdPaths(claims, CTX, claimsWrite(claimsCard("plan"), claimsCard("execute")))).toBe(
+			"nothing claimed — 2 paths already held by gavin",
 		);
 	});
 
