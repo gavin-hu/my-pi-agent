@@ -43,9 +43,9 @@ export interface SettingsRuntimeDeps {
 	/**
 	 * Where the repository keeps its project document: the checkout.
 	 *
-	 * A worktree session's `cwd` is the worktree, where `.pi/` is gitignored, so the settings it
-	 * edits are the checkout's. Defaults to `cwd` — a directory outside a repository has nowhere
-	 * else to go.
+	 * A worktree session's `cwd` is the worktree, where `.pi/bytefly.json` is not tracked, so the
+	 * settings it edits are the checkout's. Defaults to `cwd` — a directory outside a repository has
+	 * nowhere else to go.
 	 */
 	settingsRoot?: string;
 	trusted: boolean;

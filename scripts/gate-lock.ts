@@ -9,7 +9,8 @@
  *
  * The file lives in the **main checkout's** cache (`<main>/.pi/cache/check.lock`), found through
  * `git rev-parse --git-common-dir`, so every worktree of one repository queues on it and another
- * repository's gate does not. Nothing a run writes there can reach `git status`.
+ * repository's gate does not. Nothing a run writes there can reach `git status`: the project's
+ * `.pi/.gitignore` ignores `cache/`.
  */
 
 import { spawnSync } from "node:child_process";

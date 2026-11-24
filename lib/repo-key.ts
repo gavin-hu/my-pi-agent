@@ -60,9 +60,10 @@ export interface RepoKey {
 	 * Where the repository keeps its project settings: the checkout's root, which is the
 	 * parent of the common git directory.
 	 *
-	 * A worktree's {@link RepoKey.root} is the worktree, and `.pi/` is gitignored there, so the
-	 * settings a repository states live in the checkout both trees share. Outside git, or when
-	 * the common directory is not a `.git` (a bare repository, a submodule's store), this is
+	 * A worktree's {@link RepoKey.root} is the worktree, and the project document there is not
+	 * tracked — `.pi/.gitignore` is the one file of `.pi/` a worktree materialises — so the settings
+	 * a repository states live in the checkout both trees share. Outside git, or when the common
+	 * directory is not a `.git` (a bare repository, a submodule's store), this is
 	 * {@link RepoKey.root} — the nearest answer that exists.
 	 */
 	settingsRoot: string;
@@ -72,9 +73,10 @@ export interface RepoKey {
  * The repository's settings root for a working directory: the checkout a config read or write
  * targets.
  *
- * The cwd a command receives is the session's, which in a worktree is the worktree — where `.pi/`
- * is gitignored. Settings are the repository's, so a command that reads one and then writes it,
- * and a surface that only reads it, all resolve the same root the board's store does.
+ * The cwd a command receives is the session's, which in a worktree is the worktree — where
+ * `.pi/bytefly.json` is not tracked, so a document written there is one nothing reads. Settings
+ * are the repository's, so a command that reads one and then writes it, and a surface that only
+ * reads it, all resolve the same root the board's store does.
  */
 export async function settingsRootFor(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<string> {
 	return (await repoKeyFor(pi, resolveEffectiveCwd(cwd))).settingsRoot;
