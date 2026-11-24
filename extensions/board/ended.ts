@@ -99,9 +99,7 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 			parts.push(`released ${listed(released)} from ${from}`);
 		}
 		if (unvouched.length > 0) {
-			parts.push(
-				`left ${listed(unvouched)} alone: an owner named only by label is not one this sweep can vouch for`,
-			);
+			parts.push(`left ${listed(unvouched)} alone: an owner named only by label is not one this sweep can vouch for`);
 		}
 		return parts.join(", ");
 	} catch {

@@ -369,13 +369,7 @@ export function signNote(
  * the owner has stopped — `quiet` or `gone`. `absent` is refused like no fact at all: a live session that
  * never joined this bus has no record either, so no record is not an answer.
  */
-export function reclaim(
-	card: Card,
-	actor: Actor,
-	config: BoardConfig,
-	holder?: HolderFact,
-	swept = false,
-): Prepared {
+export function reclaim(card: Card, actor: Actor, config: BoardConfig, holder?: HolderFact, swept = false): Prepared {
 	if (LANE_RULES[card.lane].terminal) {
 		return { error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
 	}

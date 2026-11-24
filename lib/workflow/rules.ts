@@ -166,7 +166,7 @@ export type CardOp =
 			 * the signer's own reclaim still withdraws — rather than silently gaining the sweep's rule.
 			 */
 			swept?: boolean;
-		}
+	  }
 	/**
 	 * Hand the card to the session standing in its owner's seat: the id is re-pointed and nothing else
 	 * moves. `holder` is the bus's answer about the owner the card names, bound as `reclaim`'s is, so a
