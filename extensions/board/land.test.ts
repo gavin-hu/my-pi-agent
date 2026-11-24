@@ -83,6 +83,21 @@ describe("landSubject", () => {
 		expect(landSubject(CARD)).toBe("merge(board): land is a reviewed card's verb, not a mode exit (#856)");
 	});
 
+	test("strips a typed scope and a bare one, and leaves an unprefixed title alone", () => {
+		// A title that opens `type(scope):` is the shape this board writes, and the one the first
+		// pattern missed: the subject would have named the surface twice, permanently.
+		const typed = boardCard("857", {
+			title: "docs(board): the seat's allow-list and its two phases, held to the constant",
+		});
+		expect(landSubject(typed)).toBe(
+			"merge(board): the seat's allow-list and its two phases, held to the constant (#857)",
+		);
+		const bare = boardCard("1", { title: "docs: the seat's allow-list" });
+		expect(landSubject(bare)).toBe("merge(board): the seat's allow-list (#1)");
+		const plain = boardCard("2", { title: "the seat's allow-list" });
+		expect(landSubject(plain)).toBe("merge(board): the seat's allow-list (#2)");
+	});
+
 	test("names the one extension its paths are in, and falls back to board when they disagree or name none", () => {
 		expect(landScope(boardCard("1", { paths: ["extensions/plan/a.ts", "lib/workflow/b.ts"] }))).toBe("plan");
 		expect(landScope(boardCard("1", { paths: ["extensions/plan/a.ts", "extensions/board/b.ts"] }))).toBe("board");

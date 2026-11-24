@@ -139,6 +139,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `land` derives its merge subject from the card's title, and a title that opens `type(scope):` — `docs(board): …` —
+  now has that prefix stripped as a bare `scope:` already was, so the subject names the surface once instead of twice. The fix
+  is the pattern rather than a parameter: a caller who could pass a subject could write one nobody reviewed, and a landed
+  subject is history.
+
 - `plan`: a refused entry now reads as a refusal at both doors that enter the mode. A branch holding the board's seat —
   with `board` not loaded to refuse the call before it arrives — used to get "You are now in plan mode" from the `plan`
   tool's `enter` and "Plan mode enabled" from `/plan <task>` over a mode that never came on, the task sent with writing

@@ -75,8 +75,8 @@ export type LandAnswer =
 	  }
 	| { error: string };
 
-/** A card's title often opens with its scope; the merge subject says that once. */
-const TITLE_SCOPE = /^[\w-]+:\s*/;
+/** A card's title often opens with its scope — `board:`, or the `docs(board):` a typed title uses. */
+const TITLE_SCOPE = /^(?:[\w-]+\([^)]*\)|[\w-]+):\s*/;
 
 /**
  * The extension a card's paths name, else `board` — the repository's own merge scopes.
