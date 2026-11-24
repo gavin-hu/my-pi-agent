@@ -79,10 +79,10 @@ or not told — and an untold one is sent again.
 
 **Lead mode.** Serving the page is the seat: `/board` turns the mode on in that session and the bar draws
 `⏵ lead`. While it holds, `write`, `edit`, `worktree`, `job`, `watch` and any shell that is not read-only git
-are refused by a sentence naming `/board exit`; `subagent` is pinned read-only, and `plan` keeps `write` and
-`steps` — a card's plan is the seat's to author — while `enter` refuses. Each turn carries one `[LEAD MODE]`
-line: what is yours to sign, what nobody has taken, who is listening. `/board exit` gives every tool back and
-leaves the page serving; landing is shell work, so it is an exit, land, and `/board` again.
+are refused by a sentence naming `/board exit`; `subagent` is pinned read-only, `plan` keeps `write` and `steps` —
+a card's plan is the seat's to author — while `enter` refuses. Each turn carries one `[LEAD MODE]` line: the
+seat's unread mail, what is yours to sign, each card parked on a person with its decision, the unclaimed pool's
+three ids and a count, who is listening. `/board exit` gives every tool back; landing is exit, land, `/board`.
 
 **Where it lives.** `~/.pi/agent/repos/<repo-id>/board/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so nothing is rewritten. A card records its plan by the **name** it holds in this repository's plan store, not this host's path, so two machines sharing a store resolve it on either — and a card holding an older absolute path still executes. A shared store is compared on every write, so it converges rather than serializing — [two machines, one store](../multi-session.md#two-machines-one-store).
 

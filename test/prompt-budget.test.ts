@@ -327,12 +327,21 @@ describe("the board tool surface", () => {
 	test("the seat's line stays inside its own ceiling, every turn", () => {
 		// Paid on every turn while the seat is held, so the ceiling is the price of the mode: the
 		// literals are here as well as in the constant, so lowering the constant cannot lower the
-		// budget the mode is held to.
+		// budget the mode is held to. #854 spent 140 of the rise on the round the line now carries —
+		// a blocked card with its decision and the seat's own mail — so 620 is a decision, not a drift.
 		const many = Array.from({ length: 40 }, (_, index) => `#${100 + index}`);
-		const line = buildLeadContext({ approve: many, review: many, unclaimed: many, peers: many });
-		expect(MAX_LEAD_CHARS).toBe(480);
+		const line = buildLeadContext({
+			approve: many,
+			review: many,
+			untold: many,
+			unclaimed: many,
+			blocked: many.map((ref) => ({ ref, why: "x".repeat(200) })),
+			mail: 12,
+			peers: many,
+		});
+		expect(MAX_LEAD_CHARS).toBe(620);
 		expect(MAX_LEAD_LINES).toBe(6);
-		expect(line.length).toBeLessThanOrEqual(480);
+		expect(line.length).toBeLessThanOrEqual(620);
 		expect(line.split("\n").length).toBeLessThanOrEqual(6);
 		expect(line.startsWith(LEAD_CONTEXT_MARKER)).toBe(true);
 		expect(line).toContain("/board exit");

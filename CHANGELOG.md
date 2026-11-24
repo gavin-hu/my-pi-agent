@@ -50,6 +50,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the seat's per-turn `[LEAD MODE]` line is the round rather than half of it. It names the mail waiting in the
+  seat's own inbox, `untold` for a sign or a handoff the bus never took — the one a second signature can still deliver —
+  and a `Blocked:` line carrying the decision each parked card waits on, in the card face's own words. The pool rides at
+  the end of `Yours:` in its own budget, three ids and a count of the rest, so a busy board can no longer spend the
+  clause and clip the two signatures only the seat can make. The line costs 140 characters more: its ceiling is 620, and
+  the test that holds it says so as a decision rather than reading it back from the constant.
+
 - `lib`: a server-sent event frame is spelled once, beside the streams registry — `eventFrame(payload, event?)` — so the
   registry's `broadcast`/`end`, a board page's attach frame and a browse page's two named frames cannot disagree
   about the bytes. Every frame on the wire is unchanged: the payload is one line by contract, and a newline inside
