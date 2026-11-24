@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a `--no-ff` merge under the card's own derived subject, the numstat proof and a named-ref push, all as fixed argv. A
   failed proof or a refused push undoes the merge with `reset --keep`, never `--hard`, so a bad landing costs a local
   merge and never a pushed sha; a session that is not serving the page is refused, naming `/board`. It writes no
-  `landed` — the close stays `done` — and it exists because finishing a signed card used to need `/board exit` and a
+  `landed` — the close stays `done` — and it exists because finishing a signed card used to need leaving the seat and a
   human keystroke.
 
 - `session-bus`: `session release` takes `holder`, a live peer's label, and the seat moves that peer's claims to
@@ -62,7 +62,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the tool's own author writes about itself. A held seat now refuses that stranger, and admits `run_doctor` by name from
   `lib/tool-names.ts`, which the doctor's registration reads too; plan mode keeps the annotation door, being a read-only
   *tool* gate rather than a role admission. This withdraws a capability: an MCP reader the session could reach outside the
-  seat is refused while it holds the seat, and names `/board exit`.
+  seat is refused while it holds the seat, and names `/board stop`.
 
 - `board`: a spot-check runs the repository's size gates — `test/module-sizes.test.ts` and `test/suite-sizes.test.ts` — before
   the card's own `verify`, serially and in the same tree, and refuses the sign when either is red, naming the gate and what it
@@ -133,6 +133,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and not a third mode read.
 
 ### Removed
+
+- `board`: `/board exit`, the second word that let a seated session drop the seat and keep the page. `stop` is the one
+  word now: it ends the page and the seat together, so leaving the seat costs the live round, and `/board` takes both
+  back in one keystroke. It supersedes the `/board exit` hatch the two `Unreleased` bullets above still named — the
+  seat's allow-list refusal and the `land` note — which now say `/board stop`; a session whose branch restored the seat
+  stops it with no page left to close.
 
 - `file-browse`: the **changes** tag's link, a changed file's **changes** action, and `/files/diff`
   with its `?mode=`. The tag stays — a dot, the count and the `+`/`−` totals — as a plain chip, so

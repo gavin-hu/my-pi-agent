@@ -121,7 +121,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		},
 		async exit(ctx) {
 			// The reconcile may have already stood the seat down — a page that closed, a branch that
-			// moved on — so the answer is whether it was on when the line was typed. `/board exit`
+			// moved on — so the answer is whether it was on when the line was typed. `/board stop`
 			// reports a seat it ended rather than one it found already off.
 			const before = leadRuntime?.isEnabled() ?? false;
 			const runtime = await lead(ctx);

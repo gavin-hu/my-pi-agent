@@ -206,7 +206,7 @@ describe("lead runtime — the gate", () => {
 		for (const tool of ["edit", "write", "worktree", "job", "watch"]) {
 			const reason = await runtime.refusal(tool, {});
 			expect(reason).toContain(tool);
-			expect(reason).toContain("/board exit");
+			expect(reason).toContain("/board stop");
 		}
 	});
 
@@ -233,9 +233,9 @@ describe("lead runtime — the gate", () => {
 		const { runtime, ctx } = setup();
 		runtime.enable(ctx);
 		// `readOnlyHint` is the tool's own testimony; the closed list is the decision.
-		expect(await runtime.refusal("mcp_read", {})).toContain("/board exit");
-		expect(await runtime.refusal("mcp_write", {})).toContain("/board exit");
-		expect(await runtime.refusal("mystery", {})).toContain("/board exit");
+		expect(await runtime.refusal("mcp_read", {})).toContain("/board stop");
+		expect(await runtime.refusal("mcp_write", {})).toContain("/board stop");
+		expect(await runtime.refusal("mystery", {})).toContain("/board stop");
 	});
 
 	test("keeps the plan tool for a card's plan, and refuses entering plan mode", async () => {
@@ -244,7 +244,7 @@ describe("lead runtime — the gate", () => {
 		expect(await runtime.refusal("plan", { action: "write" })).toBeUndefined();
 		expect(await runtime.refusal("plan", { action: "steps" })).toBeUndefined();
 		const enter = await runtime.refusal("plan", { action: "enter" });
-		expect(enter).toContain("/board exit");
+		expect(enter).toContain("/board stop");
 	});
 
 	test("judges bash as read-only git, and runs what it approved", async () => {
@@ -256,8 +256,8 @@ describe("lead runtime — the gate", () => {
 
 		const write = await runtime.refusal("bash", { command: "rm -rf build" });
 		expect(write).toContain("in lead mode");
-		expect(write).toContain("/board exit");
-		expect(await runtime.refusal("bash", { command: "  " })).toContain("/board exit");
+		expect(write).toContain("/board stop");
+		expect(await runtime.refusal("bash", { command: "  " })).toContain("/board stop");
 	});
 
 	test("forces a delegated child read-only, and refuses one that cannot be", async () => {
@@ -269,7 +269,7 @@ describe("lead runtime — the gate", () => {
 
 		const unpinned = setup({ pinnedSubagent: false });
 		unpinned.runtime.enable(unpinned.ctx);
-		expect(await unpinned.runtime.refusal("subagent", { prompt: "look" })).toContain("/board exit");
+		expect(await unpinned.runtime.refusal("subagent", { prompt: "look" })).toContain("/board stop");
 	});
 
 	test("says nothing at all while the seat is not held", async () => {

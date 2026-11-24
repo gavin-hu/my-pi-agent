@@ -20,7 +20,7 @@ import { PLAN_TOOL } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 
 /** The sentence the gate hands a branch that holds the seat, which every door must say the same way. */
-const REFUSAL = "Lead mode holds the seat: `/board exit` before planning.";
+const REFUSAL = "Lead mode holds the seat: `/board stop` before planning.";
 
 /** A branch holding the seat: the state where `board` may not be registered to refuse the call first. */
 const leadEntry = (): unknown => ({ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } });

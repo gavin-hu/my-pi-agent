@@ -27,7 +27,7 @@ describe("buildLeadContext", () => {
 	test("opens with the marker and always names the hatch", () => {
 		const lines = buildLeadContext(EMPTY).split("\n");
 		expect(lines[0]).toStartWith(LEAD_CONTEXT_MARKER);
-		expect(lines.at(-1)).toContain("/board exit");
+		expect(lines.at(-1)).toContain("/board stop");
 		expect(lines.length).toBeLessThanOrEqual(MAX_LEAD_LINES);
 	});
 
@@ -89,14 +89,14 @@ describe("buildLeadContext", () => {
 		expect(text.split("\n")).toHaveLength(4);
 		// The lists clip, and the line that says how to leave is still the last one.
 		expect(text).toContain("…");
-		expect(text.split("\n").at(-1)).toContain("/board exit");
+		expect(text.split("\n").at(-1)).toContain("/board stop");
 
 		const parked = buildLeadContext({
 			...EMPTY,
 			blocked: Array.from({ length: 10 }, (_, index) => ({ ref: `#${index}`, why: "x".repeat(200) })),
 		});
 		expect(parked.length).toBeLessThanOrEqual(MAX_LEAD_CHARS);
-		expect(parked.split("\n").at(-1)).toContain("/board exit");
+		expect(parked.split("\n").at(-1)).toContain("/board stop");
 	});
 });
 
