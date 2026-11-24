@@ -30,6 +30,16 @@ import type { Actor } from "./rules.ts";
 /** How long one run may take before it is killed with its tree. */
 export const VERIFY_TIMEOUT_MS = 10 * 60_000;
 
+/**
+ * The repository's size gates, run before every card's own line.
+ *
+ * A `verify` line can only fail what it names, and two cards proved the gap in one night: #849 grew a
+ * module to 638 against a 600 bar, #853 a suite to 449 against a 400, and both were signed green
+ * before `bun run check` went red. Running the two gates here is what makes a green sign mean the
+ * repository's own bars held on that tree, whatever the card remembered to name.
+ */
+export const SIZE_GATES = "bun test test/module-sizes.test.ts test/suite-sizes.test.ts";
+
 /** Characters of output kept for a refusal: enough for a failing assertion, not the whole log. */
 export const MAX_VERIFY_OUTPUT = 400;
 
@@ -214,6 +224,11 @@ export async function verifySpotCheck(
 ): Promise<{ verified: Verification } | { error: string } | undefined> {
 	const cmd = card?.contract?.verify;
 	if (card === undefined || cmd === undefined) return undefined;
+	// The gates first, and to their own outcome: two runs on one checkout collide over `.pi/cache` and
+	// the board store (#804), so the card's line does not start until this one has settled. No tree
+	// read for the gate: the facts belong to the run the sign records, and that is the card's line.
+	const gates = await verifiedCommand(SIZE_GATES, cwd, run, now);
+	if ("failure" in gates) return { error: sizeGatesSentence(gates.failure) };
 	const answer = await verifiedCommand(cmd, cwd, run, now, tree);
 	if ("verified" in answer) return answer;
 	const tail = outputLine(answer.failure);
@@ -260,6 +275,22 @@ export async function spotCheck(
 		return undefined;
 	if (options.override !== undefined) return undefined;
 	return verifySpotCheck(options.card, options.cwd, options.run, options.now, options.tree);
+}
+
+/**
+ * What a red size gate refuses with: the gate's name and its tail, never the card's.
+ *
+ * The failure is the repository's — a module or a suite past its bar is the state `main` is in, and
+ * the card is only the session that noticed — so the sentence must not read as a verdict on the
+ * card's work, and it must name the gate a reader can run.
+ */
+function sizeGatesSentence(outcome: VerifyOutcome): string {
+	const tail = outputLine(outcome);
+	const said = outcome.killed
+		? `\`${SIZE_GATES}\` did not finish within ${Math.max(1, Math.round(VERIFY_TIMEOUT_MS / 60_000))} minutes`
+		: `\`${SIZE_GATES}\` exited ${outcome.exit}`;
+	const sentence = `the repository's size gates are red: ${said}, so nothing can be signed on this tree`;
+	return tail === undefined ? `${sentence}.` : `${sentence} — ${tail}`;
 }
 
 /** The clipped output as one line a refusal can carry: merged, collapsed, and sanitized. */

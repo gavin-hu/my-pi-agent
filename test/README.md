@@ -499,6 +499,13 @@ Rules:
   height, and a named height may only fall. A suite's case count is not gated — a
   table-driven suite hides its count — so the line count stands in for the 40 cases
   this rule used to name.
+- A card's `verify` names the size gate its work moves: a module past
+  `module-sizes.test.ts`'s 600, a suite past `suite-sizes.test.ts`'s 400. A spot-check
+  runs both gates before the card's own line, serially and in the same tree, and refuses
+  the sign when either is red, naming the gate and its tail; the sign still records the
+  card's own command, so a changed `verify` cannot ride an old result. Naming the gate
+  tells the next reader which bar the work was near — leaving it out costs the
+  explanation, never the run.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`, `layout.test.ts`,
   `conventions.test.ts`, `docs-parity.test.ts`,
