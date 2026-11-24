@@ -71,13 +71,19 @@ export interface StreamRegistry {
 	remove(sink: EventSink): void;
 	/** Tell the open pages something changed. */
 	broadcast(kind: string, only?: StreamFilter): void;
-	/** Send one last frame and end the stream with it. */
-	end(kind: string, only?: StreamFilter): void;
+	/**
+	 * End every matching stream: with one last frame when a kind is given, and silently when it is
+	 * absent. A page being told why it is over reads the frame; a server shutting down has nobody
+	 * left to read one, so the frameless call is a teardown rather than a message.
+	 */
+	end(kind?: string, only?: StreamFilter): void;
 	/** Drop every stream without ending it, after they have all been ended. */
 	clear(): void;
 	/** Stand down the closed-tab grace, because the page is ending anyway. */
 	cancelDrop(): void;
-	/** How many pages of the lifetime's kind are open; `0` when no lifetime was given. */
+	/** Every open stream, whatever page it belongs to — the count a fan-out reads. */
+	size(): number;
+	/** Only the lifetime's pages, for the closed-tab rule; `0` when no lifetime was given. */
 	pageOpen(): number;
 }
 
@@ -137,11 +143,13 @@ export function createStreams(deps: StreamRegistryDeps): StreamRegistry {
 		end(kind, only) {
 			for (const [client, record] of clients) {
 				if (!matches(record, only)) continue;
-				client.end(`data: ${kind}\n\n`);
+				if (kind === undefined) client.end();
+				else client.end(`data: ${kind}\n\n`);
 			}
 		},
 		clear: () => clients.clear(),
 		cancelDrop: cancel,
+		size: () => clients.size,
 		pageOpen,
 	};
 }
