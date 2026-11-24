@@ -185,10 +185,12 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 			error: `could not read \`${reviewed.branch}\` (${firstLine(branchTip.out)}): the branch a spot-check ran on must still exist.`,
 		};
 	}
-	const onBranch = await call(["merge-base", "--is-ancestor", reviewed.sha, branchTip.out]);
-	if (!onBranch.ok) {
+	// The signed tree *is* the branch: ancestry is not enough, or a commit added after the sign
+	// would land under it — the same defect as a stale spot-check, one layer out. The refusal names
+	// what a holder can act on (review it again) rather than merging a tree nobody read.
+	if (branchTip.out !== reviewed.sha) {
 		return {
-			error: `the spot-check was of ${short(reviewed.sha)}, which is not on \`${reviewed.branch}\`: the branch moved past the sign, so there is nothing reviewed to land.`,
+			error: `\`${reviewed.branch}\` is at ${short(branchTip.out)}, not ${short(reviewed.sha)}: the branch moved past the sign — review it again.`,
 		};
 	}
 

@@ -50,7 +50,7 @@ function cleanLanding(overrides: Record<string, Answer | Answer[]> = {}) {
 		status: { stdout: "" },
 		"rev-parse HEAD": [{ stdout: `${BASE}\n` }, { stdout: `${MERGE}\n` }],
 		"rev-parse origin/main": { stdout: `${BASE}\n` },
-		"rev-parse worktree-one": { stdout: `${BRANCH}\n` },
+		"rev-parse worktree-one": { stdout: `${REVIEWED}\n` },
 		"merge-base --is-ancestor": { stdout: "" },
 		merge: { stdout: "" },
 		"diff --numstat": { stdout: "5\t0\tCHANGELOG.md\n59\t0\textensions/board/lead-gate.test.ts\n" },
@@ -109,7 +109,6 @@ describe("landCard — the order and the argv", () => {
 			"rev-parse",
 			"rev-parse",
 			"rev-parse",
-			"merge-base",
 			"merge",
 			"rev-parse",
 			"merge-base",
@@ -122,7 +121,7 @@ describe("landCard — the order and the argv", () => {
 			"--no-ff",
 			"-m",
 			"merge(board): land is a reviewed card's verb, not a mode exit (#856)",
-			BRANCH,
+			REVIEWED,
 		]);
 		// A named ref, and never a force.
 		expect(git.calls.at(-1)).toEqual(["push", "origin", "main:main"]);
@@ -155,9 +154,12 @@ describe("landCard — every refusal, and what it leaves behind", () => {
 		expect(await answer).toMatchObject({ error: expect.stringContaining("reconcile it first") });
 	});
 
-	test("refuses a signed commit that is not on the branch, before any merge", async () => {
-		const { git, answer } = land(cleanLanding({ "merge-base --is-ancestor": { code: 1 } }));
-		expect(await answer).toMatchObject({ error: expect.stringContaining("moved past the sign") });
+	test("refuses a branch that moved past the sign, before any merge", async () => {
+		const { git, answer } = land(cleanLanding({ "rev-parse worktree-one": { stdout: `${BRANCH}\n` } }));
+		expect(await answer).toMatchObject({
+			error: expect.stringContaining("the branch moved past the sign — review it again"),
+		});
+		// The signed tree is the branch, not merely an ancestor of it: nothing is merged.
 		expect(git.argv("merge")).toEqual([]);
 	});
 
@@ -178,7 +180,7 @@ describe("landCard — every refusal, and what it leaves behind", () => {
 	});
 
 	test("undoes a merge that does not carry the signed tree", async () => {
-		const { git, answer } = land(cleanLanding({ "merge-base --is-ancestor": [{ stdout: "" }, { code: 1 }] }));
+		const { git, answer } = land(cleanLanding({ "merge-base --is-ancestor": { code: 1 } }));
 		expect(await answer).toMatchObject({ error: expect.stringContaining("does not carry the signed tree") });
 		expect(git.argv("reset").at(0)).toEqual(["reset", "--keep", BASE]);
 	});
