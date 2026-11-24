@@ -101,6 +101,14 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-tabs__item[aria-current],.bf-tabs__item[aria-selected="true"],.bf-tabs__item[aria-pressed="true"]{color:var(--accent);font-weight:var(--fw-semibold)}
 .bf-tabs__item:disabled{opacity:.5;cursor:default}
 .bf-tabs__count{color:var(--dim);margin-left:5px}
+/* The switch a page writes to redraw itself: a caption naming what it redraws, and the segments
+   stretched to fill the width. The pressed segment takes the token pair for an accent fill,
+   --on-accent on --accent (5.19:1 light, 7.49:1 dark), because this control redraws a whole
+   document and the quiet tabs' colour-and-weight alone would not be findable at a glance. */
+.bf-tabs--view__label{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
+.bf-tabs--view{display:flex}
+.bf-tabs--view .bf-tabs__item{flex:1 1 auto;justify-content:center}
+.bf-tabs--view .bf-tabs__item[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 /* The field is a prompt line: at rest it is text, and the rule arrives on hover or focus, which
    is the focus affordance the boxed field drew with its border. */
 .bf-field{display:flex;align-items:baseline;gap:6px;padding:0 0 2px;border-bottom:1px solid transparent;cursor:text}

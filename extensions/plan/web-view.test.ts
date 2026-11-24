@@ -235,7 +235,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served view", () => {
 		for (const selector of ["#approve", "#save", "#post", "#cancel", "#share", "#reviewer-name"]) {
 			expect(await page.locator(selector).count()).toBe(0);
 		}
-		expect(await page.locator(".review-actions").count()).toBe(0);
+		expect(await page.locator(".bf-app__actions").count()).toBe(0);
 		// A viewer's own page opens no composer: the rail's button is not drawn at all, so
 		// hovering a block cannot reveal one.
 		await page.locator("#plan .bf-block").first().hover();
