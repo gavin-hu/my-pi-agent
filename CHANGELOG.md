@@ -120,6 +120,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a session holding the seat can no longer claim a card, or open `execute` on one it holds. The claim took the
+  session's one wip slot and, on `execute`, the card's path claims — for work the seat structurally cannot do, since it
+  refuses `edit`. Both verdicts come from the state machine rather than the tool, so every door answers the same way, and
+  both name `/board exit`.
+
 - `board`: the lead's seat now ends when the page does, and the off-switch holds. `/board exit` stops the leash for the
   next call whatever the branch still records, `/board stop` and an `attached` `/board` leave the seat, a `/tree` or
   `/resume` reconciles the tool set and the chip instead of leaving a hidden `write` behind, and a resumed lead branch
