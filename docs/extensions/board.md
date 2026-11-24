@@ -95,7 +95,7 @@ leaves the page serving; landing is shell work, so it is an exit, land, and `/bo
   bus lost — a close, not a signature; every other verb is the holder's. A gate is a reading.
 - Settle title, paths and contract before the sign: a write after the spot-check stops it speaking, and a branch is proved against `main` as cut. Restart when board code lands — a `/reload` keeps a `lib/` module another extension loaded.
 - Ownership is a session id, not a lock — only `session-bus` path claims are. A card in `execute` holds its `paths`, and a lane change frees only the writer's. A card whose owner's record reads `gone` is pooled by the next start's sweep, but only when the card names that owner by **id**: a label is how a seat is handed over, so a card naming only a name is left alone and the sweep says which record it declined to read — it waits for a person, which is the price of not guessing. A sweep also keeps the spot-check it finds: holding the seat is not withdrawing a judgement, so only the signer's own reclaim takes a sign back.
-- The page asks the bus for a stamp every second — mail waiting, a peer's state, a turn starting — and sweeps every five for what no file announces; a page with no watch scans every second.
+- The page asks the bus for a stamp every second — mail waiting, a peer's state, a turn starting — and sweeps every five for what no file announces; a page with no watch scans every second. The reader is the stream, not the tab: while one is open the tick reads, and with none it reads nothing at all — no stamp, no frame — and no timer waits for a closed tab to come back, so the session outlives its page.
 
 ## Settings
 
