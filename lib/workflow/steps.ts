@@ -50,6 +50,7 @@ import {
 	holderRefusal,
 	mayMove,
 	missingSign,
+	seatTakes,
 	signNote,
 	signRefusal,
 	spotCheckRefusal,
@@ -65,8 +66,9 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be claimed.` };
 	if (holds(card, actor)) return { changed: false, fields: null };
 	if (card.owner !== undefined) return { error: heldBy(card, ownerLabel) };
-	const waiting = waitingOn(card, board);
-	if (waiting !== undefined) return { error: waiting };
+	// The actor's capability, then the card's: a seat may not take work it cannot do.
+	const refused = seatTakes(actor) ?? waitingOn(card, board);
+	if (refused !== undefined) return { error: refused };
 	const carried = ownerRefusal(actor, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
 	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });

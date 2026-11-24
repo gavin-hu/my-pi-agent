@@ -78,9 +78,47 @@ function leadAuthority(actor: Actor, lead: Lead): boolean {
 }
 
 /**
+ * What a session holding the seat is told when it reaches for work the seat cannot do.
+ *
+ * This is `modeRefusal("lead", action)`'s sentence, written a second time **on purpose**: board's
+ * static graph is at its 64-module ceiling and `lib/mode-entry.ts` is not in it, so the state machine
+ * cannot import the owner without the entry paying for a module it never otherwise uses. The parity
+ * case in `extensions/board/lead-gate.test.ts` holds the two equal, so this copy cannot drift from
+ * that one — if you came here to delete a duplicate, that case is what has to go first.
+ */
+export function seatCannot(action: string): string {
+	return `Lead mode holds the seat: \`/board exit\` before ${action}.`;
+}
+
+/**
+ * Why the seat may not take a card, or `undefined` when there is nothing to stop.
+ *
+ * The seat narrows the tool set to coordination and refuses `edit`, so a card it claims is work it
+ * structurally cannot do: with `board.wip.perOwner` at 1 the claim takes the session's one slot, and
+ * a peer can only take it back off a quiet or gone record.
+ */
+export function seatTakes(actor: Actor): string | undefined {
+	return actor.seat === true ? seatCannot("taking a card") : undefined;
+}
+
+/**
+ * Why the seat may not open `execute` on `card`, or `undefined` when it may.
+ *
+ * Only a card the seat itself holds is refused. One it does not hold is the door a lead has without
+ * holding it — the lane its approval opened ({@link mayMove}) — and closing that would take away the
+ * signature's whole effect. Opening the lane is not the same as working it: the seat cannot `edit`,
+ * and `execute` claims the card's paths and the one wip slot.
+ */
+export function seatOpens(card: Card, actor: Actor, target: Lane): string | undefined {
+	if (actor.seat !== true || target !== "execute" || !holds(card, actor)) return undefined;
+	return seatCannot("opening `execute` on a card this session holds");
+}
+
+/**
  * Why this actor may not move this card, or `undefined` when it may.
  *
- * The holder moves its own card. The lead moves one it does not hold twice: `plan → execute`, the lane its
+ * The holder moves its own card — unless the holder is the seat, which cannot open `execute` on one it
+ * holds ({@link seatOpens}). The lead moves one it does not hold twice: `plan → execute`, the lane its
  * approval opened, and `execute → done` where the bus says the holder left for good — a review is the
  * signature, so the close only records where a signed card went, and a vanished holder would leave it no
  * door. `holder` goes through {@link heldState}, so another session's fact is none and a quiet holder keeps its card.
@@ -96,6 +134,8 @@ export function mayMove(
 	holder?: HolderFact,
 	ownerLabel?: string,
 ): string | undefined {
+	const seated = seatOpens(card, actor, target);
+	if (seated !== undefined) return seated;
 	if (holds(card, actor)) return undefined;
 	if (leadAuthority(actor, lead)) {
 		if (card.lane === "plan" && target === "execute") return undefined;
