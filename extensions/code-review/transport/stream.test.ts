@@ -285,4 +285,18 @@ describe("the page's stream", () => {
 		clock.fire();
 		expect(abandoned).toEqual([]);
 	});
+
+	test("closing ends the streams with a frame before it releases the prefix, and arms nothing", async () => {
+		const clock = timer();
+		const page = await harness({ schedule: clock.arm, onAbandoned: () => {} });
+		const opened = await page.attach();
+
+		await page.page.close();
+
+		// The reader is told why the page stopped updating, rather than finding the socket gone.
+		expect(opened.tab.closed).toEqual(["data: closed\n\n"]);
+		expect(page.mount.releases()).toBe(1);
+		// A page already closing settles, so clearing its streams arms no grace and ends no review.
+		expect(clock.armed).toEqual([]);
+	});
 });

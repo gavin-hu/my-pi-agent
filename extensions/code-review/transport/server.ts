@@ -1,14 +1,17 @@
 /**
  * The review page's server: one mount on the session's own port.
  *
- * Nothing binds here — the page asks `serve`'s registry for a prefix, as every
- * served page does — so the review answers on the session's one origin and
- * closes with its last mount. Idle is not armed: a review waits for the person
- * who opened it, and `/review stop` or the session's end is the way it closes.
+ * Nothing binds here — the page asks `serve`'s registry for a prefix, as every served page does —
+ * so the review answers on the session's one origin.
  *
- * The root, the reader and the page are the session's (`review/current.ts`), not
- * this mount's: a page that lives for an opening would read the tree it opened on
- * after a worktree switch.
+ * **A review ends in three ways, and all three run through this page's `close()`**: its last tab
+ * leaving and the grace running out (the page is the stream's lifetime, so an abandoned page is a
+ * decision rather than silence), `/review stop`, and the session's end. The close stands a pending
+ * grace down, ends every stream with a `closed` frame so a reader is told why it stops updating,
+ * clears them, and only then releases the prefix — a tab never sees a socket close without a word.
+ *
+ * The root, the reader and the page are the session's (`review/current.ts`), not this mount's: a
+ * page that lives for an opening would read the tree it opened on after a worktree switch.
  */
 
 import type { MountOutcome, MountSpec } from "../../../lib/http/index.ts";
@@ -117,6 +120,12 @@ export async function createReviewPage(
 			close: async () => {
 				if (closed) return;
 				closed = true;
+				// In this order, and for these reasons: the drop is stood down first so a teardown is not
+				// read as an abandonment, the frame is written before the sockets close so a reader is told
+				// why the page stopped, and the prefix is released only once nothing is left to write to.
+				streams.cancelDrop();
+				streams.end("closed");
+				streams.clear();
 				await mount.release();
 			},
 		},
