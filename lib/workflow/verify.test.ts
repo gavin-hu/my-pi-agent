@@ -12,13 +12,16 @@ import { EventEmitter } from "node:events";
 import { win32 } from "node:path";
 import { createChildSupervisor } from "../child.ts";
 import type { SpawnFn, SpawnedProcess } from "../spawn.ts";
+import type { Card } from "./card.ts";
 import {
 	defaultVerifyRun,
 	MAX_VERIFY_OUTPUT,
 	outputLine,
+	SIZE_GATES,
 	treeOf,
 	VERIFY_TIMEOUT_MS,
 	verifiedCommand,
+	verifySpotCheck,
 } from "./verify.ts";
 
 /** A child that prints `chunks`, then closes with `code` — or never closes, when `code` is absent. */
@@ -238,5 +241,74 @@ describe("treeOf", () => {
 		expect(await treeOf(detached)(CWD)).toEqual({ sha: "1d3a8ce3" });
 		// Nothing answers: the record keeps the run and claims no tree, rather than guessing one.
 		expect(await treeOf(piAnswering({}))(CWD)).toEqual({});
+	});
+});
+
+describe("the size gates before the card's line", () => {
+	const now = () => 900;
+	const VERIFY = "bun run check";
+
+	/**
+	 * The card a spot-check reads: `contract.verify` is the only field it uses, so the rest of the
+	 * record is stubbed and the cast names that guarantee rather than implying a whole card.
+	 */
+	const spotCard = (verify: string | undefined): Card =>
+		({ id: "853", contract: { goal: "G", acceptance: "A", scopeOut: "S", verify } }) as unknown as Card;
+
+	/** A run that answers by command, recording each call in order. */
+	function byCommand(answers: (command: string) => { exit: number; output: string; killed: boolean }) {
+		const calls: string[] = [];
+		const run = async (command: string) => {
+			calls.push(command);
+			return answers(command);
+		};
+		return { calls, run };
+	}
+
+	const green = { exit: 0, output: "", killed: false };
+
+	test("runs the gates first, then the card's line, and records the card's line", async () => {
+		const { calls, run } = byCommand(() => green);
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now);
+		// The order is the rule: a second process starts only after the first has settled (#804).
+		expect(calls).toEqual([SIZE_GATES, VERIFY]);
+		expect(answer).toEqual({ verified: { cmd: VERIFY, exit: 0, at: 900, root: CWD } });
+	});
+
+	test("refuses on a red gate, naming the gate and its tail, before the card's line runs", async () => {
+		const { calls, run } = byCommand((command) =>
+			command === SIZE_GATES ? { exit: 1, output: "suites over the bar\n  big.test.ts: 449", killed: false } : green,
+		);
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now);
+		expect(calls).toEqual([SIZE_GATES]);
+		expect("error" in (answer ?? {})).toBe(true);
+		const refused = (answer as { error: string }).error;
+		expect(refused).toContain("the repository's size gates are red");
+		expect(refused).toContain(SIZE_GATES);
+		expect(refused).toContain("exited 1");
+		expect(refused).toContain("big.test.ts: 449");
+		// The sentence names the gate, never the card's command: the failure is the tree's.
+		expect(refused).not.toContain(VERIFY);
+	});
+
+	test("a gate that outlives the bound is a refusal, not a pass", async () => {
+		const { run } = byCommand(() => ({ exit: -1, output: "", killed: true }));
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now);
+		expect((answer as { error: string }).error).toContain("did not finish within 10 minutes");
+	});
+
+	test("a gate whose seam throws is a refusal, not a green", async () => {
+		const run = async () => {
+			throw new Error("spawn /bin/sh ENOENT");
+		};
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now);
+		expect((answer as { error: string }).error).toContain("spawn /bin/sh ENOENT");
+	});
+
+	test("runs nothing for a card whose contract names no command", async () => {
+		const { calls, run } = byCommand(() => green);
+		expect(await verifySpotCheck(undefined, CWD, run, now)).toBeUndefined();
+		expect(await verifySpotCheck(spotCard(undefined), CWD, run, now)).toBeUndefined();
+		expect(calls).toEqual([]);
 	});
 });

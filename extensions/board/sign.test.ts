@@ -24,6 +24,7 @@ import {
 } from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { runner } from "../../test/helpers/board-signs.ts";
+import { SIZE_GATES } from "../../lib/workflow/verify.ts";
 import type { Deliver } from "../../lib/session-tool.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 
@@ -92,7 +93,7 @@ describe("/board approve and /board review", () => {
 		expect(await board.say("review 1")).toBe(
 			`board: #1 reviewed by team-lead · ran \`${VERIFY}\` in ${root} (exit 0)${NOT_TOLD}`,
 		);
-		expect(run.ran).toEqual([VERIFY]);
+		expect(run.ran).toEqual([SIZE_GATES, VERIFY]);
 		// The record is the run's, written by the lead's own door, and it names the tree.
 		expect((await board.store.read(board.id))?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: 1_000, root });
 		board.temps.flush();
@@ -109,7 +110,8 @@ describe("/board approve and /board review", () => {
 		await executableWith(board);
 		const tree = join(board.cwd, "card-tree");
 		expect(await board.say(`review 1 --root ${tree}`)).toContain(`in ${tree}`);
-		expect(seen).toEqual([tree]);
+		// Both commands run in the tree `--root` names: the gates are proof of the same tree.
+		expect(seen).toEqual([tree, tree]);
 		expect((await board.store.read(board.id))?.review?.verified?.root).toBe(tree);
 		board.temps.flush();
 	});
@@ -121,7 +123,14 @@ describe("/board approve and /board review", () => {
 	});
 
 	test("a red command is a line, not a sign, and the card is left alone", async () => {
-		const run = runner({ exit: 1, output: "3 tests failed" });
+		// The gates pass and the card's own line is the red one: the sentence must be the card's, since
+		// a red gate is a different refusal with a different owner.
+		const inner = runner({ exit: 1, output: "3 tests failed" });
+		const run = Object.assign(
+			async (command: string, cwd: string) =>
+				command === SIZE_GATES ? { exit: 0, output: "", killed: false } : inner(command, cwd),
+			{ ran: inner.ran, cwds: inner.cwds },
+		);
 		const board = await signingBoard({ verify: run });
 		await executableWith(board);
 		const line = await board.say("review 1");
