@@ -8,7 +8,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { messageOf } from "../../lib/errors.ts";
 import { execP, makeRepo } from "../../test/helpers/git.ts";
@@ -20,7 +20,8 @@ import {
 	testConfig,
 } from "../../test/helpers/fixtures/worktree.ts";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { listManagedWorktrees } from "./git.ts";
+import { tempDir, withEnv } from "../../test/helpers/env.ts";
+import { isIgnored, listManagedWorktrees } from "./git.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -111,5 +112,43 @@ describe.skipIf(!runSlowSuites)("entering a checkout another session holds", () 
 		// Git refuses to remove a locked worktree, so this passes only if enter recorded the
 		// lock it already held.
 		expect((await harness.action("exit", { remove: true })).content[0].text).toContain(`Removed worktree ${dir}`);
+	});
+});
+
+describe.skipIf(!runSlowSuites)("the ignore offer's question", () => {
+	// `GIT_LITERAL_PATHSPECS` is what a Pi tool shell carries, and git answers `check-ignore`
+	// with exit 128 on the pathspec before it reads any ignore file. Reading that as "not
+	// ignored" made the offer append the same line every session (#822).
+	const literal = { GIT_LITERAL_PATHSPECS: "1" };
+
+	test("isIgnored answers in a shell that makes check-ignore refuse the question", async () => {
+		const pi = makeBareWorktreePi();
+		const repo = temps.track(await makeRepo("pi-wt-literal-"));
+		writeFileSync(join(repo, ".gitignore"), ".pi/\n");
+
+		await withEnv(literal, async () => {
+			expect(await isIgnored(pi, repo, ".pi/worktrees/")).toBe(true);
+			expect(await isIgnored(pi, repo, "README.md")).toBe(false);
+		});
+	});
+
+	test("isIgnored reports undefined rather than unignored when git will not answer", async () => {
+		const pi = makeBareWorktreePi();
+		const outside = temps.track(tempDir("pi-wt-no-repo-"));
+
+		expect(await isIgnored(pi, outside, "anything")).toBeUndefined();
+	});
+
+	test("offers nothing, and appends nothing, in that shell", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-literal-offer-"));
+		writeFileSync(join(repo, ".gitignore"), ".pi/\n");
+		const harness = await bootWorktree(repo, { hasUI: true });
+
+		await withEnv(literal, async () => {
+			await harness.action("enter", { name: "a" });
+		});
+
+		expect(harness.ctx.confirms).toEqual([]);
+		expect(readFileSync(join(repo, ".gitignore"), "utf-8")).toBe(".pi/\n");
 	});
 });

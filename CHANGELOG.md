@@ -32,6 +32,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `code-review`: the changed-file rail is the kit's collapsible sidebar, so the page wears the same
+  shell as the plan review and browse: a `<details>` that folds into a band above the diff below
+  900px, the file search as the kit's plain field (flush in the panel — the control row's variant
+  carried a `margin-left:auto` that indented it), **All** / **Commented** in place of the "only
+  commented" checkbox, and the header's actions at the control row's right end. The header's chips
+  are gone: the comparison, the counts and the progress were already the footer's one line, so the
+  facts zone keeps only the reload hint. The empty states are the kit's `.bf-empty` and `.bf-note`.
+
 - `bytefly`: the footer's `▶ auto` mode chip is muted, so a colour on that slot now means the mode holds something —
   `⏵ lead` keeps accent, because the seat is a place the session chose rather than a warning, and `≡ plan` keeps
   warning. The composer's border is unchanged: it stays accent at rest, because that is the composer's own highlight
@@ -50,6 +58,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ### Fixed
+
+- `worktree`: **enter** no longer offers to add the managed directory to `.gitignore` when git declines
+  to answer whether it is already ignored. A shell carrying `GIT_LITERAL_PATHSPECS` made `check-ignore`
+  refuse the question before it read any rule, and that refusal was read as "not ignored" — so the offer
+  fired every session and each accept appended the same line again. Only a definite "not ignored" offers
+  now, and the question is asked with literal pathspecs off.
+
+- `code-review`: the **wrap** button reports what the diff is doing at every width. Below 900px the
+  page wrapped by its own rule while the button still flipped unattributed — pressing it twice
+  turned wrapping "off" over text that stayed wrapped. The narrow rule now unwraps only under
+  `[data-wrap="false"]`, and the button seeds its pressed state from the same breakpoint, so the
+  switch is the one owner of the fact.
 
 - `question`: a tab header past 12 characters is refused by the tool's schema — UTF-16 units, so an
   emoji costs two — where it used to be shortened silently; the same schema now names the rule that two

@@ -329,7 +329,7 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
   /** The rail rows the current filter shows, and what the filter is. */
   function visibleState() {
     var text = byId("rv-filter").value.trim().toLowerCase();
-    var only = byId("rv-only-commented").checked;
+    var only = byId("rv-view-commented").getAttribute("aria-pressed") === "true";
     var shown = 0;
     nodeList(".rv-rail").forEach(function (row) {
       var path = row.getAttribute("data-path");
@@ -399,7 +399,7 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
   /** Clear both halves of the filter, then put the cursor back where it was typed. */
   function clearFilter() {
     byId("rv-filter").value = "";
-    byId("rv-only-commented").checked = false;
+    pressView(false);
     filtered();
     byId("rv-filter").focus();
   }

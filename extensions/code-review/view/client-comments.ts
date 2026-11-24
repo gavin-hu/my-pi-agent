@@ -117,34 +117,14 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
 
   function paintChrome() {
     var pending = drafts().length;
-    var state = byId("rv-state");
-    if (state) {
-      state.hidden = pending === 0;
-      state.textContent = plural(pending, "draft");
-      state.className = "bf-tag bf-tone--" + (pending === 0 ? "dim" : "warn");
-    }
-    var idChip = byId("rv-id");
-    if (idChip) {
-      idChip.hidden = !data.id;
-      idChip.textContent = "review";
-      if (data.id) idChip.title = "This review's id: " + data.id;
-      else idChip.removeAttribute("title");
-    }
     var send = byId("rv-send");
     if (send) {
       send.disabled = pending === 0;
       send.setAttribute("data-count", String(pending));
       send.textContent = "Send feedback " + pending;
     }
-    // Nothing to filter to: say so on the control rather than letting it blank the rail.
-    var only = byId("rv-only-commented");
-    if (only) {
-      var none = (data.comments || []).length === 0;
-      only.disabled = none;
-      var label = only.closest ? only.closest("label") : null;
-      if (label) label.title = none ? "No comments on this review yet" : "";
-      if (none) only.checked = false;
-    }
+    // An empty Commented view is the rail's note to explain, not a control to disable: the note
+    // says there is nothing to narrow to, and the press that hid the rows is one press back.
     paintStates();
     filtered();
     measureHeads();

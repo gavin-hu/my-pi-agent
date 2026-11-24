@@ -264,12 +264,24 @@ export async function deleteBranch(
 }
 
 /**
+ * Ask `check-ignore` with literal pathspecs off. Git refuses the question outright — exit 128,
+ * "pathspec magic not supported by this command" — when `GIT_LITERAL_PATHSPECS` is set, as it is
+ * in a Pi tool shell, and a refusal is not an answer.
+ */
+const LITERAL_PATHS_OFF: GitCallOptions = { env: { GIT_LITERAL_PATHSPECS: "0" } };
+
+/**
  * Whether git ignores `path` in `dir`. Asks git rather than matching ignore
  * text, so a directory covered by a wider rule also counts as ignored.
+ *
+ * `undefined` is git declining to answer, which the caller must not read as "not ignored":
+ * offering on a guess is how the managed directory came to be appended again every session.
  */
-export async function isIgnored(pi: ExtensionAPI, dir: string, path: string): Promise<boolean> {
-	const result = await git(pi, ["check-ignore", "-q", "--", path], dir);
-	return result.code === 0;
+export async function isIgnored(pi: ExtensionAPI, dir: string, path: string): Promise<boolean | undefined> {
+	const result = await git(pi, ["check-ignore", "-q", "--", path], dir, LITERAL_PATHS_OFF);
+	if (result.code === 0) return true;
+	if (result.code === 1) return false;
+	return undefined;
 }
 
 /** Porcelain status lines for a working tree; empty when clean. */
