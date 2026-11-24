@@ -32,6 +32,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { LEAD_ALLOWED_TOOLS } from "../extensions/board/runtime.ts";
 
 const root = join(import.meta.dir, "..");
 const english = readFileSync(join(root, "README.md"), "utf-8");
@@ -222,5 +223,29 @@ describe("site front door parity", () => {
 		// The site home names the count and links the page that owns the rows: a second
 		// ordered copy of README's table is the drift this guard exists to prevent.
 		expect(siteIndex).toContain("](./extensions/README.md)");
+	});
+});
+
+/**
+ * The seat's tool rule, held to the constant rather than to memory.
+ *
+ * The board page used to name five refused tools as if they were the set; `LEAD_ALLOWED_TOOLS` in
+ * `extensions/board/runtime.ts` is what decides, and everything outside it is refused by a sentence
+ * naming `/board exit`. So the page states the rule and lists what the seat *keeps*, and these two
+ * cases keep it honest: a name promoted into the allow-list fails until the page follows, and the
+ * rule itself cannot be dropped without a red gate.
+ */
+describe("the seat's allow-list", () => {
+	const page = readFileSync(join(root, "docs", "extensions", "board.md"), "utf-8");
+	/** The page wraps its lines, so a phrase is matched against a flattened copy. */
+	const flat = page.replace(/\s+/g, " ");
+
+	test("names every tool the seat keeps, so the guide is not a sample", () => {
+		const missing = LEAD_ALLOWED_TOOLS.filter((name) => !page.includes(`\`${name}\``));
+		expect(missing, "LEAD_ALLOWED_TOOLS holds a tool the board page does not name").toEqual([]);
+	});
+
+	test("says every other tool is refused, so a tool added later needs no list", () => {
+		expect(flat, "the board page no longer states the seat's rule").toContain("every other tool is refused");
 	});
 });
