@@ -100,6 +100,10 @@ gated("the review page's drafts", () => {
 						await page.locator(".rv-compose__area").nth(1).inputValue(),
 					];
 					expect(restored.sort()).toEqual(["note on the added line", "note on the context line"]);
+					// A count is a fact a reader cannot act on; the lines are the half that moves them.
+					const toast = await page.locator("#rv-toast").textContent();
+					expect(toast).toContain("a.ts:17");
+					expect(toast).toContain("a.ts:19");
 
 					await page.locator(".rv-compose", { hasText: "a.ts:19" }).locator(".bf-btn--primary").click();
 					await page.waitForFunction(
