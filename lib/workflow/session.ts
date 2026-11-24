@@ -265,6 +265,9 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 	// The crossing's rule, loaded on the first lane change: a session that never moves a card pays
 	// nothing for it, and the deferral is what keeps both entries' registration graphs where they are.
 	let claimsModule: Promise<typeof import("./claims.ts")> | undefined;
+	// The seat's reader, deferred for the same reason: `modeOf` is only needed to dress an actor, and
+	// a static import here would put `mode-state` in this entry's graph whether or not a card moves.
+	let modeState: Promise<typeof import("../mode-state.ts")> | undefined;
 	const agentDir = options.agentDir;
 	/** The real open, unless a suite supplied one: the store a call works on. */
 	const open = options.open ?? ((cwd: string) => openBoard(pi, cwd, agentDir === undefined ? {} : { agentDir }));
@@ -278,16 +281,24 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 		},
 		async who(ctx, cwd) {
 			const id = sessionIdOf(ctx);
+			// The seat is lead mode, composed here because this is the one place a session's own answer
+			// is built: the two doors a lead has without holding a card — opening `execute` and taking a
+			// card back — read it (`leadAuthority`), and a session that serves the page under its own
+			// name is a peer at both without it (#825). Deferred and cached in this closure, so a
+			// session with no seat pays one load of a small pure module and nothing after that.
+			const { modeOf } = await (modeState ??= import("../mode-state.ts"));
+			const seatHeld = modeOf(ctx.sessionManager.getBranch()) === "lead";
+			const dressed = (actor: Actor): Actor => (seatHeld ? { ...actor, seat: true } : actor);
 			// The seat is a role rather than a session, so it outranks the record: the page a
 			// session serves is the name its cards are read against. A host that reports no id
 			// has no record to look for, so it keeps the bus's own readable chain.
-			if (seat !== undefined) return id === undefined ? { label: seat } : { id, label: seat };
-			if (id === undefined) return { label: defaultLabel({ sessionName: sessionNameOf(ctx), cwd }) };
+			if (seat !== undefined) return dressed(id === undefined ? { label: seat } : { id, label: seat });
+			if (id === undefined) return dressed({ label: defaultLabel({ sessionName: sessionNameOf(ctx), cwd }) });
 			// The record is the bus's word for this session, so it is read rather than derived;
 			// a record that names nothing is no record, and draws like one.
 			const roster = await session.roster(cwd);
 			const held = normalizeLabel(roster?.find((entry) => entry.id === id)?.label, "");
-			if (held !== "") return { id, label: held };
+			if (held !== "") return dressed({ id, label: held });
 			// No record, so the team names this session: the first name the list leaves free, and the id's
 			// tail only when it leaves none — a stated `[]`, or every name held. The list is the store's
 			// because the lead it excludes is the one the gates compare, and the roster above has
@@ -295,7 +306,7 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			const team = (await session.store(cwd)).config();
 			const taken = (roster ?? []).filter((entry) => entry.id !== id).map((entry) => labelKey(entry.label));
 			taken.push(labelKey(team.lead));
-			return { id, label: firstFreeName(team.teammates, taken, agentLabel(id)) };
+			return dressed({ id, label: firstFreeName(team.teammates, taken, agentLabel(id)) });
 		},
 		now: options.now ?? Date.now,
 		busDir(cwd) {

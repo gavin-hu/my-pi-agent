@@ -58,21 +58,44 @@ export function holderRefusal(actor: Actor, lead: Lead, sign: Sign): string {
 }
 
 /**
+ * Whether this actor acts as the lead: the name `team.lead` gives, or the seat the board says it holds.
+ *
+ * Two doors need it, and the sign gates deliberately do not. A lead that does not hold the card has
+ * exactly two powers — opening `execute` by approving the contract ({@link mayMove}) and taking a
+ * card back from a live peer ({@link mayTakeBack}) — and both were decided by the label alone. So a
+ * session serving the page under its own name (`my-pi-agent`, with `team.lead` of `gavin`) was a peer
+ * at both: it was told to ask the lead for a card it was entitled to take, by a sentence naming the
+ * lead at the lead (#825). The seat is the board's own statement that the session works as the lead
+ * (`lib/mode-state.ts`), and a label is a name that drifts, so the seat answers the question the
+ * label was standing in for.
+ *
+ * A sign does not read it. A signature is the person's act ({@link isPerson}) or the lead's name, and
+ * the seat narrows the tool set rather than granting judgement: a seat-reading `signRefusal` would let
+ * a session's agent approve the card it is working, which is what `holderRefusal` exists to stop.
+ */
+function leadAuthority(actor: Actor, lead: Lead): boolean {
+	return isLead(actor, lead) || actor.seat === true;
+}
+
+/**
  * Why this actor may not move this card, or `undefined` when it may.
  *
  * The holder moves its own card. The lead moves one it does not hold twice: `plan → execute`, the lane its
  * approval opened, and `execute → done` where the bus says the holder left for good — a review is the
  * signature, so the close only records where a signed card went, and a vanished holder would leave it no
  * door. `holder` goes through {@link heldState}, so another session's fact is none and a quiet holder keeps its card.
+ * "The lead" is {@link leadAuthority}, so a session holding the seat is one at both the door and the
+ * sentence it is refused with — a seat-holder refused for `not approved yet` must hear that reason, not
+ * "Only its owner can move it."
  */
 export function mayMove(card: Card, actor: Actor, target: Lane, lead: Lead, holder?: HolderFact): string | undefined {
 	if (holds(card, actor)) return undefined;
-	if (isLead(actor, lead)) {
+	if (leadAuthority(actor, lead)) {
 		if (card.lane === "plan" && target === "execute") return undefined;
 		const state = heldState(card, holder);
 		if (target === "done" && card.lane === "execute" && (state === "gone" || state === "absent")) return undefined;
 	}
-	return isLead(actor, lead)
+	return leadAuthority(actor, lead)
 		? `${heldBy(card)} A lead opens \`execute\` by approving the contract; moving it stays the holder's.`
 		: `${heldBy(card)} Only its owner can move it.`;
 }
@@ -364,7 +387,7 @@ export function reclaim(card: Card, actor: Actor, config: BoardConfig, holder?: 
 
 /** Whether this caller may take the card back. */
 function mayTakeBack(card: Card, actor: Actor, lead: Lead, state: SessionPresence | undefined): boolean {
-	if (holds(card, actor) || isPerson(actor) || isLead(actor, lead)) return true;
+	if (holds(card, actor) || isPerson(actor) || leadAuthority(actor, lead)) return true;
 	return state === "quiet" || state === "gone";
 }
 
@@ -400,6 +423,11 @@ function backToPool(card: Card, actor: Actor, lead: Lead): Partial<Card> {
  * A sentence each, because the caller's next move differs: a running peer is asked to release, a
  * session the bus has never recorded cannot be asked, and a board with no bus at all has nothing
  * to go on.
+ *
+ * Since #825 the session that holds the seat is never refused here, so this cannot be printed at a
+ * lead: the reader it addresses is a peer, for whom "ask the owner to release it, or ask the lead"
+ * is exactly true. It names no `/board` hatch on purpose — `/board` can start `attached` and take no
+ * seat, so a hatch that names a door the command does not open is worse than none.
  */
 function heldStill(card: Card, lead: Lead, state: SessionPresence | undefined): string {
 	const owner = card.owner?.label ?? "another session";
