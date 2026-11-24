@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { pathRef } from "../../../lib/format.ts";
 import {
 	BAD_TOKEN,
 	createReviewStore,
@@ -24,12 +25,12 @@ function countingStore() {
 const REV = "snap-1";
 
 /** A comment op on `a.ts:4`. */
-function comment(body = "this needs a guard"): WriteOp {
+function comment(body = "this needs a guard"): Extract<WriteOp, { kind: "comment" }> {
 	return { kind: "comment", rel: "a.ts", line: 4, side: "new", body };
 }
 
 /** A reply to `parent`, on the line `comment()` names. */
-function replyTo(parent: string, body = "and a test"): WriteOp {
+function replyTo(parent: string, body = "and a test"): Extract<WriteOp, { kind: "comment" }> {
 	return { kind: "comment", rel: "a.ts", line: 4, side: "new", parent, body };
 }
 
@@ -125,6 +126,45 @@ describe("the review page", () => {
 			ok: false,
 			status: 400,
 			message: "a reply answers a comment on this review",
+		});
+		expect(store.current()?.review?.comments).toHaveLength(1);
+	});
+
+	test("a comment on a span keeps its end, and one spelling names it", () => {
+		const { store } = countingStore();
+		const page = store.open("base", "main", "main...HEAD");
+		const span = store.write(page.token, REV, REV, { ...comment(), endLine: 9 });
+		if (!span.ok) throw new Error(span.message);
+		const [written] = span.review.comments;
+		expect(written).toMatchObject({ line: 4, endLine: 9 });
+		expect(pathRef(written.rel, written.line, written.endLine)).toBe("a.ts:4-9");
+		expect(pathRef("a.ts", 4)).toBe("a.ts:4");
+		// The one literal this rule and the page's twin are held to: the browser's span case reads
+		// the same string off the send dialog, so a divergence in either spelling breaks a case.
+		expect(pathRef("a.ts", 17, 19)).toBe("a.ts:17-19");
+	});
+
+	test("refuses a span that ends where it starts, and a reply that carries one", () => {
+		const { store } = countingStore();
+		const page = store.open("base", "main", "main...HEAD");
+		expect(store.write(page.token, REV, REV, { ...comment(), endLine: 4 })).toEqual({
+			ok: false,
+			status: 400,
+			message: "a range ends after the line it starts on",
+		});
+		expect(store.write(page.token, REV, REV, { ...comment(), endLine: 2 })).toEqual({
+			ok: false,
+			status: 400,
+			message: "a range ends after the line it starts on",
+		});
+		const first = store.write(page.token, REV, REV, comment());
+		if (!first.ok) throw new Error(first.message);
+		const parent = first.review.comments[0].id;
+		// A reply answers a comment, and a comment on a span is answered at its start.
+		expect(store.write(page.token, REV, REV, { ...comment("x"), parent, endLine: 9 })).toEqual({
+			ok: false,
+			status: 400,
+			message: "a reply answers one line",
 		});
 		expect(store.current()?.review?.comments).toHaveLength(1);
 	});

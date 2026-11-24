@@ -42,6 +42,7 @@ export type ReviewArgs = Static<typeof ReviewParams>;
 export const ReviewCommentOutput = Type.Object({
 	rel: Type.String(),
 	line: Type.Integer(),
+	endLine: Type.Optional(Type.Integer()),
 	side: Type.String(),
 	body: Type.String(),
 });

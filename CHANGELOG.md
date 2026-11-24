@@ -115,6 +115,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: a comment can name a span, which is what the guide's **Comment on a range** promised and the page could not
+  write. A selection's second gutter and the rows it covers become the comment's `endLine` and `quote`: the composer head,
+  the send dialog, the notice and `code_review comments` all name `path:17-19`, the thread shows the rows it quotes, and a
+  reloaded span draft still reads the span. The store refuses a span that ends where it starts and a reply that carries one;
+  the route refuses an end the diff does not draw; and a rectangle across a removed and an added row opens no composer and
+  says why, because the two ends name different anchors.
+
 - `code-review`: a comment can answer another. **reply** keeps it under the comment it answers, one level deep — the
   store refuses a reply to a reply, and a reply row offers **delete** alone rather than a verb whose only outcome is
   that refusal — a row's threads read oldest first with each reply under its parent, a reply whose comment was deleted

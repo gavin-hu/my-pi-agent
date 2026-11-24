@@ -8,14 +8,14 @@
  * the one with `wakeRequested: () => false`.
  */
 
-import { clipText, plural, sanitizeLine } from "../../lib/format.ts";
+import { clipText, pathRef, plural, sanitizeLine } from "../../lib/format.ts";
 import { burstText, type NoticeItem, noticeMessage, type NoticeMessage } from "../../lib/notice.ts";
 
 /** One send's comments, as the notice and the tool read them. */
 export interface ReviewSend {
 	/** The review the comments belong to. */
 	id: string;
-	comments: ReadonlyArray<{ rel: string; line: number; body: string }>;
+	comments: ReadonlyArray<{ rel: string; line: number; endLine?: number; body: string }>;
 	/** When the send was written. */
 	at: number;
 }
@@ -38,13 +38,13 @@ export function reviewNotice(sends: readonly ReviewSend[]): NoticeMessage {
 		headline: `${plural(comments.length, "review comment")} sent`,
 		lines: rows.map(
 			(comment) =>
-				`${sanitizeLine(comment.rel)}:${comment.line} — ${clipText(sanitizeLine(comment.body), NOTICE_ROW_CHARS)}`,
+				`${sanitizeLine(pathRef(comment.rel, comment.line, comment.endLine))} — ${clipText(sanitizeLine(comment.body), NOTICE_ROW_CHARS)}`,
 		),
 		...(rest > 0 ? { more: `… ${rest} more` } : {}),
 		hint: 'Run `code_review` action "comments" for all of them.',
 	});
 	const items: NoticeItem[] = rows.map((comment) => ({
-		label: `${sanitizeLine(comment.rel)}:${comment.line}`,
+		label: sanitizeLine(pathRef(comment.rel, comment.line, comment.endLine)),
 		detail: clipText(sanitizeLine(comment.body), NOTICE_ROW_CHARS),
 	}));
 	return noticeMessage({

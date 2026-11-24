@@ -9,6 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { pathRef } from "../../lib/format.ts";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
 import type { ReviewSession, ReviewStatus } from "./review/session.ts";
 import { type ReviewArgs, type ReviewResult, ReviewOutput, ReviewParams, TOOL_NAME } from "./schema.ts";
@@ -92,6 +93,7 @@ export function registerReviewTool(pi: Pick<ExtensionAPI, "registerTool">, ensur
 				const list = sent.map((comment) => ({
 					rel: comment.rel,
 					line: comment.line,
+					...(comment.endLine === undefined ? {} : { endLine: comment.endLine }),
 					side: comment.side,
 					body: comment.body,
 				}));
@@ -99,7 +101,10 @@ export function registerReviewTool(pi: Pick<ExtensionAPI, "registerTool">, ensur
 					sent.length === 0
 						? "No review comments have been sent."
 						: `Review comments sent (${sent.length}):\n${sent
-								.map((comment) => `${comment.rel}:${comment.line} (${comment.side}) — ${comment.body}`)
+								.map(
+									(comment) =>
+										`${pathRef(comment.rel, comment.line, comment.endLine)} (${comment.side}) — ${comment.body}`,
+								)
 								.join("\n")}`;
 				const status = await session.status();
 				return textResult(text, { ...resultOf(status, list), comments: sent.length }, resultOf(status, list));

@@ -164,17 +164,21 @@ export async function openedPage(harnessed: ReturnType<typeof reviewRoute>): Pro
  * The default stage is one such file; a case that needs a second, or a file a focused page does
  * not draw, builds it from this rather than repeating the shape.
  */
-export function stubFile(rel: string): ReviewSnapshot["files"][number] {
+export function stubFile(rel: string, lines = 1): ReviewSnapshot["files"][number] {
 	return {
 		rel,
 		status: "M",
-		add: 1,
+		add: lines,
 		del: 0,
 		binary: false,
 		truncated: false,
 		lines: [
-			{ kind: "hunk", text: "@@ -1 +1 @@" },
-			{ kind: "add", text: `// ${rel}`, newNo: 1 },
+			{ kind: "hunk", text: `@@ -1,${lines} +1,${lines} @@` },
+			...Array.from({ length: lines }, (_unused, index) => ({
+				kind: "add" as const,
+				text: `// ${rel} ${index + 1}`,
+				newNo: index + 1,
+			})),
 		],
 	};
 }
