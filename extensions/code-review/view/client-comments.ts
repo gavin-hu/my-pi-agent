@@ -140,17 +140,21 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     card.appendChild(el("span", "bf-comment__body", comment.body));
     var acts = el("span", "bf-comment__row");
     var where = comment.rel + ":" + comment.line;
-    var reply = el("button", "bf-btn bf-btn--ghost", "reply");
-    reply.type = "button";
-    reply.setAttribute("aria-label", "Reply to the comment on " + where + ' — "' + excerpt(comment.body) + '"');
-    reply.addEventListener("click", function () {
-      composer(comment.rel, comment.line, comment.side, { parent: comment.id, parentText: comment.body });
-    });
+    // No reply on a reply: the store holds one level, so offering the verb would promise a 400 the
+    // reviewer would only meet after typing. A reply's one action is to remove itself.
+    if (!isReply) {
+      var reply = el("button", "bf-btn bf-btn--ghost", "reply");
+      reply.type = "button";
+      reply.setAttribute("aria-label", "Reply to the comment on " + where + ' — "' + excerpt(comment.body) + '"');
+      reply.addEventListener("click", function () {
+        composer(comment.rel, comment.line, comment.side, { parent: comment.id, parentText: comment.body });
+      });
+      acts.appendChild(reply);
+    }
     var drop = el("button", "bf-btn bf-btn--ghost", "delete");
     drop.type = "button";
     drop.setAttribute("aria-label", "Delete the comment on " + where + ' — "' + excerpt(comment.body) + '"');
     drop.addEventListener("click", function () { dropComment(comment.id); });
-    acts.appendChild(reply);
     acts.appendChild(drop);
     card.appendChild(acts);
     wrap.appendChild(card);
@@ -449,9 +453,20 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     var open = composerAt(path, line, side);
     if (open) {
       // One composer per line, and the line is what owns its text: pressing reply on a line whose
-      // composer is already open returns to that text rather than starting a second.
+      // composer is already open answers with that text rather than starting a second — the text is
+      // still a draft, so adopting the parent asserts nothing and the press is not ignored.
       var openArea = open.querySelector(".rv-compose__area");
-      if (opts.seed !== undefined && openArea) { openArea.value = opts.seed; keepDraft(path, line, side, opts.seed, opts.parent); }
+      if (opts.seed !== undefined && openArea) openArea.value = opts.seed;
+      if (opts.parent && open.getAttribute("data-parent") !== opts.parent) {
+        open.setAttribute("data-parent", opts.parent);
+        open.querySelector(".rv-compose__head").textContent =
+          "reply on " + splitPath(path).name + ":" + line;
+        if (opts.parentText) {
+          open.querySelector(".rv-compose__head").appendChild(el("span", "rv-compose__note", "“" + excerpt(opts.parentText) + "”"));
+        }
+        if (openArea) openArea.setAttribute("aria-label", "Reply on " + path + ":" + line);
+      }
+      if (openArea) keepDraft(path, line, side, openArea.value, opts.parent || open.getAttribute("data-parent") || undefined);
       if (openArea && opts.focus !== false) openArea.focus();
       return;
     }

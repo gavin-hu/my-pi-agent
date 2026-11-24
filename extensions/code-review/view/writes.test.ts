@@ -5,7 +5,8 @@
  * A write is a DOM fact the markup cannot show — a chip revealed for the reader's own way out, a
  * reviewed box back where the server has it, a comment listed because no line is left to draw it
  * under, a send that carries the comment still being typed. The drafts those writes come from are
- * `drafts.test.ts`, the page's reading is `interaction.test.ts`, and the fixture and its waits are
+ * `threads.test.ts`, the drafts are `drafts.test.ts`, the page's reading is `interaction.test.ts`, and the
+ * fixture and its waits are
  * `test/helpers/review-browser.ts`.
  *
  * The partial flush is staged with `MAX_COMMENTS - 1` seeded comments rather than a refused first
@@ -170,116 +171,6 @@ gated("the review page's writes", () => {
 				{ start: 17 },
 				seed,
 			);
-		},
-		CASE_MS,
-	);
-
-	/**
-	 * A line's comments are a thread: the order the review stores them, a tie keeping arrival, and a
-	 * reply right under the comment it answers rather than at the top of the row.
-	 */
-	test(
-		"comments on one line read oldest first, and a reply sits under its comment",
-		async () => {
-			await withPage(async (page) => {
-				await startComment(page, "older");
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-				await startComment(page, "newer");
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForFunction(
-					() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 2,
-					undefined,
-					{ timeout: REVIEW_PAINT_MS },
-				);
-				expect(await page.locator(".rv-thread .bf-comment__body").allTextContents()).toEqual(["older", "newer"]);
-
-				await page.locator(".rv-thread", { hasText: "older" }).locator("button", { hasText: "reply" }).click();
-				await page.locator(".rv-compose__area").fill("answering older");
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForFunction(
-					() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 3,
-					undefined,
-					{ timeout: REVIEW_PAINT_MS },
-				);
-				// The reply is under the comment it answers, not after the newest comment and not above it.
-				expect(await page.locator(".rv-thread .bf-comment__body").allTextContents()).toEqual([
-					"older",
-					"answering older",
-					"newer",
-				]);
-				expect(await page.locator(".rv-thread[data-parent] .bf-comment__body").textContent()).toBe("answering older");
-			});
-		},
-		CASE_MS,
-	);
-
-	/**
-	 * A reply outlives the comment it answers: the delete is by id, so the reply stays on the line and
-	 * stands on its own — on the write that removed the parent and again on the load after it, which
-	 * reaches the same list down the server's render.
-	 */
-	test(
-		"a reply whose parent is deleted reads as a comment, on the write and after a reload",
-		async () => {
-			await withPage(async (page) => {
-				await startComment(page, "older");
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-				await page.locator(".rv-thread").first().locator("button", { hasText: "reply" }).click();
-				await page.locator(".rv-compose__area").fill("answering older");
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForFunction(
-					() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 2,
-					undefined,
-					{ timeout: REVIEW_PAINT_MS },
-				);
-				expect(await page.locator(".rv-thread[data-parent]").count()).toBe(1);
-
-				await page.locator(".rv-thread").first().locator("button", { hasText: "delete" }).click();
-				await page.waitForFunction(
-					() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 1,
-					undefined,
-					{ timeout: REVIEW_PAINT_MS },
-				);
-				expect(await page.locator(".rv-thread .bf-comment__body").textContent()).toBe("answering older");
-				expect(await page.locator(".rv-thread[data-parent]").count()).toBe(0);
-
-				await page.reload({ waitUntil: "networkidle" });
-				expect(await page.locator(".rv-thread").count()).toBe(1);
-				expect(await page.locator(".rv-thread[data-parent]").count()).toBe(0);
-			});
-		},
-		CASE_MS,
-	);
-
-	test(
-		"reply and delete name the comment they act on, not only what they do",
-		async () => {
-			await withPage(async (page) => {
-				await startComment(page, "older");
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-				await startComment(page, "newer");
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForFunction(
-					() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 2,
-					undefined,
-					{ timeout: REVIEW_PAINT_MS },
-				);
-				// Two comments on one line, four buttons that used to read "reply" and "delete" twice:
-				// the line and the opening words are what tell a screen reader which one it is.
-				const labels: Array<string | null> = [];
-				for (let index = 0; index < 4; index += 1) {
-					labels.push(await page.locator(".rv-thread .bf-comment__row button").nth(index).getAttribute("aria-label"));
-				}
-				expect(labels).toEqual([
-					'Reply to the comment on a.ts:3 — "older"',
-					'Delete the comment on a.ts:3 — "older"',
-					'Reply to the comment on a.ts:3 — "newer"',
-					'Delete the comment on a.ts:3 — "newer"',
-				]);
-			});
 		},
 		CASE_MS,
 	);
