@@ -7,6 +7,10 @@
  * under, a send that carries the comment still being typed. The drafts those writes come from are
  * `drafts.test.ts`, the page's reading is `interaction.test.ts`, and the fixture and its waits are
  * `test/helpers/review-browser.ts`.
+ *
+ * The partial flush is staged with `MAX_COMMENTS - 1` seeded comments rather than a refused first
+ * flush, because the review's comment cap is the only per-comment refusal the page can reach: it is
+ * what lets one save land and the next be refused, which is the state the case is about.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -141,8 +145,9 @@ gated("the review page's writes", () => {
 						.click();
 					await page.locator("#rv-sel-comment").click();
 					await page.locator(".rv-compose__area").fill("the two hundredth");
-					// The second composer is on the added line, so the flush saves the context one
-					// first: that is the write the cap refuses, and the one that has to survive.
+					// The flush saves in DOM order: the context composer is #200 and is accepted, the
+					// added-line one after it is refused by the cap, and that refused text is the one
+					// that has to stay where the reviewer left it.
 					await page.locator(".bf-diff-line--add .browse-diff-no").filter({ hasText: /^\d+$/ }).first().click();
 					await page.locator("#rv-sel-comment").click();
 					await page.locator(".rv-compose", { hasText: "a.ts:19" }).locator(".rv-compose__area").fill("over the cap");
