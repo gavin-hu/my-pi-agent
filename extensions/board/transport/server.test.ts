@@ -61,16 +61,20 @@ function fakeMount() {
 	};
 }
 
-/** A tab: the frames it was sent, and the detach the stream handed back. */
+/** A tab: the frames it was sent, and how often the stream closed it. */
 function recordingSink() {
 	const frames: string[] = [];
+	const closed = { count: 0, withFrame: 0 };
 	const sink: EventSink = {
 		write: (frame) => {
 			frames.push(frame);
 		},
-		end: () => {},
+		end: (frame) => {
+			closed.count += 1;
+			if (frame !== undefined) closed.withFrame += 1;
+		},
 	};
-	return { sink, frames };
+	return { sink, frames, closed };
 }
 
 /** The ticker a case drives by hand, remembering the cadence it was asked for. */
@@ -177,9 +181,9 @@ async function harness(options: { dirs?: readonly string[]; stamp?: boolean } = 
 				body: "",
 			});
 			expect(reply.result.stream).toBe(true);
-			reply.openSink?.(tab.sink);
+			const detach = reply.openSink?.(tab.sink) ?? (() => {});
 			await waitFor(() => tab.frames.length === 1);
-			return tab;
+			return { ...tab, detach };
 		},
 	};
 }
@@ -318,6 +322,52 @@ describe("when a frame is read", () => {
 		page.watch.fire();
 		page.interval.tick();
 		// Nothing arrives: the page is done, so a change and a tick have no reader to push to.
+		expect(tab.frames.length).toBe(1);
+	});
+});
+
+describe("the page's fan-out", () => {
+	test("a detached tab stops receiving, and watchers follows every attach and detach", async () => {
+		const page = await harness({ dirs: ["/board/cards"] });
+		const kept = await page.attach();
+		const gone = await page.attach();
+		expect(page.server.watchers()).toBe(2);
+
+		gone.detach();
+		expect(page.server.watchers()).toBe(1);
+		page.rev(2);
+		page.watch.fire();
+		await waitFor(() => kept.frames.length === 2);
+
+		// The tab that left is not written to again, and the one that stayed is told once.
+		expect(gone.frames.length).toBe(1);
+		expect(kept.frames.length).toBe(2);
+
+		kept.detach();
+		expect(page.server.watchers()).toBe(0);
+		await page.server.close();
+	});
+
+	test("a tick with nobody attached reads nothing", async () => {
+		const page = await harness({ dirs: ["/board/cards"] });
+		expect(page.server.watchers()).toBe(0);
+		page.rev(2);
+		page.interval.tick();
+		await settle();
+
+		// A page nobody is reading asks the bus nothing, which is the guard the set used to keep.
+		expect(page.reads()).toBe(0);
+		await page.server.close();
+	});
+
+	test("close ends every stream without a last frame", async () => {
+		const page = await harness({ dirs: ["/board/cards"] });
+		const tab = await page.attach();
+		await page.server.close();
+
+		// The teardown is the frameless half of `end`: the socket closes, and no page is told why.
+		expect(tab.closed.count).toBe(1);
+		expect(tab.closed.withFrame).toBe(0);
 		expect(tab.frames.length).toBe(1);
 	});
 });

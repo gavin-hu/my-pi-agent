@@ -18,18 +18,21 @@ import type { EventSink } from "../http/index.ts";
 import { graceTimer } from "../../test/helpers/fixtures/http.ts";
 import { createStreams, type StreamRegistry } from "./streams.ts";
 
-/** A page: the frames it was sent, and the streams it ended. */
-function page(): { sink: EventSink; frames: string[]; ended: string[] } {
+/** A page: the frames it was sent, the frames it was ended with, and how often it was closed. */
+function page(): { sink: EventSink; frames: string[]; ended: string[]; closed: { count: number } } {
 	const frames: string[] = [];
 	const ended: string[] = [];
+	const closed = { count: 0 };
 	return {
 		frames,
 		ended,
+		closed,
 		sink: {
 			write: (frame) => {
 				frames.push(frame);
 			},
 			end: (frame) => {
+				closed.count += 1;
 				if (frame !== undefined) ended.push(frame);
 			},
 		},
@@ -80,6 +83,34 @@ describe("the stream registry", () => {
 
 		expect(owner.ended).toEqual(["data: closed\n\n"]);
 		expect(owner.frames).toEqual([]);
+	});
+
+	test("a frameless end closes the stream and writes nothing, which is what a teardown wants", () => {
+		const { streams } = review();
+		const owner = page();
+		streams.add(owner.sink, { key: "owner" });
+
+		streams.end();
+
+		expect(owner.closed.count).toBe(1);
+		expect(owner.ended).toEqual([]);
+		expect(owner.frames).toEqual([]);
+	});
+
+	test("counts every stream, while pageOpen counts only the lifetime's", () => {
+		const { streams } = review();
+		// A reader is a stream and not a page: one count notices it, the other must not.
+		const reader = page();
+		const owner = page();
+		streams.add(reader.sink, { key: "reviewer", token: "r1" });
+		streams.add(owner.sink, { key: "owner" });
+
+		expect(streams.size()).toBe(2);
+		expect(streams.pageOpen()).toBe(1);
+
+		streams.remove(reader.sink);
+		expect(streams.size()).toBe(1);
+		expect(streams.pageOpen()).toBe(1);
 	});
 
 	test("arms the grace when the lifetime's last page closes, and stands it down on a reconnect", () => {

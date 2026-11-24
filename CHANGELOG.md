@@ -44,6 +44,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   above the diff to discard), and **Send feedback** writes the comment still being typed before it sends,
   counting it in the button. A flush that stops halfway leaves the dialog shut with the unsent text in place.
 
+- `board`: the page's frame fan-out is the kit's stream registry, and its own set of sinks is gone. Every
+  attached tab is a stream in `createStreams({})` with no lifetime, so the page keeps no second counter beside
+  the map — `watchers` and the three "is anyone reading" guards ask the registry — and its close ends those
+  streams and clears them in one place before giving the prefix back. The registry gained the two calls the
+  adoption proved missing: `size()`, every open stream where `pageOpen()` counts only the lifetime's pages,
+  and an `end` that may carry no frame, which is a teardown rather than a page being told why it is over.
+
 - `lib`: the served pages' stream registry moved into the kit. `createStreams` now lives in
   `lib/web/streams.ts` and records a `key` with an optional `token` rather than a review's role, with
   the closed-tab grace **optional** — so a page that wants a plain fan-out (a board's cards, a
