@@ -13,9 +13,9 @@ import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanSummary, StoredPlan } from "./plans.ts";
 import { type ReviewBaselines, reviewPlan, runBrowserReview } from "./review.ts";
-import type { PlanRuntime } from "./runtime.ts";
 import type { PlanReviewOptions, PlanReviewResult, PlanWebReview } from "./web.ts";
 import { planCtx, makePlanPi } from "../../test/helpers/fixtures/plan.ts";
+import { fakePlanRuntime, type PlanCommandOptions } from "../../test/helpers/plan-command.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 
 const PATH = "~/.pi/agent/plans/a1f9c02/2026-10-14-1600-demo.md";
@@ -27,54 +27,6 @@ function plan(content = "- one"): StoredPlan {
 		content,
 		bytes: content.length,
 	};
-}
-
-interface RuntimeOptions {
-	file?: StoredPlan;
-	last?: string;
-	enabled?: boolean;
-	baseline?: string;
-	summaries?: PlanSummary[];
-}
-
-/** The slice of `PlanRuntime` the command reads, with its calls recorded. */
-function fakeRuntime(options: RuntimeOptions = {}) {
-	const readCalls: string[] = [];
-	const indexCalls: string[] = [];
-	const enableCalls: string[] = [];
-	const marks: Array<{ path: string; content: string }> = [];
-	const file = options.file;
-	const summaries: PlanSummary[] = options.summaries ?? [];
-	let enabled = options.enabled ?? false;
-	const runtime = {
-		isEnabled: () => enabled,
-		enable: () => {
-			enableCalls.push("enable");
-			enabled = true;
-		},
-		toggle: () => {
-			enabled = !enabled;
-		},
-		disable: () => {
-			enabled = false;
-		},
-		lastPlanPath: () => options.last ?? file?.path,
-		reviewed: () => (options.baseline === undefined ? undefined : sectionDigests(options.baseline)),
-		markReviewed: (path: string, content: string) => marks.push({ path, content }),
-		plans: {
-			read: async (_cwd: string, path: string) => {
-				readCalls.push(path);
-				return file;
-			},
-			index: async (cwd: string) => {
-				indexCalls.push(cwd);
-				return summaries;
-			},
-			dirFor: async () => "~/.pi/agent/plans/a1f9c02",
-			takeNotice: () => undefined,
-		},
-	};
-	return { runtime: runtime as unknown as PlanRuntime, readCalls, indexCalls, enableCalls, marks };
 }
 
 function fakeWeb() {
@@ -103,8 +55,8 @@ function fakeWeb() {
 	return { web, started, starts, closeCalls };
 }
 
-function setup(options: RuntimeOptions & { idle?: boolean } = {}) {
-	const { runtime, readCalls, indexCalls, enableCalls, marks } = fakeRuntime(options);
+function setup(options: PlanCommandOptions & { idle?: boolean } = {}) {
+	const { runtime, readCalls, indexCalls, enableCalls, marks } = fakePlanRuntime(options);
 	const { web, started, starts, closeCalls } = fakeWeb();
 	const pi = makePlanPi();
 	registerCommands(pi.pi, runtime, web);

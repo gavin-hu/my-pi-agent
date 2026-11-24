@@ -81,6 +81,15 @@ const BANS: Ban[] = [
 		matches: (line) => /\bfg\s*:/.test(line),
 		reason: "use fakeTheme from test/helpers/fakes.ts",
 	},
+	{
+		// A double is the one place a moved interface can hide: `as unknown as` skips every member, so
+		// a fake that still answers the old shape typechecks forever (jack, #859/#860). The ban reads
+		// what the cast names — a runtime interface — because 314 honest `as unknown as` casts live in
+		// test files and a flat ban would only teach people to reach for the opt-out.
+		name: "interface-cast",
+		matches: (line) => /\bas\s+unknown\s+as\s+[A-Za-z_$][\w$]*Runtime\b/.test(line),
+		reason: "declare the double against the interface (`Partial<Iface>`, or a `Pick<>`), so a moved member fails here",
+	},
 	TYPED_SEPARATOR,
 ];
 

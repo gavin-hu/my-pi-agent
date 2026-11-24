@@ -482,7 +482,7 @@ function runtimeFor(runs: BackgroundRun[] = RUNS) {
 		shutdown: () => {},
 		reset: () => {},
 		subscribe: () => () => {},
-	} as unknown as BackgroundRuntime;
+	} as unknown as BackgroundRuntime; // allow:interface-cast — a stub of the four calls this file drives, not the host's runtime
 	return { runtime, calls };
 }
 

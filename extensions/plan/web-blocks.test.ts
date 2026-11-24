@@ -147,7 +147,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's blocks", () => {
 			await page.waitForSelector("#plan li", { timeout: REVIEW_PAINT_MS });
 			const run = await page.evaluate(() => {
 				// The page's own globals, named rather than assumed: there is no DOM lib here.
-				const view = globalThis as unknown as PageRuntime;
+				const view = globalThis as unknown as PageRuntime; // allow:interface-cast — the page's globals, not a PageRuntime this file builds
 				const shapes = Array.from(view.document.querySelectorAll("#plan .bf-block")).map((node) => {
 					const box = node.getBoundingClientRect();
 					const list = node.querySelector(":scope > ul, :scope > ol");

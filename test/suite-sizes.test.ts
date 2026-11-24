@@ -59,7 +59,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/goal/tools.test.ts": 792,
 	"extensions/memory/store.test.ts": 655,
 	"extensions/memory/view/memory-picker.test.ts": 406,
-	"extensions/plan/commands.test.ts": 563,
+	"extensions/plan/commands.test.ts": 515,
 	"extensions/plan/extension.test.ts": 493,
 	"extensions/plan/feedback.test.ts": 499,
 	"extensions/plan/plans.test.ts": 1359,
@@ -118,9 +118,10 @@ const LONG_SUITES: Record<string, number> = {
  * 4,274 more, so the ceiling is 47,759, and it may only fall from here. Two facts, not one: the
  * ledger measures 42,268 + 4,274 = 46,542 against it, because the declared half carried 1,217
  * lines of headroom when the root half joined. The gap is history rather than permission — a
- * split lowers the ceiling, and nothing raises it again.
+ * split lowers the ceiling, and nothing raises it again. `extensions/plan/commands.test.ts` came
+ * down 48 that way when its runtime double moved to `test/helpers/plan-command.ts` (#862).
  */
-const LONG_SUITE_TOTAL = 47528;
+const LONG_SUITE_TOTAL = 47480;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 
