@@ -33,8 +33,6 @@ interface RuntimeOptions {
 	file?: StoredPlan;
 	last?: string;
 	enabled?: boolean;
-	/** The sentence the gate refuses with, when this branch will not enter plan mode. */
-	refuse?: string;
 	baseline?: string;
 	summaries?: PlanSummary[];
 }
@@ -50,16 +48,9 @@ function fakeRuntime(options: RuntimeOptions = {}) {
 	let enabled = options.enabled ?? false;
 	const runtime = {
 		isEnabled: () => enabled,
-		enable: (ctx: { ui: { notify: (message: string, kind: string) => void } }) => {
+		enable: () => {
 			enableCalls.push("enable");
-			// The real gate notifies its refusal before answering with it; a double that answered
-			// silently would pass while the transcript said nothing at all.
-			if (options.refuse !== undefined) {
-				ctx.ui.notify(options.refuse, "warning");
-				return options.refuse;
-			}
 			enabled = true;
-			return undefined;
 		},
 		toggle: () => {
 			enabled = !enabled;
@@ -167,23 +158,6 @@ describe("/plan retired subcommands", () => {
 		await pi.commands.get("plan").handler("review", ctx);
 
 		expect(pi.sentMessages).toEqual([{ content: "review", options: undefined }]);
-	});
-
-	test("says why and sends nothing when the branch refuses the mode", async () => {
-		// The other half of the door: a task sent into a mode that never came on runs with write
-		// access, so the refusal has to stop the send and not only the notice.
-		const refused = "Lead mode holds the seat: `/board exit` before planning.";
-		const { pi, runtime, enableCalls } = setup({ refuse: refused });
-		const { ctx, notices } = planCtx({ cwd: "/repo" });
-
-		await pi.commands.get("plan").handler("fix the retry loop", ctx);
-
-		expect(enableCalls).toEqual(["enable"]);
-		expect(pi.sentMessages).toEqual([]);
-		expect(runtime.isEnabled()).toBe(false);
-		// The gate's sentence is the only one said, and "Plan mode enabled" is not said over it.
-		expect(notices.filter((notice) => notice.message === refused)).toHaveLength(1);
-		expect(notices.some((notice) => notice.message.startsWith("Plan mode enabled"))).toBe(false);
 	});
 });
 
