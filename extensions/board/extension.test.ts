@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { LEAD_MODE_ENTRY_TYPE, PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { stubSession } from "../../test/helpers/board.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -77,6 +78,38 @@ describe("the board extension", () => {
 			board(fake.pi, { session: stubSession(), page: stubPage([]) });
 			expect(fake.tools.size).toBe(0);
 			expect(fake.commands.size).toBe(0);
+		});
+	});
+
+	/**
+	 * The door's seat read, as the guard a tool call actually meets.
+	 *
+	 * `seatHeld` is not exported, and should not be: what a reader needs is that a branch holding the
+	 * seat narrows the tools and that a planning or an auto branch narrows nothing. Both compares
+	 * inside the factory are `lib/mode-state.ts`'s readers — `holdsSeat` and `isPlanModeEnabled` — so
+	 * this case fails if either is derived by hand again, or if the readers are wired the wrong way
+	 * round: swapping them leaves the seated branch unanswered and the planning one blocked.
+	 *
+	 * Three branches through **one** factory on purpose: the module import is cached (`branchState ?==`
+	 * on the promise, keyed only on "has it loaded"), so a reading frozen at the first question would
+	 * show up here as the second and third branches answering like the first.
+	 */
+	test("narrows the tools on a seat branch, and on neither of the other two modes", async () => {
+		const SEAT = [{ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } }];
+		const PLANNING = [{ type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: { enabled: true } }];
+		await withEnv(ENABLED, async () => {
+			const fake = createFakePi();
+			board(fake.pi, { session: stubSession(), page: stubPage([]) });
+			const [guard] = fake.handlers.get("tool_call") ?? [];
+			if (guard === undefined) throw new Error("the factory registered no tool guard");
+			const call = { toolName: "write", input: { path: "a.md", content: "x" } };
+
+			// A seat: the door opens, and the call is refused by the seat's own policy.
+			expect(await guard(call, fakeCtx({ branch: SEAT }).ctx)).toMatchObject({ block: true });
+
+			// Planning and auto: the door answers nothing, so the guard has no opinion to add.
+			expect(await guard(call, fakeCtx({ branch: PLANNING }).ctx)).toBeUndefined();
+			expect(await guard(call, fakeCtx().ctx)).toBeUndefined();
 		});
 	});
 });
