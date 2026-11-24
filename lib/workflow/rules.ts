@@ -155,7 +155,18 @@ export type CardOp =
 	 * about that session, bound to the owner it is about; absent is "cannot tell", and a caller
 	 * that cannot tell only lets the lead take the card.
 	 */
-	| { kind: "reclaim"; holder?: HolderFact }
+	| {
+			kind: "reclaim";
+			holder?: HolderFact;
+			/**
+			 * Set by the turn-start sweep, which is nobody acting.
+			 *
+			 * It decides one thing: a sign is withdrawn by the person who made it, and a sweep that runs as
+			 * the seat is not that person (#836). A door that forgets to pass it keeps today's behaviour —
+			 * the signer's own reclaim still withdraws — rather than silently gaining the sweep's rule.
+			 */
+			swept?: boolean;
+		}
 	/**
 	 * Hand the card to the session standing in its owner's seat: the id is re-pointed and nothing else
 	 * moves. `holder` is the bus's answer about the owner the card names, bound as `reclaim`'s is, so a
@@ -315,7 +326,7 @@ function prepare(
 		case "edit":
 			return edit(card, op, actor, board);
 		case "reclaim":
-			return reclaim(card, actor, config, op.holder);
+			return reclaim(card, actor, config, op.holder, op.swept);
 		case "reseat":
 			return reseat(card, actor, now, op.holder);
 		case "announced":

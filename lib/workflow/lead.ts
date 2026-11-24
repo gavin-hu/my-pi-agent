@@ -369,7 +369,13 @@ export function signNote(
  * the owner has stopped — `quiet` or `gone`. `absent` is refused like no fact at all: a live session that
  * never joined this bus has no record either, so no record is not an answer.
  */
-export function reclaim(card: Card, actor: Actor, config: BoardConfig, holder?: HolderFact): Prepared {
+export function reclaim(
+	card: Card,
+	actor: Actor,
+	config: BoardConfig,
+	holder?: HolderFact,
+	swept = false,
+): Prepared {
 	if (LANE_RULES[card.lane].terminal) {
 		return { error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
 	}
@@ -380,7 +386,7 @@ export function reclaim(card: Card, actor: Actor, config: BoardConfig, holder?: 
 	// is the transition that owes them a message.
 	return {
 		changed: true,
-		fields: backToPool(card, actor, config.lead),
+		fields: backToPool(card, actor, config.lead, swept),
 		...(holds(card, actor) ? {} : { notice: "reclaim" as const }),
 	};
 }
@@ -405,15 +411,20 @@ export function heldState(card: Card, holder: HolderFact | undefined): SessionPr
 	return same ? holder.state : undefined;
 }
 
-/** What a card looks like back in the pool: nobody's, and its spot-check unless its signer took it. */
-function backToPool(card: Card, actor: Actor, lead: Lead): Partial<Card> {
+/**
+ * What a card looks like back in the pool: nobody's, and its spot-check unless its signer took it.
+ *
+ * `swept` is the turn-start sweep, which is nobody acting: it keeps the sign it finds, because holding
+ * the seat is not withdrawing a judgement — only the signer's own reclaim is (#836).
+ */
+function backToPool(card: Card, actor: Actor, lead: Lead, swept = false): Partial<Card> {
 	return {
 		lane: "backlog",
 		owner: undefined,
 		offeredAt: undefined,
 		// A spot-check is evidence that somebody looked at the work, and taking the card back is not
 		// a look: only the signer withdraws their own sign, so a third session keeps what it found.
-		review: signedAs(card.review, actor, lead) ? undefined : card.review,
+		review: swept || !signedAs(card.review, actor, lead) ? card.review : undefined,
 	};
 }
 

@@ -8,11 +8,13 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { readFileSync, writeFileSync } from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { boardTool } from "../../test/helpers/board.ts";
+import { cardFile } from "../../test/helpers/board.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -51,6 +53,17 @@ async function record(
 	fields: { id?: string; label?: string; pid?: number; lastSeen: number },
 ) {
 	writeBusRecord(await runtime.busDir(cwd), { id: PEER_ID, label: PEER, ...fields });
+}
+
+/**
+ * Rewrite a card's own record, for the two shapes no tool call makes: an owner that carries only a
+ * label, and a spot-check. The sweep reads the record, so a case about its reading has to write one.
+ */
+function shaped(agentDir: string, id: string, change: (card: Record<string, unknown>) => void): void {
+	const path = cardFile(agentDir, id);
+	const card = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+	change(card);
+	writeFileSync(path, JSON.stringify(card, null, 2));
 }
 
 describe("the sweep at a turn start", () => {
@@ -302,5 +315,50 @@ describe("the turn start the sweep runs in", () => {
 		const content = await turnStart(lead.board.runtime, lead.board.ctx);
 		expect(content).toContain("released #1 from a session that ended");
 		expect(content).not.toContain("is yours");
+	});
+
+	/**
+	 * The label-only card: the sweep can match it only by name, and a name is what a seat hands over,
+	 * so a dead session's record under a live session's label is not evidence about the live one.
+	 */
+	test("leaves a card alone when its owner is only a label, and names the record it could not read", async () => {
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		shaped(lead.board.agentDir, "1", (card) => {
+			const owner = card.owner as { label: string; id?: string };
+			owner.id = undefined;
+		});
+		// The record under the label the card names is dead — and the card cannot say *which* session it
+		// meant, because `recordOf` matches only a label. Whoever wears that name now is not asked.
+		await record(peer.board.runtime, cwd, { id: PEER_ID, label: PEER, pid: DEAD_PID, lastSeen: NOW });
+
+		// A fresh store, because the record was written under the one the first tools opened: the
+		// sweep has to read the card as it is on disk, not as the claim left it in memory.
+		const fresh = boardTool({ cwd, agentDir: lead.board.agentDir, lead: LEAD, now: NOW, sessionId: LEAD_ID });
+		expect(JSON.parse(readFileSync(cardFile(lead.board.agentDir, "1"), "utf8")).owner).toEqual({ label: PEER });
+		const said = await releaseEnded(fresh.board.runtime, fresh.board.ctx);
+		expect((await lead.call({ action: "list", card: "1" })).details.card?.lane).toBe("plan");
+		expect(said).toContain("only by label");
+		expect(said).toContain(PEER);
+	});
+
+	/**
+	 * The sign a sweep must not take with it: the review is the lead's, the sweeper runs as the lead's
+	 * seat, and holding the seat is not the person withdrawing a judgement.
+	 */
+	test("keeps the review it finds, because a sweep did not make it", async () => {
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		shaped(lead.board.agentDir, "1", (card) => {
+			card.review = { by: LEAD, at: NOW - 1 };
+		});
+		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
+
+		expect(await releaseEnded(lead.board.runtime, lead.board.ctx)).toBe("released #1 from a session that ended");
+		const card = (await lead.call({ action: "list", card: "1" })).details.card;
+		expect(card?.lane).toBe("backlog");
+		expect(card?.review?.by).toBe(LEAD);
 	});
 });

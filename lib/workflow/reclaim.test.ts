@@ -133,6 +133,16 @@ describe("what the return to the pool keeps", () => {
 		expect("review" in withdrawn).toBe(false);
 	});
 
+	test("a sweep keeps the sign even when it runs as the signer's own seat", () => {
+		// The pair that proves `swept` is read rather than defaulted (#836): the same actor, the same
+		// card, the same op — one withdraws because the signer asked, one keeps because nobody did.
+		const card = reviewed();
+		const asked = stepOf(card, { kind: "reclaim" }, LEAD);
+		expect("review" in asked).toBe(false);
+		const swept = stepOf(card, { kind: "reclaim", swept: true }, LEAD);
+		expect(swept.review).toMatchObject({ by: LEAD.label });
+	});
+
 	test("a card with no sign keeps none, which is no field at all", () => {
 		const back: Card = stepOf(claimed(), { kind: "reclaim" }, LEAD);
 		expect("review" in back).toBe(false);
