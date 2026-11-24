@@ -105,7 +105,13 @@ ${CLIENT_RUNTIME_JS}
     return cut < 0 ? { dir: "", name: path } : { dir: path.slice(0, cut), name: path.slice(cut + 1) };
   }
   function plural(count, noun) { return count + " " + noun + (count === 1 ? "" : "s"); }
-  /** A comment's reference: path:12, or path:12-30 when it names a span. */
+  /**
+   * A comment's reference: path:12, or path:12-30 when it names a span.
+   *
+   * The bundle's twin of lib/format.ts's pathRef — a page cannot import the module — so this is one
+   * rule spelled twice, and two cases hold the pair to one literal: the store suite pins pathRef at
+   * a.ts:17-19, and the browser's span case reads the same string off the send dialog.
+   */
   function refOf(rel, line, endLine) { return rel + ":" + line + (endLine === undefined || endLine === null ? "" : "-" + endLine); }
 
   function toast(message) {

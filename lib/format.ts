@@ -179,13 +179,6 @@ export function clipText(text: string, limit: number): string {
 }
 
 /**
- * A field a card cannot keep because it is too long: the length it arrived at, the cap, and what
- * to trim.
- *
- * One body, because "must be at most 1000 characters" sent a caller back to guess at the number it
- * sent, and the guess is a whole turn: the sentence a refusal prints is where the edit is made.
- */
-/**
  * How a reference to lines reads: `path:12`, or `path:12-30` when it names a span.
  *
  * A span is two numbers on one side of a diff, so one spelling has to serve the page's dialog, the
@@ -196,6 +189,13 @@ export function pathRef(rel: string, line: number, endLine?: number): string {
 	return `${rel}:${line}${endLine === undefined ? "" : `-${endLine}`}`;
 }
 
+/**
+ * A field a card cannot keep because it is too long: the length it arrived at, the cap, and what
+ * to trim.
+ *
+ * One body, because "must be at most 1000 characters" sent a caller back to guess at the number it
+ * sent, and the guess is a whole turn: the sentence a refusal prints is where the edit is made.
+ */
 export function overLimit(what: string, length: number, limit: number): string {
 	return `${what} is ${length} characters; the limit is ${limit} — trim ${length - limit}.`;
 }
