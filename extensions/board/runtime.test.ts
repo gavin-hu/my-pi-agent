@@ -1,9 +1,8 @@
 /**
  * The seat's runtime: what it hides, what it refuses, and what it records.
  *
- * The gate's cases are about the default rather than a list: a tool nobody allowed
- * is refused, a read-only tool the host annotated passes even though the list has
- * never heard of it, and every refusal names the hatch.
+ * The gate's cases are about a closed list rather than a default: a tool the list never
+ * named is refused however it annotates itself, and every refusal names the hatch.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -35,7 +34,7 @@ const ACTIVE = [
 	"subagent",
 ];
 
-/** A pi whose `subagent` declares the read-only pin, plus one annotated reader the list has never heard of. */
+/** A pi whose `subagent` declares the read-only pin, plus two annotated strangers the list has never heard of. */
 function makePi(options: { active?: string[]; pinnedSubagent?: boolean; allTools?: unknown[] } = {}) {
 	const subagent =
 		options.pinnedSubagent === false
@@ -214,15 +213,27 @@ describe("lead runtime — the gate", () => {
 	test("allows the coordination surface and the readers", async () => {
 		const { runtime, ctx } = setup();
 		runtime.enable(ctx);
-		for (const tool of ["board", "team", "session", "todo", "goal", "question", "read", "grep", "web_search"]) {
+		for (const tool of [
+			"board",
+			"team",
+			"session",
+			"todo",
+			"goal",
+			"question",
+			"read",
+			"grep",
+			"web_search",
+			"run_doctor",
+		]) {
 			expect(await runtime.refusal(tool, {})).toBeUndefined();
 		}
 	});
 
-	test("denies by default, and passes only an annotated read-only stranger", async () => {
+	test("refuses a stranger however it annotates itself", async () => {
 		const { runtime, ctx } = setup();
 		runtime.enable(ctx);
-		expect(await runtime.refusal("mcp_read", {})).toBeUndefined();
+		// `readOnlyHint` is the tool's own testimony; the closed list is the decision.
+		expect(await runtime.refusal("mcp_read", {})).toContain("/board exit");
 		expect(await runtime.refusal("mcp_write", {})).toContain("/board exit");
 		expect(await runtime.refusal("mystery", {})).toContain("/board exit");
 	});
@@ -270,7 +281,18 @@ describe("lead runtime — the gate", () => {
 
 describe("lead runtime — what it allows", () => {
 	test("allows the seat's own verbs and the readers, and nothing else", () => {
-		for (const tool of ["board", "team", "session", "plan", "todo", "goal", "question", "bash", "read_doc"]) {
+		for (const tool of [
+			"board",
+			"team",
+			"session",
+			"plan",
+			"todo",
+			"goal",
+			"question",
+			"bash",
+			"read_doc",
+			"run_doctor",
+		]) {
 			expect(LEAD_ALLOWED_TOOLS).toContain(tool as never);
 		}
 		for (const tool of ["edit", "write", "worktree", "job", "watch"]) {

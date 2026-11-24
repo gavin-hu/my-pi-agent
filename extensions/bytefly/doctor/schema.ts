@@ -6,10 +6,11 @@
  */
 
 import { Type, type Static } from "typebox";
+import { RUN_DOCTOR_TOOL } from "../../../lib/tool-names.ts";
 import { StringEnum } from "../../../lib/tool-schema.ts";
 
 /** Tool name, exported here so the naming guard imports one constant. */
-export const TOOL_NAME = "run_doctor";
+export const TOOL_NAME = RUN_DOCTOR_TOOL;
 
 export const SEVERITIES = ["ok", "missing", "degraded", "info"] as const;
 

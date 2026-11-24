@@ -47,6 +47,13 @@ export const QUESTION_TOOL = "question";
 export const SESSION_TOOL = "session";
 
 /**
+ * The `run_doctor` tool. `bytefly` registers it, and a session holding the board's
+ * seat lists it by name, so the reader that says which prerequisite is missing is
+ * part of the round rather than a tool the seat has to leave for.
+ */
+export const RUN_DOCTOR_TOOL = "run_doctor";
+
+/**
  * Parameter on the `subagent` tool that forces every spawned agent to a
  * read-only tool set. Plan mode sets it on every call while planning, and
  * refuses a `subagent` whose schema does not declare it.
