@@ -84,15 +84,9 @@ the reviewed checkout, drawn on the diff's own gutter, with a way back to the
 comparison. `n` and `p` step between the focused file's hunks; the whole review
 keeps `[` and `]`. A reference copied from a selection is `path:12-30`.
 
-**What a comment anchors to.** A path, a side of the diff, and a line number on
-that side — a line the comparison draws, which the server checks against the
-snapshot rather than trusting the page. A comment carries the snapshot it was
-written on and is refused, with the reload sentence, once the tree moves; a
-send, a delete and a mark name no line, so they land whatever the tree did.
-When a moved diff leaves a comment on a line no hunk shows, the page lists it
-above the diff — its file, its line, what was written, and a delete — because
-that list is the only place it can be removed from, and a draft keeps
-`code_review close` refusing until it goes.
+**What a comment anchors to.** A path, a side, and a line the comparison draws,
+which the server checks against the snapshot; a comment is refused once the tree
+moves, while a send, a delete and a mark name no line and land anyway.
 
 ## Limits
 
@@ -100,8 +94,9 @@ that list is the only place it can be removed from, and a draft keeps
   sending is what keeps them, in the transcript notice and in `code_review`.
 - One page per session. Changing scope is refused while a comment is on the page —
   a `409` naming what would be lost.
-- A focused page (`?file=`) hides the other files without forgetting them: a
-  comment already written on one of them is still counted and still sent.
+- A focused page (`?file=`) hides the other files without forgetting them, and a
+  moved diff can leave a comment on a line no hunk shows: both are still counted
+  and still sent, and the stranded one is listed above the diff with a delete.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
   diff lines per file; the page says what a cap left out.
 - In a repository with no commits yet, `staged` and `worktree` still render a page;
