@@ -63,6 +63,14 @@ export interface BoardHarnessOptions {
 	/** The clock every call sees. */
 	now?: number;
 	/**
+	 * The branch the session's `ctx` reports, so a case can dress the session's mode.
+	 *
+	 * `lead` mode rides a custom entry on the branch (`lib/mode-state.ts`), and `who()` reads it to
+	 * answer `Actor.seat` — so a case about the seat has to hand in the branch a real session would.
+	 * Defaults to today's empty branch, so no existing case changes answer.
+	 */
+	branch?: unknown[];
+	/**
 	 * A clock that moves, for a case about the moment a record carries: `now` is one reading for the
 	 * whole case, and a spot-check's run is exactly the work that makes the two differ.
 	 */
@@ -125,6 +133,7 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 		cwd,
 		sessionId: options.sessionId ?? "s-lead",
 		sessionName: options.sessionName ?? "billing-lead",
+		...(options.branch === undefined ? {} : { branch: options.branch }),
 	});
 	return { fake, runtime, ctx, notifications, cwd, agentDir, now };
 }

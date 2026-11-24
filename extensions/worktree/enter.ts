@@ -69,7 +69,9 @@ async function maybeIgnoreWorktreeDir(
 	markGitignoreOffered();
 
 	const entry = `${config.dir.replace(/\/+$/, "")}/`;
-	if (await isIgnored(pi, root, entry)) return;
+	// Only a definite "not ignored" offers: `undefined` is git declining to answer, and asking the
+	// user to append a line on a guess is what made this repeat every session (#822).
+	if ((await isIgnored(pi, root, entry)) !== false) return;
 
 	const gitignorePath = join(root, ".gitignore");
 	let content = "";

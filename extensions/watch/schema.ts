@@ -27,17 +27,28 @@ export const MIN_LINES = 1;
 export const MAX_LINES = 2000;
 
 export const WatchParams = Type.Object({
-	action: StringEnum(WATCH_ACTIONS),
-	id: Type.Optional(Type.String({ description: "Watcher id, e.g. `w1`." })),
-	path: Type.Optional(Type.String({ maxLength: MAX_SOURCE, description: "File to tail (`add`)." })),
+	action: StringEnum(WATCH_ACTIONS, {
+		description:
+			"`add` starts a watcher; `list` and `clear` act on all, the rest by `id`. Each action's fields are in their own descriptions.",
+	}),
+	id: Type.Optional(Type.String({ description: "`status`/`matches`/`logs`/`stop`: required. Watcher id, e.g. `w1`." })),
+	path: Type.Optional(
+		Type.String({ maxLength: MAX_SOURCE, description: "`add`: file to tail — exactly one of `path` or `command`." }),
+	),
 	command: Type.Optional(
-		Type.String({ maxLength: MAX_SOURCE, description: "Shell command whose output to tail (`add`)." }),
+		Type.String({
+			maxLength: MAX_SOURCE,
+			description: "`add`: shell command whose output to tail — exactly one of `command` or `path`.",
+		}),
 	),
 	cwd: Type.Optional(
 		Type.String({ description: "Working directory for a command source; defaults to the session cwd." }),
 	),
 	pattern: Type.Optional(
-		Type.String({ maxLength: MAX_PATTERN, description: "Regular expression a line must match (`add`)." }),
+		Type.String({
+			maxLength: MAX_PATTERN,
+			description: "`add`: required. A line is a match when this regex matches it.",
+		}),
 	),
 	exclude: Type.Optional(
 		Type.Array(Type.String({ maxLength: MAX_PATTERN }), {

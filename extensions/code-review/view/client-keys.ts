@@ -7,12 +7,25 @@
  * Nothing here owns state: every handler calls a function one of the two fragments above
  * declares, and the keys only decide which of them a key press means.
  */
-export const REVIEW_KEYS_JS = String.raw`  function toggleWrap() {
-    var button = byId("rv-wrap");
-    var on = button.getAttribute("aria-pressed") !== "true";
-    button.setAttribute("aria-pressed", String(on));
+export const REVIEW_KEYS_JS = String.raw`  function setWrap(on) {
+    byId("rv-wrap").setAttribute("aria-pressed", String(on));
     nodeList(".rv-diff").forEach(function (diff) { diff.setAttribute("data-wrap", String(on)); });
   }
+
+  // The page wraps below the fold whatever the button said, so the button speaks for the diff and
+  // not for itself (#814): it starts pressed there, and only the reader's own press crosses over.
+  var wrapChosen = false;
+  function toggleWrap() {
+    wrapChosen = true;
+    setWrap(byId("rv-wrap").getAttribute("aria-pressed") !== "true");
+  }
+
+  var narrowQuery = window.matchMedia("(max-width: " + data.narrow + "px)");
+  function followWidth() {
+    if (!wrapChosen) setWrap(narrowQuery.matches);
+  }
+  if (narrowQuery.addEventListener) narrowQuery.addEventListener("change", followWidth);
+  followWidth();
 
   var reloadHint = byId("reload-hint");
   if (reloadHint) reloadHint.addEventListener("click", function () { window.location.reload(); });
@@ -23,11 +36,17 @@ export const REVIEW_KEYS_JS = String.raw`  function toggleWrap() {
     // Inside the field, Escape is the field's: clear both halves and leave the field.
     event.stopPropagation();
     byId("rv-filter").value = "";
-    byId("rv-only-commented").checked = false;
+    pressView(false);
     filtered();
     byId("rv-filter").blur();
   });
-  byId("rv-only-commented").addEventListener("change", filtered);
+  // The rail's narrowing is one fact with two halves, so one press pair owns both segments.
+  function pressView(only) {
+    byId("rv-view-all").setAttribute("aria-pressed", String(!only));
+    byId("rv-view-commented").setAttribute("aria-pressed", String(only));
+  }
+  byId("rv-view-all").addEventListener("click", function () { pressView(false); filtered(); });
+  byId("rv-view-commented").addEventListener("click", function () { pressView(true); filtered(); });
   byId("rv-rail-clear").addEventListener("click", clearFilter);
   byId("rv-filter-clear").addEventListener("click", clearFilter);
   byId("rv-wrap").addEventListener("click", toggleWrap);
@@ -103,6 +122,7 @@ export const REVIEW_KEYS_JS = String.raw`  function toggleWrap() {
       var filter = byId("rv-filter");
       if (document.activeElement === filter || filter.value !== "") {
         filter.value = "";
+        pressView(false);
         filtered();
         filter.blur();
         return;

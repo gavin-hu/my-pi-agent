@@ -145,12 +145,43 @@ export async function mountReviewPage(options: SnapshotOptions = {}): Promise<Re
 	};
 }
 
-/** Open the fixture's page and wait for the rail, which is drawn before any script runs. */
+/** Open the fixture's page and wait for its rail, which is drawn before any script runs. */
 export async function openReviewPage(browser: TestBrowser, fixture: ReviewPageFixture): Promise<Page> {
 	const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 	await page.goto(fixture.url, { waitUntil: "networkidle" });
 	await page.waitForSelector("#rv-filter", { timeout: REVIEW_PAINT_MS });
 	return page;
+}
+
+/** A browser case pays a launch, a load, and an interaction. */
+export const CASE_MS = 30_000;
+
+/**
+ * One fixture, one page, and the close both own.
+ *
+ * Two suites drive this page — the reading (cursor, place, spill) and the chrome (filter, switch,
+ * band, wrap) — so the launch and the ownership live here rather than in either of them.
+ */
+export async function withReviewPage(
+	browser: TestBrowser,
+	run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
+	options: SnapshotOptions = {},
+): Promise<void> {
+	const fixture = await mountReviewPage(options);
+	const page = await openReviewPage(browser, fixture);
+	try {
+		await run(page, fixture);
+	} finally {
+		await page.close();
+		await fixture.close();
+	}
+}
+
+/** Comment on the added line and leave the composer open with `text`. */
+export async function startComment(page: Page, text: string): Promise<void> {
+	await page.locator(".bf-diff-line--add .browse-diff-no").filter({ hasText: /^\d+$/ }).first().click();
+	await page.locator("#rv-sel-comment").click();
+	await page.locator(".rv-compose__area").fill(text);
 }
 
 /**

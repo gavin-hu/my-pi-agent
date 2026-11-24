@@ -47,27 +47,27 @@ const PlanParams = Type.Object({
 	}),
 	title: Type.Optional(
 		Type.String({
-			description: '`write`: short title for the plan, used as the file-name slug, e.g. "Add rate limiting".',
+			description: '`write`: required. Short title for the plan, used as the file-name slug, e.g. "Add rate limiting".',
 		}),
 	),
 	content: Type.Optional(
 		Type.String({
-			description: "`write`: the complete plan as markdown in the documented outline, including every step.",
+			description: "`write`: required. The complete plan as markdown in the documented outline, including every step.",
 		}),
 	),
 	plan_path: Type.Optional(
 		Type.String({
 			description:
-				"`write`: overwrite an existing plan file (one an earlier `write` returned) to refine it instead of creating a new one. " +
-				"`exit`: the file `write` returned, which the user reviews. " +
-				"`steps`: the approved plan file, as `exit` returned it.",
+				"The plan file, as `write` returned it. `write`: refine that file instead of creating a new one. " +
+				"`exit` and `steps`: required.",
 		}),
 	),
 	updates: Type.Optional(
 		Type.Array(StepUpdateParams, {
 			minItems: 1,
+			maxItems: MAX_STEPS,
 			description:
-				"`steps`: the steps to set; each entry sets one step's checkbox, and the last entry wins for a duplicate step.",
+				"`steps`: required. The steps to set; each entry sets one step's checkbox, and the last entry wins for a duplicate step.",
 		}),
 	),
 });
@@ -90,7 +90,7 @@ const DESCRIPTION =
 	"In Steps, each top-level bullet is one outcome in the order you will do them; " +
 	"an indented line continues that outcome, and a deeper bullet is a note. " +
 	`A plan with more than ${MAX_STEPS} top-level steps in its Steps section is refused, so approval never drops steps it ` +
-	"cannot track. `write` returns the path to pass to `exit`; plan_path overwrites an existing file when refining.\n\n" +
+	"cannot track.\n\n" +
 	"`steps` sets the checkboxes of the given top-level steps of an approved plan in one write, and their todo items " +
 	"with them. Each step number matches the order the plan was approved in; a step can be marked completed or reopened. " +
 	"Only the checkboxes change; the step text is left as written. The file is rewritten once, and nothing changes when " +

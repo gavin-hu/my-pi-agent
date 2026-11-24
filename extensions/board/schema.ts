@@ -46,7 +46,7 @@ export const BoardParams = Type.Object({
 			// route that does not exist, and prints the targets `targetsFrom` allows.
 			description:
 				"`list`: only this lane, and not skip the `done` cards. " +
-				`\`move\`: the lane to move to — ${listOf(movableLanes())}; \`backlog\` is \`release\`'s, and only a transition from the card's own lane is allowed.`,
+				`\`move\`: the lane to move to — ${listOf(movableLanes())}; \`backlog\` is \`release\`'s.`,
 		}),
 	),
 	blockedBy: Type.Optional(
@@ -85,7 +85,7 @@ export const BoardParams = Type.Object({
 	),
 	root: Type.Optional(
 		Type.String({
-			description: "`review`: the tree to run in.",
+			description: "`review`: the card's worktree, or a checkout at its commit — not a store or plan path.",
 		}),
 	),
 	path: Type.Optional(
