@@ -66,16 +66,13 @@ tree alone, untracked files included. The base ref is `code-review.base`, else
 `origin/HEAD`, else `main` or `master`; a repository where none resolves is
 refused, naming the key to set.
 
-**The page.** A review is one page per session, at `/review/`. Its id is minted
-by the first write, so opening a page to look costs nothing; the query carries
-the write token, and the first write puts the review's own id in the address. A
-comment is a draft until **Send feedback** marks it sent. The changed files are
-the shell's sidebar — a search, **All** / **Commented**, the file count, how much
-of the review is marked, the scope's totals, one row per file — folding into a
-band below 900px; `wrap` wraps at any width, and narrowing hides rows and never
-sections. Each fact has one home: the rail's head carries the files and the
-progress, the footer carries the comparison, and **Send feedback** carries the
-draft count on the page (the tab title keeps its own).
+**The page.** One page per session, at `/review/`. Its id is minted by the first
+write, so opening a page to look costs nothing; the query carries the write
+token, and the first write puts the review's own id in the address. A comment is
+a draft until **Send feedback** marks it sent. The changed files are the shell's
+sidebar — a search, **All** / **Commented**, and one row per file — folding below
+900px; `wrap` wraps at any width, and narrowing hides rows and never sections.
+The rail's head carries the file facts and the progress; the footer the comparison.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff:
 the rail shows that file and an **all files** link back, and the comparison is
