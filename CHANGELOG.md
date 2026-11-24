@@ -51,6 +51,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a `done` whose spot-check commit was committed before the card entered `execute` is now
+  refused for that — the order — with both ways out named (move the card to `execute` before landing,
+  or relocate a landing that already happened), where it used to fall through to the merge complaint a
+  squashing repository never makes. An instruction does not fix an order.
+
 - `code-review`: a comment's thread renders in the page's UI face, so prose reads as prose instead of
   as the code face it inherited from the `<code>` it sits in. The line a thread quotes and the path in
   the send dialog keep the code face — the mono stays on what is code.
