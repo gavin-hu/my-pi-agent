@@ -120,6 +120,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the lead's seat now ends when the page does, and the off-switch holds. `/board exit` stops the leash for the
+  next call whatever the branch still records, `/board stop` and an `attached` `/board` leave the seat, a `/tree` or
+  `/resume` reconciles the tool set and the chip instead of leaving a hidden `write` behind, and a resumed lead branch
+  arms nothing until a page is served in that session.
+
 - `board`: the sentence that names a card's holder prints the name the bus shows for that session id, falling back to the
   label the card's record kept and then to the id. A session renamed since it claimed a card left the record holding a
   name nobody answers to: a lead refused a `done` read "held by" a name the session had stopped using, for a holder that
