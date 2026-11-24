@@ -65,6 +65,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the session holding the lead's **seat** can take a live peer's card back, and open `execute`
+  through its own approval. Both doors compared the session's label with `team.lead`, so a session
+  serving the page under its own name was a peer at both: the lead was refused with a sentence naming
+  the lead at the lead. `who()` now answers the seat from the branch's `lead` mode, and one predicate
+  gates the two doors — a sign still reads the person and the lead's name, because a signature is the
+  human judgement and the seat narrows the tool set rather than granting one.
+
 - `worktree`: **enter** no longer offers to add the managed directory to `.gitignore` when git declines
   to answer whether it is already ignored. A shell carrying `GIT_LITERAL_PATHSPECS` made `check-ignore`
   refuse the question before it read any rule, and that refusal was read as "not ignored" — so the offer

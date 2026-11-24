@@ -56,6 +56,16 @@ import { approve, contractOp } from "./steps.ts";
 export interface Actor {
 	id?: string;
 	label: string;
+	/**
+	 * Whether this session holds the board's seat.
+	 *
+	 * The seat is lead mode (`lib/mode-state.ts`), and `who()` is where it is composed, because
+	 * that is the one place a session's own answer is built and the one place holding the context a
+	 * mode read needs. It is a *fact*, not a permission: `leadAuthority` (`lead.ts`) is what reads
+	 * it, for the two doors a lead has without holding the card — `mayMove`'s `plan → execute` and
+	 * `mayTakeBack`'s reclaim — and the sign gates do not, because a sign is the person's act.
+	 */
+	seat?: boolean;
 }
 
 /**

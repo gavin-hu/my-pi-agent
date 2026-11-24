@@ -66,6 +66,19 @@ describe("who may take a card back", () => {
 		expect(message).toContain("That session is running");
 		expect(message).toContain("only the lead (billing-lead)");
 	});
+
+	test("a session holding the seat takes one back, though its label is not the lead's", () => {
+		// #825: the seat is the board's own statement that this session works as the lead
+		// (`lib/mode-state.ts`), and the label is a name that drifts — a session serving the page as
+		// `my-pi-agent` under a `team.lead` of `gavin` was refused here, by a sentence that named the
+		// lead at the lead. The case above is the control: the same actor without the seat is still
+		// refused, in the same words, so the fix cannot widen the rule into "anybody may take it".
+		const card = claimed();
+		const seat = { ...OTHER, seat: true };
+		const back = stepOf(card, { kind: "reclaim", holder: coreHolds("live") }, seat);
+		expect(back).toMatchObject({ lane: "backlog", by: seat.label });
+		expect("owner" in back).toBe(false);
+	});
 });
 
 describe("what a missing record decides", () => {

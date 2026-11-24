@@ -2,7 +2,7 @@
  * The footer's team read, asked from a worktree.
  *
  * A bar draws a name only while the repository's team holds it, and the team lives in the
- * checkout: `.pi/` is gitignored in a worktree, so reading the session's own tree would draw the
+ * checkout: `.pi/bytefly.json` is not tracked, so reading the session's own tree would draw the
  * loader's default five while the board held the names the repository states. `worktreeTeammateReader`
  * is the seam that resolves the settings root before the read; this suite proves it answers the
  * checkout's names and refuses everything else.

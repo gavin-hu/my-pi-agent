@@ -1,7 +1,7 @@
 /**
  * Where a settings write lands: the repository's checkout, not the tree the shell sits in.
  *
- * `.pi/` is gitignored in a worktree, so a project-scope row written at the session's cwd is one
+ * `.pi/bytefly.json` is not tracked, so a project-scope row written at the session's cwd is one
  * the board and the footer never read. The runtime takes a `settingsRoot` and both halves use it;
  * these cases prove the path, the write and the read-after-write, on a board row — the section
  * whose normalizer answers a flat shape (the difference that made the screen show defaults).

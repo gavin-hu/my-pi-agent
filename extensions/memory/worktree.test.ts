@@ -2,10 +2,12 @@
  * Where the project store lives: when the session is isolated, and when there is no repository
  * at all.
  *
- * `.pi/` is gitignored, so a worktree that resolved its own root kept a second store that died
- * with the tree — and the worktree is where the work happens. The fixture cases run everywhere;
- * the real-`git worktree` case is gated behind the slow suite, because it is the one that would
- * have caught the defect.
+ * A store anchored at a worktree died with the tree — and the worktree is where the work happens —
+ * so the project's is filed under the repository's identity in `<agent-dir>/repos/<id>/memory.md`,
+ * and a checkout's `.pi/memory.md` is only the spelling an older build wrote, taken across once.
+ *
+ * The fixture cases run everywhere; the real-`git worktree` case is gated behind the slow suite,
+ * because it is the one that would have caught the defect.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
