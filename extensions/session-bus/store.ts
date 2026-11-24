@@ -21,6 +21,7 @@ import {
 	publishNew,
 	readHosts,
 	readJsonAs,
+	replaceJson,
 	storedName,
 	writeJsonAtomic,
 } from "../../lib/session-files.ts";
@@ -111,6 +112,23 @@ export interface BusStore {
 	release(path: string, owner: string): Promise<boolean>;
 	releaseAll(owner: string): Promise<string[]>;
 	/**
+	 * Move one owner's claims to another, without a moment when a path is unowned (#835).
+	 *
+	 * `release` then `claim` is two passes with a gap, and a third claimer can win the gap: the seat
+	 * would have released a peer's work to a stranger. Each path is therefore replaced in one step
+	 * ({@link replaceJson}), and a path this owner does not hold comes back in `notHeld` rather than
+	 * being created — a transfer moves claims that exist, and never conjures one nobody made.
+	 */
+	transfer(
+		paths: readonly string[],
+		from: string,
+		to: string,
+		toLabel: string,
+		at: number,
+		/** Test seams: see {@link ClaimSeams}. */
+		seams?: ClaimSeams,
+	): Promise<{ moved: string[]; notHeld: string[] }>;
+	/**
 	 * Remove the records the TTL has taken, the claims they held, and the temp files a crashed
 	 * writer left.
 	 *
@@ -152,6 +170,15 @@ export interface ClaimSeams {
 	afterCheck?: () => Promise<void>;
 	/** Runs after each path is published: the window between two creates of one batch. */
 	afterClaim?: (path: string) => Promise<void>;
+	/**
+	 * Runs after each path a {@link BusStore.transfer} moved: the window between two moves of one
+	 * hand-over.
+	 *
+	 * There is no window where a moved path is unowned — the replace is one step — so this is the
+	 * only place a suite can put a rival claimer inside a transfer, and what it proves is that the
+	 * paths still to move were never free to take.
+	 */
+	afterMove?: (path: string) => Promise<void>;
 }
 
 /**
@@ -309,6 +336,31 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 * back the whole batch and names the winner. A pair may hold overlapping paths for the length of
 	 * one batch, and never keep them.
 	 */
+	async function transfer(
+		paths: readonly string[],
+		from: string,
+		to: string,
+		toLabel: string,
+		at: number,
+		seams: ClaimSeams = {},
+	): Promise<{ moved: string[]; notHeld: string[] }> {
+		const moved: string[] = [];
+		const notHeld: string[] = [];
+		for (const path of paths) {
+			const file = claimFile(path);
+			const existing = readJsonAs(file, isClaim);
+			if (!existing || existing.owner !== from) {
+				notHeld.push(path);
+				continue;
+			}
+			const next: ClaimRecord = { ...existing, owner: to, ownerLabel: toLabel, at };
+			await replaceJson(file, host === undefined ? next : { ...next, host });
+			moved.push(path);
+			if (seams.afterMove) await seams.afterMove(path);
+		}
+		return { moved, notHeld };
+	}
+
 	async function claimAll(
 		paths: readonly string[],
 		owner: string,
@@ -502,6 +554,8 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		claimAll,
 
 		release: releaseOne,
+
+		transfer,
 
 		async releaseAll(owner) {
 			const released: string[] = [];

@@ -20,8 +20,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { link, mkdir, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
-import { readJson, tempPathFor } from "./json.ts";
-import { DIR_MODE, FILE_MODE, ensurePrivateDir } from "./json.ts";
+import { DIR_MODE, ensurePrivateDir, FILE_MODE, readJson, tempPathFor } from "./json.ts";
 
 /** The bus directory under the agent dir, `session-bus`. */
 export const BUS_DIR_NAME = "session-bus";
@@ -277,6 +276,20 @@ export async function publishNew(path: string, value: unknown): Promise<boolean>
 	} finally {
 		await rm(temp, { force: true });
 	}
+}
+
+/**
+ * Replace a document in one step: written beside it, then renamed over it.
+ *
+ * `publishNew` is the create, and answers "already there"; a record that must change without a
+ * moment where it is absent — a claim changing owner (#835) — needs this, because `rename` within
+ * one directory is atomic and no reader sees the gap `rm` then create would open.
+ */
+export async function replaceJson(path: string, value: unknown): Promise<void> {
+	await mkdir(dirname(path), { recursive: true, mode: DIR_MODE });
+	const temp = tempPathFor(path);
+	await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf-8", mode: FILE_MODE });
+	await rename(temp, path);
 }
 
 /** Create a directory the bus writes into, owner-only, narrowing one that is already there. */
