@@ -37,6 +37,45 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     return out;
   }
 
+  /** A diff row's own text: its code, without the two gutters and the sign the renderer puts first. */
+  function rowText(row) {
+    var parts = [];
+    var nodes = row.childNodes;
+    for (var index = 3; index < nodes.length; index++) parts.push(nodes[index].textContent || "");
+    return parts.join("");
+  }
+
+  /**
+   * What the selection names, as the span a comment stores — or the sentence saying why it names
+   * none. One side only: a rectangle across a removed and an added row names two different anchors,
+   * and the page refuses rather than comment on a subset of what the reviewer highlighted.
+   */
+  function selectionSpan() {
+    var at = rowAnchor(cursorRow());
+    if (!cursor || !at) return { refusal: "Select a line that is in the diff, then comment" };
+    var single = { path: cursor.path, line: at.line, side: at.side };
+    if (!anchor || anchor.path !== cursor.path || anchor.row === cursor.row) return { span: single };
+    var rows = numberedRows(sectionFor(cursor.path));
+    var from = Math.min(anchor.row, cursor.row);
+    var to = Math.max(anchor.row, cursor.row);
+    var first = rowAnchor(rows[from]);
+    var last = rowAnchor(rows[to]);
+    if (!first || !last) return { span: single };
+    if (first.side !== last.side) return { refusal: "A range stays on one side of the diff — comment on the new side or the old" };
+    var text = rows.slice(from, to + 1).map(rowText).join("\n");
+    var limit = data.limits.quote;
+    return {
+      span: {
+        path: cursor.path,
+        line: first.line,
+        endLine: last.line,
+        side: first.side,
+        quote: text.length > limit ? text.slice(0, limit) : text,
+        clipped: text.length > limit,
+      },
+    };
+  }
+
   /** The rail's visible files, in the order the rail lists them. */
   function visibleFiles() {
     return nodeList(".rv-rail")
@@ -249,14 +288,13 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
       bar.setAttribute("data-open", "false");
       return;
     }
-    var span = String(at.line);
-    if (anchor && anchor.path === cursor.path && anchor.row !== cursor.row) {
-      var rangeRows = numberedRows(sectionFor(cursor.path));
-      var first = rowAnchor(rangeRows[Math.min(anchor.row, cursor.row)]);
-      var last = rowAnchor(rangeRows[Math.max(anchor.row, cursor.row)]);
-      if (first && last) span = first.line + "-" + last.line;
-    }
-    var ref = cursor.path + ":" + span;
+    var picked = selectionSpan();
+    // A selection that names no span — two sides of a removed-and-added pair — shows the cursor's own line, and
+    // the title says why the range is not one: the press that comments refuses with the same words.
+    var ref = picked.span
+      ? refOf(picked.span.path, picked.span.line, picked.span.endLine)
+      : refOf(cursor.path, at.line);
+    byId("rv-selbar-ref").title = picked.refusal || "";
     byId("rv-selbar-ref").textContent = ref;
     byId("rv-selbar-ref").setAttribute("data-ref", ref);
     bar.setAttribute("data-open", "true");

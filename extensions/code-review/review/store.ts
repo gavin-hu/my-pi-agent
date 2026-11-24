@@ -21,8 +21,10 @@ export interface ReviewComment {
 	id: string;
 	/** Root-relative path the comment anchors to. */
 	rel: string;
-	/** The line number on `side`. */
+	/** The line number on `side`: the anchor, and the span's start when it has one. */
 	line: number;
+	/** The last line of the span, on the same side; absent for a comment on one line. */
+	endLine?: number;
 	/** Which side of the diff the number counts: the new file or the old. */
 	side: "new" | "old";
 	/** The comment this one answers, when it is a reply. One level: a reply never answers a reply. */
@@ -72,6 +74,8 @@ export type WriteOp =
 			line: number;
 			side: "new" | "old";
 			quote?: string;
+			/** The span's last line, on the same side: absent for a comment on one line. */
+			endLine?: number;
 			/** The comment this one answers, for the reply a thread reads under its parent. */
 			parent?: string;
 			body: string;
@@ -215,6 +219,12 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 					return { ok: false, status: 400, message: "a comment names a line number" };
 				}
 				const side = op.side === "old" ? "old" : "new";
+				if (op.endLine !== undefined && (!Number.isInteger(op.endLine) || op.endLine <= op.line)) {
+					return { ok: false, status: 400, message: "a range ends after the line it starts on" };
+				}
+				if (op.endLine !== undefined && op.parent !== undefined) {
+					return { ok: false, status: 400, message: "a reply answers one line" };
+				}
 				// A reply answers a comment the review holds, on the line it answers: the store is the only
 				// place that has the review's own comments, so the check lives here and nowhere twice.
 				const answering = op.parent === undefined ? [] : review.comments.filter((entry) => entry.id === op.parent);
@@ -239,6 +249,7 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 					rel,
 					line: op.line,
 					side,
+					...(op.endLine === undefined ? {} : { endLine: op.endLine }),
 					...(op.parent === undefined ? {} : { parent: op.parent }),
 					...(typeof op.quote === "string" && op.quote.trim() !== ""
 						? { quote: op.quote.trim().slice(0, MAX_QUOTE_LENGTH) }

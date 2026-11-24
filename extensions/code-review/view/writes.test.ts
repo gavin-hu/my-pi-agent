@@ -176,6 +176,113 @@ gated("the review page's writes", () => {
 	);
 
 	/**
+	 * A comment on a span: the selection's two ends and the rows it covers, which the store keeps and
+	 * the thread shows back as what was quoted.
+	 */
+	test(
+		"a span is what the selection names, and the thread quotes its rows",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page
+						.locator(".bf-diff-line")
+						.nth(1)
+						.locator(".browse-diff-no")
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click();
+					await page
+						.locator(".bf-diff-line--add .browse-diff-no")
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click({ modifiers: ["Shift"] });
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17-19");
+
+					await page.keyboard.press("c");
+					expect(await page.locator(".rv-compose__head").textContent()).toContain("comment on a.ts:17-19");
+					await page.locator(".rv-compose__area").fill("these three");
+					await page.locator(".rv-compose__acts .bf-btn--primary").click();
+					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+
+					// The quote is the rows the reviewer highlighted, read from the page they saw.
+					expect(await page.locator(".rv-thread .bf-comment__quote").textContent()).toBe(
+						"const one = 1;\nconst two = 2;\nconst three = 3;",
+					);
+					await page.locator("#rv-send").click();
+					await page.waitForFunction(
+						() => (globalThis as unknown as ReviewDom).document.querySelector("#rv-send-dialog")?.hidden === false,
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
+					expect(await page.locator("#rv-send-list .rv-dialog-path").textContent()).toBe("a.ts:17-19");
+
+					await page.reload({ waitUntil: "networkidle" });
+					expect(await page.locator(".rv-thread .bf-comment__quote").textContent()).toContain("const two = 2;");
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * A rectangle drawn across a removed and an added row names two anchors, and the page refuses
+	 * rather than comment on a subset of it: the reviewer's evidence is what they highlighted.
+	 */
+	test(
+		"a selection across the two sides opens no composer, and says why",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.locator(".bf-diff-line--del .browse-diff-no").filter({ hasText: /^\d+$/ }).first().click();
+					await page
+						.locator(".bf-diff-line--add .browse-diff-no")
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click({ modifiers: ["Shift"] });
+					await page.keyboard.press("c");
+					await page.waitForFunction(
+						() =>
+							(globalThis as unknown as ReviewDom).document
+								.querySelector("#rv-toast")
+								?.textContent?.includes("A range stays on one side of the diff") === true,
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
+					expect(await page.locator(".rv-compose").count()).toBe(0);
+				},
+				{ start: 17, paired: true },
+			);
+		},
+		CASE_MS,
+	);
+
+	/** A selection stays inside one file: a shift-click in another starts a fresh single line there. */
+	test(
+		"a shift-click in another file starts a new selection, not a span across files",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page
+						.locator('.rv-file[data-path="a.ts"] .bf-diff-line--add .browse-diff-no')
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click();
+					await page
+						.locator('.rv-file[data-path="b.ts"] .bf-diff-line--add .browse-diff-no')
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click({ modifiers: ["Shift"] });
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("b.ts:42");
+					expect(await page.locator("[data-picked='true']").count()).toBe(1);
+				},
+				{ start: 17, second: true },
+			);
+		},
+		CASE_MS,
+	);
+
+	/**
 	 * The mint-then-write guard, and the words that come with it: the first save mints the review
 	 * and writes a comment, and the second save on the same page must land — if the shas had moved
 	 * the snapshot's fingerprint, the page's own next write would be refused as SNAPSHOT_MOVED.

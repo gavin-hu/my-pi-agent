@@ -105,6 +105,7 @@ function opOf(pathname: string, body: WriteBody): WriteOp | { message: string } 
 			rel: typeof comment.rel === "string" ? comment.rel : "",
 			line: typeof comment.line === "number" ? comment.line : 0,
 			side: comment.side === "old" ? "old" : "new",
+			...(typeof comment.endLine === "number" ? { endLine: comment.endLine } : {}),
 			...(typeof comment.parent === "string" && comment.parent !== "" ? { parent: comment.parent } : {}),
 			...(typeof comment.quote === "string" ? { quote: comment.quote } : {}),
 			body: typeof comment.body === "string" ? comment.body : "",
@@ -285,12 +286,14 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		const token = typeof body.token === "string" ? body.token : "";
 		// The token is read first, so a caller without one learns nothing about the diff; then the
 		// anchor, which is the one thing a comment names and the page's rows are the only proof of.
-		if (
-			op.kind === "comment" &&
-			tokenMatches(page.token, token) &&
-			!anchorDrawn(snapshot.snapshot.files, op.rel.trim(), op.side, op.line)
-		) {
-			return jsonError(400, "a comment anchors to a line this diff draws");
+		if (op.kind === "comment" && tokenMatches(page.token, token)) {
+			// Both ends of a span, or the asymmetric case passes on its start and the reviewer meets
+			// the refusal as a mystery after typing.
+			const rel = op.rel.trim();
+			const drawn =
+				anchorDrawn(snapshot.snapshot.files, rel, op.side, op.line) &&
+				(op.endLine === undefined || anchorDrawn(snapshot.snapshot.files, rel, op.side, op.endLine));
+			if (!drawn) return jsonError(400, "a comment anchors to a line this diff draws");
 		}
 		const outcome = store.write(token, typeof body.rev === "string" ? body.rev : "", snapshot.snapshot.fingerprint, op);
 		if (!outcome.ok) {
