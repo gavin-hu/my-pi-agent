@@ -19,7 +19,6 @@ import {
 	appHead,
 	baseAttribute,
 	button,
-	chip,
 	docHead,
 	keysSheet,
 	pageFooter,
@@ -32,7 +31,7 @@ import type { Review, ReviewComment } from "../review/store.ts";
 import { MAX_COMMENT_LENGTH, MAX_COMMENTS, MAX_QUOTE_LENGTH } from "../review/store.ts";
 import { fileHref, newHref } from "../links.ts";
 import { REVIEW_SCOPES, scopeArgs, type ReviewScope } from "../scope.ts";
-import { REVIEW_CSS } from "./styles.ts";
+import { REVIEW_CSS, REVIEW_NARROW_PX } from "./styles.ts";
 
 /** What the client is told about the page; the island carries it as one value. */
 export interface ReviewData {
@@ -48,6 +47,8 @@ export interface ReviewData {
 	comments: ReviewComment[];
 	reviewed: string[];
 	limits: { comments: number; body: number; quote: number };
+	/** The width the rail folds at, which is also where the page wraps unless the reader said no. */
+	narrow: number;
 	/** The footer's first clause, built from whatever commits the snapshot holds. */
 	comparison: string;
 }
@@ -215,6 +216,7 @@ export function reviewData(input: ReviewPageInput): ReviewData {
 		comments: input.review?.comments ?? [],
 		reviewed: input.review?.reviewed ?? [],
 		limits: { comments: MAX_COMMENTS, body: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
+		narrow: REVIEW_NARROW_PX,
 		comparison: comparisonLine(input.snapshot),
 	};
 }
@@ -232,35 +234,21 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const focused = input.file === undefined ? undefined : all.find((file) => file.rel === input.file);
 	const files = focused === undefined ? all : [focused];
 	const stale = input.review !== undefined && input.review.rev !== snapshot.fingerprint;
-	const facts = [
-		chip({
-			// Hidden at zero: a chip announcing an absence is noise, where the footer's count inside
-			// a sentence is information. The client reveals it with the first draft.
-			label: plural(drafts.length, "draft"),
-			tone: drafts.length === 0 ? "dim" : "warn",
-			attrs: { id: "rv-state", ...(drafts.length === 0 ? { hidden: "" } : {}) },
-		}),
-		chip({
-			// The id is a handle for `/review/<id>`, not a thing to read: the label says a review
-			// exists, the tooltip says which.
-			label: "review",
-			attrs: {
-				id: "rv-id",
-				...(input.review === undefined ? { hidden: "" } : { title: `This review's id: ${input.review.id}` }),
-			},
-		}),
-		chip({ label: snapshot.label, className: "bf-tag--mono", attrs: { id: "rv-scope" } }),
-		reloadChip({ title: "The diff moved — reload the page" }),
-	].join("\n    ");
-	const controls = `${scopeSegments(snapshot.scope)}
-  <div class="bf-app__group">
+	// The header states no fact the footer owns: the comparison, the counts and the progress are the
+	// footer's one line (lib/web/README.md), and the draft count is on the Send button. What is left
+	// here is the way out of a page the tree moved under.
+	const facts = reloadChip({ title: "The diff moved — reload the page" });
+	const controls = `<div class="bf-app__group">
+    ${scopeSegments(snapshot.scope)}
+  </div>
+  <div class="bf-app__group rv-actions">
     ${button({ label: "wrap", id: "rv-wrap", pressed: false, title: "Toggle line wrapping" })}
     ${button({ label: "copy all", id: "rv-copy", title: "Copy every comment as Markdown" })}
     ${button({ label: `Send feedback ${drafts.length}`, variant: "primary", id: "rv-send", title: "Send these comments back to the session", attrs: { "data-count": String(drafts.length) } })}
   </div>`;
 	const main =
 		files.length === 0
-			? `<div class="rv-empty"><p class="rv-empty__title">No changes in this scope.</p><p class="rv-empty__sub">Nothing differs between ${escapeHtml(snapshot.label)} and the tree. Switch the scope, or edit something first.</p></div>`
+			? `<div class="bf-empty"><p class="bf-empty__title">No changes in this scope.</p><p class="bf-empty__sub">Nothing differs between ${escapeHtml(snapshot.label)} and the tree. Switch the scope, or edit something first.</p></div>`
 			: files.map((file, index) => fileSection(file, index, comments, reviewed, snapshot.scope)).join("\n");
 	const omitted =
 		snapshot.omitted > 0
@@ -282,24 +270,28 @@ ${appHead({
 	subject: { id: "rv-repo", label: input.repo, title: input.root },
 	facts,
 	controls,
-	controlsClass: "rv-controls",
 })}
-<div class="bf-app__body rv-body">
-  <aside class="rv-side" aria-label="Files in this review">
-    <div class="rv-side-top">
-      <label class="bf-field bf-field--filter"><span class="bf-field__prompt" aria-hidden="true"></span><span class="sr-only">Filter files</span><input class="bf-input" id="rv-filter" type="search" placeholder="filter files" autocomplete="off"></label>
-      <div class="rv-side-row">
-        <label class="rv-file__check"><input type="checkbox" id="rv-only-commented"> only commented</label>
-        <span class="bf-tag bf-tag--mono" id="rv-file-count" aria-live="polite">${files.length} of ${all.length} files</span>
+<div class="bf-app__body">
+  <details class="bf-app__sidebar rv-sidebar" open>
+    <summary class="bf-panel__summary">Files</summary>
+    <aside class="bf-panel rv-side">
+      <div class="rv-side-top">
+        <label class="bf-field"><span class="bf-field__prompt" aria-hidden="true"></span><span class="sr-only">Filter files</span><input class="bf-input" id="rv-filter" type="search" placeholder="filter files" autocomplete="off"></label>
+        <p class="rv-view__label" id="rv-view-label">Show</p>
+        <div class="bf-tabs rv-view" role="group" aria-labelledby="rv-view-label" id="rv-view">
+          <button type="button" class="bf-tabs__item" id="rv-view-all" data-only="false" aria-pressed="true">All</button>
+          <button type="button" class="bf-tabs__item" id="rv-view-commented" data-only="true" aria-pressed="false">Commented</button>
+        </div>
+        <span class="bf-tag bf-tag--mono rv-count" id="rv-file-count" aria-live="polite">${files.length} of ${all.length} files</span>
       </div>
-    </div>
-    <div class="rv-side-scroll">
-      <div class="rv-side-head"><span>changed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
-      ${focused === undefined ? "" : backToAll(snapshot.scope, all.length)}
-      <nav class="rv-files" id="rv-rail" aria-label="Changed files">${files.map((file, index) => railRow(file, index, comments, reviewed)).join("\n")}</nav>
-      <p class="rv-side__empty" id="rv-rail-empty" hidden><span id="rv-rail-empty-text"></span> <button type="button" class="bf-btn" id="rv-rail-clear">Clear filter</button></p>
-    </div>
-  </aside>
+      <div class="rv-side-scroll">
+        ${focused === undefined ? "" : backToAll(snapshot.scope, all.length)}
+        <div class="rv-side-head"><span>changed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
+        <nav class="rv-files" id="rv-rail" aria-label="Changed files">${files.map((file, index) => railRow(file, index, comments, reviewed)).join("\n")}</nav>
+        <p class="bf-note" id="rv-rail-empty" hidden><span id="rv-rail-empty-text"></span> <button type="button" class="bf-btn bf-btn--sm" id="rv-rail-clear">Clear filter</button></p>
+      </div>
+    </aside>
+  </details>
   <main class="bf-app__main rv-main" id="rv-main" tabindex="-1">
     <div class="rv-files-scroll" id="rv-diff">
       <p class="rv-filter-note" id="rv-filter-note" hidden><span id="rv-filter-note-text"></span> <button type="button" class="bf-btn" id="rv-filter-clear">Clear</button></p>
