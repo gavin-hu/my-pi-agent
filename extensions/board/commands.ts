@@ -130,11 +130,15 @@ export function registerCommands(
 					);
 					return;
 				}
+				// The seat is left before the page goes: `exit` reads what this session serves, and the
+				// page's own close would already have cleared it. One fact, said in one line: the page
+				// stopped, and the seat it implied is off.
+				const left = deps.lead === undefined ? false : await deps.lead.exit(ctx);
 				const stopped = await page.stop();
 				// The word is this session saying it serves nothing now: the page clears the seat too
 				// when it closes itself (the idle grace), and both writes are the same fact.
 				session.serve(undefined);
-				ctx.ui.notify(stopped ? "board: stopped" : "board: not running", "info");
+				ctx.ui.notify(`${stopped ? "board: stopped" : "board: not running"}${left ? " · lead mode off" : ""}`, "info");
 				return;
 			}
 			if (word === "exit") {
@@ -157,6 +161,10 @@ export function registerCommands(
 			// is addressed by follows from it — and the join happens here, because opening the page
 			// is the lead's one action.
 			if (started.kind === "failed") return;
+			// An attached start stands this session down: the page answers under the seat that serves
+			// it, so this session's own seat is not one to keep. The seat is left before `serve` is
+			// told nothing, so `exit` reads the seat it had rather than a page already gone.
+			const stoodDown = started.kind !== "served" && deps.lead !== undefined ? await deps.lead.exit(ctx) : false;
 			session.serve(started.kind === "served" ? started.seat : undefined);
 			// The join is `lib/workflow/join.ts`'s one rule, loaded here so a session that never opens the
 			// page pays nothing for it: it asks when the bus does not hold this session under the seat's
@@ -168,13 +176,13 @@ export function registerCommands(
 			// command from being opened again.
 			ctx.ui.notify(
 				started.kind === "attached"
-					? `board: ${started.seat} is serving this repository on :${started.port} — viewing · open ${started.url}${teamLine(joined)}`
+					? `board: ${started.seat} is serving this repository on :${started.port} — viewing · open ${started.url}${teamLine(joined)}${stoodDown ? " · lead mode off" : ""}`
 					: `board: ${started.seat} serving ${started.repo} on :${started.port} · open ${started.url}${teamLine(joined)}`,
 				"info",
 			);
 			// Serving the page is the seat: the page answers under this session's name, so
 			// the pane takes the mode the name already implies. An `attached` start stands
-			// the session down — someone else's page is serving — and changes no tool.
+			// the session down — someone else's page is serving — and leaves the seat it held.
 			if (started.kind === "served" && deps.lead !== undefined) {
 				await deps.lead.enter(ctx);
 				ctx.ui.notify("lead mode on: sign and dispatch; /board exit to write.", "info");

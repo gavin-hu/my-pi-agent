@@ -13,34 +13,60 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { stubSession } from "../../test/helpers/board.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
+import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import board from "./index.ts";
-import type { BoardPage } from "./page.ts";
+import type { BoardPage, PageStart } from "./page.ts";
+
+/** What `/board` answers from `start`, and what `status` says. */
+interface StubPageOptions {
+	started?: PageStart;
+	running?: boolean;
+}
 
 /** A page that records its lifecycle. */
-function stubPage(calls: string[]): BoardPage {
+function stubPage(calls: string[], options: StubPageOptions = {}): BoardPage {
+	const seat = { seat: "team-lead", port: 1, url: "http://127.0.0.1:1/", repo: "my-pi-agent", where: "x" };
+	const served: PageStart = options.started ?? { kind: "served", ...seat };
 	return {
 		start: async () => {
 			calls.push("start");
-			return {
-				kind: "served",
-				seat: "team-lead",
-				port: 1,
-				url: "http://127.0.0.1:1/",
-				repo: "my-pi-agent",
-				where: "x",
-			};
+			return served;
 		},
 		stop: async () => {
 			calls.push("stop");
 			return true;
 		},
-		status: async () => ({ running: false }),
+		status: async () => (options.running === true ? { running: true, ...seat } : { running: false }),
 		dropStale: async () => "gone",
 		closeAll: async () => {
 			calls.push("closeAll");
 		},
 	};
 }
+
+/**
+ * A session whose seat is whatever the page last told it.
+ *
+ * The two halves `reconcile` asks are separate on purpose — the branch says `lead` and this says
+ * whether a page is served here — so a case about one can hold the other still.
+ */
+function seatSession(): BoardSession & { served(): string | undefined } {
+	let served: string | undefined;
+	return {
+		...stubSession(),
+		serving: () => served,
+		serve: (next) => {
+			served = next;
+		},
+		served: () => served,
+	};
+}
+
+/** The two entries a branch can carry, and the call every guard case makes. */
+const SEAT = [{ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } }];
+const PLANNING = [{ type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: { enabled: true } }];
+const CALL = { toolName: "write", input: { path: "a.md", content: "x" } };
 
 /**
  * The environment every test here wants: the empty disable list, so the factory
@@ -82,34 +108,150 @@ describe("the board extension", () => {
 	});
 
 	/**
-	 * The door's seat read, as the guard a tool call actually meets.
+	 * The seat's one reconcile, as the guard a tool call actually meets.
 	 *
-	 * `seatHeld` is not exported, and should not be: what a reader needs is that a branch holding the
-	 * seat narrows the tools and that a planning or an auto branch narrows nothing. Both compares
-	 * inside the factory are `lib/mode-state.ts`'s readers — `holdsSeat` and `isPlanModeEnabled` — so
-	 * this case fails if either is derived by hand again, or if the readers are wired the wrong way
-	 * round: swapping them leaves the seated branch unanswered and the planning one blocked.
-	 *
-	 * Three branches through **one** factory on purpose: the module import is cached (`branchState ?==`
-	 * on the promise, keyed only on "has it loaded"), so a reading frozen at the first question would
-	 * show up here as the second and third branches answering like the first.
+	 * Every case drives the real `tool_call` handler rather than `isEnabled()`: tonight's defect was
+	 * the two disagreeing, and a case written against the runtime alone would have passed while the
+	 * model was still refused. The branch is the double's own array, so a case can hold it still
+	 * across a write that never landed — which is the state the seat was found in.
 	 */
-	test("narrows the tools on a seat branch, and on neither of the other two modes", async () => {
-		const SEAT = [{ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } }];
-		const PLANNING = [{ type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: { enabled: true } }];
+	test("narrows the tools only while the seat is served here", async () => {
 		await withEnv(ENABLED, async () => {
 			const fake = createFakePi();
-			board(fake.pi, { session: stubSession(), page: stubPage([]) });
+			const session = seatSession();
+			board(fake.pi, { session, page: stubPage([]) });
 			const [guard] = fake.handlers.get("tool_call") ?? [];
 			if (guard === undefined) throw new Error("the factory registered no tool guard");
-			const call = { toolName: "write", input: { path: "a.md", content: "x" } };
 
-			// A seat: the door opens, and the call is refused by the seat's own policy.
-			expect(await guard(call, fakeCtx({ branch: SEAT }).ctx)).toMatchObject({ block: true });
+			// A seat branch with no page here — the resume case: no leash, and nothing to explain.
+			expect(await guard(CALL, fakeCtx({ branch: SEAT }).ctx)).toBeUndefined();
 
-			// Planning and auto: the door answers nothing, so the guard has no opinion to add.
-			expect(await guard(call, fakeCtx({ branch: PLANNING }).ctx)).toBeUndefined();
-			expect(await guard(call, fakeCtx().ctx)).toBeUndefined();
+			// The page served here: the branch is a seat, and the call is refused by its policy.
+			session.serve("team-lead");
+			expect(await guard(CALL, fakeCtx({ branch: SEAT }).ctx)).toMatchObject({ block: true });
+
+			// Planning or auto: the door has no opinion to add.
+			expect(await guard(CALL, fakeCtx({ branch: PLANNING }).ctx)).toBeUndefined();
+			expect(await guard(CALL, fakeCtx().ctx)).toBeUndefined();
+		});
+	});
+
+	test("/board exit ends the seat for the next call, whatever the branch says", async () => {
+		await withEnv(ENABLED, async () => {
+			const fake = createFakePi();
+			const session = seatSession();
+			session.serve("team-lead");
+			board(fake.pi, { session, page: stubPage([]) });
+			const [guard] = fake.handlers.get("tool_call") ?? [];
+			const command = fake.commands.get("board");
+			if (guard === undefined || command === undefined) throw new Error("the factory registered no doors");
+
+			// Armed: the branch says `lead` and the page is served here.
+			expect(await guard(CALL, fakeCtx({ branch: SEAT }).ctx)).toMatchObject({ block: true });
+
+			// The exit, typed in the session. The branch is this double's array and takes no write —
+			// tonight's state, where the off-switch said it worked and the leash stayed on.
+			await command.handler("exit", fakeCtx({ branch: SEAT }).ctx);
+			expect(await guard(CALL, fakeCtx({ branch: SEAT }).ctx)).toBeUndefined();
+			expect(fake.entries.at(-1)?.customType).toBe(LEAD_MODE_ENTRY_TYPE);
+			expect((fake.entries.at(-1)?.data as { enabled?: unknown }).enabled).toBe(false);
+		});
+	});
+
+	test("a turn after the page closes puts the tools back", async () => {
+		await withEnv(ENABLED, async () => {
+			const fake = createFakePi();
+			const session = seatSession();
+			session.serve("team-lead");
+			board(fake.pi, { session, page: stubPage([]) });
+			const [guard] = fake.handlers.get("tool_call") ?? [];
+			const [turn] = fake.handlers.get("before_agent_start") ?? [];
+			if (guard === undefined || turn === undefined) throw new Error("the factory registered no doors");
+			const { ctx } = fakeCtx({ branch: SEAT });
+			expect(await guard(CALL, ctx)).toMatchObject({ block: true });
+
+			// The page closes itself (the idle grace) and nobody tells the session: the turn asks.
+			session.serve(undefined);
+			await turn({}, ctx);
+			expect(await guard(CALL, ctx)).toBeUndefined();
+			expect(ctx.statusCalls.at(-1)).toEqual({ key: STATUS_KEYS.leadMode, text: undefined });
+		});
+	});
+
+	test("a /tree that lands off the seat puts the tools back", async () => {
+		await withEnv(ENABLED, async () => {
+			const fake = createFakePi();
+			const session = seatSession();
+			session.serve("team-lead");
+			board(fake.pi, { session, page: stubPage([]) });
+			const [guard] = fake.handlers.get("tool_call") ?? [];
+			const [tree] = fake.handlers.get("session_tree") ?? [];
+			if (guard === undefined || tree === undefined) throw new Error("the factory registered no doors");
+			const branch = [...SEAT];
+			const { ctx } = fakeCtx({ branch });
+			expect(await guard(CALL, ctx)).toMatchObject({ block: true });
+
+			// The branch it lands on never named the seat: the host put that branch's set back.
+			branch.splice(0);
+			await tree({}, ctx);
+			expect(await guard(CALL, ctx)).toBeUndefined();
+			expect(ctx.statusCalls.at(-1)).toEqual({ key: STATUS_KEYS.leadMode, text: undefined });
+		});
+	});
+
+	test("/board stop ends the page and the seat it implied", async () => {
+		await withEnv(ENABLED, async () => {
+			const fake = createFakePi();
+			const session = seatSession();
+			session.serve("team-lead");
+			const calls: string[] = [];
+			board(fake.pi, { session, page: stubPage(calls, { running: true }) });
+			const [guard] = fake.handlers.get("tool_call") ?? [];
+			const command = fake.commands.get("board");
+			if (guard === undefined || command === undefined) throw new Error("the factory registered no doors");
+			const { ctx, notifications } = fakeCtx({ branch: SEAT });
+			expect(await guard(CALL, ctx)).toMatchObject({ block: true });
+
+			await command.handler("stop", ctx);
+			expect(calls).toContain("stop");
+			expect(session.served()).toBeUndefined();
+			expect(notifications.at(-1)).toBe("board: stopped · lead mode off");
+			expect(await guard(CALL, ctx)).toBeUndefined();
+		});
+	});
+
+	test("an attached /board stands the session down and leaves its seat", async () => {
+		await withEnv(ENABLED, async () => {
+			const fake = createFakePi();
+			const session = seatSession();
+			session.serve("team-lead");
+			const team = {
+				join: async () => ({ ok: true as const, label: "team-lead", watching: { armed: true, wake: true } }),
+			};
+			board(fake.pi, {
+				session,
+				team,
+				page: stubPage([], {
+					started: {
+						kind: "attached",
+						seat: "gavin",
+						port: 2,
+						url: "http://127.0.0.1:2/",
+						repo: "my-pi-agent",
+						where: "x",
+					},
+				}),
+			});
+			const [guard] = fake.handlers.get("tool_call") ?? [];
+			const command = fake.commands.get("board");
+			if (guard === undefined || command === undefined) throw new Error("the factory registered no doors");
+			const { ctx, notifications } = fakeCtx({ branch: SEAT });
+			expect(await guard(CALL, ctx)).toMatchObject({ block: true });
+
+			await command.handler("", ctx);
+			expect(session.served()).toBeUndefined();
+			expect(notifications.at(-1)).toContain("lead mode off");
+			expect(await guard(CALL, ctx)).toBeUndefined();
 		});
 	});
 });
