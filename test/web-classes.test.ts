@@ -110,12 +110,7 @@ const PAGES: readonly ServedPage[] = [
 		extraSources: [join(root, "lib/diff")],
 		skip: ["styles.ts"],
 		css: CODE_REVIEW_CSS,
-		exceptions: [
-			{
-				name: "bf-tone--",
-				why: "a family: the client builds a tag's tone from a table, and the kit rules each member",
-			},
-		],
+		exceptions: [],
 	},
 	{
 		page: "file-browse",
@@ -204,19 +199,25 @@ describe("a served page's kit classes", () => {
 	});
 
 	/**
-	 * The review page's diff line is `white-space:pre` so a tab and a column stay put, and at
-	 * the narrow fold that rule must yield to a wrap: a page rule outranks the kit's own narrow
-	 * media rule at equal specificity, so a page that states `pre` and no narrow counterpart
-	 * runs its code off the right edge with no scrollbar. Every suite was green on that, and a
-	 * person reading the page at 390 is what found it; this is the case that would have.
+	 * The review page's diff line is `white-space:pre` so a tab and a column stay put, and at the
+	 * narrow fold that rule must yield to a wrap: a page rule outranks the kit's own narrow media
+	 * rule at equal specificity, so a page that states `pre` and no narrow counterpart runs its
+	 * code off the right edge with no scrollbar. #814 added the other half — the fold's wrap must
+	 * belong to the same attribute the button flips, or the button reports a state the page is not
+	 * in — so the narrow rule now names the one value that unwraps, and the shipped page wraps.
 	 */
-	test("the review page's line yields to a wrap at the narrow fold", () => {
+	test("the review page's line yields to a wrap at the narrow fold, under the button's own attribute", () => {
 		const base = rule(CODE_REVIEW_CSS, ".rv-diff .bf-diff-line{");
 		expect(base, "the line's own rule states pre").toContain("white-space:pre");
 		const narrow = mediaBlock(CODE_REVIEW_CSS, REVIEW_NARROW_PX);
 		expect(narrow, `no @media (max-width:${REVIEW_NARROW_PX}px) block`).toBeString();
-		expect(narrow, "the page states no narrow rule for the diff line").toContain(".rv-diff .bf-diff-line");
+		// The fold wraps unless the reader pressed wrap off: `:not([data-wrap="false"])` is the only
+		// selector that unwraps, so no width can hold a state the button does not.
+		expect(narrow, "the page states no narrow rule for the diff line").toContain(
+			'.rv-diff:not([data-wrap="false"]) .bf-diff-line',
+		);
 		expect(narrow, "the narrow rule does not wrap").toContain("white-space:pre-wrap");
+		expect(narrow, "the narrow rule overrides a reader's unwrap").not.toContain('.rv-diff[data-wrap="false"]');
 	});
 
 	test("has a row for every extension that dresses a page in the kit", () => {

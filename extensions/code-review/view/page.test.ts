@@ -98,6 +98,9 @@ describe("the review page", () => {
 		const island = html.slice(start, html.indexOf("</script>", start));
 		expect(island).toContain('"token":"tok-123"');
 		expect(island).toContain('"id":"r7c1"');
+		// The breakpoint the sheet folds at is the one the client reads: a width spelled in both
+		// would let the band and the wrap seed disagree.
+		expect(island).toContain('"narrow":900');
 		expect(island).toContain("name the ceiling");
 		// A body cannot close the script it is carried in, and a tag stays text.
 		expect(island).not.toContain("</script>");
@@ -114,10 +117,10 @@ describe("the review page", () => {
 		expect(html).toContain("Send feedback 1");
 	});
 
-	test("counts the drafts as one or many, in the chip, the title and the footer", () => {
-		// Three places print it — the `rv-state` chip, the tab title, and the footer — and
-		// `toContain("1 draft")` is green on "1 drafts", so each count is counted with its
-		// boundary rather than found.
+	test("counts the drafts as one or many, in the title and the footer", () => {
+		// Two places print it — the tab title and the footer — and `toContain("1 draft")` is green
+		// on "1 drafts", so each count is counted with its boundary rather than found. The header
+		// used to be a third place, and the chip that carried it is gone: the footer owns the fact.
 		const many = renderReviewPage(
 			input({
 				review: review({
@@ -138,14 +141,42 @@ describe("the review page", () => {
 		);
 		expect(many).toContain("· 2 drafts ·");
 		expect(many).toContain("<title>review · my-pi-agent · 2 drafts</title>");
-		expect(many.match(/2 drafts/g)?.length).toBe(3);
+		expect(many.match(/2 drafts/g)?.length).toBe(2);
 		expect(many.match(/2 draft(?!s)/g)).toBeNull();
 
 		const one = renderReviewPage(input({ review: review() }));
 		expect(one).toContain("· 1 draft ·");
 		expect(one).toContain("<title>review · my-pi-agent · 1 draft</title>");
-		expect(one.match(/1 draft(?!s)/g)?.length).toBe(3);
+		expect(one.match(/1 draft(?!s)/g)?.length).toBe(2);
 		expect(one.match(/1 drafts/g)).toBeNull();
+	});
+
+	test("wears the kit's sidebar, its panel and a flush search, never the control row's field", () => {
+		// The rail is the shell's own sidebar: a <details> the kit folds into a band at this page's
+		// width, a summary the kit hides on a desk, and a panel that scrolls on its own box.
+		const html = renderReviewPage(input());
+		expect(html).toContain('<details class="bf-app__sidebar rv-sidebar" open>');
+		expect(html).toContain('<summary class="bf-panel__summary">Files</summary>');
+		expect(html).toContain('<aside class="bf-panel rv-side">');
+		// The search is the kit's plain field: `bf-field--filter` is the control row's variant, and
+		// its auto margin is what pushed the field right and left the blank space beside it. The
+		// sheet still ships that rule (the kit's), so the read is the sidebar's markup alone.
+		const side = html.slice(html.indexOf('<details class="bf-app__sidebar'), html.indexOf("</details>"));
+		expect(side).toContain('<label class="bf-field"><span class="bf-field__prompt"');
+		expect(side).not.toContain("bf-field--filter");
+		// The narrowing is one switch with two segments, captioned the way the plan page's is.
+		expect(html).toContain('<p class="rv-view__label" id="rv-view-label">Show</p>');
+		expect(html).toContain('id="rv-view-all" data-only="false" aria-pressed="true"');
+		expect(html).toContain('id="rv-view-commented" data-only="true" aria-pressed="false"');
+		expect(html).not.toContain("rv-only-commented");
+	});
+
+	test("pushes the page's actions to the control row's right end", () => {
+		const html = renderReviewPage(input());
+		expect(html).toContain('<div class="bf-app__group rv-actions">');
+		expect(html).toContain('id="rv-wrap"');
+		expect(html).toContain('id="rv-copy"');
+		expect(html).toContain('id="rv-send"');
 	});
 
 	test("says a binary change has no text, and that a cap cut a file short", () => {
@@ -188,14 +219,21 @@ describe("the review page", () => {
 		expect(html).not.toContain("undefined");
 	});
 
-	test("hides the draft chip and the review id until each has something to say", () => {
+	test("states no fact in the header that the footer already carries", () => {
+		// The comparison, the file and draft counts, and the progress are the footer's one line, so
+		// the header's facts zone is the reload hint alone — the three chips that restated them are
+		// gone, not hidden. The draft count is also on the Send button, and the review's id is in
+		// the address the first write mints.
 		const empty = renderReviewPage(input());
-		expect(empty).toContain('id="rv-state" hidden=""');
-		expect(empty).toContain('id="rv-id" hidden=""');
 		const withWork = renderReviewPage(input({ review: review() }));
-		expect(withWork).toContain('id="rv-state"');
-		expect(withWork).not.toContain('id="rv-state" hidden');
-		expect(withWork).toContain("review&#39;s id: r7c1");
+		for (const html of [empty, withWork]) {
+			expect(html).not.toContain('id="rv-state"');
+			expect(html).not.toContain('id="rv-id"');
+			expect(html).not.toContain('id="rv-scope"');
+			expect(html).toContain('id="reload-hint"');
+		}
+		expect(withWork).toContain("Send feedback 1");
+		expect(withWork).toContain("1 of 2 reviewed");
 	});
 
 	/**
