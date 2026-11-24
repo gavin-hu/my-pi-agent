@@ -85,6 +85,18 @@ export function modeOf(entries: readonly unknown[]): SessionMode {
 	return lastModeState(entries).mode;
 }
 
+/**
+ * Whether this branch holds the seat.
+ *
+ * The one read of the `lead` mode: `who()` composes it into `Actor.seat`, which the board's gates
+ * read through `leadAuthority`, and the bus's release door asks the same question of the same
+ * branch (#835). One owner, so no surface keeps a second `mode === "lead"` compare of its own —
+ * that is #825's lesson, and #821's before it.
+ */
+export function holdsSeat(entries: readonly unknown[]): boolean {
+	return modeOf(entries) === "lead";
+}
+
 /** Whether the branch is planning: strict, so a lead branch is not a planning one. */
 export function isPlanModeEnabled(entries: readonly unknown[]): boolean {
 	return modeOf(entries) === "plan";
