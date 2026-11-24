@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: `session release` takes `holder`, a live peer's label, and the seat moves that peer's claims to
+  itself in one store call — so a stalled wave is re-dispatchable without a restart, and the peer's next claim meets a
+  conflict naming the seat rather than a path nobody holds. A caller with no seat is refused, naming the door.
 - `board`: `move` to `done` takes `landed`, the merge a card's work shipped in — a folded card, whose merge is older than
   its own `execute` and so cannot be named by the chain. The argument is checked on the branch (a prefix, resolved, and
   never one matching two commits), at or below the card's spot-check, and refused when the chain can name a landing of its
