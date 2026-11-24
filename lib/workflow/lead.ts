@@ -231,6 +231,7 @@ export function reviewGate(
 	lead: Lead,
 	override?: unknown,
 	note?: unknown,
+	ownerLabel?: string,
 ): { instruction?: string } | { error: string } {
 	const instruction = override === undefined ? undefined : normalizeInstruction(override);
 	if (instruction !== undefined && "error" in instruction) return { error: instruction.error };
@@ -242,7 +243,7 @@ export function reviewGate(
 	} else if (!LANE_RULES[card.lane].terminal) {
 		return { error: `${cardRef(card.id)} is in ${card.lane}; an override signs a card that is already done.` };
 	}
-	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, lead, "review")}` };
+	if (holds(card, actor)) return { error: `${heldBy(card, ownerLabel)} ${holderRefusal(actor, lead, "review")}` };
 	const wrongSigner = signRefusal(card, actor, lead, "review");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
 	// The note rides the sign, and the card keeps it or refuses it without asking anything else — so
@@ -271,9 +272,10 @@ export function review(
 	text?: unknown,
 	override?: unknown,
 	verified?: unknown,
+	ownerLabel?: string,
 ): Prepared {
 	// `reviewGate` is asked again under the lock: a door cannot record a sign it skipped.
-	const gate = reviewGate(card, actor, config.lead, override, text);
+	const gate = reviewGate(card, actor, config.lead, override, text, ownerLabel);
 	if ("error" in gate) return { error: gate.error };
 	const instruction = gate.instruction;
 	const evidence = evidenceFor(card, config, instruction !== undefined, verified);

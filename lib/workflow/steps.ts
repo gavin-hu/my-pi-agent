@@ -61,10 +61,10 @@ import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependent
 import type { Actor, CardOp, Prepared } from "./rules.ts";
 
 /** Pull a backlog card into `plan`: the one door into the work. */
-export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLimits): Prepared {
+export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLimits, ownerLabel?: string): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be claimed.` };
 	if (holds(card, actor)) return { changed: false, fields: null };
-	if (card.owner !== undefined) return { error: heldBy(card) };
+	if (card.owner !== undefined) return { error: heldBy(card, ownerLabel) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
 	const carried = ownerRefusal(actor, [...board.values()], limits);
@@ -79,13 +79,13 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
  * assignment. Naming the session that already holds it is refused too, and for the message — a
  * no-op write that `team` would have sent a handoff for.
  */
-export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: WipLimits): Prepared {
+export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: WipLimits, ownerLabel?: string): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be assigned.` };
 	if (card.owner !== undefined) {
 		// The card is the peer's; the message may not be. A repeat is the retry for an untold handoff,
 		// keyed by the handoff's own stamp so it folds into the copy still waiting.
 		if (holds(card, to) && owesHandoff(card)) return { changed: false, fields: null, notice: "assign" };
-		return { error: holds(card, to) ? alreadyHeldBy(card) : heldBy(card) };
+		return { error: holds(card, to) ? alreadyHeldBy(card) : heldBy(card, ownerLabel) };
 	}
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
@@ -96,11 +96,11 @@ export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: Wip
 }
 
 /** Hand a card back to the pool. The contract and its approval stay: the plan did not change. */
-export function release(card: Card, actor: Actor): Prepared {
+export function release(card: Card, actor: Actor, ownerLabel?: string): Prepared {
 	// Finished work is history: a release of it would reopen the order a dependency was recorded against.
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be released.` };
 	if (card.owner === undefined) return { error: `${cardRef(card.id)} is not claimed.` };
-	if (!holds(card, actor)) return { error: `${heldBy(card)} Release is the owner's decision.` };
+	if (!holds(card, actor)) return { error: `${heldBy(card, ownerLabel)} Release is the owner's decision.` };
 	return { changed: true, fields: releasedToPool() };
 }
 
@@ -339,9 +339,9 @@ function stalePlan(card: Card): string {
  * so a note from a session that does not hold the card would hide an unwritten card from
  * the lead.
  */
-export function note(card: Card, raw: unknown, actor: Actor, now: number): Prepared {
+export function note(card: Card, raw: unknown, actor: Actor, now: number, ownerLabel?: string): Prepared {
 	if (card.owner !== undefined && !holds(card, actor)) {
-		return { error: `${heldBy(card)} Only its owner can add a note.` };
+		return { error: `${heldBy(card, ownerLabel)} Only its owner can add a note.` };
 	}
 	const parsed = normalizeNote(raw);
 	if ("error" in parsed) return { error: parsed.error };
@@ -363,7 +363,7 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 	if (card.lane !== "plan") {
 		return { error: `${cardRef(card.id)} is in ${card.lane}; its contract is written in plan.` };
 	}
-	if (!holds(card, actor)) return { error: `${heldBy(card)} Only its owner records a plan.` };
+	if (!holds(card, actor)) return { error: `${heldBy(card, op.ownerLabel)} Only its owner records a plan.` };
 	if (op.artifact === undefined) {
 		return {
 			error: `contract needs the plan file ${cardRef(card.id)} is executed against: pass \`path\` as \`plan\` action \`write\` returned it.`,
@@ -427,7 +427,8 @@ export function approve(
 ): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; its contract is closed.` };
 	if (card.lane !== "plan") return { error: `${cardRef(card.id)} is in ${card.lane}; a contract is approved in plan.` };
-	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "approve")}` };
+	if (holds(card, actor))
+		return { error: `${heldBy(card, op.ownerLabel)} ${holderRefusal(actor, config.lead, "approve")}` };
 	const wrongSigner = signRefusal(card, actor, config.lead, "approve");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
 	const contract = card.contract;
@@ -467,7 +468,7 @@ export function approve(
  */
 export function edit(card: Card, op: Extract<CardOp, { kind: "edit" }>, actor: Actor, board: BoardIndex): Prepared {
 	if (card.owner !== undefined && !holds(card, actor)) {
-		return { error: `${heldBy(card)} Only its owner can edit it.` };
+		return { error: `${heldBy(card, op.ownerLabel)} Only its owner can edit it.` };
 	}
 	const fields: Partial<Card> = {};
 	if (op.title !== undefined) {
@@ -516,9 +517,9 @@ export function edit(card: Card, op: Extract<CardOp, { kind: "edit" }>, actor: A
  * the peer answers, so an offer can never send a handoff for work nobody can pick up.
  * Re-offering refreshes the age rather than refusing as a no-op.
  */
-export function offer(card: Card, now: number, board: BoardIndex, limits: WipLimits): Prepared {
+export function offer(card: Card, now: number, board: BoardIndex, limits: WipLimits, ownerLabel?: string): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be offered.` };
-	if (card.owner !== undefined) return { error: heldBy(card) };
+	if (card.owner !== undefined) return { error: heldBy(card, ownerLabel) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
 	const full = wipRefusal("plan", [...board.values()], limits);
@@ -566,14 +567,14 @@ export function archive(card: Card, board: BoardIndex): Prepared {
 	return { changed: true, fields: null };
 }
 
-export function drop(card: Card, actor: Actor, board: BoardIndex): Prepared {
+export function drop(card: Card, actor: Actor, board: BoardIndex, ownerLabel?: string): Prepared {
 	// A drop takes its id with it, so a card another one waits on cannot leave: the
 	// remaining link would name nothing, and nothing on the board would say so.
 	const depended = dependedOn(card.id, board);
 	if (depended !== undefined) return { error: depended };
 	const rule = LANE_RULES[card.lane];
 	if (rule.ownerless || rule.terminal) return { changed: true, fields: null };
-	if (!holds(card, actor)) return { error: `${heldBy(card)} It cannot be dropped while someone holds it.` };
+	if (!holds(card, actor)) return { error: `${heldBy(card, ownerLabel)} It cannot be dropped while someone holds it.` };
 	return { changed: true, fields: null };
 }
 

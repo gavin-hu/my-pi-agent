@@ -20,7 +20,6 @@ import { attempt, messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
 import type { LandingVerdict } from "../../lib/workflow/landing.ts";
 import { type Lane, movableLanes } from "../../lib/workflow/lanes.ts";
-import { liveLabelOf } from "../../lib/workflow/round-text.ts";
 import type { CardOp } from "../../lib/workflow/rules.ts";
 import { createDeliver, type Deliver, type TeamJoin } from "../../lib/session-tool.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
@@ -76,28 +75,6 @@ export async function holderFact(
 	const card = id === undefined ? undefined : await store.read(id).catch(() => undefined);
 	const holder = card === undefined ? undefined : await session.holder(cwd, card);
 	return holder === undefined ? {} : { holder };
-}
-
-/**
- * The bus's name for the card's holder, or undefined when it cannot answer.
- *
- * One read of the card and one of the roster, and the label stays where `liveLabelOf` puts it: the
- * bus's name for the owner's id, the record's label for an id the bus has dropped, and nothing at
- * all when the card has no owner — which is the caller printing "unassigned", not a holder.
- */
-async function holderLabel(
-	runtime: BoardSession,
-	store: BoardStore,
-	rawCard: string | undefined,
-	cwd: string,
-): Promise<string | undefined> {
-	if (rawCard === undefined) return undefined;
-	const id = normalizeCardId(rawCard);
-	if (id === undefined) return undefined;
-	const card = await store.read(id).catch(() => undefined);
-	if (card?.owner === undefined) return undefined;
-	const rosterRows = await runtime.roster(cwd).catch(() => undefined);
-	return rosterRows === undefined ? undefined : liveLabelOf(card.owner, rosterRows);
 }
 
 /**
@@ -194,11 +171,13 @@ export async function dropCard(
 	args: BoardArgs,
 	now: number,
 	cross: (result: MutateResult) => Promise<string | undefined>,
+	ownerLabel?: string,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	const arg = cardArg(args.card);
 	if ("error" in arg) return refusal("drop", me, arg.error);
 	const id = arg.id;
-	const result = await store.mutate(id, { kind: "drop" }, me, now);
+	const op: CardOp = { kind: "drop", ...(ownerLabel === undefined ? {} : { ownerLabel }) };
+	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal("drop", me, result.error, result.card);
 	// A dropped card can carry the paths of work still in flight, and a claim nobody releases
 	// would keep a peer off files that are no longer anybody's.
@@ -302,6 +281,19 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 		if (stray !== undefined) return refusal(action, me, stray);
 		const store = await runtime.store(ctx.cwd);
 		const now = runtime.now();
+		// The bus's name for the card's holder, read once for the whole call: every refusal that names a
+		// holder prints it, and so does the row a write returns. `list` and `add` have no holder to name
+		// — one shows the roster it already read, the other makes a card nobody holds yet — so they pay
+		// nothing for it, and a bus that cannot answer leaves it absent for the rules to fall back.
+		const ownerLabel =
+			action === "list" || action === "add" ? undefined : await runtime.holderLabel(ctx.cwd, args.card);
+		const labelled = ownerLabel === undefined ? {} : { ownerLabel };
+		// One writer for every operation that names a card: the label rides both the op, which the rules
+		// read, and the report, which prints the row — so a case cannot write one half and forget the
+		// other, and the six arguments every one of them repeats are written once. `at` is the moment the
+		// write is stamped: the call's own, except a spot-check's, which stamps after the command it ran.
+		const write = <Op extends CardOp>(op: Op, report: Parameters<typeof mutate>[6] = {}, at = now) =>
+			mutate(store, action, me, at, args, { ...op, ...labelled }, { ...report, ...labelled });
 		switch (action) {
 			case "list": {
 				// The four answers live with the reads behind them, loaded on the call that asks for one.
@@ -328,12 +320,7 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 				// to know the bus exists. A refused claim wrote nothing and enlists nobody, so the join is
 				// the write's successor — and a join that did not land is a line on the result, because the
 				// card it came after is already true.
-				return await mutate(
-					store,
-					action,
-					me,
-					now,
-					args,
+				return await write(
 					{ kind: "claim" },
 					{
 						next: CLAIM_NEXT,
@@ -346,12 +333,12 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 					},
 				);
 			case "release":
-				return await mutate(store, action, me, now, args, { kind: "release" }, { cross });
+				return await write({ kind: "release" }, { cross });
 			case "reclaim":
 				// The op carries what the bus says about the holder: the rule lets a peer take a card back
 				// only from a session that has stopped, and the lead from anybody. A reclaim that takes the
 				// card from somebody owes them a sentence, and it describes the card as it was.
-				return await mutate(store, action, me, now, args, await reclaimOp(runtime, store, args.card, ctx.cwd), {
+				return await write(await reclaimOp(runtime, store, args.card, ctx.cwd), {
 					cross,
 					notice: async (card: Card, result) => {
 						const { deliverNotice } = await (notices ??= import("./notices.ts"));
@@ -391,14 +378,9 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 					args.override === undefined
 						? undefined
 						: await closingInstruction(store, args.card, args.override, me, lane, landed);
-				// The bus's name for the holder, when it can answer: a refusal that names a holder
-				// prints this, and the row the write returns does too. The record's own label is the
-				// fallback for an id the bus has dropped.
-				const ownerLabel = await holderLabel(runtime, store, args.card, ctx.cwd);
 				const op: CardOp = {
 					kind: "move",
 					lane,
-					...(ownerLabel === undefined ? {} : { ownerLabel }),
 					...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
 					...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 					...(proved === undefined ? {} : { artifact: proved }),
@@ -408,13 +390,10 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 					// has lost: the one fact that door needs, read only for a `done`.
 					...(lane === "done" ? await holderFact(runtime, store, args.card, ctx.cwd) : {}),
 				};
-				return await mutate(store, action, me, now, args, op, {
-					cross,
-					...(ownerLabel === undefined ? {} : { ownerLabel }),
-				});
+				return await write(op, { cross });
 			}
 			case "note":
-				return await mutate(store, action, me, now, args, { kind: "note", text: args.note });
+				return await write({ kind: "note", text: args.note });
 			case "contract": {
 				// The store is resolved here, and the path proved where the rule asks: only a caller holding the
 				// working directory can say where the plan store is, and only the locked pass can say whether
@@ -436,12 +415,7 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 						audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
 					});
 				};
-				return await mutate(
-					store,
-					action,
-					me,
-					now,
-					args,
+				return await write(
 					{
 						kind: "contract",
 						...(plan === undefined ? {} : { artifact: plan }),
@@ -501,7 +475,7 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 								...(evidence === undefined ? {} : { verified: evidence.verified }),
 							}
 						: { kind: "approve" as const, text: args.note, ...(artifact === undefined ? {} : { artifact }) };
-				return await mutate(store, action, me, at, args, op, { notice });
+				return await write(op, { notice }, at);
 			}
 			case "edit": {
 				if (
@@ -514,12 +488,7 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 				) {
 					return refusal(action, me, "edit needs a title, paths, type, breaking, priority, or dependsOn.");
 				}
-				return await mutate(
-					store,
-					action,
-					me,
-					now,
-					args,
+				return await write(
 					{
 						kind: "edit",
 						title: args.title,
@@ -535,7 +504,7 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 				);
 			}
 			case "drop":
-				return await dropCard(store, me, args, now, cross);
+				return await dropCard(store, me, args, now, cross, ownerLabel);
 			case "archive":
 				// The archive action lives with the sweep it runs, loaded when it is called.
 				const { archiveCards } = await import("./archive.ts");

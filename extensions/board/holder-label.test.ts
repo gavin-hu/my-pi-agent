@@ -16,6 +16,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { writeJoinedRecord } from "../../test/helpers/bus.ts";
 import { agentLabel } from "../../lib/session-label.ts";
+import { heldBy } from "../../lib/workflow/lead.ts";
 import { mutate } from "./actions.ts";
 import { registerTools } from "./tools.ts";
 import type { BoardDetails } from "./types.ts";
@@ -109,5 +110,46 @@ describe("a holder's name", () => {
 		);
 		expect(written.content[0].text).toContain("owner: renamed-lead");
 		expect((await store.read(card.id))?.owner?.label).toBe(me.label);
+	});
+
+	/**
+	 * The folded half: one mismatched pair drives two of the refusals #850 listed, not only the `move`
+	 * a `done` costs. Both read the same id, so both must print the same name — the point is that the
+	 * sentences agree.
+	 */
+	test("a refused note and a refused claim print the bus's name from one pair", async () => {
+		const board = harness();
+		const store = await board.runtime.store(board.ctx.cwd);
+		const core = { id: CORE, label: CORE_NAME };
+		const card = await store.create(
+			{ title: "a card", paths: [], type: "bug", breaking: false, priority: "normal" },
+			core,
+			NOW,
+		);
+		await store.mutate(card.id, { kind: "claim" }, core, NOW);
+		await board.rename(CORE, "renamed-core");
+
+		// `note` refuses a card the caller does not hold, and `claim` refuses one somebody already holds:
+		// two of the ten sites, neither of them the `move` the first tests read.
+		const refusedNote = await board.call({ action: "note", card: card.id, note: "one line" });
+		expect(refusedNote.isError).toBe(true);
+		expect(refusedNote.content[0].text).toContain("is held by renamed-core. Only its owner can add a note.");
+		const refusedClaim = await board.call({ action: "claim", card: card.id });
+		expect(refusedClaim.isError).toBe(true);
+		expect(refusedClaim.content[0].text).toContain("is held by renamed-core.");
+		expect((await store.read(card.id))?.owner).toEqual(core);
+	});
+
+	/**
+	 * The far end of the chain: a holder whose record carries no label at all.
+	 *
+	 * No readable card reaches it — `readCard` refuses an owner with an empty label (`card.ts:558`), so a
+	 * record cannot hold one — which is why this is the sentence itself rather than a call through the
+	 * tool: `heldBy`'s third step is the id, and "another session" is the answer for nobody at all.
+	 */
+	test('a holder with no label prints its id, never "another session"', () => {
+		const card = { id: "1", owner: { id: CORE, label: "" } } as unknown as Parameters<typeof heldBy>[0];
+		expect(heldBy(card)).toBe(`#1 is held by ${CORE}.`);
+		expect(heldBy(card)).not.toContain("another session");
 	});
 });
