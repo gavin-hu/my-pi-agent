@@ -126,9 +126,16 @@ function bulletOf(card: Card): string {
 	return fitLine(`- ${cardRef(card.id)} (${card.lane})${reason === undefined ? "" : ` ${reason.text}`}`);
 }
 
-/** The marker the seat's block opens with, and its own ceilings. */
+/**
+ * The marker the seat's block opens with, and its own ceilings.
+ *
+ * Five lines, and what they can spend: 74 for the headline, 190 for `Yours:`, 150 for `Blocked:`,
+ * 140 for `Peers:` and 47 for the hatch, with four newlines, come to 605. The 620 is that worst
+ * case with slack, and the six is the price of the mode rather than a count of what it prints
+ * today: a clause the round grows next spends a line, not a second message.
+ */
 export const LEAD_CONTEXT_MARKER = "[LEAD MODE]";
-export const MAX_LEAD_CHARS = 480;
+export const MAX_LEAD_CHARS = 620;
 export const MAX_LEAD_LINES = 6;
 /**
  * What one clause of the block may spend. The hatch is not shareable: a clause
@@ -137,6 +144,33 @@ export const MAX_LEAD_LINES = 6;
  */
 export const MAX_LEAD_CLAUSE_CHARS = 190;
 export const MAX_LEAD_PEERS_CHARS = 140;
+/**
+ * The pool's share of the `Yours:` clause: how many untaken cards it names, and how much of the
+ * clause it may take.
+ *
+ * The pool is the one clause on that line that is not the seat's work, so it is fitted first and
+ * into its own budget — a busy board naming forty cards used to spend the clause and clip away the
+ * two signatures only the seat can make.
+ */
+export const MAX_POOL_IDS = 3;
+export const MAX_LEAD_POOL_CHARS = 72;
+/**
+ * What the `Blocked:` line spends: how many cards it names, and how much of each decision it keeps.
+ *
+ * A block's sentence is up to `MAX_BLOCKED` characters and says what a person owes the card; the
+ * ids and the gist are what the seat acts on, and the card itself is one `board list <id>` away.
+ */
+export const MAX_BLOCKED_SHOWN = 2;
+export const MAX_BLOCKED_WHY_CHARS = 60;
+export const MAX_LEAD_BLOCKED_CHARS = 150;
+
+/** A card parked on a decision: what it is, and the sentence it waits on. */
+export interface BlockedFact {
+	/** The card, as `#12`. */
+	ref: string;
+	/** The decision a person owes it, in the card face's own words. */
+	why: string;
+}
 
 /** What the seat is owed, gathered once per turn. */
 export interface LeadFacts {
@@ -144,16 +178,25 @@ export interface LeadFacts {
 	approve: readonly string[];
 	/** Executions waiting for the seat's spot-check. */
 	review: readonly string[];
+	/**
+	 * Signs, and handoffs, the bus never took: the owner has not heard, so the only retry is the
+	 * seat's own signature again.
+	 */
+	untold: readonly string[];
 	/** Cards nobody has taken. */
 	unclaimed: readonly string[];
+	/** Cards parked on a decision, and what each waits on. */
+	blocked: readonly BlockedFact[];
+	/** Messages in the seat's own inbox that nothing has told it about. */
+	mail: number;
 	/** One line per live peer: its label, whether it is quiet, and its unread mail. */
 	peers: readonly string[];
 }
 
 /**
- * The round as the seat needs it: what it owes a signature, what nobody has taken,
- * and who is listening — read from the same cards and roster the page draws, so the
- * line and the page cannot disagree. A board or a bus that cannot be read is no
+ * The round as the seat needs it: what it owes a signature, what a person owes a decision,
+ * what nobody has taken, and who is listening — read from the same cards and roster the page
+ * draws, so the line and the page cannot disagree. A board or a bus that cannot be read is no
  * line at all rather than a failed turn.
  */
 export async function leadFacts(
@@ -170,7 +213,13 @@ export async function leadFacts(
 		return {
 			approve: round.unapproved.map((card) => cardRef(card.id)),
 			review: round.unreviewed.map((card) => cardRef(card.id)),
+			untold: round.untold.map((card) => cardRef(card.id)),
 			unclaimed: round.unassigned.map((card) => cardRef(card.id)),
+			blocked: round.blocked.map((card) => ({ ref: cardRef(card.id), why: blockedWhy(card) })),
+			// The roster is the one reader of "written and not told", and the seat's own row is the
+			// only place its inbox is counted: a seat that was never told reads zero, like a session
+			// the bus holds no record of, which is the same silence either way.
+			mail: roster.find((peer) => peer.id === self)?.mail ?? 0,
 			peers: roster
 				.filter((peer) => peer.id !== self)
 				.map((peer) => {
@@ -185,26 +234,90 @@ export async function leadFacts(
 }
 
 /**
- * The seat's block: what it owes, who is here, and the hatch.
+ * What a blocked card waits on: `reasonFor`'s sentence, which is the card face's own.
+ *
+ * The recorded block names the errand and the decision; a card hand-edited into the lane, or one
+ * parked by a build that recorded neither, is `blocked` and nothing more. The word is the type's
+ * floor rather than a case this build makes.
+ */
+function blockedWhy(card: Card): string {
+	return reasonFor(card, () => "now")?.text ?? "blocked";
+}
+
+/**
+ * The seat's block: what it owes, what is parked on a person, who is here, and the hatch.
  *
  * The hatch is on every turn, because the refusal the model meets names it and this
  * is the line it reads before it acts. The ceiling is characters and lines, spent on
  * whole clauses: a long list of ids clips rather than the line being cut, and the
- * `unclaimed` clause folds into `Yours` when there is one, so a busy board costs a
- * clause and not a line.
+ * pool rides at the end of `Yours` in its own budget, so a busy board costs a clause
+ * and not the signature queue.
+ *
+ * `Blocked` is the round's own group and not the seat's queue: the card is somebody's, and what
+ * the seat owes it is a dispatch or a push on the person who owes the decision — which is why it
+ * names the decision rather than the card alone. A board with nothing parked spends no line on it.
  */
 export function buildLeadContext(facts: LeadFacts): string {
-	const owed: string[] = [];
-	if (facts.approve.length > 0) owed.push(`approve ${facts.approve.join(", ")}`);
-	if (facts.review.length > 0) owed.push(`review ${facts.review.join(", ")}`);
-	if (facts.unclaimed.length > 0) owed.push(`unclaimed ${facts.unclaimed.join(", ")}`);
 	const lines = [
 		`${LEAD_CONTEXT_MARKER} You hold the seat: sign, dispatch, and ticket; code is a card.`,
-		fitLine(owed.length === 0 ? "Yours: nothing to sign." : `Yours: ${owed.join(" · ")}.`, MAX_LEAD_CLAUSE_CHARS),
-		fitLine(`Peers: ${facts.peers.length === 0 ? "no peers live" : facts.peers.join(" · ")}.`, MAX_LEAD_PEERS_CHARS),
-		"`/board exit` to write; the page keeps serving.",
+		yoursLine(facts),
 	];
+	if (facts.blocked.length > 0) lines.push(blockedLine(facts.blocked));
+	lines.push(
+		fitLine(`Peers: ${facts.peers.length === 0 ? "no peers live" : facts.peers.join(" · ")}.`, MAX_LEAD_PEERS_CHARS),
+	);
+	lines.push("`/board exit` to write; the page keeps serving.");
 	return lines.join("\n");
+}
+
+/**
+ * The seat's own queue, with the pool's room reserved before it is fitted.
+ *
+ * The mail count leads, because it is the one thing the seat cannot learn from the ids below it:
+ * a message nobody announced is waiting to be read. The pool comes last and is clipped into what
+ * the line has left, so the signatures keep their room however long the board is.
+ */
+function yoursLine(facts: LeadFacts): string {
+	const pool = poolClause(facts.unclaimed);
+	const owed: string[] = [];
+	if (facts.mail > 0) owed.push(`${facts.mail} unread`);
+	if (facts.approve.length > 0) owed.push(`approve ${facts.approve.join(", ")}`);
+	if (facts.review.length > 0) owed.push(`review ${facts.review.join(", ")}`);
+	if (facts.untold.length > 0) owed.push(`untold ${facts.untold.join(", ")}`);
+	const body = owed.length === 0 ? "nothing to sign" : owed.join(" · ");
+	if (pool === "") return fitLine(`Yours: ${body}.`, MAX_LEAD_CLAUSE_CHARS);
+	const room = MAX_LEAD_CLAUSE_CHARS - pool.length - " · ".length;
+	return fitLine(`Yours: ${fitLine(body, room)} · ${pool}.`, MAX_LEAD_CLAUSE_CHARS);
+}
+
+/**
+ * The pool, capped: the cards nobody has taken, then a count of the rest.
+ *
+ * Three ids because the seat's next move on any of them is the same offer or assignment, and the
+ * count is the fact the line could not carry otherwise: a board of forty reads as a board of forty.
+ */
+function poolClause(ids: readonly string[]): string {
+	if (ids.length === 0) return "";
+	const shown = ids.slice(0, MAX_POOL_IDS);
+	const rest = ids.length - shown.length;
+	const tail = rest === 0 ? "" : ` +${rest} more`;
+	return fitLine(`unclaimed ${shown.join(", ")}${tail}`, MAX_LEAD_POOL_CHARS);
+}
+
+/**
+ * What is parked on a person: each card, the decision it waits on, then a count of the rest.
+ *
+ * The tail is counted before the cards are fitted, so `+2 more` is never the half that the ceiling
+ * takes: a reader who is told two cards and a count goes looking, and one who is told nothing goes
+ * nowhere.
+ */
+function blockedLine(blocked: readonly BlockedFact[]): string {
+	const shown = blocked.slice(0, MAX_BLOCKED_SHOWN);
+	const rest = blocked.length - shown.length;
+	const tail = rest === 0 ? "" : ` +${rest} more`;
+	const room = MAX_LEAD_BLOCKED_CHARS - "Blocked: ".length - tail.length - 1;
+	const cards = shown.map((card) => `${card.ref} — ${fitLine(card.why, MAX_BLOCKED_WHY_CHARS)}`);
+	return `Blocked: ${fitLine(cards.join(" · "), room)}${tail}.`;
 }
 
 /** Whether a stored message is the line this module injected. */
