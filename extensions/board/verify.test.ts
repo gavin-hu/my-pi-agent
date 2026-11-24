@@ -30,11 +30,26 @@ import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
+import { SIZE_GATES } from "../../lib/workflow/verify.ts";
 
 afterAll(flushFixture);
 
 /** The command a card's contract names in these cases, and its one run. */
 const VERIFY = "bun run check";
+
+/**
+ * A run whose size gates pass and whose card command answers `outcome`.
+ *
+ * The shared `runner` answers one outcome to every command, which after #858 would make the *gate*
+ * the thing that failed and leave the card's own line untested: these cases are about the second run,
+ * so the first one is held green here and only its call is recorded.
+ */
+function cardRun(outcome: Parameters<typeof runner>[0] = {}): ReturnType<typeof runner> {
+	const inner = runner(outcome);
+	const call = async (command: string, cwd: string) =>
+		command === SIZE_GATES ? { exit: 0, output: "", killed: false } : inner(command, cwd);
+	return Object.assign(call, { ran: inner.ran, cwds: inner.cwds });
+}
 
 /** A card in `execute` whose contract names `verify`, or one that names no command. */
 async function running(who: { lead: Session; peer: Session }, verify?: string): Promise<void> {
@@ -54,7 +69,7 @@ describe("a spot-check whose contract names a command", () => {
 		await running(who, VERIFY);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		expect(reviewed.isError).toBeFalsy();
-		expect(run.ran).toEqual([VERIFY]);
+		expect(run.ran).toEqual([SIZE_GATES, VERIFY]);
 		// The record is the run's — the command, its exit, its moment, and the tree it ran in —
 		// and the card is what the store ended up with.
 		const root = (await who.lead.board.runtime.store(who.lead.board.ctx.cwd)).root();
@@ -79,7 +94,7 @@ describe("a spot-check whose contract names a command", () => {
 	});
 
 	test("a red command refuses the sign, naming the exit and what it printed", async () => {
-		const who = bench({ verify: runner({ exit: 1, output: "3 tests failed\n  see above" }) });
+		const who = bench({ verify: cardRun({ exit: 1, output: "3 tests failed\n  see above" }) });
 		await running(who, VERIFY);
 		const refused = await who.lead.call({ action: "review", card: "1" });
 		expect(refused.isError).toBe(true);
@@ -90,7 +105,7 @@ describe("a spot-check whose contract names a command", () => {
 	});
 
 	test("a run that outlives its bound is refused, naming the bound", async () => {
-		const who = bench({ verify: runner({ killed: true, exit: -1 }) });
+		const who = bench({ verify: cardRun({ killed: true, exit: -1 }) });
 		await running(who, VERIFY);
 		const refused = await who.lead.call({ action: "review", card: "1" });
 		expect(refused.isError).toBe(true);
@@ -129,6 +144,9 @@ describe("a spot-check whose contract names a command", () => {
 		const clock = { at: NOW };
 		const ran = runner();
 		const slow = async (command: string, cwd: string) => {
+			// The gates are not the clock this case spends: it is about the card's own line outliving
+			// the call, so the gate answers at once and only the second run moves time.
+			if (command === SIZE_GATES) return ran(command, cwd);
 			const outcome = await ran(command, cwd);
 			clock.at += 5_000;
 			return outcome;
@@ -138,7 +156,7 @@ describe("a spot-check whose contract names a command", () => {
 		await running(who, VERIFY);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		expect(reviewed.isError).toBeFalsy();
-		expect(ran.ran).toEqual([VERIFY]);
+		expect(ran.ran).toEqual([SIZE_GATES, VERIFY]);
 		// Three moments, one fact: the sign, the record that its owner was told, and the field the
 		// `done` gate reads. A reading taken at the top of the call would put the first two five
 		// seconds behind the evidence they carry, and make `signStale` compare a stale half.
@@ -155,7 +173,7 @@ describe("a spot-check whose contract names a command", () => {
 		await running(who, VERIFY);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		const root = (await who.lead.board.runtime.store(who.lead.board.ctx.cwd)).root();
-		expect(run.cwds).toEqual([root]);
+		expect(run.cwds).toEqual([root, root]);
 		expect(reviewed.details.card?.review?.verified?.root).toBe(root);
 		// The bench has no git, so there is no commit: the tree is still the one it ran in.
 		expect(reviewed.details.card?.review?.verified?.sha).toBeUndefined();
@@ -172,7 +190,10 @@ describe("a spot-check whose contract names a command", () => {
 		const reviewed = await withEnv({ [ENV_ROOT]: worktree }, () => who.lead.call({ action: "review", card: "1" }));
 		// Compared as resolved paths: the temp root is a symlink on macOS, so the spelling the
 		// environment carries and the one git prints are not the same string.
-		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([realpathSync.native(worktree)]);
+		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([
+			realpathSync.native(worktree),
+			realpathSync.native(worktree),
+		]);
 		expect(reviewed.details.card?.review?.verified).toEqual({
 			cmd: VERIFY,
 			exit: 0,
@@ -194,7 +215,10 @@ describe("a spot-check whose contract names a command", () => {
 		const { who, run, main } = worktreeBench();
 		await running(who, VERIFY);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
-		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([realpathSync.native(main)]);
+		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([
+			realpathSync.native(main),
+			realpathSync.native(main),
+		]);
 		expect(reviewed.details.card?.review?.verified).toEqual({
 			cmd: VERIFY,
 			exit: 0,

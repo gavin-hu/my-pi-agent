@@ -50,6 +50,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a spot-check runs the repository's size gates — `test/module-sizes.test.ts` and `test/suite-sizes.test.ts` — before
+  the card's own `verify`, serially and in the same tree, and refuses the sign when either is red, naming the gate and what it
+  printed. A card's `verify` can only fail what it names, and two cards in one night were signed green while a module sat at 638
+  lines and a suite at 449; the sign still records the card's own command, so a changed line cannot ride an old result.
+
 - `board`: the seat's per-turn `[LEAD MODE]` line is the round rather than half of it. It names the mail waiting in the
   seat's own inbox, `untold` for a sign or a handoff the bus never took — the one a second signature can still deliver —
   and a `Blocked:` line carrying the decision each parked card waits on, in the card face's own words. The pool rides at

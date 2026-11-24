@@ -10,8 +10,7 @@ the site under [`docs/`](./docs/), which GitHub Pages builds.
 
 - Install [Bun](https://bun.sh) and make sure `git` is on `PATH`.
 - Read [`AGENTS.md`](./AGENTS.md) — the rules and their gates.
-- For a large change, open an issue first so the approach can be agreed before
-  code is written.
+- For a large change, open an issue so the approach is agreed.
 
 ## Checks
 
@@ -30,10 +29,10 @@ bun run check:all       # the full sweep: what CI and a release owe
 | `bun test --changed=main` | What this branch changes, by Bun's own graph |
 | `PI_SLOW_TESTS=1 bun test` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
 
-The landing gate adds `bun test test/` — the package-level contracts read the tree — and widens to
-`check:all` when the change is the runner's or `git` cannot narrow it.
-[`test/README.md`](./test/README.md#running) covers what each invocation leaves out;
-[`scripts/README.md`](./scripts/README.md) owns the surface.
+The landing gate adds `bun test test/`, the package-level contracts, and widens to
+`check:all` for a runner change or an unnarrowable one.
+[`test/README.md`](./test/README.md#running) covers each invocation and the size gate a card's `verify`
+names — 600 for a module, 400 for a suite; [`scripts/README.md`](./scripts/README.md) owns the surface.
 
 ## Branch flow
 
