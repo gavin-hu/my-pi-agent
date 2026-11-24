@@ -16,7 +16,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { cardRef, holds } from "../../lib/workflow/card.ts";
 import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
-import { listOf } from "../../lib/format.ts";
+import { listOf, sanitizeLine } from "../../lib/format.ts";
 import { presenceOf } from "../../lib/session-roster.ts";
 import { sameLabel } from "../../lib/session-label.ts";
 
@@ -52,6 +52,10 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 		const now = session.now();
 		const released: string[] = [];
 		const reseated: string[] = [];
+		// Cards whose owner the sweep could not vouch for: a card that names only a label is matched by
+		// name (`recordOf`), and a name is what a seat hands over — so a dead record under a live
+		// session's label is a fact about the wrong session (#836). Left alone, and said.
+		const unvouched: string[] = [];
 		// True when any card in that list was a record the bus had pruned rather than one it watched stop:
 		// the weaker fact, said in the clause a session acts on. Two seats of one name in one sweep is the
 		// only way the qualifier can cover more than it should, and that is a case the bus does not make.
@@ -63,6 +67,10 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 			// which runs right after the re-claim of those same paths, would take back what it just resumed.
 			if (holds(card, me)) continue;
 			const state = presenceOf(roster, card.owner, now);
+			if (state === "gone" && card.owner.id === undefined) {
+				unvouched.push(`${cardRef(card.id)} under ${sanitizeLine(card.owner.label)}`);
+				continue;
+			}
 			// The seat: this session wears the owner's label and the bus says that session stopped, so the
 			// card is one a `/resume` left behind and is handed back rather than pooled. `absent` counts
 			// here and nowhere else — a pruned record is the weaker fact, and the clause says which one.
@@ -71,7 +79,7 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 			if (!mine && state !== "gone") continue;
 			const holder = { owner: card.owner, state };
 			const result = await store
-				.mutate(card.id, mine ? { kind: "reseat", holder } : { kind: "reclaim", holder }, me, now)
+				.mutate(card.id, mine ? { kind: "reseat", holder } : { kind: "reclaim", holder, swept: true }, me, now)
 				.catch(() => undefined);
 			if (result?.ok !== true || !result.changed) continue;
 			if (mine) {
@@ -79,7 +87,7 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 				if (state === "absent") pruned = true;
 			} else released.push(cardRef(card.id));
 		}
-		if (released.length === 0 && reseated.length === 0) return undefined;
+		if (released.length === 0 && reseated.length === 0 && unvouched.length === 0) return undefined;
 		// `a and b`, never `a, and b`: a bullet in the first turn is one sentence, and two cards is
 		// the common case. The clause is the same shape `stray-fields` uses for the same reason.
 		const parts: string[] = [];
@@ -89,6 +97,9 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 		if (released.length > 0) {
 			const from = released.length === 1 ? "a session that ended" : "sessions that ended";
 			parts.push(`released ${listed(released)} from ${from}`);
+		}
+		if (unvouched.length > 0) {
+			parts.push(`left ${listed(unvouched)} alone: an owner named only by label is not one this sweep can vouch for`);
 		}
 		return parts.join(", ");
 	} catch {

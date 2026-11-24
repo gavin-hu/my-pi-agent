@@ -103,24 +103,25 @@ gated("the review page's writes", () => {
 	 * The mint-then-write guard, and the words that come with it: the first save mints the review
 	 * and writes a comment, and the second save on the same page must land — if the shas had moved
 	 * the snapshot's fingerprint, the page's own next write would be refused as SNAPSHOT_MOVED.
-	 * The footer is the one place the comparison and the counts are read, which is why this case
-	 * reads them there and nowhere in the header.
+	 * The footer is the comparison's one home and the Send button holds the draft count (#816), so
+	 * this case reads each where it lives.
 	 */
 	test(
-		"the footer names the comparison and the drafts, and a second write lands",
+		"the footer names the comparison, and a second write lands",
 		async () => {
 			await withPage(
 				async (page) => {
 					await startComment(page, "one");
 					await page.locator(".rv-compose__acts .bf-btn--primary").click();
 					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-
-					expect(await page.locator("#rv-facts").textContent()).toContain("main...HEAD");
-					expect(await page.locator("#rv-facts").textContent()).toContain("1 draft");
+					const facts = await page.locator("#rv-facts").textContent();
+					expect(facts).toContain("main...HEAD");
+					expect(facts).not.toContain("draft");
+					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 1");
 
 					await startComment(page, "two");
 					await page.locator(".rv-compose__acts .bf-btn--primary").click();
-					// The second write's thread is the state the counts below read.
+					// The second write's thread is the state the count below reads.
 					await page.waitForFunction(
 						() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 2,
 						undefined,
@@ -128,7 +129,6 @@ gated("the review page's writes", () => {
 					);
 					expect(await page.locator(".rv-thread").count()).toBe(2);
 					// The count is read exactly: `toContain("2 draft")` is green on "2 drafts" too.
-					expect(await page.locator("#rv-facts").textContent()).toContain("2 drafts");
 					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 2");
 				},
 				{ start: 17 },
@@ -158,8 +158,10 @@ gated("the review page's writes", () => {
 						undefined,
 						{ timeout: REVIEW_PAINT_MS },
 					);
+					// The Send button is painted from the review the drop answered with, so zero here is the
+					// server holding no draft — the count `code_review close` reads.
 					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 0");
-					expect(await page.locator("#rv-facts").textContent()).toContain("0 drafts");
+					expect(await page.locator(".rv-orphans__item").count()).toBe(0);
 				},
 				{ start: 17 },
 				[{ rel: "a.ts", line: 3, body: "a line this hunk stopped drawing" }],

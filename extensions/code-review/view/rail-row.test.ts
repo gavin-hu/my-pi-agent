@@ -145,4 +145,25 @@ gated("the rail's row", () => {
 		},
 		CASE_MS,
 	);
+
+	// A progress count that only changes on reload is worse than none: the mark is what moves it, and
+	// it moves in the rail's head while the footer the count left stays exactly as it was.
+	test(
+		"a mark moves the rail's progress and leaves the footer alone",
+		async () => {
+			await withPage(
+				async (page) => {
+					const facts = await page.locator("#rv-facts").textContent();
+					expect(await page.locator("#rv-progress").textContent()).toContain("0 of ");
+					await page.keyboard.press("j");
+					await page.keyboard.press("m");
+					await page.waitForSelector('.rv-rail[data-state="reviewed"]', { timeout: REVIEW_PAINT_MS });
+					expect(await page.locator("#rv-progress").textContent()).toContain("1 of ");
+					expect(await page.locator("#rv-facts").textContent()).toBe(facts);
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
 });

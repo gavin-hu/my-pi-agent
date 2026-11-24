@@ -341,24 +341,16 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     return { text: text, only: only, shown: shown, total: nodeList(".rv-rail").length };
   }
 
-  /** The file fact the footer prints, which follows the rail while a filter is on. */
-  function paintFacts() {
-    var facts = byId("rv-facts");
-    if (!facts) return;
-    var total = sections().length;
-    var shown = visibleState().shown;
-    var files = shown === total ? plural(total, "file") : shown + " of " + total + " files";
-    facts.textContent =
-      data.comparison +
-      " · " +
-      files +
-      " · " +
-      plural(drafts().length, "draft") +
-      " · " +
-      reviewedSet().size +
-      " of " +
-      total +
-      " reviewed";
+  /**
+   * How far the review has got, in the rail's head — the one place the page prints it, and the
+   * reason the footer no longer does. Marking a file reaches this through paintChrome, which is
+   * where the page repaints state; the filter does not, because it changes what is shown while this
+   * counts the whole review.
+   */
+  function paintProgress() {
+    var progress = byId("rv-progress");
+    if (!progress) return;
+    progress.textContent = reviewedSet().size + " of " + sections().length + " reviewed";
   }
 
   /**
@@ -393,7 +385,6 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
         (state.text !== "" ? ' · filter "' + state.text + '"' : "") +
         (state.only ? " · only commented" : "");
     }
-    paintFacts();
   }
 
   /** Clear both halves of the filter, then put the cursor back where it was typed. */

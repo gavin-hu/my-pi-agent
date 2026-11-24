@@ -255,9 +255,9 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const focused = input.file === undefined ? undefined : all.find((file) => file.rel === input.file);
 	const files = focused === undefined ? all : [focused];
 	const stale = input.review !== undefined && input.review.rev !== snapshot.fingerprint;
-	// The header states no fact the footer owns: the comparison, the counts and the progress are the
-	// footer's one line (lib/web/README.md), and the draft count is on the Send button. What is left
-	// here is the way out of a page the tree moved under.
+	// One home per fact: the rail's head carries everything about files (shown/total, the totals and
+	// how far the review has got), the footer carries only the comparison, and the draft count is on
+	// the Send button. What is left here is the way out of a page the tree moved under.
 	const facts = reloadChip({ title: "The diff moved — reload the page" });
 	const controls = `<div class="bf-app__group">
     ${scopeSegments(snapshot.scope)}
@@ -307,7 +307,7 @@ ${appHead({
       </div>
       <div class="rv-side-scroll">
         ${focused === undefined ? "" : backToAll(snapshot.scope, all.length)}
-        <div class="rv-side-head"><span>changed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
+        <div class="rv-side-head"><span>${focused === undefined ? "changed" : "changed in scope"}</span><span class="rv-progress" id="rv-progress" aria-live="polite">${done} of ${all.length} reviewed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
         <nav class="rv-files" id="rv-rail" aria-label="Changed files">${files.map((file, index) => railRow(file, index, comments, reviewed)).join("\n")}</nav>
         <p class="bf-note" id="rv-rail-empty" hidden><span id="rv-rail-empty-text"></span> <button type="button" class="bf-btn bf-btn--sm" id="rv-rail-clear">Clear filter</button></p>
       </div>
@@ -326,7 +326,7 @@ ${appHead({
     </div>
   </main>
 </div>
-${pageFooter({ facts: `${comparisonLine(snapshot)} · ${all.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${plural(drafts.length, "draft")} · ${done} of ${all.length} reviewed`, factsId: "rv-facts" })}
+${pageFooter({ facts: comparisonLine(snapshot), factsId: "rv-facts" })}
 
 <div class="rv-selbar" id="rv-selbar" data-open="false" role="toolbar" aria-label="Selected lines">
   <span class="rv-selbar__ref" id="rv-selbar-ref"></span>

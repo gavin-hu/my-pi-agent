@@ -38,6 +38,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `code-review`: the review page's facts have one home each. The footer keeps only the comparison — the
+  counts, the totals and the progress it also carried are gone from it — while the rail's head states the
+  file count, the scope's totals and how far the review has got, and the draft count on the page is the
+  Send button's alone (the tab title keeps its own). The served footer and the live one can no longer
+  disagree about the totals, which is what the two copies had already started to do.
+
 - `board`: `reclaim` says what it leaves behind. The verb returns the card and keeps the holder's path claims, and the
   action's own line now reads that way instead of only "returns it to `backlog`"; the clause a lead sees names the one
   door that frees them (`session release` in that session). The page also records the third face — a release on a path
@@ -84,6 +90,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   delete, so the draft no longer keeps `code_review close` refusing, and a refused write repaints the controls it
   rolled back rather than leaving a reviewed box ticked against the server's state.
 
+- `board`: the turn-start sweep pools a card only for an owner the card names by **id**, and keeps the spot-check it
+  finds. A label is how a seat is handed over, so a card naming only a name could be pooled by a dead record under a
+  live session's name — and the sweep that did it withdrew the lead's sign, a silent loss needing nobody to act. A
+  label-only card waits for a person now, and the sweep says which record it declined to read.
 - `check`: the format gate stops at `.pi`. `biome.json` now carries `!.pi/**` in `files.includes`, so
   `biome format .` no longer descends into `.pi/worktrees/`, where each managed checkout's own
   `biome.json` made biome refuse the tree with "Found a nested root configuration" — `bun run check`

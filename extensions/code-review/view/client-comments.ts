@@ -170,6 +170,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     // An empty Commented view is the rail's note to explain, not a control to disable: the note
     // says there is nothing to narrow to, and the press that hid the rows is one press back.
     paintStates();
+    paintProgress();
     filtered();
     measureHeads();
   }
