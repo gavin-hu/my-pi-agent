@@ -9,8 +9,6 @@
  * receives it, and what stops the signal.
  */
 
-import { BOARD_BASE } from "../../../lib/workflow/page-pointer.ts";
-import type { BoardWire } from "../../../lib/workflow/view.ts";
 import {
 	type HttpMount,
 	LOOPBACK_HOSTS,
@@ -21,7 +19,9 @@ import {
 } from "../../../lib/http/index.ts";
 import type { IdleReason } from "../../../lib/http/sink.ts";
 import { type ArmTimer, defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
-import { createStreams } from "../../../lib/web/streams.ts";
+import { createStreams, eventFrame } from "../../../lib/web/streams.ts";
+import { BOARD_BASE } from "../../../lib/workflow/page-pointer.ts";
+import type { BoardWire } from "../../../lib/workflow/view.ts";
 import type { PageView } from "../view/page.ts";
 import { type BoardRouterContext, handleBoardRequest } from "./router.ts";
 import { defaultWatchDirs, type WatchDirs } from "./watch.ts";
@@ -250,7 +250,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 					void drawn()
 						.then((view) => {
 							pushed = view.sig;
-							sink.write(`data: ${payload(view)}\n\n`);
+							sink.write(eventFrame(payload(view)));
 						})
 						.catch(report);
 					return () => {

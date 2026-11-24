@@ -34,6 +34,22 @@ export interface StreamRecord {
 	readonly token?: string;
 }
 
+/**
+ * One server-sent event frame: `data: <payload>\n\n`, or with a name, `event: <event>\ndata: <payload>\n\n`.
+ *
+ * **The payload is one line, and a newline in it is a caller's bug.** The spec's answer for a
+ * multi-line payload is one `data:` prefix per line, and that would be an invisible change to the
+ * bytes every page's `EventSource` parses; every payload here is single-line by construction, so a
+ * newline reaching this function is a caller's mistake rather than something to split (#846). A JSON
+ * payload whose text contains a newline still arrives as one line, because `JSON.stringify` escapes it.
+ *
+ * Beside the registry because a frame's spelling belongs with the fan-out that writes it: the two
+ * callers here and the three bodies that used to spell it themselves cannot drift apart.
+ */
+export function eventFrame(payload: string, event?: string): string {
+	return event === undefined ? `data: ${payload}\n\n` : `event: ${event}\ndata: ${payload}\n\n`;
+}
+
 /** Which streams a frame is for; absent means every open page. */
 export interface StreamFilter {
 	readonly key?: string;
@@ -137,14 +153,14 @@ export function createStreams(deps: StreamRegistryDeps): StreamRegistry {
 		broadcast(kind, only) {
 			for (const [client, record] of clients) {
 				if (!matches(record, only)) continue;
-				client.write(`data: ${kind}\n\n`);
+				client.write(eventFrame(kind));
 			}
 		},
 		end(kind, only) {
 			for (const [client, record] of clients) {
 				if (!matches(record, only)) continue;
 				if (kind === undefined) client.end();
-				else client.end(`data: ${kind}\n\n`);
+				else client.end(eventFrame(kind));
 			}
 		},
 		clear: () => clients.clear(),

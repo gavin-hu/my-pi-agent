@@ -12,10 +12,11 @@
  * pair — so the whole feed is tested without one.
  */
 
+import { changeDirs } from "../../../lib/diff/status.ts";
 import type { EventSink } from "../../../lib/http/index.ts";
 import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
+import { eventFrame } from "../../../lib/web/streams.ts";
 import { LIVE_MAX_CLIENTS } from "../config/config.ts";
-import { changeDirs } from "../../../lib/diff/status.ts";
 import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "../git/git.ts";
 import { changeRevision } from "./rev.ts";
 
@@ -139,7 +140,7 @@ export function createLiveStatus(options: LiveStatusOptions): LiveStatusSource {
 
 /** One server-sent event carrying a snapshot. */
 export function frameOf(snapshot: LiveSnapshot): string {
-	return `event: status\ndata: ${JSON.stringify(snapshot)}\n\n`;
+	return eventFrame(JSON.stringify(snapshot), "status");
 }
 
 /**
@@ -151,7 +152,7 @@ export function frameOf(snapshot: LiveSnapshot): string {
  * log a page (or a test) prints, not because a page needs it to act.
  */
 export function movedFrameOf(root: string): string {
-	return `event: moved\ndata: ${JSON.stringify({ root })}\n\n`;
+	return eventFrame(JSON.stringify({ root }), "moved");
 }
 
 /** A connected page, as the channel writes it: the sink's two verbs. */
