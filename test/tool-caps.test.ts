@@ -76,6 +76,7 @@ const CARRIED: readonly Carried[] = [
 	{ tool: "board", at: "blockedBy", bound: "maxLength", value: MAX_BLOCKED },
 	{ tool: "board", at: "path", bound: "maxLength", value: MAX_PLAN },
 	{ tool: "board", at: "override", bound: "maxLength", value: MAX_CONTRACT },
+	{ tool: "board", at: "landed", bound: "maxLength", value: 40 },
 	{ tool: "board", at: "goal", bound: "maxLength", value: MAX_CONTRACT },
 	{ tool: "board", at: "acceptance", bound: "maxLength", value: MAX_CONTRACT },
 	{ tool: "board", at: "scopeOut", bound: "maxLength", value: MAX_CONTRACT },

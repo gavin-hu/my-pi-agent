@@ -82,6 +82,7 @@ export async function landedChain(
 	store: Pick<BoardStore, "read" | "root">,
 	rawCard: string | undefined,
 	pi: Pick<ExtensionAPI, "exec">,
+	declared?: string,
 ): Promise<LandingProof | undefined> {
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 	const card = id === undefined ? undefined : await store.read(id);
@@ -122,8 +123,12 @@ export async function landedChain(
 		);
 	}
 	const carries = (commit: LandingCommit): boolean => carriers.get(commit.sha) === true;
-	const check = resolveLanding({ branch, chain, since, carries }, reviewed, id);
+	const check = resolveLanding({ branch, chain, since, carries }, reviewed, id, declared);
 	if ("error" in check) return { branch, chain, since, carries };
+	// A landing the card named is checked against the review, not against the merge's own diff: the
+	// review sits above it (that is one of the three checks), so comparing the two would report every
+	// line between them as moved rather than this merge's work.
+	if (declared !== undefined) return { branch, chain, since, carries };
 	const moved = await resolvedByMerge(runGit, root, reviewed, check.sha);
 	// A diff that could not be read is not "nothing moved": the close is refused, and the refusal
 	// names the two revisions whose comparison failed.
@@ -149,16 +154,19 @@ export async function moveProofs(
 	rawCard: string | undefined,
 	lane: Lane | undefined,
 	pi: Pick<ExtensionAPI, "exec">,
+	declared?: string,
 ): Promise<{ artifact?: ArtifactProof; landed?: LandingVerdict }> {
 	const artifact = await provedPlan(runtime, cwd, store, rawCard);
 	// The answer, not the question: `landedChain` already resolved the landing to build its verdict, so
 	// what the write applies is that resolution rather than a second evaluation of the same chain.
 	if (lane !== "done") return { ...(artifact === undefined ? {} : { artifact }) };
-	const proof = await landedChain(store, rawCard, pi);
+	const proof = await landedChain(store, rawCard, pi, declared);
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 	const card = id === undefined ? undefined : await store.read(id);
 	const reviewed = card?.review?.verified?.sha;
 	const landed =
-		proof === undefined || id === undefined || reviewed === undefined ? undefined : landingVerdict(proof, reviewed, id);
+		proof === undefined || id === undefined || reviewed === undefined
+			? undefined
+			: landingVerdict(proof, reviewed, id, declared);
 	return { ...(artifact === undefined ? {} : { artifact }), ...(landed === undefined ? {} : { landed }) };
 }
