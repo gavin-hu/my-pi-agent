@@ -30,6 +30,7 @@ import { strayField } from "../../lib/stray-fields.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { textResult } from "../../lib/tool-result.ts";
 import { CLAIM_NEXT, formatCard } from "./format.ts";
+import { liveLabelOf } from "../../lib/workflow/round-text.ts";
 import { createDeliver, createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { refusal, renderBoardCall, renderBoardResult } from "./result.ts";
 import { dropCard, holderFact, mutate, reclaimOp } from "./write.ts";
@@ -323,9 +324,14 @@ export function registerTools(
 							args.override === undefined
 								? undefined
 								: await closingInstruction(store, args.card, args.override, me, lane, landed);
+						// The bus's name for the holder, when it can answer: a refusal that names a holder
+						// prints this, and the row the write returns does too. The record's own label is the
+						// fallback for an id the bus has dropped.
+						const ownerLabel = await holderLabel(runtime, store, args.card, ctx.cwd);
 						const op: CardOp = {
 							kind: "move",
 							lane,
+							...(ownerLabel === undefined ? {} : { ownerLabel }),
 							...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
 							...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 							...(proved === undefined ? {} : { artifact: proved }),
@@ -335,7 +341,10 @@ export function registerTools(
 							// has lost: the one fact that door needs, read only for a `done`.
 							...(lane === "done" ? await holderFact(runtime, store, args.card, ctx.cwd) : {}),
 						};
-						return await mutate(store, action, me, now, args, op, { cross });
+						return await mutate(store, action, me, now, args, op, {
+							cross,
+							...(ownerLabel === undefined ? {} : { ownerLabel }),
+						});
 					}
 					case "note":
 						return await mutate(store, action, me, now, args, { kind: "note", text: args.note });
@@ -473,6 +482,28 @@ export function registerTools(
 		renderCall: renderBoardCall,
 		renderResult: renderBoardResult,
 	});
+}
+
+/**
+ * The bus's name for the card's holder, or undefined when it cannot answer.
+ *
+ * One read of the card and one of the roster, and the label stays where `liveLabelOf` puts it: the
+ * bus's name for the owner's id, the record's label for an id the bus has dropped, and nothing at
+ * all when the card has no owner — which is the caller printing "unassigned", not a holder.
+ */
+async function holderLabel(
+	runtime: BoardSession,
+	store: BoardStore,
+	rawCard: string | undefined,
+	cwd: string,
+): Promise<string | undefined> {
+	if (rawCard === undefined) return undefined;
+	const id = normalizeCardId(rawCard);
+	if (id === undefined) return undefined;
+	const card = await store.read(id).catch(() => undefined);
+	if (card?.owner === undefined) return undefined;
+	const rosterRows = await runtime.roster(cwd).catch(() => undefined);
+	return rosterRows === undefined ? undefined : liveLabelOf(card.owner, rosterRows);
 }
 
 /** `add`: the only action that creates a card. */

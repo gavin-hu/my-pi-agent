@@ -96,6 +96,14 @@ export async function mutate(
 		notice?: (card: Card, result: MutateResult) => Promise<{ card?: Card; line?: string } | undefined>;
 		cross?: (result: MutateResult) => Promise<string | undefined>;
 		joined?: () => Promise<string | undefined>;
+		/**
+		 * The name the bus shows for the holder's session id, when the caller could read it.
+		 *
+		 * A row is a reading, so it prints the live name and leaves the record's label alone: a record
+		 * that rewrote itself on every rename would race whoever else writes and still never reach a
+		 * finished card.
+		 */
+		ownerLabel?: string;
 	} = {},
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	const arg = cardArg(args.card);
@@ -115,8 +123,12 @@ export async function mutate(
 	// line on the result rather than an error that reads as nothing having happened.
 	const toldLine = notified?.line;
 	const joined = report.joined === undefined ? undefined : await report.joined().catch(() => undefined);
+	const row =
+		report.ownerLabel === undefined || card.owner === undefined
+			? card
+			: { ...card, owner: { ...card.owner, label: report.ownerLabel } };
 	const body = [
-		formatCard(card),
+		formatCard(row),
 		report.next,
 		// The clause carries the continuation indent its neighbours do, the one `announce` writes
 		// into its own sentence: a flush-left line under an indented card reads as a second card.

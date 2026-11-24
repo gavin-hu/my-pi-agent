@@ -49,6 +49,37 @@ describe("the lead's move", () => {
 		expect(refusal(applyOp(card, opening, OTHER, NOW, boardOf(card)))).toContain("Only its owner can move it.");
 	});
 
+	/**
+	 * One session id, two names: the card recorded `billing-core` when it was claimed, and the bus now
+	 * shows that id as `renamed-core`. The sentence a `done` is refused with is where a reader decides
+	 * whether a holder is alive, so it prints the bus's name — and nothing stored is rewritten, so the
+	 * record keeps the label it captured.
+	 */
+	test("names the holder by the label the bus shows for that id, not the one the record kept", () => {
+		const card = approved();
+		const blocked = {
+			kind: "move",
+			lane: "blocked",
+			blocker: "decision",
+			blockedBy: "a person decides",
+			ownerLabel: "renamed-core",
+		} as const;
+		expect(refusal(applyOp(card, blocked, LEAD, NOW, boardOf(card)))).toBe(
+			"#4 is held by renamed-core. A lead opens `execute` by approving the contract; moving it stays the holder's.",
+		);
+		expect(card.owner).toEqual({ id: "s-core", label: "billing-core" });
+	});
+
+	test("falls back to the record's label, and to the id when the record has none", () => {
+		const card = approved();
+		const blocked = { kind: "move", lane: "blocked", blocker: "decision", blockedBy: "x" } as const;
+		// No name from the bus: the record's own label, as it was before this card.
+		expect(refusal(applyOp(card, blocked, LEAD, NOW, boardOf(card)))).toContain("is held by billing-core.");
+		// A record whose label is empty still names the holder: the id, never a phrase.
+		const unlabelled: typeof card = { ...card, owner: { id: "s-core", label: "" } };
+		expect(refusal(applyOp(unlabelled, blocked, LEAD, NOW, boardOf(unlabelled)))).toContain("is held by s-core.");
+	});
+
 	test("the seat opens `execute`, though its label is not the lead's", () => {
 		// #825, the other door of the same defect: `mayMove` compared the label in its power check
 		// *and* in the sentence it chose, so a session holding the seat read `plan → execute` as

@@ -88,7 +88,14 @@ function leadAuthority(actor: Actor, lead: Lead): boolean {
  * sentence it is refused with — a seat-holder refused for `not approved yet` must hear that reason, not
  * "Only its owner can move it."
  */
-export function mayMove(card: Card, actor: Actor, target: Lane, lead: Lead, holder?: HolderFact): string | undefined {
+export function mayMove(
+	card: Card,
+	actor: Actor,
+	target: Lane,
+	lead: Lead,
+	holder?: HolderFact,
+	ownerLabel?: string,
+): string | undefined {
 	if (holds(card, actor)) return undefined;
 	if (leadAuthority(actor, lead)) {
 		if (card.lane === "plan" && target === "execute") return undefined;
@@ -96,8 +103,8 @@ export function mayMove(card: Card, actor: Actor, target: Lane, lead: Lead, hold
 		if (target === "done" && card.lane === "execute" && (state === "gone" || state === "absent")) return undefined;
 	}
 	return leadAuthority(actor, lead)
-		? `${heldBy(card)} A lead opens \`execute\` by approving the contract; moving it stays the holder's.`
-		: `${heldBy(card)} Only its owner can move it.`;
+		? `${heldBy(card, ownerLabel)} A lead opens \`execute\` by approving the contract; moving it stays the holder's.`
+		: `${heldBy(card, ownerLabel)} Only its owner can move it.`;
 }
 
 /**
@@ -108,13 +115,24 @@ export function mayMove(card: Card, actor: Actor, target: Lane, lead: Lead, hold
  * the one case a lead is about to try — and a refusal that states something false teaches the next
  * session to work around the gate rather than to read it.
  */
-export function leadCannot(card: Card, verb: string): string {
-	return `${heldBy(card)} A lead opens \`execute\` by approving the contract; ${verb} stays the holder's.`;
+export function leadCannot(card: Card, verb: string, ownerLabel?: string): string {
+	return `${heldBy(card, ownerLabel)} A lead opens \`execute\` by approving the contract; ${verb} stays the holder's.`;
 }
 
-/** Who holds the card, as every refusal that is about a holder opens. */
-export function heldBy(card: Card): string {
-	return `${cardRef(card.id)} is held by ${card.owner?.label ?? "another session"}.`;
+/**
+ * Who holds the card, as every refusal that is about a holder opens.
+ *
+ * `ownerLabel` is the name the bus shows for the owner's session id, when the caller could read it:
+ * a record's label is the name a claim captured, and a session that was renamed since leaves the
+ * record holding a name nobody answers to — the refusal it printed read like a lost holder while the
+ * holder was alive. The record's label stays as the fallback for an id the bus has dropped, and when
+ * even that is empty the id is printed rather than a phrase: "another session" is the answer for a
+ * card nobody holds, and using it where the holder is known hides a fact a reader needs.
+ */
+export function heldBy(card: Card, ownerLabel?: string): string {
+	const owner = card.owner;
+	const named = ownerLabel ?? (owner === undefined ? undefined : owner.label !== "" ? owner.label : owner.id);
+	return `${cardRef(card.id)} is held by ${named ?? "another session"}.`;
 }
 
 /** What a lane that needs a sign nobody gave says: the lead approves it, or the person signs. */

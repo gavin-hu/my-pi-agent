@@ -105,6 +105,14 @@ export type CardOp =
 			/** Whether a person may close it where no merge could be named, and their one line why. */
 			instruction?: { text: string } | { error: string };
 			/**
+			 * The name the bus shows for the holder's session id, when the caller could read it.
+			 *
+			 * A refusal that names a holder prints this rather than the label the card record captured:
+			 * a renamed session leaves the record holding a name nobody answers to, and a reader who
+			 * sees it concludes the holder is gone.
+			 */
+			ownerLabel?: string;
+			/**
 			 * What the bus says about the session holding the card, for a move to `done`.
 			 *
 			 * A review is the signature, so a close only records where a signed card went — and the one
