@@ -33,6 +33,7 @@ export const BOARD_ACTIONS = [
 	"edit",
 	"archive",
 	"drop",
+	"land",
 ] as const;
 
 /** One action. */
@@ -61,6 +62,7 @@ export const BOARD_ACTION_KIND: Record<BoardAction, BoardActionKind> = {
 	edit: "write",
 	archive: "write",
 	drop: "write",
+	land: "write",
 };
 
 /**
@@ -93,6 +95,8 @@ export const BOARD_ACTION_EFFECT: Record<BoardAction, BoardActionEffect> = {
 	edit: "state",
 	archive: "state",
 	drop: "state",
+	// A landing fetches, merges and pushes: it is the one action whose work is the trunk itself.
+	land: "work",
 };
 
 /**

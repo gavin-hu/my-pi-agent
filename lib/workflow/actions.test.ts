@@ -35,7 +35,7 @@ describe("the action table", () => {
 
 	test("counts every other action as a write, so none of them slips past plan mode", () => {
 		const writes = BOARD_ACTIONS.filter((action) => action !== "list");
-		expect(writes).toHaveLength(12);
+		expect(writes).toHaveLength(13);
 		for (const action of writes) expect(isBoardReadAction(action), action).toBe(false);
 	});
 
@@ -49,20 +49,23 @@ describe("the action table", () => {
 		expect(isBoardReadAction(42)).toBe(false);
 	});
 
-	test("classifies every action's effect, and makes `review` the one that is work", () => {
+	test("classifies every action's effect, and names the two that are work", () => {
 		// A card is written to `~/.pi/agent/board/<repo.key>`, which is not the checkout, so a
 		// claim or a note is the board's state. `review` runs the contract's verify command as a
-		// real child process in the tree the card names, so it is work for the same reason `bash`
-		// is — a distinction the read/write kind cannot draw, because it is a write either way.
+		// real child process in the tree the card names, and `land` fetches, merges and pushes the
+		// trunk itself — the one action whose work is the checkout's history rather than its files.
+		// Both are work for the reason `bash` is: a distinction the read/write kind cannot draw,
+		// because each is a write either way.
 		expect(Object.keys(BOARD_ACTION_EFFECT).sort()).toEqual([...BOARD_ACTIONS].sort());
 		for (const action of BOARD_ACTIONS) expect(["state", "work"]).toContain(BOARD_ACTION_EFFECT[action]);
-		expect(BOARD_ACTIONS.filter((action) => BOARD_ACTION_EFFECT[action] === "work")).toEqual(["review"]);
+		expect(BOARD_ACTIONS.filter((action) => BOARD_ACTION_EFFECT[action] === "work")).toEqual(["review", "land"]);
 	});
 
-	test("answers work for `review` alone, and never for a value it has not normalized", () => {
+	test("answers work for `review` and `land`, and never for a value it has not normalized", () => {
 		expect(isBoardWorkAction("review")).toBe(true);
+		expect(isBoardWorkAction("land")).toBe(true);
 		for (const action of BOARD_ACTIONS) {
-			if (action === "review") continue;
+			if (action === "review" || action === "land") continue;
 			expect(isBoardWorkAction(action), action).toBe(false);
 		}
 		// The nudge spends a model request on a false positive, so an unreadable value is not work.

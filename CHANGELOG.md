@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: `land` is the seat's own verb — fetch, the checkout's equality with the remote, the signed commit's ancestry,
+  a `--no-ff` merge under the card's own derived subject, the numstat proof and a named-ref push, all as fixed argv. A
+  failed proof or a refused push undoes the merge with `reset --keep`, never `--hard`, so a bad landing costs a local
+  merge and never a pushed sha; a session that is not serving the page is refused, naming `/board`. It writes no
+  `landed` — the close stays `done` — and it exists because finishing a signed card used to need `/board exit` and a
+  human keystroke.
+
 - `session-bus`: `session release` takes `holder`, a live peer's label, and the seat moves that peer's claims to
   itself in one store call — so a stalled wave is re-dispatchable without a restart, and the peer's next claim meets a
   conflict naming the seat rather than a path nobody holds. A caller with no seat is refused, naming the door.

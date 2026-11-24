@@ -63,6 +63,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"holder-label",
 		"input",
 		"kind",
+		"land",
 		"landed",
 		"landing",
 		"landing-squash",
