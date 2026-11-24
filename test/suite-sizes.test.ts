@@ -50,7 +50,6 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/bytefly/notify/notify.test.ts": 461,
 	"extensions/bytefly/panel/model.test.ts": 429,
 	"extensions/bytefly/update/update.test.ts": 1176,
-	"extensions/code-review/view/interaction.test.ts": 415,
 	"extensions/file-browse/files/files.test.ts": 731,
 	"extensions/file-browse/transport/router.test.ts": 850,
 	"extensions/file-browse/view/pages.test.ts": 1205,

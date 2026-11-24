@@ -139,3 +139,42 @@ function createStoreSlot(): ReviewStore {
 	let token = 0;
 	return createReviewStore({ mint: () => `tok-${++token}`, now: () => 1 });
 }
+
+/** The token the page was served with, read from the store it minted. */
+export function pageToken(store: ReviewStore): string {
+	const page = store.current();
+	if (page === undefined) throw new Error("the page was not opened");
+	return page.token;
+}
+
+/**
+ * Open the page over a stage and hand back the token it was served with.
+ *
+ * The two suites split by capability — what the routes read, and what a write does — and both
+ * need the page the other's cases leave behind, so the opening is one body here.
+ */
+export async function openedPage(harnessed: ReturnType<typeof reviewRoute>): Promise<string> {
+	await reply(harnessed.handler, request("GET", "/new"));
+	return pageToken(harnessed.store);
+}
+
+/**
+ * One changed file drawing a single added line.
+ *
+ * The default stage is one such file; a case that needs a second, or a file a focused page does
+ * not draw, builds it from this rather than repeating the shape.
+ */
+export function stubFile(rel: string): ReviewSnapshot["files"][number] {
+	return {
+		rel,
+		status: "M",
+		add: 1,
+		del: 0,
+		binary: false,
+		truncated: false,
+		lines: [
+			{ kind: "hunk", text: "@@ -1 +1 @@" },
+			{ kind: "add", text: `// ${rel}`, newNo: 1 },
+		],
+	};
+}
