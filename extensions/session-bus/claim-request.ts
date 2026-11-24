@@ -44,7 +44,7 @@ export function registerClaimRequests(pi: ExtensionAPI, bus: SessionBus): void {
 	async function released(request: SessionReleaseRequest): Promise<ReleasePathsResult> {
 		try {
 			await bus.start(request.ctx);
-			return { ok: true, ...(await bus.release([...request.paths])) };
+			return { ok: true, ...(await bus.release([...request.paths], request.holder)) };
 		} catch (error) {
 			return { ok: false, error: messageOf(error) };
 		}

@@ -46,7 +46,14 @@ export interface BusToolSession {
 }
 
 /** One session on a bus of its own directory, named as Pi names it. */
-export function busToolSession(dir: string, root: string, id: string, name: string): BusToolSession {
+export function busToolSession(
+	dir: string,
+	root: string,
+	id: string,
+	name: string,
+	/** Entries the branch carries, so a case can put a session in a mode (#835's seat). */
+	entries: readonly unknown[] = [],
+): BusToolSession {
 	const bus = createSessionBus({} as ExtensionAPI, {
 		dir,
 		repo: { root, key: "shared" },
@@ -58,7 +65,8 @@ export function busToolSession(dir: string, root: string, id: string, name: stri
 	registerTools(fake.pi, bus);
 	const tool = fake.tools.get("session");
 	if (!tool) throw new Error("session tool not registered");
-	const ctx = fakeCtx({ cwd: root, sessionId: id, sessionName: name }).ctx as ExtensionContext;
+	const ctx = fakeCtx({ cwd: root, sessionId: id, sessionName: name, branch: entries as never })
+		.ctx as ExtensionContext;
 	return { bus, ctx, tool: tool as SessionTool, pi: fake.pi };
 }
 
