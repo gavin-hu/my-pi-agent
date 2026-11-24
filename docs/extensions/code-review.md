@@ -10,8 +10,7 @@ is written to your tree.
   `git diff`, where the note you want to leave has nowhere to go.
 - **`/review`** serves the page and opens it; **`code_review`** is the model's
   side of it — open, read, and close.
-- The page is loopback-only and carries a token, so no other process can post
-  to it.
+- The page is loopback-only and carries a token, so nothing else can post.
 
 ## What you can do
 
@@ -31,6 +30,7 @@ is written to your tree.
 ## Try it
 
 ```text
+/review
 review: my-pi-agent vs origin/main — 5 files
 review: http://127.0.0.1:4781/review/new
 ```
@@ -64,17 +64,17 @@ tree alone, untracked files included. The base ref is `code-review.base`, else
 `origin/HEAD`, else `main` or `master`; a repository where none resolves is
 refused, naming the key to set.
 
-**The page.** One page per session, at `/review/`. Its id is minted by the first write, so
-opening a page to look costs nothing; the query carries the token, and the address
-gains the id. A comment is a draft until **Send feedback** marks it sent — which also
-writes the one you are typing, and **reply** keeps a comment under its comment, one
-level deep; a reply whose comment was deleted reads as one. The changed files are the
-shell's sidebar — a search, **All** / **Commented**, and one row per file — folding
-below 900px; `wrap` wraps at any width, and narrowing hides rows, never sections. The
-rail's head carries the facts and the progress; the footer the comparison. It follows
-its own stream: a write in one tab repaints the others, a frame under an open comment
-box waits for it, and its last tab leaving ends the page 1.5 s later, so a reload
-fits. Nothing watches the tree — the next write discovers a moved diff.
+**The page.** One page per session, at `/review/`. Its id is minted by the first
+write, so looking costs nothing; the token rides the query and the id the address. A
+comment is a draft until **Send feedback** marks it sent, which also writes the one
+you are typing; **reply** keeps a comment under its comment, one level deep, and one
+whose comment was deleted reads as one. The files are the shell's sidebar — a search,
+**All** / **Commented**, one row per file — folding below 900px; `wrap` wraps at any
+width, and narrowing hides rows, never sections. The rail's head carries the facts and
+the progress; the footer the comparison. It follows its own stream: a write in one tab
+repaints the others, a frame under an open comment box waits for it, and the last tab
+leaving ends the page 1.5 s later so a reload fits. Nothing watches the tree — the
+next write discovers a moved diff.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff: the
 rail shows that file and an **all files** link back, and the comparison is still the
