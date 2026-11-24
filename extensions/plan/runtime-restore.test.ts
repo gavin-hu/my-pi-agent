@@ -126,7 +126,9 @@ describe("plan runtime — the seat's door", () => {
 		const { runtime } = planRuntimeSetup();
 		const seat = planCtx({ branch: [leadEntry()] });
 
-		expect(runtime.enable(seat.ctx)).toBe(false);
+		// The sentence, not a boolean: `enable` answers with the gate's own words, which is what lets
+		// each door word the refusal once instead of describing it again.
+		expect(runtime.enable(seat.ctx)).toBe("Lead mode holds the seat: `/board exit` before planning.");
 		expect(runtime.isEnabled()).toBe(false);
 	});
 
@@ -143,7 +145,7 @@ describe("plan runtime — the seat's door", () => {
 		const { runtime } = planRuntimeSetup();
 		const released = planCtx({ branch: [leadEntry(), leadEntry(false)] });
 
-		expect(runtime.enable(released.ctx)).toBe(true);
+		expect(runtime.enable(released.ctx)).toBeUndefined();
 		expect(runtime.isEnabled()).toBe(true);
 	});
 });

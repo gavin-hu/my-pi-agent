@@ -57,6 +57,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a spot-check runs the repository's size gates — `test/module-sizes.test.ts` and `test/suite-sizes.test.ts` — before
+  the card's own `verify`, serially and in the same tree, and refuses the sign when either is red, naming the gate and what it
+  printed. A card's `verify` can only fail what it names, and two cards in one night were signed green while a module sat at 638
+  lines and a suite at 449; the sign still records the card's own command, so a changed line cannot ride an old result.
+
 - `board`: the seat's per-turn `[LEAD MODE]` line is the round rather than half of it. It names the mail waiting in the
   seat's own inbox, `untold` for a sign or a handoff the bus never took — the one a second signature can still deliver —
   and a `Blocked:` line carrying the decision each parked card waits on, in the card face's own words. The pool rides at
@@ -133,6 +138,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ### Fixed
+
+- `plan`: a refused entry now reads as a refusal at both doors that enter the mode. A branch holding the board's seat —
+  with `board` not loaded to refuse the call before it arrives — used to get "You are now in plan mode" from the `plan`
+  tool's `enter` and "Plan mode enabled" from `/plan <task>` over a mode that never came on, the task sent with writing
+  still allowed. `runtime.enable` now answers with the gate's own sentence instead of a bare boolean, so neither caller
+  derives a second copy of it: the tool returns that sentence as a `RefusedPlanDetails` refusal, and the command stops
+  before `sendUserMessage`.
 
 - `board`: a session holding the seat can no longer claim a card, or open `execute` on one it holds. The claim took the
   session's one wip slot and, on `execute`, the card's path claims — for work the seat structurally cannot do, since it

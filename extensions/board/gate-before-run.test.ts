@@ -29,7 +29,7 @@ import { signingBoard } from "../../test/helpers/board-command.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import type { VerifyRun } from "../../lib/workflow/verify.ts";
+import { SIZE_GATES, type VerifyRun } from "../../lib/workflow/verify.ts";
 import { MAX_NOTE } from "../../lib/workflow/card.ts";
 
 const temps = makeTempTracker();
@@ -126,7 +126,7 @@ describe("a review that will be refused", () => {
 		await reviewable(who);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		expect(reviewed.isError).toBeFalsy();
-		expect(run.ran).toEqual([VERIFY]);
+		expect(run.ran).toEqual([SIZE_GATES, VERIFY]);
 	});
 });
 
