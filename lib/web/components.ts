@@ -114,7 +114,10 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-field{display:flex;align-items:baseline;gap:6px;padding:0 0 2px;border-bottom:1px solid transparent;cursor:text}
 .bf-field:hover{border-bottom-color:var(--border)}
 .bf-field:focus-within{border-bottom-color:var(--accent)}
-.bf-field--filter{width:15rem;margin-left:auto}
+/* The filter's width is the field's; the push to the row's right end is the control row's, in
+   layout.ts. A filter outside a control row is a field at its own width, not a control at the row's
+   end, which is why a page with a search in its panel wears the plain field. */
+.bf-field--filter{width:15rem}
 .bf-field__prompt{color:var(--muted);font-family:var(--font-mono)}
 /* The prompt glyph is the kit's own, so a page writes the slot empty and no page spells it. */
 .bf-field__prompt::before{content:"❯"}
