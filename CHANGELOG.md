@@ -78,6 +78,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the turn-start sweep pools a card only for an owner the card names by **id**, and keeps the spot-check it
+  finds. A label is how a seat is handed over, so a card naming only a name could be pooled by a dead record under a
+  live session's name — and the sweep that did it withdrew the lead's sign, a silent loss needing nobody to act. A
+  label-only card waits for a person now, and the sweep says which record it declined to read.
+
 - `check`: the format gate stops at `.pi`. `biome.json` now carries `!.pi/**` in `files.includes`, so
   `biome format .` no longer descends into `.pi/worktrees/`, where each managed checkout's own
   `biome.json` made biome refuse the tree with "Found a nested root configuration" — `bun run check`
