@@ -348,7 +348,13 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
 - `Date.now()` / `new Date(` used for assertions;
 - padding assertions — a string literal with three or more consecutive spaces
   passed to an assertion helper;
-- local theme doubles — an object literal with an `fg:` property.
+- local theme doubles — an object literal with an `fg:` property;
+- an interface cast at a seam — `as unknown as <Name>Runtime`, which skips every member of the
+  interface a double stands in for. Declare the double against the interface instead (`Partial<Iface>`
+  with a plain `as` at the return, or a `Pick<>`), so a member that moves fails `check:types` here
+  rather than after it lands. One line carried a fake that had drifted three ways while the cast
+  stood (#862, from #859's signature move); a real seam — a host global, a two-call stub — opts out
+  with `allow:interface-cast` and its reason on the same line.
 
 Keep the scan total: a new extension is covered automatically. The check has
 one exemption list in `test/conventions.test.ts`. A single line may also opt out
