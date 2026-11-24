@@ -22,7 +22,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | Put a feature on it | `board({ action: "add", title, paths })` — a call, because `add` takes a title rather than a card id |
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
-| Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back — the lead from anyone, a peer only once that owner's record says it stopped |
+| Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back — the lead from anyone, a peer only once that owner's record says it stopped. The claims it took stay with the session that took them: only that session's `session release` frees them, or its stopping, and a release inside `execute` waits only for the next turn, so `paths: []` and the lane are the exits that last |
 | Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut … verify …` — all four lines, and the `verify` command is required |
 | Approve the contract | `/board approve 4` in the lead's session, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
