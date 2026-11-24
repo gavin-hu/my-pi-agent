@@ -38,6 +38,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `code-review`: an unsent comment belongs to its line rather than to the page — one record per anchor in this
+  tab, so a second composer no longer overwrites the first, a reload brings back every draft whose line is
+  drawn (one whose line moved opens on a drawn row saying `was a.ts:3`, and one whose file is gone is listed
+  above the diff to discard), and **Send feedback** writes the comment still being typed before it sends,
+  counting it in the button. A flush that stops halfway leaves the dialog shut with the unsent text in place.
+
 - `code-review`: the review page's facts have one home each. The footer keeps only the comparison — the
   counts, the totals and the progress it also carried are gone from it — while the rail's head states the
   file count, the scope's totals and how far the review has got, and the draft count on the page is the
