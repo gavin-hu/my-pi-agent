@@ -38,6 +38,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `code-review`: the review page's facts have one home each. The footer keeps only the comparison — the
+  counts, the totals and the progress it also carried are gone from it — while the rail's head states the
+  file count, the scope's totals and how far the review has got, and the draft count on the page is the
+  Send button's alone (the tab title keeps its own). The served footer and the live one can no longer
+  disagree about the totals, which is what the two copies had already started to do.
+
 - `board`: `reclaim` says what it leaves behind. The verb returns the card and keeps the holder's path claims, and the
   action's own line now reads that way instead of only "returns it to `backlog`"; the clause a lead sees names the one
   door that frees them (`session release` in that session). The page also records the third face — a release on a path

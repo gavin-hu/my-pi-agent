@@ -32,6 +32,9 @@ export const REVIEW_CSS = `
 .rv-side__back{margin:0 0 var(--space-2)}
 .rv-side-head{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-2) var(--space-2);color:var(--dim);font:var(--fw-medium) var(--fs-xs) var(--font-ui);text-transform:uppercase;letter-spacing:.06em}
 .rv-side-head span:last-child{margin-left:auto;font-family:var(--font-mono);text-transform:none;letter-spacing:0}
+/* How far the review has got, beside the totals and before them in the row: the same case the
+   totals use, because it is a count and not a label. */
+.rv-side-head .rv-progress{font-family:var(--font-mono);text-transform:none;letter-spacing:0}
 .rv-files{display:flex;flex-direction:column;gap:var(--space-1)}
 /* A rail row wears its state's paper: the board's rule, in a list. The paper and the mark's colour
    are the two marks the state gets — the left rule that used to be the third is gone (#817): one
