@@ -32,6 +32,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `code-review`: the changed-file rail is the kit's collapsible sidebar, so the page wears the same
+  shell as the plan review and browse: a `<details>` that folds into a band above the diff below
+  900px, the file search as the kit's plain field (flush in the panel — the control row's variant
+  carried a `margin-left:auto` that indented it), **All** / **Commented** in place of the "only
+  commented" checkbox, and the header's actions at the control row's right end. The header's chips
+  are gone: the comparison, the counts and the progress were already the footer's one line, so the
+  facts zone keeps only the reload hint. The empty states are the kit's `.bf-empty` and `.bf-note`.
+
 - `bytefly`: the footer's `▶ auto` mode chip is muted, so a colour on that slot now means the mode holds something —
   `⏵ lead` keeps accent, because the seat is a place the session chose rather than a warning, and `≡ plan` keeps
   warning. The composer's border is unchanged: it stays accent at rest, because that is the composer's own highlight
@@ -50,6 +58,42 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ### Fixed
+
+- `board`: the session holding the lead's **seat** can take a live peer's card back, and open `execute`
+  through its own approval. Both doors compared the session's label with `team.lead`, so a session
+  serving the page under its own name was a peer at both: the lead was refused with a sentence naming
+  the lead at the lead. `who()` now answers the seat from the branch's `lead` mode, and one predicate
+  gates the two doors — a sign still reads the person and the lead's name, because a signature is the
+  human judgement and the seat narrows the tool set rather than granting one.
+
+- `worktree`: **enter** no longer offers to add the managed directory to `.gitignore` when git declines
+  to answer whether it is already ignored. A shell carrying `GIT_LITERAL_PATHSPECS` made `check-ignore`
+  refuse the question before it read any rule, and that refusal was read as "not ignored" — so the offer
+  fired every session and each accept appended the same line again. Only a definite "not ignored" offers
+  now, and the question is asked with literal pathspecs off.
+
+- `code-review`: the **wrap** button reports what the diff is doing at every width. Below 900px the
+  page wrapped by its own rule while the button still flipped unattributed — pressing it twice
+  turned wrapping "off" over text that stayed wrapped. The narrow rule now unwraps only under
+  `[data-wrap="false"]`, and the button seeds its pressed state from the same breakpoint, so the
+  switch is the one owner of the fact.
+
+- `question`: a tab header past 12 characters is refused by the tool's schema — UTF-16 units, so an
+  emoji costs two — where it used to be shortened silently; the same schema now names the rule that two
+  headers in one batch, or two options in one question, cannot share a name.
+
+- `send_wechat`: a call that names none of `text`, `image`, and `file` — or more than one — is refused
+  before the bridge is touched, because the tool's schema carries `minProperties`/`maxProperties`; the
+  runtime refusal stays for callers that bypass the schema.
+
+- `session`: the `action` description now says which reader keeps the mail (`inbox` consumes, `read`
+  keeps), and `board`'s `root` names the tree a spot-check runs in — a card's worktree or a checkout at
+  its commit, not a store path — so a call stops being shaped by a parenthesis.
+
+- `job`, `watch`, `plan`, `subagent`, `session`: each verb's required fields are stated in the field they
+  constrain rather than only in the paragraph above it, and three always-on surfaces now hold a measured
+  ceiling: `plan` at 5,575 characters (lower than yesterday, its description no longer repeating its own
+  `plan_path`), and the bound a tool may cost on every request is one table rather than one constant's copy.
 
 - `board`: a `done` whose spot-check commit was committed before the card entered `execute` is now
   refused for that — the order — with both ways out named (move the card to `execute` before landing,

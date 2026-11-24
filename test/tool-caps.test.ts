@@ -16,12 +16,12 @@
  * named and documented cannot go missing here.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 import { MAX_BLOCKED, MAX_DEPENDS, MAX_NOTE, MAX_PATH, MAX_PATHS, MAX_PLAN, MAX_TITLE } from "../lib/workflow/card.ts";
 import { MAX_CONTRACT } from "../lib/workflow/contract.ts";
+import { HEADER_MAX_WIDTH } from "../extensions/question/schema.ts";
+import { MAX_STEPS } from "../extensions/plan/steps.ts";
+import { MESSAGE_FIELDS } from "../extensions/wechat/tools.ts";
 import { MAX_ENTRY_CHARS } from "../extensions/memory/schema.ts";
 import { MAX_LABEL as JOB_LABEL, MAX_COMMAND, MAX_STDIN } from "../extensions/job/schema.ts";
 import { MAX_WAIT_MS } from "../extensions/job/waiters.ts";
@@ -29,41 +29,8 @@ import { MAX_LABEL as WATCH_LABEL, MAX_EXCLUDE, MAX_PATTERN, MAX_SOURCE } from "
 import { MAX_LABEL } from "../lib/session-label.ts";
 import { MAX_PATHS as MAX_SESSION_PATHS } from "../extensions/session-bus/protocol.ts";
 import { MAX_MESSAGE_TEXT } from "../lib/session-tool.ts";
-import { ALL_EXTENSIONS_ENV, withAgentDir, withEnv } from "./helpers/env.ts";
-import { createFakePi } from "./helpers/fakes.ts";
 import { REGISTERED } from "./helpers/registry.ts";
-
-const root = join(import.meta.dir, "..");
-
-/** The extension entry files the package manifest declares, as Pi loads them. */
-const manifest = (JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as { pi: { extensions: string[] } }).pi
-	.extensions;
-
-/**
- * A parameter schema as JSON Schema, which is what Pi validates against.
- *
- * The cast names the guarantee: TypeBox emits JSON Schema, and the walk below reads only
- * the keywords it emits.
- */
-interface SchemaNode {
-	type?: string;
-	anyOf?: unknown[];
-	const?: unknown;
-	properties?: Record<string, SchemaNode>;
-	items?: SchemaNode;
-	additionalProperties?: SchemaNode | boolean;
-	maxLength?: number;
-	maxItems?: number;
-	maximum?: number;
-	description?: string;
-}
-
-/** One registered tool, with the schema Pi receives with it. */
-interface Registered {
-	name: string;
-	entry: string;
-	parameters?: SchemaNode;
-}
+import { registeredTools, type SchemaNode } from "./helpers/registered.ts";
 
 /** One schema node and where it sits, as `paths[items]` reads. */
 type Walked = { at: string; node: SchemaNode };
@@ -76,38 +43,17 @@ function nodes(node: SchemaNode, at = "", out: Walked[] = []): Walked[] {
 	}
 	if (node.items !== undefined) nodes(node.items, `${at}[items]`, out);
 	if (typeof node.additionalProperties === "object") nodes(node.additionalProperties, `${at}[value]`, out);
+	for (const [name, child] of Object.entries(node.patternProperties ?? {})) {
+		nodes(child, `${at}[${name}]`, out);
+	}
 	return out;
-}
-
-/** Load every manifest extension once, and keep the tools it registers. */
-let registeredPromise: Promise<Registered[]> | undefined;
-
-function registered(): Promise<Registered[]> {
-	registeredPromise ??= (async () => {
-		const tools: Registered[] = [];
-		for (const entry of manifest) {
-			const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
-			await withAgentDir(async () => {
-				await withEnv(ALL_EXTENSIONS_ENV, () => {
-					const fake = createFakePi();
-					module.default?.(fake.pi);
-					for (const [name, tool] of fake.tools) {
-						tools.push({ name, entry, parameters: (tool as { parameters?: SchemaNode }).parameters });
-					}
-				});
-			});
-		}
-		const pathTools = new Set<string>(ROOT_TOOL_NAMES);
-		return tools.filter((tool) => !pathTools.has(tool.name));
-	})();
-	return registeredPromise;
 }
 
 /** One bound a schema is expected to carry, and where the value comes from. */
 interface Carried {
 	tool: string;
 	at: string;
-	bound: "maxLength" | "maxItems";
+	bound: "maxLength" | "maxItems" | "minProperties" | "maxProperties";
 	value: number;
 }
 
@@ -118,6 +64,13 @@ interface Carried {
  * is the half a hand-kept schema loses one field at a time.
  */
 const CARRIED: readonly Carried[] = [
+	// The object's own count, `at` empty: one message is exactly one of `text`, `image`, and `file`.
+	{ tool: "send_wechat", at: "", bound: "minProperties", value: MESSAGE_FIELDS },
+	{ tool: "send_wechat", at: "", bound: "maxProperties", value: MESSAGE_FIELDS },
+	// The tab header's clip, published: a header past it is refused rather than shortened.
+	{ tool: "question", at: "questions[items].header", bound: "maxLength", value: HEADER_MAX_WIDTH },
+	// Approval tracks at most this many steps, so one batch sets at most this many.
+	{ tool: "plan", at: "updates", bound: "maxItems", value: MAX_STEPS },
 	{ tool: "board", at: "title", bound: "maxLength", value: MAX_TITLE },
 	{ tool: "board", at: "note", bound: "maxLength", value: MAX_NOTE },
 	{ tool: "board", at: "blockedBy", bound: "maxLength", value: MAX_BLOCKED },
@@ -165,13 +118,13 @@ const PROSE_ONLY: readonly { tool: string; at: string; value: number }[] = [
 
 describe("the tool surface's schema", () => {
 	test("every tool named in the registry is registered, and every registered tool is named", async () => {
-		const live = (await registered()).map((tool) => tool.name).sort();
+		const live = (await registeredTools()).map((tool) => tool.name).sort();
 		expect(live).toEqual(REGISTERED.map((entry) => entry.name).sort());
 	});
 
 	test("no parameter schema publishes anyOf or const, the form a provider may not support", async () => {
 		const offenders: string[] = [];
-		for (const tool of await registered()) {
+		for (const tool of await registeredTools()) {
 			if (tool.parameters === undefined) continue;
 			for (const { at, node } of nodes(tool.parameters)) {
 				if (node.anyOf !== undefined) offenders.push(`${tool.name}${at === "" ? "" : `.${at}`}: anyOf`);
@@ -184,7 +137,7 @@ describe("the tool surface's schema", () => {
 	test("every carried bound is the constant that owns it", async () => {
 		const offenders: string[] = [];
 		for (const { tool, at, bound, value } of CARRIED) {
-			const registration = (await registered()).find((candidate) => candidate.name === tool);
+			const registration = (await registeredTools()).find((candidate) => candidate.name === tool);
 			const node = nodes(registration?.parameters ?? {}).find((walked) => walked.at === at)?.node;
 			if (node === undefined) {
 				offenders.push(`${tool}.${at}: no such parameter`);
@@ -203,7 +156,7 @@ describe("the tool surface's schema", () => {
 	test("the two caps the schema cannot state are stated where they are read", async () => {
 		const offenders: string[] = [];
 		for (const { tool, at, value } of PROSE_ONLY) {
-			const registration = (await registered()).find((candidate) => candidate.name === tool);
+			const registration = (await registeredTools()).find((candidate) => candidate.name === tool);
 			const node = nodes(registration?.parameters ?? {}).find((walked) => walked.at === at)?.node;
 			if (node === undefined) {
 				offenders.push(`${tool}.${at}: no such parameter`);

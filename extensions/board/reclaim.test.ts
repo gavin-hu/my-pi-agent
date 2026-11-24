@@ -19,6 +19,7 @@ import type { SendInput } from "../../lib/session-tool.ts";
 import type { Deliver } from "../../lib/session-tool.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import type { ClaimPathsResult, ReleasePathsResult } from "../../lib/session-tool.ts";
+import { LEAD_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { boardHarness, boardTool } from "../../test/helpers/board.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
@@ -42,6 +43,14 @@ const PEER = agentLabel(PEER_ID);
 const HOLDER = "billing-core";
 
 /**
+ * The branch of a session holding the seat: the entry `/board`'s start appends (`lead.enter`).
+ *
+ * A branch rather than `runtime.enable`, because the rule reads the mode the way a resumed
+ * session has it — the entry on the branch — and not the runtime's own flag.
+ */
+const SEAT = [{ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } }];
+
+/**
  * One board, and three sessions' tools over it: the lead the repository names, the peer that holds
  * the card, and a third session with no card of its own.
  */
@@ -49,7 +58,10 @@ function board() {
 	const cwd = temps.track(tempDir("pi-repo-"));
 	const agentDir = temps.track(tempDir("pi-agent-"));
 	const open = (sessionId: string) => boardTool({ cwd, agentDir, lead: LEAD, now: NOW, sessionId });
-	return { cwd, lead: open(LEAD_ID), peer: open(PEER_ID), other: open("s-other") };
+	// A fourth session, dressed with the seat: its label is its own id's, never the lead's — which
+	// is the whole of #825's repro.
+	const seated = boardTool({ cwd, agentDir, lead: LEAD, now: NOW, sessionId: "s-seated", branch: SEAT });
+	return { cwd, lead: open(LEAD_ID), peer: open(PEER_ID), other: open("s-other"), seated };
 }
 
 describe("a reclaim's message", () => {
@@ -128,6 +140,21 @@ describe("a peer's reclaim", () => {
 		const taken = await lead.call({ action: "reclaim", card: "1" });
 		expect(taken.details.error).toBeUndefined();
 		expect(taken.details.card).toMatchObject({ lane: "backlog", by: LEAD });
+		expect(taken.details.card?.owner).toBeUndefined();
+	});
+
+	test("the seat takes it back, though its label is not the lead's", async () => {
+		// #825's repro end to end: a session holding the seat, a `team.lead` that is somebody
+		// else's name, and a holder the bus says is running. The case above is the control — the
+		// same board, the same card, a session with no seat, refused with the lead's name in it.
+		const { cwd, lead, peer, seated } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		writeBusRecord(await peer.board.runtime.busDir(cwd), { id: PEER_ID, label: PEER, lastSeen: NOW });
+
+		const taken = await seated.call({ action: "reclaim", card: "1" });
+		expect(taken.details.error).toBeUndefined();
+		expect(taken.details.card).toMatchObject({ lane: "backlog" });
 		expect(taken.details.card?.owner).toBeUndefined();
 	});
 

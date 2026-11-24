@@ -29,11 +29,14 @@ const MIN_JOB_TIMEOUT_MS = 1;
 const MAX_JOB_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 export const JobParams = Type.Object({
-	action: StringEnum(JOB_ACTIONS),
+	action: StringEnum(JOB_ACTIONS, {
+		description:
+			"`start` begins a job; `list` and `clear` act on all, the rest by `id`. Each action's fields are in their own descriptions.",
+	}),
 	command: Type.Optional(
 		Type.String({
 			maxLength: MAX_COMMAND,
-			description: "Shell command to run in the background (for `start`).",
+			description: "`start`: required. Shell command to run in the background.",
 		}),
 	),
 	cwd: Type.Optional(Type.String({ description: "Working directory; defaults to the session cwd." })),
@@ -47,14 +50,14 @@ export const JobParams = Type.Object({
 			description: "Give the job a stdin pipe so `send` can write to it (for `start`); not with `detached`.",
 		}),
 	),
-	id: Type.Optional(Type.String({ description: "Job id, e.g. `j1`." })),
+	id: Type.Optional(Type.String({ description: "`status`/`logs`/`send`/`kill`/`wait`: required. Job id, e.g. `j1`." })),
 	lines: Type.Optional(
 		Type.Integer({ minimum: MIN_LOG_LINES, maximum: MAX_LOG_LINES, description: "Log lines to return." }),
 	),
 	input: Type.Optional(
 		Type.String({
 			maxLength: MAX_STDIN,
-			description: "Text to write to a running job's stdin (for `send`).",
+			description: "Text to write to a running job's stdin (for `send`); `send` needs this or `eof: true`.",
 		}),
 	),
 	newline: Type.Optional(Type.Boolean({ description: "Append a newline to `input` (for `send`; default true)." })),

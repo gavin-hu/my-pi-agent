@@ -4,9 +4,11 @@
  * The diff body is `lib/diff`'s markup, so its rules live here: a page that
  * draws `renderDiffLines` supplies the `.bf-diff-line*` and `.browse-diff-*`
  * rules, exactly as `file-browse` does. Everything else is `rv-` — this page's
- * rail, file section, thread and composer placement — or a kit class the kit
+ * sidebar, file section, thread and composer placement — or a kit class the kit
  * already rules.
  */
+
+import { collapsedShell } from "../../../lib/web/index.ts";
 
 /**
  * The breakpoint the rail folds at, in px.
@@ -17,12 +19,18 @@
 export const REVIEW_NARROW_PX = 900;
 
 export const REVIEW_CSS = `
-/* The body is the rail and the diff. The kit's own body is a fixed 260px sidebar,
-   which is the browse tree's width, not a review's. */
-.rv-body{display:grid;grid-template-columns:300px minmax(0,1fr);flex:1 1 auto;min-height:0}
-.rv-side{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--border);background:var(--surface)}
-.rv-side-top{padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border)}
-.rv-side-row{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-2);flex-wrap:wrap}
+/* The sidebar is the kit's: a <details> that folds into a band at this page's own width, and a
+   panel that scrolls on its own box rather than as a flex child of it (lib/web/README.md). */
+.rv-sidebar{position:relative;overflow:hidden}
+.rv-side{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+/* The panel's head: the search, the view switch, and the line saying what the switch hides.
+   Three stacked pieces, and no borrowed control-row rule — the kit's plain field spans the
+   panel, so it sits flush on both edges. */
+.rv-side-top{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border)}
+.rv-view__label{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
+.rv-view{display:flex}
+.rv-view .bf-tabs__item{flex:1 1 auto;justify-content:center}
+.rv-count{align-self:flex-start}
 .rv-side-scroll{overflow:auto;min-height:0;padding:var(--space-2)}
 .rv-side__back{margin:0 0 var(--space-2)}
 .rv-side-head{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-2) var(--space-2);color:var(--dim);font:var(--fw-medium) var(--fs-xs) var(--font-ui);text-transform:uppercase;letter-spacing:.06em}
@@ -44,6 +52,10 @@ export const REVIEW_CSS = `
 .rv-add{color:var(--success)}
 .rv-del{color:var(--danger)}
 .rv-main{padding:0;gap:0}
+/* The control row's own group, pushed to the row's right end: the plan page's arrangement, kept
+   here until the kit owns it (#827). The kit's two-class group+group margin would otherwise win,
+   so this rule names the same pair. */
+.bf-app__group.rv-actions{margin-left:auto}
 .rv-files-scroll{min-height:0}
 .rv-banner{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--warn);background:var(--search-soft);border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm)}
 .rv-banner b{color:var(--text)}
@@ -104,14 +116,9 @@ export const REVIEW_CSS = `
 .rv-selbar__ref{font:var(--fs-sm)/1.5 var(--font-mono);color:var(--text);padding:0 var(--space-2);max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rv-toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);max-width:min(560px,calc(100vw - 32px));padding:var(--space-2) var(--space-4);background:var(--raised);border:1px solid var(--border-strong);border-left:2px solid var(--success);border-radius:var(--radius-md);box-shadow:var(--shadow-2);z-index:70;font-size:var(--fs-sm);opacity:0;pointer-events:none;transition:opacity var(--motion-base) var(--motion-ease)}
 .rv-toast[data-open="true"]{opacity:1}
-.rv-empty{margin:var(--space-6) var(--space-5);padding:var(--space-5);border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted)}
 /* The rail's own empty state and the pane's filter line: both say what a narrowed view hides. */
-.rv-side__empty{margin:var(--space-2);padding:var(--space-3);border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--muted);font:var(--fs-sm)/1.5 var(--font-ui)}
-.rv-side__empty .bf-btn{margin-left:var(--space-2)}
 .rv-filter-note{margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--accent);background:var(--accent-soft);border-radius:var(--radius-sm);color:var(--muted);font:var(--fs-sm)/1.5 var(--font-ui)}
 .rv-filter-note .bf-btn{margin-left:var(--space-2)}
-.rv-empty__title{margin:0;color:var(--text);font-weight:var(--fw-semibold)}
-.rv-empty__sub{margin:var(--space-1) 0 0;font-size:var(--fs-sm)}
 .rv-dialog-list{display:flex;flex-direction:column;gap:var(--space-2);max-height:52vh;overflow:auto}
 .rv-dialog-item{border-top:1px solid var(--border);padding-top:var(--space-2)}
 .rv-dialog-item:first-child{border-top:0;padding-top:0}
@@ -121,10 +128,18 @@ export const REVIEW_CSS = `
    wrap; below the fold a line wraps here too, because a path or a call is a fact the reader
    came for and an overlay scrollbar is no way to reach it. This sits after the diff rules so
    it wins at equal specificity. */
-@media (max-width:${REVIEW_NARROW_PX}px){
-  .rv-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-  .rv-side{max-height:38vh;border-right:0;border-bottom:1px solid var(--border)}
-  .rv-thread,.rv-compose{margin-left:var(--space-4);max-width:100%}
-  .rv-diff .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}
-}
+/* The page rules the diff's line as one row, which is more specific than the kit's narrow
+   wrap; below the fold a line wraps here too, because a path or a call is a fact the reader
+   came for and an overlay scrollbar is no way to reach it. The attribute is the only owner of
+   the fact (#814): absent or true wraps here, and only a reader's own "no" unwraps. */
+${collapsedShell(
+	REVIEW_NARROW_PX,
+	`/* The band: the kit's summary row over a panel that scrolls under it. The panel is static
+   here, so the sticky summary is not covered by the desk's absolutely positioned one. */
+.rv-sidebar{display:flex;flex-direction:column;position:relative;max-height:50vh;overflow:hidden}
+.rv-sidebar .bf-panel__summary{position:sticky;top:0;z-index:1;background:var(--raised);border-bottom:1px solid var(--border)}
+.rv-side{position:static;flex:1 1 auto;min-height:0}
+.rv-thread,.rv-compose{margin-left:var(--space-4);max-width:100%}
+.rv-diff:not([data-wrap="false"]) .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}`,
+)}
 `;

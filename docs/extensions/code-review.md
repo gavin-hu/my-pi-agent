@@ -1,6 +1,6 @@
 # code-review — review a diff as a page, line by line
 
-<img src="../../assets/screens/code-review.png" alt="The review page: a changed-file rail on the left with each file's state, and on the right the branch's diff as hunks, one draft comment under the line it names, a commented file on its warn paper and a reviewed one on its success paper, the scope switch, Send feedback, and the footer's comparison and progress" width="1280" height="913">
+<img src="../../assets/screens/code-review.png" alt="The review page: the changed-file rail as the kit's collapsible sidebar — a search field, an All/Commented switch and the file count over each file's state — and the diff's full column, one draft comment under the line it names, a commented file on its warn paper and a reviewed one on its success paper, the scope switch and Send feedback at the control row's right end, and the footer's comparison and progress" width="1280" height="910">
 
 A branch, an uncommitted change, or the index, served as a page you can read
 line by line and comment on. The comments are the model's next turn — nothing
@@ -69,8 +69,10 @@ refused, naming the key to set.
 **The page.** A review is one page per session, at `/review/`. Its id is minted
 by the first write, so opening a page to look costs nothing; the query carries
 the write token, and the first write puts the review's own id in the address. A
-comment is a draft until **Send feedback** marks it sent — after that it is the
-session's, and the page shows it as sent.
+comment is a draft until **Send feedback** marks it sent. The changed files are
+the shell's sidebar — a search, **All** / **Commented**, a count, one row per
+file — folding into a band below 900px; `wrap` wraps at any width, and narrowing
+hides rows and never sections.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff:
 the rail shows that file and an **all files** link back, and the comparison is
