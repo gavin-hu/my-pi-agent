@@ -12,7 +12,6 @@
 import { BOARD_BASE } from "../../../lib/workflow/page-pointer.ts";
 import type { BoardWire } from "../../../lib/workflow/view.ts";
 import {
-	type EventSink,
 	type HttpMount,
 	LOOPBACK_HOSTS,
 	type MountSource,
@@ -22,6 +21,7 @@ import {
 } from "../../../lib/http/index.ts";
 import type { IdleReason } from "../../../lib/http/sink.ts";
 import { type ArmTimer, defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
+import { createStreams } from "../../../lib/web/streams.ts";
 import type { PageView } from "../view/page.ts";
 import { type BoardRouterContext, handleBoardRequest } from "./router.ts";
 import { defaultWatchDirs, type WatchDirs } from "./watch.ts";
@@ -47,6 +47,14 @@ const SWEEP_MS = 5_000;
 
 /** Ticks in one sweep: the count a stamp cannot answer for. */
 const SWEEP_TICKS = SWEEP_MS / TICK_MS;
+
+/**
+ * The one kind of stream this page has.
+ *
+ * Board has no roles and no tokens — every tab sees the whole board — so the registry's record
+ * exists to be counted rather than filtered, and one key names them all.
+ */
+const BOARD_STREAM = "board";
 
 /** Largest request body the page accepts: a card and a note are small. */
 const MAX_BODY_BYTES = 64 * 1_024;
@@ -124,7 +132,7 @@ export interface BoardServer {
 	port: number;
 	/** The URL for this page: one address, because there is one thing a page may do. */
 	url: string;
-	/** How many tabs are attached, which is what `/board status` reports. */
+	/** How many streams are open — one per attached tab — which is what `/board status` reports. */
 	watchers: () => number;
 	/** The signature of the last frame pushed, so a caller can tell it is live. */
 	pushed: () => string;
@@ -134,9 +142,19 @@ export interface BoardServer {
 /** The page, or the reason the session's server has no prefix for it. */
 export type BoardServerResult = { kind: "served"; server: BoardServer } | { kind: "refused"; reason: string };
 
+/**
+ * One frame's payload: the view the page parses.
+ *
+ * `data: …\n\n` is not here, because a frame has two senders and only one of them is board's —
+ * the registry's fan-out frames what it broadcasts, and the one-sink attach frame below is the
+ * only prefix board writes itself.
+ */
+const payload = (view: BoardWire): string => JSON.stringify(view);
+
 export async function createBoardServer(options: BoardServerOptions): Promise<BoardServerResult> {
 	const token = options.token ?? mintToken();
-	const clients = new Set<EventSink>();
+	// A plain fan-out: every tab gets every frame, and no tab's leaving decides anything here.
+	const streams = createStreams({});
 	const interval = options.interval ?? defaultInterval;
 	/** A frame that could not be built is not sent; the next tick tries again. */
 	const report = (error: unknown): void => options.onError?.(error);
@@ -184,7 +202,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 			again = true;
 			return;
 		}
-		if (clients.size === 0) return;
+		if (streams.size() === 0) return;
 		pushing = true;
 		try {
 			do {
@@ -194,9 +212,8 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 				// parse and every reader a flicker. The signature is what changes.
 				if (view.sig === pushed) continue;
 				pushed = view.sig;
-				const frame = `data: ${JSON.stringify(view)}\n\n`;
-				for (const sink of clients) sink.write(frame);
-			} while (again && clients.size > 0);
+				streams.broadcast(payload(view));
+			} while (again && streams.size() > 0);
 		} finally {
 			pushing = false;
 		}
@@ -227,17 +244,17 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 			return {
 				result,
 				openSink(sink) {
-					clients.add(sink);
+					streams.add(sink, { key: BOARD_STREAM });
 					// A tab that just attached gets the current frame without waiting for a
 					// card to change — otherwise a quiet board looks like a dead page.
 					void drawn()
 						.then((view) => {
 							pushed = view.sig;
-							sink.write(`data: ${JSON.stringify(view)}\n\n`);
+							sink.write(`data: ${payload(view)}\n\n`);
 						})
 						.catch(report);
 					return () => {
-						clients.delete(sink);
+						streams.remove(sink);
 					};
 				},
 			};
@@ -261,7 +278,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 	 * A page nobody is reading asks nothing: a minute with no tab open costs no stat at all.
 	 */
 	const moved = async (): Promise<void> => {
-		if (stamp === undefined || clients.size === 0) return;
+		if (stamp === undefined || streams.size() === 0) return;
 		if ((await stamp()) === lastStamp) return;
 		await push();
 	};
@@ -281,8 +298,10 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 		closed = true;
 		handle?.stop();
 		stopTicker();
-		for (const sink of clients) sink.end();
-		clients.clear();
+		// The registry ends and clears in one place, so the teardown has no loop of its own to
+		// get wrong; the mount is released only once nothing is left to write to.
+		streams.end();
+		streams.clear();
 		await mount.release();
 	};
 
@@ -291,7 +310,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 		server: {
 			port: mount.port,
 			url: `${mount.origin}${mount.base}/?token=${token}`,
-			watchers: () => clients.size,
+			watchers: () => streams.size(),
 			pushed: () => pushed,
 			close,
 		},
