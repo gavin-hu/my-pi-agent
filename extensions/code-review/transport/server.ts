@@ -12,6 +12,7 @@
  */
 
 import type { MountOutcome, MountSpec } from "../../../lib/http/index.ts";
+import { createStreams } from "../../../lib/web/streams.ts";
 import type { SnapshotOutcome } from "../git/diff.ts";
 import { REVIEW_BASE } from "../links.ts";
 import type { ReviewCurrent } from "../review/current.ts";
@@ -59,10 +60,16 @@ export interface ReviewServer {
 export async function createReviewPage(
 	deps: ReviewServerDeps,
 ): Promise<{ kind: "page"; page: ReviewServer } | { kind: "refused"; reason: string }> {
+	const streams = createStreams({});
 	const handler = createReviewHandler({
 		store: deps.store,
 		current: deps.current,
 		base: REVIEW_BASE,
+		streams,
+		notify: {
+			review: (review) => streams.broadcast(JSON.stringify({ review })),
+			moved: () => streams.broadcast(JSON.stringify({ moved: true })),
+		},
 		...(deps.onSent === undefined ? {} : { onSent: deps.onSent }),
 	});
 	const outcome = await deps.mount({
