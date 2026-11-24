@@ -10,8 +10,12 @@
  * coordination surface — the board, the team, the session bus, the trackers, the
  * readers, `bash` for read-only git, and a `subagent` pinned read-only — and every
  * other call is refused by a sentence that names the hatch. The gate denies by
- * default over that allow-list, the same stance plan mode takes, so a tool nobody
- * anticipated is refused rather than run.
+ * default over that allow-list, so a tool nobody anticipated is refused rather than
+ * run — and unlike plan mode the list is closed: the policy is built without an
+ * annotation lookup, because `readOnlyHint` is self-declared by the extension or the
+ * MCP server, and a permission decision cannot rest on the subject's own testimony
+ * about itself. Plan mode keeps that door, because it is a read-only *tool* gate
+ * while this is a role admission.
  *
  * This is a guard rail, not a sandbox: the seat stops accidents and keeps the
  * session's attention on the round, and the card's own gates — a sign needs the
@@ -38,6 +42,7 @@ import {
 	GOAL_TOOL,
 	PLAN_TOOL,
 	QUESTION_TOOL,
+	RUN_DOCTOR_TOOL,
 	SESSION_TOOL,
 	SUBAGENT_READ_ONLY_PARAM,
 	SUBAGENT_TOOL,
@@ -65,6 +70,7 @@ export const LEAD_ALLOWED_TOOLS = [
 	BOARD_TOOL,
 	TEAM_TOOL,
 	SESSION_TOOL,
+	RUN_DOCTOR_TOOL,
 	PLAN_TOOL,
 	SUBAGENT_TOOL,
 	WEB_SEARCH_TOOL,
@@ -101,7 +107,6 @@ export interface LeadRuntime {
 export function createLeadRuntime(pi: ExtensionAPI): LeadRuntime {
 	const policy: ReadOnlyPolicy = createReadOnlyPolicy({
 		allow: LEAD_ALLOWED_TOOLS,
-		annotations: (name) => pi.getAllTools().find((tool) => tool.name === name)?.annotations,
 		guidance: LEAD_GUIDANCE,
 	});
 	const tools = createToolSetFilter(pi, policy, MODE_TOOLS);

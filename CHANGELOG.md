@@ -57,6 +57,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the seat's tool set is one closed statement. The allow-list was the rule in prose and half the rule in
+  behaviour, because the policy it built also passed any tool whose registration declared `readOnlyHint: true` — a hint
+  the tool's own author writes about itself. A held seat now refuses that stranger, and admits `run_doctor` by name from
+  `lib/tool-names.ts`, which the doctor's registration reads too; plan mode keeps the annotation door, being a read-only
+  *tool* gate rather than a role admission. This withdraws a capability: an MCP reader the session could reach outside the
+  seat is refused while it holds the seat, and names `/board exit`.
+
 - `board`: a spot-check runs the repository's size gates — `test/module-sizes.test.ts` and `test/suite-sizes.test.ts` — before
   the card's own `verify`, serially and in the same tree, and refuses the sign when either is red, naming the gate and what it
   printed. A card's `verify` can only fail what it names, and two cards in one night were signed green while a module sat at 638
