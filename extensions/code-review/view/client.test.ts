@@ -12,6 +12,7 @@ import { duplicateDeclarations, duplicateFunctions, unfilledPlaceholders } from 
 import { REVIEW_CLIENT_JS } from "./client.ts";
 import { REVIEW_COMMENTS_JS } from "./client-comments.ts";
 import { REVIEW_KEYS_JS } from "./client-keys.ts";
+import { REVIEW_LIVE_JS } from "./client-live.ts";
 import { REVIEW_PLACE_JS } from "./client-place.ts";
 
 /** The URLs the bundle posts to, without the mount prefix. */
@@ -45,11 +46,12 @@ describe("the review bundle", () => {
 		expect(REVIEW_CLIENT_JS).not.toContain("document.write");
 	});
 
-	test("keeps an unsent composer across the snapshot it was typed on", () => {
-		expect(REVIEW_CLIENT_JS).toContain('var DRAFT_KEY = "rv-review-draft";');
-		// The record keeps its rev and is restored anyway: a moved diff is the case the
-		// draft exists for, and the composer says where it came from.
-		expect(REVIEW_CLIENT_JS).toContain("var moved = kept.rev !== rev;");
+	test("keeps an unsent composer at its anchor, across the snapshot it was typed on", () => {
+		expect(REVIEW_CLIENT_JS).toContain('var DRAFT_KEY = "rv-review-drafts";');
+		// One record per anchor, and the record's rev is provenance rather than the write's gate:
+		// the composer says where it came from, and every write still carries the page's rev.
+		expect(REVIEW_CLIENT_JS).toContain("function draftKey(path, line, side)");
+		expect(REVIEW_CLIENT_JS).toContain("moved: kept.rev !== rev");
 		expect(REVIEW_CLIENT_JS).toContain("typed on the earlier diff");
 	});
 
@@ -57,6 +59,25 @@ describe("the review bundle", () => {
 		expect(REVIEW_CLIENT_JS).toContain("answer.status === 409");
 		expect(REVIEW_CLIENT_JS).toContain("hint.hidden = false");
 		expect(REVIEW_CLIENT_JS).toContain("window.location.reload()");
+	});
+
+	test("follows the page's stream, and reveals the same reload when a frame says the tree moved", () => {
+		expect(REVIEW_CLIENT_JS).toContain("liveStream({");
+		expect(REVIEW_CLIENT_JS).toContain('url: base + "/events"');
+		// A moved tree arrives as a frame now, not only as a refusal in the tab that wrote.
+		expect(REVIEW_CLIENT_JS).toContain("if (frame.moved)");
+		expect(REVIEW_CLIENT_JS).toContain('var hint = byId("reload-hint");');
+	});
+
+	/**
+	 * The clause with a consequence: a frame that lands under an open composer is held, and the
+	 * box closing is what releases it. A drop that nothing flushed would be indistinguishable from
+	 * a tab that stopped updating, which is why both halves are asserted here rather than one.
+	 */
+	test("holds a frame an open composer would lose, and lands it when the box closes", () => {
+		expect(REVIEW_CLIENT_JS).toContain("if (liveTyping()) { livePending = frame.review; return; }");
+		expect(REVIEW_CLIENT_JS).toMatch(/function closeComposer\(wrap\) \{[\s\S]*liveFlush\(\);[\s\S]*\}/);
+		expect(REVIEW_CLIENT_JS).toContain("function liveFlush()");
 	});
 
 	test("turns the first write's id into the page's address", () => {
@@ -69,10 +90,11 @@ describe("the review bundle", () => {
 	 * reads. A fragment left out is a `ReferenceError` on the first paint, and two fragments
 	 * declaring one name is which body a caller reaches decided by concatenation order.
 	 */
-	test("assembles all three fragments, each name once", () => {
+	test("assembles all four fragments, each name once", () => {
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_COMMENTS_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_PLACE_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_KEYS_JS);
+		expect(REVIEW_CLIENT_JS).toContain(REVIEW_LIVE_JS);
 		expect(duplicateFunctions(REVIEW_CLIENT_JS)).toEqual([]);
 		expect(duplicateDeclarations(REVIEW_CLIENT_JS)).toEqual([]);
 		expect(unfilledPlaceholders(REVIEW_CLIENT_JS)).toEqual([]);

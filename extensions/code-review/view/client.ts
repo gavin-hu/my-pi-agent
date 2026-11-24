@@ -10,9 +10,10 @@
  * share is declared here, below, so no fragment owns a name another reads.
  *
  * The review arrives as the `#rv-data` island, so a comment is written into the document with
- * `textContent` and never as markup. Drafts are this tab's: an unsent composer's text is kept
- * in sessionStorage against the snapshot it was typed on, so a reload restores it and a page
- * that renders a different snapshot drops it rather than move a note onto a line nobody read.
+ * `textContent` and never as markup. Drafts are this tab's, one per line: an unsent composer's
+ * text is kept in sessionStorage against its anchor and the diff it was typed on, so a reload
+ * brings back every one whose line is still drawn, and a moved one says where it came from.
+ * A write always carries the page's `rev`, never a record's — the server draws the line or not.
  *
  * The fragments are concatenated in load order — comments, place, keys — because their
  * top-level statements run in that order, and the page's start block is last for the same
@@ -28,6 +29,7 @@ import {
 } from "../../../lib/web/index.ts";
 import { REVIEW_COMMENTS_JS } from "./client-comments.ts";
 import { REVIEW_KEYS_JS } from "./client-keys.ts";
+import { REVIEW_LIVE_JS } from "./client-live.ts";
 import { REVIEW_PLACE_JS } from "./client-place.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
@@ -44,7 +46,7 @@ ${CLIENT_RUNTIME_JS}
   // The state the three fragments share. cursor, anchor and currentFile are the place's —
   // which row the keys act on, and which file the rail marks and the spy writes; DRAFT_KEY is
   // the comments'; base, data, token, rev and toastTimer are the page's, read by both.
-  var DRAFT_KEY = "rv-review-draft";
+  var DRAFT_KEY = "rv-review-drafts";
   var cursor = null;
   var anchor = null;
   var currentFile = null;
@@ -115,6 +117,7 @@ ${CLIENT_RUNTIME_JS}
 ${REVIEW_COMMENTS_JS}
 ${REVIEW_PLACE_JS}
 ${REVIEW_KEYS_JS}
+${REVIEW_LIVE_JS}
 
   // The file the reader is in starts as the one the server marked current.
   var startRail =
@@ -129,7 +132,7 @@ ${REVIEW_KEYS_JS}
   var reviewMain = byId("rv-main");
   if (reviewMain) reviewMain.addEventListener("scroll", onScroll, { passive: true });
   window.addEventListener("resize", measureHeads);
-  restoreDraft();
+  restoreDrafts();
 ${THEME_TOGGLE_JS}
 ${dialogScript({ dialogId: "rv-send-dialog", closeId: "rv-send-close", globalName: "rvSend" })}
 ${keysDialogScript("keys-open")}

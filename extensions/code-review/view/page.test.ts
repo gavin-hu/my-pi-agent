@@ -225,8 +225,9 @@ describe("the review page", () => {
 		// The rule this replaced put the counts and the progress in the footer. Now the rail's head
 		// carries everything about files — how many are shown, their totals, and how far the review
 		// has got — the footer carries only the comparison, and on the page the draft count is the
-		// Send button's. The header's facts zone stays the reload hint alone: the three chips that
-		// restated the footer are gone, not hidden.
+		// Send button's. The header's facts zone is the page's state: the stream it follows and the
+		// way out of a page the tree moved under. The three chips that restated the footer are gone,
+		// not hidden.
 		const empty = renderReviewPage(input());
 		const withWork = renderReviewPage(input({ review: review() }));
 		for (const html of [empty, withWork]) {
@@ -234,6 +235,7 @@ describe("the review page", () => {
 			expect(html).not.toContain('id="rv-id"');
 			expect(html).not.toContain('id="rv-scope"');
 			expect(html).toContain('id="reload-hint"');
+			expect(html).toContain('id="rv-live"');
 		}
 		// One line of the rail's head, one fact each: shown/total, the progress, the totals.
 		expect(withWork).toContain('id="rv-file-count" aria-live="polite">2 of 2 files');

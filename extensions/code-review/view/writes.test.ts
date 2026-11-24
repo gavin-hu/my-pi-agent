@@ -2,16 +2,22 @@
  * The review page's writes, in a browser: what a save, a mark and a send do to the page they
  * were made on, and what a refused one leaves behind.
  *
- * A write is a DOM fact the markup cannot show — a composer restored with the note typed on the
- * diff before, a chip revealed for the reader's own way out, a reviewed box back where the server
- * has it, a comment listed because no line is left to draw it under. The page's reading — the
- * cursor, the rail, the hunk jump — is `interaction.test.ts`, and the fixture and its waits are
+ * A write is a DOM fact the markup cannot show — a chip revealed for the reader's own way out, a
+ * reviewed box back where the server has it, a comment listed because no line is left to draw it
+ * under, a send that carries the comment still being typed. The drafts those writes come from are
+ * `threads.test.ts`, the drafts are `drafts.test.ts`, the page's reading is `interaction.test.ts`, and the
+ * fixture and its waits are
  * `test/helpers/review-browser.ts`.
+ *
+ * The partial flush is staged with `MAX_COMMENTS - 1` seeded comments rather than a refused first
+ * flush, because the review's comment cap is the only per-comment refusal the page can reach: it is
+ * what lets one save land and the next be refused, which is the state the case is about.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "playwright-core";
 import { launchBrowser, type TestBrowser } from "../../../test/helpers/browser.ts";
+import { MAX_COMMENTS } from "../review/store.ts";
 import {
 	CASE_MS,
 	REVIEW_CHROME,
@@ -45,26 +51,6 @@ gated("the review page's writes", () => {
 	): Promise<void> => withReviewPage(browser, run, options, seed);
 
 	test(
-		"an unsent draft survives the diff moving, and saves on a current line",
-		async () => {
-			await withPage(async (page, fixture) => {
-				await startComment(page, "keep this note");
-				fixture.move();
-				await page.reload({ waitUntil: "networkidle" });
-
-				const area = page.locator(".rv-compose__area");
-				expect(await area.inputValue()).toBe("keep this note");
-				expect(await page.locator(".rv-compose__note").textContent()).toContain("typed on the earlier diff");
-
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-				expect(await page.locator(".rv-thread .bf-comment__body").textContent()).toBe("keep this note");
-			});
-		},
-		CASE_MS,
-	);
-
-	test(
 		"a write against a moved diff reveals the reload chip and keeps the text",
 		async () => {
 			await withPage(async (page, fixture) => {
@@ -80,20 +66,110 @@ gated("the review page's writes", () => {
 		CASE_MS,
 	);
 
+	/**
+	 * Send is save-then-send: the comment still in a composer is written first, through the same
+	 * route a Save takes, so the dialog lists exactly what leaves and the button's number is what
+	 * the press does.
+	 */
 	test(
-		"a save returns focus to the cursor row",
+		"Send carries the comment still being typed, and the dialog names it",
 		async () => {
+			await withPage(async (page) => {
+				await startComment(page, "saved one");
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+
+				await page
+					.locator(".bf-diff-line")
+					.nth(1)
+					.locator(".browse-diff-no")
+					.filter({ hasText: /^\d+$/ })
+					.first()
+					.click();
+				await page.locator("#rv-sel-comment").click();
+				await page.locator(".rv-compose__area").fill("still typing this");
+				expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 2");
+
+				await page.locator("#rv-send").click();
+				await page.waitForFunction(
+					() => (globalThis as unknown as ReviewDom).document.querySelector("#rv-send-dialog")?.hidden === false,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await page.locator("#rv-send-list .rv-dialog-line").allTextContents()).toEqual([
+					"saved one",
+					"still typing this",
+				]);
+
+				await page.locator("#rv-send-confirm").click();
+				await page.waitForFunction(
+					() =>
+						(globalThis as unknown as ReviewDom).document.querySelector("#rv-toast")?.textContent?.includes("sent") ===
+						true,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await page.locator(".rv-compose").count()).toBe(0);
+				await page.reload({ waitUntil: "networkidle" });
+				expect(await page.locator(".rv-compose").count()).toBe(0);
+				expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 0");
+			});
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * A flush that stops halfway. The only per-comment refusal the page can reach is the review's
+	 * comment cap, so the fixture starts one short of it: the first flush becomes #200, the second
+	 * is refused, and what the page shows is what landed plus what did not.
+	 *
+	 * The button reads 201 before and after because a successful flush moves one composer into one
+	 * draft — the sum is invariant by construction, and 201 is the number that proves the typing
+	 * composer was counted at both ends rather than dropped between them.
+	 */
+	test(
+		"a flush that stops halfway keeps the dialog shut and the rest in place",
+		async () => {
+			const seed = Array.from({ length: MAX_COMMENTS - 1 }, (_unused, index) => ({
+				rel: "a.ts",
+				line: 17,
+				body: `seed ${index}`,
+			}));
 			await withPage(
 				async (page) => {
-					await page.keyboard.press("j");
-					await page.keyboard.press("Enter");
-					await page.locator(".rv-compose__area").fill("note at 17");
-					await page.locator(".rv-compose__acts .bf-btn--primary").click();
-					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17");
-					expect((await page.evaluate("document.activeElement.className")) as string).toContain("bf-diff-line");
+					await page
+						.locator(".bf-diff-line")
+						.nth(1)
+						.locator(".browse-diff-no")
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click();
+					await page.locator("#rv-sel-comment").click();
+					await page.locator(".rv-compose__area").fill("the two hundredth");
+					// The flush saves in DOM order: the context composer is #200 and is accepted, the
+					// added-line one after it is refused by the cap, and that refused text is the one
+					// that has to stay where the reviewer left it.
+					await page.locator(".bf-diff-line--add .browse-diff-no").filter({ hasText: /^\d+$/ }).first().click();
+					await page.locator("#rv-sel-comment").click();
+					await page.locator(".rv-compose", { hasText: "a.ts:19" }).locator(".rv-compose__area").fill("over the cap");
+					expect(await page.locator("#rv-send").textContent()).toBe(`Send feedback ${MAX_COMMENTS + 1}`);
+
+					await page.locator("#rv-send").click();
+					await page.waitForFunction(
+						() =>
+							(globalThis as unknown as ReviewDom).document
+								.querySelector("#rv-toast")
+								?.textContent?.includes("at most 200 comments") === true,
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
+					expect(await page.locator("#rv-send-dialog").isVisible()).toBe(false);
+					expect(await page.locator(".rv-compose").count()).toBe(1);
+					expect(await page.locator(".rv-compose__area").inputValue()).toBe("over the cap");
+					expect(await page.locator("#rv-send").textContent()).toBe(`Send feedback ${MAX_COMMENTS + 1}`);
 				},
 				{ start: 17 },
+				seed,
 			);
 		},
 		CASE_MS,

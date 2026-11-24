@@ -11,6 +11,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `session-bus`: `session release` takes `holder`, a live peer's label, and the seat moves that peer's claims to
   itself in one store call — so a stalled wave is re-dispatchable without a restart, and the peer's next claim meets a
   conflict naming the seat rather than a path nobody holds. A caller with no seat is refused, naming the door.
+
+- `code-review`: the page is live. Its mount serves an event stream on `/events` with the page's own
+  token, so a write in one tab repaints the others without a reload, and a write refused because the
+  tree moved warns **every** tab through the header's reload chip rather than only the one that
+  wrote. The header carries the kit's live chip, a frame that lands under an open comment box waits
+  for the box instead of closing it, and the review ends a second and a half after its last tab
+  leaves — through the same close `/review stop` runs, ending the streams with a `closed` frame
+  before the prefix is released. A moved tree is still discovered by a write: nothing polls the diff.
+
 - `board`: `move` to `done` takes `landed`, the merge a card's work shipped in — a folded card, whose merge is older than
   its own `execute` and so cannot be named by the chain. The argument is checked on the branch (a prefix, resolved, and
   never one matching two commits), at or below the card's spot-check, and refused when the chain can name a landing of its
@@ -40,6 +49,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   also says whether this pane could have minted one.
 
 ### Changed
+
+- `code-review`: an unsent comment belongs to its line rather than to the page — one record per anchor in this
+  tab, so a second composer no longer overwrites the first, a reload brings back every draft whose line is
+  drawn (one whose line moved opens on a drawn row saying `was a.ts:3`, and one whose file is gone is listed
+  above the diff to discard), and **Send feedback** writes the comment still being typed before it sends,
+  counting it in the button. A flush that stops halfway leaves the dialog shut with the unsent text in place.
+
+- `board`: the page's frame fan-out is the kit's stream registry, and its own set of sinks is gone. Every
+  attached tab is a stream in `createStreams({})` with no lifetime, so the page keeps no second counter beside
+  the map — `watchers` and the three "is anyone reading" guards ask the registry — and its close ends those
+  streams and clears them in one place before giving the prefix back. The registry gained the two calls the
+  adoption proved missing: `size()`, every open stream where `pageOpen()` counts only the lifetime's pages,
+  and an `end` that may carry no frame, which is a teardown rather than a page being told why it is over.
+
+- `lib`: the served pages' stream registry moved into the kit. `createStreams` now lives in
+  `lib/web/streams.ts` and records a `key` with an optional `token` rather than a review's role, with
+  the closed-tab grace **optional** — so a page that wants a plain fan-out (a board's cards, a
+  browse page's tree) can share one owner instead of writing a third set of sinks. Plan converts its
+  roles at the call site and its page still ends when its owner's tab leaves.
 
 - `code-review`: the review page's facts have one home each. The footer keeps only the comparison — the
   counts, the totals and the progress it also carried are gone from it — while the rail's head states the
@@ -86,6 +114,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ### Fixed
+
+- `code-review`: a comment can answer another. **reply** keeps it under the comment it answers, one level deep — the
+  store refuses a reply to a reply, and a reply row offers **delete** alone rather than a verb whose only outcome is
+  that refusal — a row's threads read oldest first with each reply under its parent, a reply whose comment was deleted
+  stands on its own, and both buttons name the line and the comment they act on instead of reading "reply"/"delete"
+  four times. Pressing reply over an open composer answers with that text instead of ignoring the press, and the
+  relationship rides the draft record, so a reload restores a reply as a reply.
 
 - `code-review`: a send, a delete and a file marked reviewed land even when the diff moved under the page — only a
   comment names a line, so only a comment carries the snapshot it was written on, and only a comment on a line the

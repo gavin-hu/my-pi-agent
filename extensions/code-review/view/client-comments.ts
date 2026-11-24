@@ -10,123 +10,289 @@
  * so a call across them reaches a hoisted declaration rather than an import.
  */
 export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ────────────────────────────────────────────────────────────────
-  function saveDraft(state) {
-    try {
-      if (state === null) sessionStorage.removeItem(DRAFT_KEY);
-      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify(state));
-    } catch (error) { /* a full or blocked store is not a reason to lose the page */ }
-  }
-  function readDraft() {
+  // One record per anchor, keyed [path, line, side]: a composer per line is what the page is, so a
+  // second one must not overwrite the first, and a reload brings back every draft whose line is
+  // still drawn. The record's rev says which diff it was typed on — provenance for the "was
+  // a.ts:3" note a moved one carries, never a write's gate: every write sends the page's rev, so
+  // a save lands exactly when the line it names is drawn.
+  function storedDrafts() {
     try {
       var raw = sessionStorage.getItem(DRAFT_KEY);
-      if (!raw) return null;
-      var kept = JSON.parse(raw);
-      // The record's rev is where it was typed, not a reason to drop it: a moved diff is the
-      // case this draft exists for, and the composer says where it came from.
-      return kept && typeof kept.text === "string" && kept.text !== "" ? kept : null;
-    } catch (error) { return null; }
+      var kept = raw ? JSON.parse(raw) : null;
+      return kept && typeof kept === "object" ? kept : {};
+    } catch (error) { return {}; }
   }
-  function keepTyping() {
-    var area = document.querySelector(".rv-compose__area");
-    var head = document.querySelector(".rv-compose");
-    saveDraft(area && head ? { rev: rev, path: head.getAttribute("data-path"), line: Number(head.getAttribute("data-line")), side: head.getAttribute("data-side"), text: area.value } : null);
+  function writeDrafts(all) {
+    try {
+      if (Object.keys(all).length === 0) sessionStorage.removeItem(DRAFT_KEY);
+      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify(all));
+    } catch (error) { /* a full or blocked store is not a reason to lose the page */ }
   }
-  function forgetDraft() { saveDraft(null); }
-  function closeComposer() {
-    nodeList(".rv-compose").forEach(function (el) { el.remove(); });
+  function draftKey(path, line, side) { return JSON.stringify([path, line, side]); }
+  function keepDraft(path, line, side, text, parent) {
+    var all = storedDrafts();
+    var key = draftKey(path, line, side);
+    if (text === "") delete all[key];
+    else all[key] = { rev: rev, path: path, line: line, side: side, text: text, parent: parent };
+    writeDrafts(all);
   }
-  function restoreDraft() {
-    var kept = readDraft();
-    if (!kept || !kept.text) return;
-    var moved = kept.rev !== rev;
-    var path = kept.path;
-    var line = kept.line;
-    var side = kept.side;
-    if (!rowFor(path, line, side)) {
-      // The line (or the file) is not in this rendering. Keep the text in a composer that can
-      // still save: the first numbered row of its file, or of the first visible file.
-      var start = firstRowOf(path);
-      if (!start) { saveDraft(kept); toast("An unsent comment is kept, but this diff has no line to put it on"); return; }
-      var anchorAt = rowAnchor(start.rows[start.row]);
-      if (!anchorAt) { saveDraft(kept); toast("An unsent comment is kept, but this diff has no line to put it on"); return; }
-      path = start.path;
-      line = anchorAt.line;
-      side = anchorAt.side;
-    }
-    composer(path, line, side, kept.text, moved);
-    toast(moved ? "An unsent comment was kept from the earlier diff — check the line" : "An unsent comment was restored");
+  function forgetDraft(path, line, side) {
+    var all = storedDrafts();
+    delete all[draftKey(path, line, side)];
+    writeDrafts(all);
+  }
+  /** Save the text of the composer the keystroke landed in — not of whichever composer is first. */
+  function keepTyping(event) {
+    var wrap = event && event.target && event.target.closest ? event.target.closest(".rv-compose") : null;
+    if (!wrap) return;
+    var area = wrap.querySelector(".rv-compose__area");
+    keepDraft(
+      wrap.getAttribute("data-path"),
+      Number(wrap.getAttribute("data-line")),
+      wrap.getAttribute("data-side"),
+      area ? area.value : "",
+      wrap.getAttribute("data-parent") || undefined,
+    );
+    paintSend();
+  }
+  /** The composer standing on one anchor, or null: one per line, which is what the page is. */
+  function composerAt(path, line, side) {
+    return nodeList(".rv-compose").filter(function (wrap) {
+      return wrap.getAttribute("data-path") === path && wrap.getAttribute("data-line") === String(line) && wrap.getAttribute("data-side") === side;
+    })[0] || null;
+  }
+  /** One held comment's text, by id: the words the composer answering it quotes. */
+  function commentBody(id) {
+    var found = (data.comments || []).filter(function (comment) { return comment.id === id; })[0];
+    return found ? found.body : "";
+  }
+
+  /** A comment's opening words, so a head or a button names which one it is. */
+  function excerpt(text) {
+    var line = String(text || "").replace(/\s+/g, " ").trim();
+    return line.length > 40 ? line.slice(0, 39) + "…" : line;
+  }
+
+  function closeComposer(wrap) {
+    if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    // A frame that arrived while the reader was typing was held rather than applied; the box is
+    // gone now, so it lands. This is what makes that drop a delay and not a loss.
+    liveFlush();
+  }
+  /** Throw away one composer and its record; the others are not this one's business. */
+  function cancelComposer(wrap) {
+    if (!wrap) return;
+    forgetDraft(wrap.getAttribute("data-path"), Number(wrap.getAttribute("data-line")), wrap.getAttribute("data-side"));
+    closeComposer(wrap);
+    paintSend();
+  }
+  /** Every draft comes back where it can: at its line, on a drawn line with the old one named, or listed. */
+  function restoreDrafts() {
+    var all = storedDrafts();
+    var back = [];
+    var moved = [];
+    unplaceableDrafts = [];
+    Object.keys(all).forEach(function (key) {
+      var kept = all[key];
+      if (!kept || typeof kept.text !== "string" || kept.text === "") { delete all[key]; return; }
+      if (rowFor(kept.path, kept.line, kept.side)) {
+        var parent = kept.parent && (data.comments || []).some(function (comment) { return comment.id === kept.parent; })
+          ? kept.parent
+          : undefined;
+        composer(kept.path, kept.line, kept.side, {
+          seed: kept.text,
+          moved: kept.rev !== rev,
+          focus: false,
+          parent: parent,
+          parentText: parent === undefined ? undefined : commentBody(parent),
+        });
+        back.push(kept.path + ":" + kept.line);
+        return;
+      }
+      // The line is gone from this render. Its file may still be drawn, and then the text opens on
+      // the file's first drawn row saying which line it was typed on: nothing moves silently.
+      var rows = numberedRows(sectionFor(kept.path));
+      var at = rows.length > 0 ? rowAnchor(rows[0]) : null;
+      if (at) {
+        composer(kept.path, at.line, at.side, { seed: kept.text, moved: true, was: kept.path + ":" + kept.line, focus: false });
+        moved.push(kept.path + ":" + kept.line);
+        return;
+      }
+      // Neither is drawn: it is listed above the diff and stays stored until its reviewer lets it go.
+      unplaceableDrafts.push({ key: key, path: kept.path, line: kept.line, side: kept.side, text: kept.text });
+    });
+    writeDrafts(all);
+    var said = [];
+    if (back.length > 0) said.push("Unsent " + plural(back.length, "comment") + " restored — " + back.join(", "));
+    if (moved.length > 0) said.push(plural(moved.length, "comment") + " moved to a line this diff draws");
+    if (said.length > 0) toast(said.join("; "));
+    paintOrphans();
+    paintSend();
   }
 
   // ── threads ───────────────────────────────────────────────────────────────
-  function threadNode(comment) {
+  function threadNode(comment, isReply) {
     var wrap = el("span", "rv-thread");
     wrap.setAttribute("data-thread", comment.id);
     wrap.setAttribute("data-state", comment.state);
+    if (isReply) wrap.setAttribute("data-parent", comment.parent);
     var card = el("span", "bf-comment");
     var label = el("span", "bf-comment__label", comment.state === "sent" ? "sent to the session" : "draft");
     card.appendChild(label);
     if (comment.quote) card.appendChild(el("span", "bf-comment__quote", comment.quote));
     card.appendChild(el("span", "bf-comment__body", comment.body));
     var acts = el("span", "bf-comment__row");
-    var reply = el("button", "bf-btn bf-btn--ghost", "reply");
-    reply.type = "button";
-    reply.addEventListener("click", function () { composer(comment.rel, comment.line, comment.side); });
+    var where = comment.rel + ":" + comment.line;
+    // No reply on a reply: the store holds one level, so offering the verb would promise a 400 the
+    // reviewer would only meet after typing. A reply's one action is to remove itself.
+    if (!isReply) {
+      var reply = el("button", "bf-btn bf-btn--ghost", "reply");
+      reply.type = "button";
+      reply.setAttribute("aria-label", "Reply to the comment on " + where + ' — "' + excerpt(comment.body) + '"');
+      reply.addEventListener("click", function () {
+        composer(comment.rel, comment.line, comment.side, { parent: comment.id, parentText: comment.body });
+      });
+      acts.appendChild(reply);
+    }
     var drop = el("button", "bf-btn bf-btn--ghost", "delete");
     drop.type = "button";
+    drop.setAttribute("aria-label", "Delete the comment on " + where + ' — "' + excerpt(comment.body) + '"');
     drop.addEventListener("click", function () { dropComment(comment.id); });
-    acts.appendChild(reply);
     acts.appendChild(drop);
     card.appendChild(acts);
     wrap.appendChild(card);
     return wrap;
   }
 
+  /** The comments this render has no row for; the list above the diff is their only home. */
+  var unplaceableComments = [];
+  /** The unsent drafts whose file this render does not draw: no composer can stand for them. */
+  var unplaceableDrafts = [];
+
+  /**
+   * One row's threads in the order they are read: its roots as the review stores them, each followed
+   * by the replies it answers, in that same order.
+   *
+   * Never sorted. The review's array is arrival order, so two comments written in the same
+   * millisecond keep it, and the case that reads them is determined rather than lucky. A reply whose
+   * parent is not in this list — deleted, since the store only accepts a parent it holds — is a root:
+   * a comment that lost its parent is still a comment to read and delete, and hiding it would be the
+   * orphan shape #837 closed.
+   */
+  function rowThreads(comments) {
+    var known = {};
+    comments.forEach(function (comment) { known[comment.id] = true; });
+    var out = [];
+    comments
+      .filter(function (comment) { return comment.parent === undefined || !known[comment.parent]; })
+      .forEach(function (root) {
+        out.push({ comment: root, reply: false });
+        comments.forEach(function (comment) {
+          if (comment.parent === root.id) out.push({ comment: comment, reply: true });
+        });
+      });
+    return out;
+  }
+
   function paintThreads() {
     nodeList(".rv-thread").forEach(function (el) { el.remove(); });
-    var unplaced = [];
+    unplaceableComments = [];
+    var rows = [];
     (data.comments || []).forEach(function (comment) {
       var row = rowFor(comment.rel, comment.line, comment.side);
-      if (row) { row.parentNode.insertBefore(threadNode(comment), row.nextSibling); return; }
-      // Only a comment on a file this page draws is unplaced: one on a file a focused page hides is
-      // out of view by the reader's own request, and the page says so.
-      if (sectionFor(comment.rel)) unplaced.push(comment);
+      if (!row) {
+        // Only a comment on a file this page draws is unplaced: one on a file a focused page hides is
+        // out of view by the reader's own request, and the page says so.
+        if (sectionFor(comment.rel)) unplaceableComments.push(comment);
+        return;
+      }
+      var held = rows.filter(function (entry) { return entry.row === row; })[0];
+      if (!held) {
+        held = { row: row, comments: [] };
+        rows.push(held);
+      }
+      held.comments.push(comment);
     });
-    paintOrphans(unplaced);
+    rows.forEach(function (held) {
+      // After the row's own last thread, so the newest lands at the bottom of the thread it belongs
+      // to rather than above everything written before it.
+      var after = held.row;
+      while (after.nextSibling && after.nextSibling.classList && after.nextSibling.classList.contains("rv-thread")) after = after.nextSibling;
+      rowThreads(held.comments).forEach(function (entry) {
+        var node = threadNode(entry.comment, entry.reply);
+        after.parentNode.insertBefore(node, after.nextSibling);
+        after = node;
+      });
+    });
+    paintOrphans();
+  }
+
+  /** One line above the diff: a reference, the text, and the one action that removes it. */
+  function orphanItem(ref, body, action, aria, press) {
+    var item = el("span", "rv-orphans__item");
+    item.appendChild(el("span", "rv-orphans__ref", ref));
+    item.appendChild(el("span", "rv-orphans__body", body));
+    var button = el("button", "bf-btn bf-btn--ghost", action);
+    button.type = "button";
+    button.setAttribute("aria-label", aria);
+    button.addEventListener("click", press);
+    item.appendChild(button);
+    return item;
   }
 
   /**
-   * The comments this render has no line for: the diff moved under the line they named, so their
-   * thread cannot be drawn. The list is the only place they can be read and the only place they
-   * can be deleted — and a draft nobody can delete is what keeps the page from closing.
+   * The comments and the unsent drafts this render has no line for: the diff moved under the line
+   * they named, so neither a thread can be drawn nor a composer stood up. The list is the only
+   * place they can be read and let go — a stored comment's delete, a draft's discard — and a draft
+   * nobody can remove is what keeps the page from closing.
    */
-  function paintOrphans(comments) {
+  function paintOrphans() {
     var box = byId("rv-orphans");
     var list = byId("rv-orphans-list");
     if (!box || !list) return;
     list.replaceChildren();
-    box.hidden = comments.length === 0;
-    if (comments.length === 0) return;
-    var one = comments.length === 1;
+    var total = unplaceableComments.length + unplaceableDrafts.length;
+    box.hidden = total === 0;
+    if (total === 0) return;
     var head = byId("rv-orphans-head");
     if (head) {
       head.textContent =
-        (one ? "1 comment is" : comments.length + " comments are") +
-        " not on a line this page draws — the diff moved since " +
-        (one ? "it was" : "they were") +
-        " written";
+        "Not on a line this page draws — the diff moved since " + (total === 1 ? "it was" : "they were") + " written";
     }
-    comments.forEach(function (comment) {
-      var item = el("span", "rv-orphans__item");
-      item.appendChild(el("span", "rv-orphans__ref", comment.rel + ":" + comment.line));
-      item.appendChild(el("span", "rv-orphans__body", comment.body));
-      var drop = el("button", "bf-btn bf-btn--ghost", "delete");
-      drop.type = "button";
-      drop.setAttribute("aria-label", "Delete the comment on " + comment.rel + ":" + comment.line);
-      drop.addEventListener("click", function () { dropComment(comment.id); });
-      item.appendChild(drop);
-      list.appendChild(item);
+    unplaceableComments.forEach(function (comment) {
+      list.appendChild(
+        orphanItem(
+          comment.rel + ":" + comment.line,
+          comment.body,
+          "delete",
+          "Delete the comment on " + comment.rel + ":" + comment.line,
+          function () { dropComment(comment.id); },
+        ),
+      );
+    });
+    unplaceableDrafts.forEach(function (draft) {
+      list.appendChild(
+        orphanItem(
+          draft.path + ":" + draft.line + " · unsent",
+          draft.text,
+          "discard",
+          "Discard the unsent comment on " + draft.path + ":" + draft.line,
+          function () { discardDraft(draft.key); },
+        ),
+      );
     });
   }
+
+  /** Let one unplaceable draft go: it is the reviewer's text, so only they can decide that. */
+  function discardDraft(key) {
+    unplaceableDrafts = unplaceableDrafts.filter(function (draft) { return draft.key !== key; });
+    var all = storedDrafts();
+    delete all[key];
+    writeDrafts(all);
+    paintOrphans();
+    toast("Unsent comment discarded");
+  }
+
 
   // ── chrome ────────────────────────────────────────────────────────────────
   function paintStates() {
@@ -159,14 +325,41 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     });
   }
 
-  function paintChrome() {
-    var pending = drafts().length;
+  /** The composers holding text, as what a write would need to save each of them. */
+  function typedComposers() {
+    return nodeList(".rv-compose").map(function (wrap) {
+      var area = wrap.querySelector(".rv-compose__area");
+      return {
+        wrap: wrap,
+        path: wrap.getAttribute("data-path"),
+        line: Number(wrap.getAttribute("data-line")),
+        side: wrap.getAttribute("data-side"),
+        parent: wrap.getAttribute("data-parent") || undefined,
+        text: area ? area.value.trim() : "",
+      };
+    }).filter(function (entry) { return entry.text !== ""; });
+  }
+
+  /**
+   * What Send will do, in one number: the drafts the session holds and the text still in a composer.
+   *
+   * The button is a promise, so it counts the typing too — a label that says 3 while the press
+   * sends 4 is the defect, not the count. Loose drafts the page cannot draw are excluded on
+   * purpose: they are not a composer's, and Send cannot reach them.
+   */
+  function pendingCount() { return drafts().length + typedComposers().length; }
+
+  function paintSend() {
     var send = byId("rv-send");
-    if (send) {
-      send.disabled = pending === 0;
-      send.setAttribute("data-count", String(pending));
-      send.textContent = "Send feedback " + pending;
-    }
+    if (!send) return;
+    var pending = pendingCount();
+    send.disabled = pending === 0;
+    send.setAttribute("data-count", String(pending));
+    send.textContent = "Send feedback " + pending;
+  }
+
+  function paintChrome() {
+    paintSend();
     // An empty Commented view is the rail's note to explain, not a control to disable: the note
     // says there is nothing to narrow to, and the press that hid the rows is one press back.
     paintStates();
@@ -219,10 +412,12 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     });
   }
 
-  function addComment(path, line, side, text) {
-    return post("/api/comment", { comment: { rel: path, line: line, side: side, body: text } }, function () {
-      forgetDraft();
-      closeComposer();
+  function addComment(path, line, side, text, wrap) {
+    var parent = wrap && wrap.getAttribute("data-parent") ? wrap.getAttribute("data-parent") : undefined;
+    var comment = { rel: path, line: line, side: side, body: text };
+    return post("/api/comment", { comment: parent === undefined ? comment : { ...comment, parent: parent } }, function () {
+      forgetDraft(path, line, side);
+      closeComposer(wrap);
       focusCursor();
       paintThreads();
       paintChrome();
@@ -246,20 +441,51 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
   }
 
   // ── composer ──────────────────────────────────────────────────────────────
-  function composer(path, line, side, seed, moved) {
-    closeComposer();
+  /**
+   * Open the composer standing on one anchor, or return to the one already there.
+   *
+   * One per line: pressing comment on a line that already has one puts the cursor back in its text
+   * rather than starting a second and losing the first. The options are the text to restore, the
+   * note a draft typed on an earlier diff carries, the anchor a relocated one came from, and
+   * whether to take the cursor — a restored composer does not.
+   */
+  function composer(path, line, side, opts) {
+    opts = opts || {};
     var row = rowFor(path, line, side);
     if (!row) { toast("Select a line that is in the diff, then comment"); return; }
+    var open = composerAt(path, line, side);
+    if (open) {
+      // One composer per line, and the line is what owns its text: pressing reply on a line whose
+      // composer is already open answers with that text rather than starting a second — the text is
+      // still a draft, so adopting the parent asserts nothing and the press is not ignored.
+      var openArea = open.querySelector(".rv-compose__area");
+      if (opts.seed !== undefined && openArea) openArea.value = opts.seed;
+      if (opts.parent && open.getAttribute("data-parent") !== opts.parent) {
+        open.setAttribute("data-parent", opts.parent);
+        open.querySelector(".rv-compose__head").textContent =
+          "reply on " + splitPath(path).name + ":" + line;
+        if (opts.parentText) {
+          open.querySelector(".rv-compose__head").appendChild(el("span", "rv-compose__note", "“" + excerpt(opts.parentText) + "”"));
+        }
+        if (openArea) openArea.setAttribute("aria-label", "Reply on " + path + ":" + line);
+      }
+      if (openArea) keepDraft(path, line, side, openArea.value, opts.parent || open.getAttribute("data-parent") || undefined);
+      if (openArea && opts.focus !== false) openArea.focus();
+      return;
+    }
     var wrap = el("span", "rv-compose");
     wrap.setAttribute("data-path", path);
     wrap.setAttribute("data-line", String(line));
     wrap.setAttribute("data-side", side);
-    var head = el("span", "rv-compose__head", "comment on " + splitPath(path).name + ":" + line);
-    if (moved) head.appendChild(el("span", "rv-compose__note", "typed on the earlier diff — check the line"));
+    if (opts.parent) wrap.setAttribute("data-parent", opts.parent);
+    var head = el("span", "rv-compose__head", (opts.parent ? "reply on " : "comment on ") + splitPath(path).name + ":" + line);
+    if (opts.parentText) head.appendChild(el("span", "rv-compose__note", "“" + excerpt(opts.parentText) + "”"));
+    if (opts.was) head.appendChild(el("span", "rv-compose__note", "was " + opts.was + " — the diff moved"));
+    else if (opts.moved) head.appendChild(el("span", "rv-compose__note", "typed on the earlier diff — check the line"));
     var area = el("textarea", "rv-compose__area");
     area.placeholder = "What is wrong, and what would you do instead?";
-    area.setAttribute("aria-label", "Comment on " + path + ":" + line);
-    if (seed) area.value = seed;
+    area.setAttribute("aria-label", (opts.parent ? "Reply on " : "Comment on ") + path + ":" + line);
+    if (opts.seed !== undefined) area.value = opts.seed;
     var acts = el("span", "rv-compose__acts");
     var save = el("button", "bf-btn bf-btn--primary", "Save comment");
     save.type = "button";
@@ -273,38 +499,77 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     wrap.appendChild(area);
     wrap.appendChild(acts);
     row.parentNode.insertBefore(wrap, row.nextSibling);
-    area.focus();
+    if (opts.focus !== false) area.focus();
     var submit = function () {
       var text = area.value.trim();
       if (!text) { area.focus(); return; }
       if (text.length > data.limits.body) { toast("A comment holds at most " + data.limits.body + " characters"); return; }
-      addComment(path, line, side, text);
+      addComment(path, line, side, text, wrap);
     };
     save.addEventListener("click", submit);
-    cancel.addEventListener("click", function () { forgetDraft(); closeComposer(); });
+    cancel.addEventListener("click", function () { cancelComposer(wrap); });
     area.addEventListener("input", keepTyping);
     area.addEventListener("keydown", function (event) {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
-      if (event.key === "Escape") { event.stopPropagation(); forgetDraft(); closeComposer(); }
+      if (event.key === "Escape") { event.stopPropagation(); cancelComposer(wrap); }
     });
   }
 
   // ── send ──────────────────────────────────────────────────────────────────
+  /**
+   * Save every composer holding text, in order, and stop at the first refusal.
+   *
+   * A flush can stop halfway — one save lands, the next is refused — so what it leaves is the state
+   * the page shows: what landed is a draft the session holds, what did not is still in its composer
+   * with its record. Its writes carry the page's rev like any save, which is why a draft restored
+   * onto a moved tree still lands when its line is drawn.
+   */
+  function flushComposers() {
+    return typedComposers().reduce(function (chain, entry) {
+      return chain.then(function (ok) {
+        if (!ok) return false;
+        return post(
+          "/api/comment",
+          {
+            comment: {
+              rel: entry.path,
+              line: entry.line,
+              side: entry.side,
+              ...(entry.parent === undefined ? {} : { parent: entry.parent }),
+              body: entry.text,
+            },
+          },
+          function () {
+            forgetDraft(entry.path, entry.line, entry.side);
+            closeComposer(entry.wrap);
+            paintThreads();
+            paintSend();
+          },
+        ).then(function (answer) { return answer.ok; });
+      });
+    }, Promise.resolve(true));
+  }
+
   function openSend() {
-    var pending = drafts();
-    if (pending.length === 0) return;
-    byId("rv-send-title").textContent = "Send " + plural(pending.length, "comment") + " to the session";
-    var list = byId("rv-send-list");
-    list.replaceChildren();
-    pending.forEach(function (comment) {
-      var item = el("div", "rv-dialog-item");
-      item.appendChild(el("p", "rv-dialog-path", comment.rel + ":" + comment.line));
-      item.appendChild(el("p", "rv-dialog-line", comment.body));
-      list.appendChild(item);
+    flushComposers().then(function (ok) {
+      // A refused save leaves the dialog shut: its own toast said which line, and the text is
+      // where the reviewer left it rather than queued for a send that would not carry it.
+      if (!ok) return;
+      var pending = drafts();
+      if (pending.length === 0) return;
+      byId("rv-send-title").textContent = "Send " + plural(pending.length, "comment") + " to the session";
+      var list = byId("rv-send-list");
+      list.replaceChildren();
+      pending.forEach(function (comment) {
+        var item = el("div", "rv-dialog-item");
+        item.appendChild(el("p", "rv-dialog-path", comment.rel + ":" + comment.line));
+        item.appendChild(el("p", "rv-dialog-line", comment.body));
+        list.appendChild(item);
+      });
+      byId("rv-send-dialog").hidden = false;
+      if (window.rvSend) window.rvSend.open();
+      byId("rv-send-confirm").focus();
     });
-    byId("rv-send-dialog").hidden = false;
-    if (window.rvSend) window.rvSend.open();
-    byId("rv-send-confirm").focus();
   }
   function closeSend() {
     byId("rv-send-dialog").hidden = true;
@@ -314,7 +579,6 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
       closeSend();
       paintThreads();
       paintChrome();
-      forgetDraft();
       toast("Comments sent — the session reads them at its next turn");
     });
   }

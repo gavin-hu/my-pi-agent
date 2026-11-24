@@ -10,8 +10,7 @@ is written to your tree.
   `git diff`, where the note you want to leave has nowhere to go.
 - **`/review`** serves the page and opens it; **`code_review`** is the model's
   side of it — open, read, and close.
-- The page is loopback-only and carries a token, so no other process can post
-  to it.
+- The page is loopback-only and carries a token, so nothing else can post.
 
 ## What you can do
 
@@ -26,7 +25,7 @@ is written to your tree.
 | Mark a file read | its **reviewed** box, or `m` |
 | Send the notes to the session | **Send feedback** |
 | Read what was sent | `code_review` with `action: "comments"` |
-| Close the page | `/review stop`, or `code_review` with `action: "close"` |
+| Close the page | `/review stop`, `code_review` with `action: "close"`, or the last tab leaving |
 
 ## Try it
 
@@ -41,9 +40,8 @@ its next turn:
 
 ```text
 [CODE REVIEW]
-2 review comments sent:
+1 review comment sent:
 gateway.ts:6 — Name the bound where the caller can read it…
-limits.ts:2 — Say which port was refused.
 Run `code_review` action "comments" for all of them.
 ```
 
@@ -67,22 +65,25 @@ tree alone, untracked files included. The base ref is `code-review.base`, else
 refused, naming the key to set.
 
 **The page.** One page per session, at `/review/`. Its id is minted by the first
-write, so opening a page to look costs nothing; the query carries the write
-token, and the first write puts the review's own id in the address. A comment is
-a draft until **Send feedback** marks it sent. The changed files are the shell's
-sidebar — a search, **All** / **Commented**, and one row per file — folding below
-900px; `wrap` wraps at any width, and narrowing hides rows and never sections.
-The rail's head carries the file facts and the progress; the footer the comparison.
+write, so looking costs nothing; the token rides the query and the id the address. A
+comment is a draft until **Send feedback** marks it sent, which also writes the one
+you are typing; **reply** keeps a comment under its comment, one level deep, and one
+whose comment was deleted reads as one. The files are the shell's sidebar — a search,
+**All** / **Commented**, one row per file — folding below 900px; `wrap` wraps at any
+width, and narrowing hides rows, never sections. The rail's head carries the facts and
+the progress; the footer the comparison. It follows its own stream: a write in one tab
+repaints the others, a frame under an open comment box waits for it, and the last tab
+leaving ends the page 1.5 s later so a reload fits. Nothing watches the tree — the
+next write discovers a moved diff.
 
-**One file at a time.** `?file=<path>` turns the page into that one file's diff:
-the rail shows that file and an **all files** link back, and the comparison is
-still the whole scope, so nothing about the snapshot or its token changes. It is
-typed, not linked — no other page has a way in here, and this page links nowhere
-else. The file's head carries **view file**, which serves the whole file at
-`/review/file?scope=<s>&path=<rel>`: only a path this comparison lists, read under
-the reviewed checkout, drawn on the diff's own gutter, with a way back to the
-comparison. `n` and `p` step between the focused file's hunks; the whole review
-keeps `[` and `]`. A reference copied from a selection is `path:12-30`.
+**One file at a time.** `?file=<path>` turns the page into that one file's diff: the
+rail shows that file and an **all files** link back, and the comparison is still the
+whole scope, so nothing about the snapshot or its token changes. It is typed, not
+linked. The file's head carries **view file**, which serves the whole file at
+`/review/file?scope=<s>&path=<rel>`: only a listed path, read under the reviewed
+checkout, drawn on the diff's gutter, with a way back. `n` and `p` step between the
+focused file's hunks; the whole review keeps `[` and `]`. A reference copied from a
+selection is `path:12-30`.
 
 **What a comment anchors to.** A path, a side, and a line the comparison draws,
 which the server checks against the snapshot; a comment is refused once the tree
@@ -90,21 +91,20 @@ moves, while a send, a delete and a mark name no line and land anyway.
 
 ## Limits
 
-- The review is the session's. Its comments live as long as the page does;
-  sending is what keeps them, in the transcript notice and in `code_review`.
+- The review is the session's. Its comments live as long as the page does; an unsent
+  draft stays in this tab, per line, and sending keeps both — notice and `code_review`.
 - One page per session. Changing scope is refused while a comment is on the page —
   a `409` naming what would be lost.
 - A focused page (`?file=`) hides the other files without forgetting them, and a
-  moved diff can leave a comment on a line no hunk shows: both are still counted
-  and still sent, and the stranded one is listed above the diff with a delete.
+  moved diff can leave a comment or an unsent draft on a line no hunk shows: both
+  still send, and the stranded one is listed above the diff, to delete or discard.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
   diff lines per file; the page says what a cap left out.
 - In a repository with no commits yet, `staged` and `worktree` still render a page;
   `base`, `last` and `head` say the commit they compare is missing — `head` too,
   since `git diff HEAD` needs one where `git diff --cached` does not.
-- The page needs `git`, `serve`, and a local browser; without `serve` the tool
-  says the session has no port, and a launcher that cannot start is reported with
-  the address to paste.
+- The page needs `git`, `serve`, and a local browser; without `serve` the tool says
+  the session has no port, and a launcher that cannot start is reported with the address.
 
 ## Settings
 
