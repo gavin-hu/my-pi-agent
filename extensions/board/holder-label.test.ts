@@ -16,7 +16,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { writeJoinedRecord } from "../../test/helpers/bus.ts";
 import { agentLabel } from "../../lib/session-label.ts";
-import { mutate } from "./write.ts";
+import { mutate } from "./actions.ts";
 import { registerTools } from "./tools.ts";
 import type { BoardDetails } from "./types.ts";
 
