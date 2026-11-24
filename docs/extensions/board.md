@@ -82,7 +82,7 @@ allow-list — the readers `read`, `grep`, `find`, `ls`, `read_doc`, `run_doctor
 `question`, `subagent`); `web_search`, `web_fetch`, `bash` for read-only git — and every other tool is refused by a sentence naming `/board stop`. A tool's
 own `readOnlyHint` does not admit it, so an MCP reader is refused while the seat is held. `subagent` stays read-only, `plan` keeps `write` and `steps`
 while `enter` refuses, and each turn carries one `[LEAD MODE]` line: the seat's unread mail, what is yours to sign, each parked card's decision,
-the pool's three ids and a count, who is listening. A seated session lands a reviewed card with `board land`, which refuses anyone else, so no exit is needed.
+the pool's three ids and a count, who is listening. A seated session lands a reviewed card with `board land`, which refuses anyone else, so the seat stays on.
 
 **Where it lives.** `~/.pi/agent/repos/<repo-id>/board/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so nothing is rewritten. A card records its plan by the **name** it holds in this repository's plan store, not this host's path, so two machines sharing a store resolve it on either — and a card holding an older absolute path still executes. A shared store is compared on every write, so it converges rather than serializing — [two machines, one store](../multi-session.md#two-machines-one-store).
 
