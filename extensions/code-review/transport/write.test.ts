@@ -9,7 +9,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
-import { openedPage, request, reply, reviewRoute as harness } from "../../../test/helpers/review-route.ts";
+import { openedPage, request, reply, reviewRoute as harness, stubFile } from "../../../test/helpers/review-route.ts";
 import { SNAPSHOT_MOVED } from "../review/store.ts";
 
 const temps = makeTempTracker();
@@ -120,6 +120,33 @@ describe("a write", () => {
 		expect(JSON.parse(String(elsewhere.body)).error).toBe(
 			"a reply answers a comment on its own line — a.ts:1 (new) is not a.ts:1 (old)",
 		);
+	});
+
+	test("checks both ends of a span, and keeps the one it drew", async () => {
+		const harnessed = harness({ files: [stubFile("a.ts", 3)] });
+		const token = await openedPage(harnessed);
+		const span = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", endLine: 3, body: "these three" },
+			}),
+		);
+		expect(span.status).toBe(200);
+		expect(JSON.parse(String(span.body)).review.comments[0].endLine).toBe(3);
+
+		// The asymmetric case: the start is drawn, the end is not. A gate on the start alone passes it.
+		const past = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", endLine: 9, body: "past the hunk" },
+			}),
+		);
+		expect(past.status).toBe(400);
+		expect(JSON.parse(String(past.body)).error).toBe("a comment anchors to a line this diff draws");
 	});
 
 	test("sends, drops and marks a page whose snapshot moved", async () => {
