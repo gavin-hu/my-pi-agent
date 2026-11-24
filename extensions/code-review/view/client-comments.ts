@@ -41,15 +41,13 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     delete all[draftKey(path, line, side)];
     writeDrafts(all);
   }
-  function forgetAllDrafts() {
-    try { sessionStorage.removeItem(DRAFT_KEY); } catch (error) { /* nothing stored is nothing to clear */ }
-  }
   /** Save the text of the composer the keystroke landed in — not of whichever composer is first. */
   function keepTyping(event) {
     var wrap = event && event.target && event.target.closest ? event.target.closest(".rv-compose") : null;
     if (!wrap) return;
     var area = wrap.querySelector(".rv-compose__area");
     keepDraft(wrap.getAttribute("data-path"), Number(wrap.getAttribute("data-line")), wrap.getAttribute("data-side"), area ? area.value : "");
+    paintSend();
   }
   /** The composer standing on one anchor, or null: one per line, which is what the page is. */
   function composerAt(path, line, side) {
@@ -65,6 +63,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     if (!wrap) return;
     forgetDraft(wrap.getAttribute("data-path"), Number(wrap.getAttribute("data-line")), wrap.getAttribute("data-side"));
     closeComposer(wrap);
+    paintSend();
   }
   /** Every draft comes back where it can: at its line, on a drawn line with the old one named, or listed. */
   function restoreDrafts() {
@@ -98,6 +97,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     if (moved.length > 0) said.push(plural(moved.length, "comment") + " moved to a line this diff draws");
     if (said.length > 0) toast(said.join("; "));
     paintOrphans();
+    paintSend();
   }
 
   // ── threads ───────────────────────────────────────────────────────────────
@@ -240,14 +240,40 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     });
   }
 
-  function paintChrome() {
-    var pending = drafts().length;
+  /** The composers holding text, as what a write would need to save each of them. */
+  function typedComposers() {
+    return nodeList(".rv-compose").map(function (wrap) {
+      var area = wrap.querySelector(".rv-compose__area");
+      return {
+        wrap: wrap,
+        path: wrap.getAttribute("data-path"),
+        line: Number(wrap.getAttribute("data-line")),
+        side: wrap.getAttribute("data-side"),
+        text: area ? area.value.trim() : "",
+      };
+    }).filter(function (entry) { return entry.text !== ""; });
+  }
+
+  /**
+   * What Send will do, in one number: the drafts the session holds and the text still in a composer.
+   *
+   * The button is a promise, so it counts the typing too — a label that says 3 while the press
+   * sends 4 is the defect, not the count. Loose drafts the page cannot draw are excluded on
+   * purpose: they are not a composer's, and Send cannot reach them.
+   */
+  function pendingCount() { return drafts().length + typedComposers().length; }
+
+  function paintSend() {
     var send = byId("rv-send");
-    if (send) {
-      send.disabled = pending === 0;
-      send.setAttribute("data-count", String(pending));
-      send.textContent = "Send feedback " + pending;
-    }
+    if (!send) return;
+    var pending = pendingCount();
+    send.disabled = pending === 0;
+    send.setAttribute("data-count", String(pending));
+    send.textContent = "Send feedback " + pending;
+  }
+
+  function paintChrome() {
+    paintSend();
     // An empty Commented view is the rail's note to explain, not a control to disable: the note
     // says there is nothing to narrow to, and the press that hid the rows is one press back.
     paintStates();
@@ -387,21 +413,52 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
   }
 
   // ── send ──────────────────────────────────────────────────────────────────
+  /**
+   * Save every composer holding text, in order, and stop at the first refusal.
+   *
+   * A flush can stop halfway — one save lands, the next is refused — so what it leaves is the state
+   * the page shows: what landed is a draft the session holds, what did not is still in its composer
+   * with its record. Its writes carry the page's rev like any save, which is why a draft restored
+   * onto a moved tree still lands when its line is drawn.
+   */
+  function flushComposers() {
+    return typedComposers().reduce(function (chain, entry) {
+      return chain.then(function (ok) {
+        if (!ok) return false;
+        return post(
+          "/api/comment",
+          { comment: { rel: entry.path, line: entry.line, side: entry.side, body: entry.text } },
+          function () {
+            forgetDraft(entry.path, entry.line, entry.side);
+            closeComposer(entry.wrap);
+            paintThreads();
+            paintSend();
+          },
+        ).then(function (answer) { return answer.ok; });
+      });
+    }, Promise.resolve(true));
+  }
+
   function openSend() {
-    var pending = drafts();
-    if (pending.length === 0) return;
-    byId("rv-send-title").textContent = "Send " + plural(pending.length, "comment") + " to the session";
-    var list = byId("rv-send-list");
-    list.replaceChildren();
-    pending.forEach(function (comment) {
-      var item = el("div", "rv-dialog-item");
-      item.appendChild(el("p", "rv-dialog-path", comment.rel + ":" + comment.line));
-      item.appendChild(el("p", "rv-dialog-line", comment.body));
-      list.appendChild(item);
+    flushComposers().then(function (ok) {
+      // A refused save leaves the dialog shut: its own toast said which line, and the text is
+      // where the reviewer left it rather than queued for a send that would not carry it.
+      if (!ok) return;
+      var pending = drafts();
+      if (pending.length === 0) return;
+      byId("rv-send-title").textContent = "Send " + plural(pending.length, "comment") + " to the session";
+      var list = byId("rv-send-list");
+      list.replaceChildren();
+      pending.forEach(function (comment) {
+        var item = el("div", "rv-dialog-item");
+        item.appendChild(el("p", "rv-dialog-path", comment.rel + ":" + comment.line));
+        item.appendChild(el("p", "rv-dialog-line", comment.body));
+        list.appendChild(item);
+      });
+      byId("rv-send-dialog").hidden = false;
+      if (window.rvSend) window.rvSend.open();
+      byId("rv-send-confirm").focus();
     });
-    byId("rv-send-dialog").hidden = false;
-    if (window.rvSend) window.rvSend.open();
-    byId("rv-send-confirm").focus();
   }
   function closeSend() {
     byId("rv-send-dialog").hidden = true;
@@ -411,7 +468,6 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
       closeSend();
       paintThreads();
       paintChrome();
-      forgetDraft();
       toast("Comments sent — the session reads them at its next turn");
     });
   }
