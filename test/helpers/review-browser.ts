@@ -200,13 +200,37 @@ export interface ReviewDom {
 		getElementById(id: string): ReviewNode | null;
 	};
 	location: { hash: string };
+	/** A rule as the browser computed it, for a case that proves a stylesheet rather than markup. */
+	getComputedStyle(node: ReviewNode): { borderLeftWidth: string; borderTopWidth: string };
+}
+
+/** A node's box: the four edges, and the two sizes a layout case measures. */
+export interface ReviewBox {
+	top: number;
+	bottom: number;
+	left: number;
+	right: number;
+	width: number;
+	height: number;
 }
 
 /** One node as a predicate reads it: its box, the attributes the page marks it with, its style. */
 export interface ReviewNode {
 	querySelector(selector: string): ReviewNode | null;
 	getAttribute(name: string): string | null;
-	getBoundingClientRect(): { top: number; bottom: number };
+	getBoundingClientRect(): ReviewBox;
+	/** The text the row shows, which #817 asserts does *not* change when a file is marked. */
+	textContent: string | null;
+	/**
+	 * Whether the node is out of the flow by attribute.
+	 *
+	 * `hidden` rather than removed: a zero count sets it, and a case that measures a row with and
+	 * without its count proves the attribute beats the rule's own `display` (#817).
+	 */
+	hidden: boolean;
+	/** Content wider than the box it was given: the clipped row a geometry case reads. */
+	scrollWidth: number;
+	clientWidth: number;
 	offsetHeight: number;
 	scrollTop: number;
 	style: { getPropertyValue(name: string): string };
