@@ -48,7 +48,7 @@ export interface Review {
 	updatedAt: number;
 	/** When the drafts were last sent. */
 	sentAt?: number;
-	/** The snapshot the first write rendered, so a page can say the tree moved since. */
+	/** The snapshot the page rendered, so a page can say the tree moved since. */
 	rev: string;
 }
 
@@ -99,8 +99,9 @@ export interface ReviewStore {
 	/** The page a review id and token name, or undefined when they do not. */
 	resume(id: string, token: string): ReviewPageState | undefined;
 	/**
-	 * Apply one write. `rev` is the snapshot the page rendered; it must equal
-	 * `current`, or the write is refused and nothing changes.
+	 * Apply one write. A comment names a line, so its `rev` must be the `current` snapshot
+	 * the page rendered — otherwise it is refused and nothing changes. A delete, a mark and
+	 * a send name no line, so they land whatever the tree did since.
 	 */
 	write(token: string, rev: string, current: string, op: WriteOp): WriteOutcome;
 	/** End the page; idempotent. */
@@ -161,7 +162,9 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 			const held = byToken(token);
 			if ("message" in held)
 				return { ok: false, status: held.message === BAD_TOKEN ? 403 : 409, message: held.message };
-			if (rev !== current) return { ok: false, status: 409, message: SNAPSHOT_MOVED };
+			// Only a comment anchors to a line the render drew, so only a comment is refused by a
+			// tree that moved under it; a delete, a mark and a send name their target exactly.
+			if (op.kind === "comment" && rev !== current) return { ok: false, status: 409, message: SNAPSHOT_MOVED };
 
 			// The review this op applies to: the page's, or a candidate the first *accepted*
 			// write adopts. The id is minted by `accept`, so a refusal consumes no id and
@@ -175,7 +178,9 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 				reviewed: [],
 				createdAt: now(),
 				updatedAt: now(),
-				rev: current,
+				// The snapshot the page rendered, not the one this write read: a stale page's first
+				// write must not clear the banner that says the diff moved under it.
+				rev,
 			};
 
 			/** Adopt the candidate, on the one path where the op was accepted. */

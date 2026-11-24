@@ -14,7 +14,10 @@ import { ENV_ROOT } from "../../../lib/env.ts";
 import type { LoopbackHandler, LoopbackRequest, LoopbackReply, MountSpec } from "../../../lib/http/index.ts";
 import { execP, makeRepo, makeTempTracker } from "../../../test/helpers/git.ts";
 import { fakeCtx } from "../../../test/helpers/context.ts";
+import { createFakePi } from "../../../test/helpers/fakes.ts";
 import { useEnv } from "../../../test/helpers/env.ts";
+import { TOOL_NAME } from "../schema.ts";
+import { registerReviewTool } from "../tools.ts";
 import { createReviewSession, scopeLocked } from "./session.ts";
 import { SNAPSHOT_MOVED } from "./store.ts";
 
@@ -169,6 +172,35 @@ describe("opening the page", () => {
 		expect(refused).toEqual({ kind: "refused", reason: scopeLocked(1, "main...HEAD") });
 		expect(mounted.state.specs).toHaveLength(1);
 		await session.close();
+	});
+
+	test("the tool closes the page once its only comment is deleted from it", async () => {
+		const repo = await featureRepo();
+		const mounted = fakeMount();
+		const ctx = fakeCtx({ cwd: repo }).ctx;
+		const session = createReviewSession({ pi: host, ctx, open: () => {}, mount: mounted.mount });
+		await session.open({}, ctx);
+		const handler = mounted.state.specs[0].handler;
+		const page = reviewIsland(String((await ask(handler, "GET", "/new")).body ?? ""));
+		const written = await ask(handler, "POST", "/api/comment", {
+			token: page.token,
+			rev: page.rev,
+			comment: { rel: "a.ts", line: 1, side: "new", body: "name the constant" },
+		});
+		expect(written.status).toBe(200);
+		const { pi, tools } = createFakePi();
+		registerReviewTool(pi, async () => session);
+		const tool = tools.get(TOOL_NAME);
+		const refused = await tool.execute("c1", { action: "close" }, undefined, undefined, ctx);
+		expect(refused.isError).toBe(true);
+		expect(refused.content[0].text).toContain("still a draft");
+		// The delete is by id, which is what the page's list of comments it cannot draw does for one a
+		// moved diff left without a row: the reviewer's only way back to a close.
+		const id = JSON.parse(String(written.body)).review.comments[0].id;
+		const dropped = await ask(handler, "POST", "/api/drop", { token: page.token, rev: page.rev, id });
+		expect(dropped.status).toBe(200);
+		const closed = await tool.execute("c1", { action: "close" }, undefined, undefined, ctx);
+		expect(closed.content[0].text).toBe("Review closed.");
 	});
 
 	test("reports a page with no diff as open, naming the problem", async () => {

@@ -26,8 +26,10 @@ import {
 	type ServeResponse,
 	scriptHeaders,
 } from "../../../lib/http/index.ts";
+import { tokenMatches } from "../../../lib/http/token.ts";
 import { isInsideReal } from "../../../lib/path.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
+import type { ReviewSnapshot } from "../git/diff.ts";
 import type { ReviewCurrent } from "../review/current.ts";
 import { NO_PAGE, type Review, type ReviewComment, type ReviewStore, type WriteOp } from "../review/store.ts";
 import { parseScope, type ReviewScope } from "../scope.ts";
@@ -94,6 +96,19 @@ function opOf(pathname: string, body: WriteBody): WriteOp | { message: string } 
 
 /** The four routes a write may take. */
 const WRITE_ROUTES: ReadonlySet<string> = new Set(["/api/comment", "/api/drop", "/api/reviewed", "/api/send"]);
+
+/**
+ * Whether the snapshot draws a line on the side a comment names.
+ *
+ * The snapshot a write already reads is the only place that knows which lines the page put in
+ * front of the reviewer, so this is where an anchor that names no row is refused: the store
+ * keeps the shape of a comment, not the diff it was written against.
+ */
+export function anchorDrawn(files: ReviewSnapshot["files"], rel: string, side: "new" | "old", line: number): boolean {
+	const file = files.find((entry) => entry.rel === rel);
+	if (file === undefined) return false;
+	return file.lines.some((entry) => (side === "new" ? entry.newNo === line : entry.oldNo === line));
+}
 
 /** The work a scope change would discard: comments still in draft, and files marked reviewed. */
 export function scopeWork(review: Review): { drafts: number; marks: number } {
@@ -240,12 +255,17 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		}
 		const op = opOf(pathname, body);
 		if ("message" in op) return jsonError(400, op.message);
-		const outcome = store.write(
-			typeof body.token === "string" ? body.token : "",
-			typeof body.rev === "string" ? body.rev : "",
-			snapshot.snapshot.fingerprint,
-			op,
-		);
+		const token = typeof body.token === "string" ? body.token : "";
+		// The token is read first, so a caller without one learns nothing about the diff; then the
+		// anchor, which is the one thing a comment names and the page's rows are the only proof of.
+		if (
+			op.kind === "comment" &&
+			tokenMatches(page.token, token) &&
+			!anchorDrawn(snapshot.snapshot.files, op.rel.trim(), op.side, op.line)
+		) {
+			return jsonError(400, "a comment anchors to a line this diff draws");
+		}
+		const outcome = store.write(token, typeof body.rev === "string" ? body.rev : "", snapshot.snapshot.fingerprint, op);
 		if (!outcome.ok) return jsonError(outcome.status, outcome.message);
 		if (op.kind === "send" && outcome.sent.length > 0) {
 			deps.onSent?.(outcome.sent, outcome.id);

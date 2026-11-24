@@ -83,10 +83,48 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
 
   function paintThreads() {
     nodeList(".rv-thread").forEach(function (el) { el.remove(); });
+    var unplaced = [];
     (data.comments || []).forEach(function (comment) {
       var row = rowFor(comment.rel, comment.line, comment.side);
-      if (!row) return;
-      row.parentNode.insertBefore(threadNode(comment), row.nextSibling);
+      if (row) { row.parentNode.insertBefore(threadNode(comment), row.nextSibling); return; }
+      // Only a comment on a file this page draws is unplaced: one on a file a focused page hides is
+      // out of view by the reader's own request, and the page says so.
+      if (sectionFor(comment.rel)) unplaced.push(comment);
+    });
+    paintOrphans(unplaced);
+  }
+
+  /**
+   * The comments this render has no line for: the diff moved under the line they named, so their
+   * thread cannot be drawn. The list is the only place they can be read and the only place they
+   * can be deleted — and a draft nobody can delete is what keeps the page from closing.
+   */
+  function paintOrphans(comments) {
+    var box = byId("rv-orphans");
+    var list = byId("rv-orphans-list");
+    if (!box || !list) return;
+    list.replaceChildren();
+    box.hidden = comments.length === 0;
+    if (comments.length === 0) return;
+    var one = comments.length === 1;
+    var head = byId("rv-orphans-head");
+    if (head) {
+      head.textContent =
+        (one ? "1 comment is" : comments.length + " comments are") +
+        " not on a line this page draws — the diff moved since " +
+        (one ? "it was" : "they were") +
+        " written";
+    }
+    comments.forEach(function (comment) {
+      var item = el("span", "rv-orphans__item");
+      item.appendChild(el("span", "rv-orphans__ref", comment.rel + ":" + comment.line));
+      item.appendChild(el("span", "rv-orphans__body", comment.body));
+      var drop = el("button", "bf-btn bf-btn--ghost", "delete");
+      drop.type = "button";
+      drop.setAttribute("aria-label", "Delete the comment on " + comment.rel + ":" + comment.line);
+      drop.addEventListener("click", function () { dropComment(comment.id); });
+      item.appendChild(drop);
+      list.appendChild(item);
     });
   }
 
@@ -164,6 +202,9 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
       } else {
         var message = answer.body && (answer.body.message || answer.body.error) ? answer.body.message || answer.body.error : "the write was refused";
         toast(message);
+        // A refused write changed nothing, so every control goes back to the state the page was
+        // rendered with: a checkbox the reviewer just toggled is the one that would otherwise lie.
+        paintChrome();
         if (answer.status === 409) {
           // The tree moved under this page: the kit's reload chip is the way out, and the
           // draft survives the reload.
