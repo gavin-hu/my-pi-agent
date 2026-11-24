@@ -183,9 +183,10 @@ function globalMemoryPath(): string {
  * Resolve both store paths, anchoring the project store at the checkout the repository
  * states its settings in.
  *
- * `.pi/` is gitignored, so a worktree's own copy would be a second store that dies with
- * the tree — and the worktree is where the work happens. `settingsRootFor` answers the
- * checkout every worktree of the repository shares, from a subdirectory or a linked
+ * The project store is filed under the repository's identity in the agent directory, so a
+ * worktree's own `.pi/memory.md` — the spelling an older build read — could never become a second
+ * store that dies with the tree, and the worktree is where the work happens. `settingsRootFor`
+ * answers the checkout every worktree of the repository shares, from a subdirectory or a linked
  * worktree alike; outside a repository it answers `cwd`.
  */
 export async function resolveMemoryPaths(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<MemoryPaths> {

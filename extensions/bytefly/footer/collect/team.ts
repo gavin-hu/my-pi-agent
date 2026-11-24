@@ -53,9 +53,9 @@ function teammateReader(cwd: string, options: { agentDir?: string } = {}): (labe
 /**
  * The reader a footer install uses: the team read at the repository's settings root.
  *
- * A worktree session's cwd is the worktree, where `.pi/` is gitignored; the names the repository
- * states live in the checkout. `repo-key` is loaded here rather than in `register.ts`, so the
- * footer's registration path pays nothing for it and `test/dependencies`' heights stay flat.
+ * A worktree session's cwd is the worktree, where `.pi/bytefly.json` is not tracked; the names the
+ * repository states live in the checkout. `repo-key` is loaded here rather than in `register.ts`, so
+ * the footer's registration path pays nothing for it and `test/dependencies`' heights stay flat.
  */
 export async function worktreeTeammateReader(
 	pi: Pick<ExtensionAPI, "exec">,
