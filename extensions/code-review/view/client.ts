@@ -29,6 +29,7 @@ import {
 } from "../../../lib/web/index.ts";
 import { REVIEW_COMMENTS_JS } from "./client-comments.ts";
 import { REVIEW_KEYS_JS } from "./client-keys.ts";
+import { REVIEW_LIVE_JS } from "./client-live.ts";
 import { REVIEW_PLACE_JS } from "./client-place.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
@@ -116,6 +117,7 @@ ${CLIENT_RUNTIME_JS}
 ${REVIEW_COMMENTS_JS}
 ${REVIEW_PLACE_JS}
 ${REVIEW_KEYS_JS}
+${REVIEW_LIVE_JS}
 
   // The file the reader is in starts as the one the server marked current.
   var startRail =
