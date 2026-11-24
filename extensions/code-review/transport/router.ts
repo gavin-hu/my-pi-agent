@@ -105,6 +105,7 @@ function opOf(pathname: string, body: WriteBody): WriteOp | { message: string } 
 			rel: typeof comment.rel === "string" ? comment.rel : "",
 			line: typeof comment.line === "number" ? comment.line : 0,
 			side: comment.side === "old" ? "old" : "new",
+			...(typeof comment.parent === "string" && comment.parent !== "" ? { parent: comment.parent } : {}),
 			...(typeof comment.quote === "string" ? { quote: comment.quote } : {}),
 			body: typeof comment.body === "string" ? comment.body : "",
 		};

@@ -25,6 +25,8 @@ export interface ReviewComment {
 	line: number;
 	/** Which side of the diff the number counts: the new file or the old. */
 	side: "new" | "old";
+	/** The comment this one answers, when it is a reply. One level: a reply never answers a reply. */
+	parent?: string;
 	/** Text the reviewer selected, for the thread's head. */
 	quote?: string;
 	/** What the reviewer wrote, one block, already trimmed. */
@@ -64,7 +66,16 @@ export interface ReviewPageState {
 
 /** A write the page may make. */
 export type WriteOp =
-	| { kind: "comment"; rel: string; line: number; side: "new" | "old"; quote?: string; body: string }
+	| {
+			kind: "comment";
+			rel: string;
+			line: number;
+			side: "new" | "old";
+			quote?: string;
+			/** The comment this one answers, for the reply a thread reads under its parent. */
+			parent?: string;
+			body: string;
+	  }
 	| { kind: "drop"; id: string }
 	| { kind: "reviewed"; rel: string; reviewed: boolean }
 	| { kind: "send" };
@@ -203,11 +214,32 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 				if (!Number.isInteger(op.line) || op.line < 1) {
 					return { ok: false, status: 400, message: "a comment names a line number" };
 				}
+				const side = op.side === "old" ? "old" : "new";
+				// A reply answers a comment the review holds, on the line it answers: the store is the only
+				// place that has the review's own comments, so the check lives here and nowhere twice.
+				const answering = op.parent === undefined ? [] : review.comments.filter((entry) => entry.id === op.parent);
+				if (op.parent !== undefined && answering.length === 0) {
+					return { ok: false, status: 400, message: "a reply answers a comment on this review" };
+				}
+				if (answering.length > 0) {
+					const answered = answering[0];
+					if (answered.rel !== rel || answered.line !== op.line || answered.side !== side) {
+						return {
+							ok: false,
+							status: 400,
+							message: `a reply answers a comment on its own line — ${answered.rel}:${answered.line} (${answered.side}) is not ${rel}:${op.line} (${side})`,
+						};
+					}
+					if (answered.parent !== undefined) {
+						return { ok: false, status: 400, message: "a reply answers a comment, not another reply" };
+					}
+				}
 				const comment: ReviewComment = {
 					id: freshId(new Set(review.comments.map((entry) => entry.id))),
 					rel,
 					line: op.line,
-					side: op.side === "old" ? "old" : "new",
+					side,
+					...(op.parent === undefined ? {} : { parent: op.parent }),
 					...(typeof op.quote === "string" && op.quote.trim() !== ""
 						? { quote: op.quote.trim().slice(0, MAX_QUOTE_LENGTH) }
 						: {}),
