@@ -64,6 +64,56 @@ gated("the review page's writes", () => {
 		CASE_MS,
 	);
 
+	/**
+	 * One composer per line: opening a second must not take the first, a reload brings back both
+	 * with their own text, and a save closes the composer it belongs to and no other.
+	 */
+	test(
+		"two composers hold their own text, and one save leaves the other",
+		async () => {
+			await withPage(
+				async (page) => {
+					await startComment(page, "note on the added line");
+					await page
+						.locator(".bf-diff-line")
+						.nth(1)
+						.locator(".browse-diff-no")
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click();
+					await page.locator("#rv-sel-comment").click();
+					expect(await page.locator(".rv-compose").count()).toBe(2);
+					await page
+						.locator(".rv-compose", { hasText: "a.ts:17" })
+						.locator(".rv-compose__area")
+						.fill("note on the context line");
+
+					await page.reload({ waitUntil: "networkidle" });
+					await page.waitForFunction(() => document.querySelectorAll(".rv-compose").length === 2, undefined, {
+						timeout: REVIEW_PAINT_MS,
+					});
+					const restored = [
+						await page.locator(".rv-compose__area").nth(0).inputValue(),
+						await page.locator(".rv-compose__area").nth(1).inputValue(),
+					];
+					expect(restored.sort()).toEqual(["note on the added line", "note on the context line"]);
+
+					await page.locator(".rv-compose", { hasText: "a.ts:19" }).locator(".bf-btn--primary").click();
+					await page.waitForFunction(
+						() =>
+							(globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 1 &&
+							(globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-compose").length === 1,
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
+					expect(await page.locator(".rv-compose__area").inputValue()).toBe("note on the context line");
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
 	test(
 		"a write against a moved diff reveals the reload chip and keeps the text",
 		async () => {

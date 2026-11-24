@@ -10,51 +10,75 @@
  * so a call across them reaches a hoisted declaration rather than an import.
  */
 export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ────────────────────────────────────────────────────────────────
-  function saveDraft(state) {
-    try {
-      if (state === null) sessionStorage.removeItem(DRAFT_KEY);
-      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify(state));
-    } catch (error) { /* a full or blocked store is not a reason to lose the page */ }
-  }
-  function readDraft() {
+  // One record per anchor, keyed [path, line, side]: a composer per line is what the page is, so a
+  // second one must not overwrite the first, and a reload brings back every draft whose line is
+  // still drawn. The record's rev says which diff it was typed on — provenance for the "was
+  // a.ts:3" note a moved one carries, never a write's gate: every write sends the page's rev, so
+  // a save lands exactly when the line it names is drawn.
+  function storedDrafts() {
     try {
       var raw = sessionStorage.getItem(DRAFT_KEY);
-      if (!raw) return null;
-      var kept = JSON.parse(raw);
-      // The record's rev is where it was typed, not a reason to drop it: a moved diff is the
-      // case this draft exists for, and the composer says where it came from.
-      return kept && typeof kept.text === "string" && kept.text !== "" ? kept : null;
-    } catch (error) { return null; }
+      var kept = raw ? JSON.parse(raw) : null;
+      return kept && typeof kept === "object" ? kept : {};
+    } catch (error) { return {}; }
   }
-  function keepTyping() {
-    var area = document.querySelector(".rv-compose__area");
-    var head = document.querySelector(".rv-compose");
-    saveDraft(area && head ? { rev: rev, path: head.getAttribute("data-path"), line: Number(head.getAttribute("data-line")), side: head.getAttribute("data-side"), text: area.value } : null);
+  function writeDrafts(all) {
+    try {
+      if (Object.keys(all).length === 0) sessionStorage.removeItem(DRAFT_KEY);
+      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify(all));
+    } catch (error) { /* a full or blocked store is not a reason to lose the page */ }
   }
-  function forgetDraft() { saveDraft(null); }
-  function closeComposer() {
-    nodeList(".rv-compose").forEach(function (el) { el.remove(); });
+  function draftKey(path, line, side) { return JSON.stringify([path, line, side]); }
+  function keepDraft(path, line, side, text) {
+    var all = storedDrafts();
+    var key = draftKey(path, line, side);
+    if (text === "") delete all[key];
+    else all[key] = { rev: rev, path: path, line: line, side: side, text: text };
+    writeDrafts(all);
   }
-  function restoreDraft() {
-    var kept = readDraft();
-    if (!kept || !kept.text) return;
-    var moved = kept.rev !== rev;
-    var path = kept.path;
-    var line = kept.line;
-    var side = kept.side;
-    if (!rowFor(path, line, side)) {
-      // The line (or the file) is not in this rendering. Keep the text in a composer that can
-      // still save: the first numbered row of its file, or of the first visible file.
-      var start = firstRowOf(path);
-      if (!start) { saveDraft(kept); toast("An unsent comment is kept, but this diff has no line to put it on"); return; }
-      var anchorAt = rowAnchor(start.rows[start.row]);
-      if (!anchorAt) { saveDraft(kept); toast("An unsent comment is kept, but this diff has no line to put it on"); return; }
-      path = start.path;
-      line = anchorAt.line;
-      side = anchorAt.side;
-    }
-    composer(path, line, side, kept.text, moved);
-    toast(moved ? "An unsent comment was kept from the earlier diff — check the line" : "An unsent comment was restored");
+  function forgetDraft(path, line, side) {
+    var all = storedDrafts();
+    delete all[draftKey(path, line, side)];
+    writeDrafts(all);
+  }
+  function forgetAllDrafts() {
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch (error) { /* nothing stored is nothing to clear */ }
+  }
+  /** Save the text of the composer the keystroke landed in — not of whichever composer is first. */
+  function keepTyping(event) {
+    var wrap = event && event.target && event.target.closest ? event.target.closest(".rv-compose") : null;
+    if (!wrap) return;
+    var area = wrap.querySelector(".rv-compose__area");
+    keepDraft(wrap.getAttribute("data-path"), Number(wrap.getAttribute("data-line")), wrap.getAttribute("data-side"), area ? area.value : "");
+  }
+  /** The composer standing on one anchor, or null: one per line, which is what the page is. */
+  function composerAt(path, line, side) {
+    return nodeList(".rv-compose").filter(function (wrap) {
+      return wrap.getAttribute("data-path") === path && wrap.getAttribute("data-line") === String(line) && wrap.getAttribute("data-side") === side;
+    })[0] || null;
+  }
+  function closeComposer(wrap) {
+    if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+  }
+  /** Throw away one composer and its record; the others are not this one's business. */
+  function cancelComposer(wrap) {
+    if (!wrap) return;
+    forgetDraft(wrap.getAttribute("data-path"), Number(wrap.getAttribute("data-line")), wrap.getAttribute("data-side"));
+    closeComposer(wrap);
+  }
+  /** Every draft still drawn comes back unfocused, and the toast names the lines that did. */
+  function restoreDrafts() {
+    var all = storedDrafts();
+    var back = [];
+    Object.keys(all).forEach(function (key) {
+      var kept = all[key];
+      if (!kept || typeof kept.text !== "string" || kept.text === "") { delete all[key]; return; }
+      if (!rowFor(kept.path, kept.line, kept.side)) return;
+      composer(kept.path, kept.line, kept.side, { seed: kept.text, moved: kept.rev !== rev, focus: false });
+      back.push(kept.path + ":" + kept.line);
+    });
+    writeDrafts(all);
+    if (back.length > 0) toast("Unsent " + plural(back.length, "comment") + " restored — " + back.join(", "));
   }
 
   // ── threads ───────────────────────────────────────────────────────────────
@@ -219,10 +243,10 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     });
   }
 
-  function addComment(path, line, side, text) {
+  function addComment(path, line, side, text, wrap) {
     return post("/api/comment", { comment: { rel: path, line: line, side: side, body: text } }, function () {
-      forgetDraft();
-      closeComposer();
+      forgetDraft(path, line, side);
+      closeComposer(wrap);
       focusCursor();
       paintThreads();
       paintChrome();
@@ -246,20 +270,36 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
   }
 
   // ── composer ──────────────────────────────────────────────────────────────
-  function composer(path, line, side, seed, moved) {
-    closeComposer();
+  /**
+   * Open the composer standing on one anchor, or return to the one already there.
+   *
+   * One per line: pressing comment on a line that already has one puts the cursor back in its text
+   * rather than starting a second and losing the first. The options are the text to restore, the
+   * note a draft typed on an earlier diff carries, the anchor a relocated one came from, and
+   * whether to take the cursor — a restored composer does not.
+   */
+  function composer(path, line, side, opts) {
+    opts = opts || {};
     var row = rowFor(path, line, side);
     if (!row) { toast("Select a line that is in the diff, then comment"); return; }
+    var open = composerAt(path, line, side);
+    if (open) {
+      var openArea = open.querySelector(".rv-compose__area");
+      if (opts.seed !== undefined && openArea) { openArea.value = opts.seed; keepDraft(path, line, side, opts.seed); }
+      if (openArea && opts.focus !== false) openArea.focus();
+      return;
+    }
     var wrap = el("span", "rv-compose");
     wrap.setAttribute("data-path", path);
     wrap.setAttribute("data-line", String(line));
     wrap.setAttribute("data-side", side);
     var head = el("span", "rv-compose__head", "comment on " + splitPath(path).name + ":" + line);
-    if (moved) head.appendChild(el("span", "rv-compose__note", "typed on the earlier diff — check the line"));
+    if (opts.was) head.appendChild(el("span", "rv-compose__note", "was " + opts.was + " — the diff moved"));
+    else if (opts.moved) head.appendChild(el("span", "rv-compose__note", "typed on the earlier diff — check the line"));
     var area = el("textarea", "rv-compose__area");
     area.placeholder = "What is wrong, and what would you do instead?";
     area.setAttribute("aria-label", "Comment on " + path + ":" + line);
-    if (seed) area.value = seed;
+    if (opts.seed !== undefined) area.value = opts.seed;
     var acts = el("span", "rv-compose__acts");
     var save = el("button", "bf-btn bf-btn--primary", "Save comment");
     save.type = "button";
@@ -273,19 +313,19 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     wrap.appendChild(area);
     wrap.appendChild(acts);
     row.parentNode.insertBefore(wrap, row.nextSibling);
-    area.focus();
+    if (opts.focus !== false) area.focus();
     var submit = function () {
       var text = area.value.trim();
       if (!text) { area.focus(); return; }
       if (text.length > data.limits.body) { toast("A comment holds at most " + data.limits.body + " characters"); return; }
-      addComment(path, line, side, text);
+      addComment(path, line, side, text, wrap);
     };
     save.addEventListener("click", submit);
-    cancel.addEventListener("click", function () { forgetDraft(); closeComposer(); });
+    cancel.addEventListener("click", function () { cancelComposer(wrap); });
     area.addEventListener("input", keepTyping);
     area.addEventListener("keydown", function (event) {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
-      if (event.key === "Escape") { event.stopPropagation(); forgetDraft(); closeComposer(); }
+      if (event.key === "Escape") { event.stopPropagation(); cancelComposer(wrap); }
     });
   }
 
