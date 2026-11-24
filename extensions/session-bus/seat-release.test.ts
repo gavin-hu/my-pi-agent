@@ -8,6 +8,7 @@
  */
 import { afterAll, describe, expect, test } from "bun:test";
 import { LEAD_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
+import { busStoreFixture } from "../../test/helpers/bus.ts";
 import { scratchDir } from "../../test/helpers/env.ts";
 import type { BusToolSession } from "../../test/helpers/fixtures/session-bus-tool.ts";
 import { joinBusSession as joins, busToolSession as session } from "../../test/helpers/fixtures/session-bus-tool.ts";
@@ -94,5 +95,38 @@ describe("the seat takes a peer's claims", () => {
 		);
 		expect(missing.isError).toBe(true);
 		expect(missing.content[0]?.text).toContain('no live session labelled "nobody"');
+	});
+});
+
+describe("the store's transfer", () => {
+	/**
+	 * The gap case, at the layer the gap would live in.
+	 *
+	 * `release` then `claim` is two passes, and a rival's claim lands between them: the seat would
+	 * hand a peer's paths to a stranger. `transfer` replaces each record with a rename over it, so a
+	 * path is never unowned, and the seam after each move is the only place a rival can be put.
+	 */
+	test("a rival claimer cannot win the gap between two moves", async () => {
+		const { store } = busStoreFixture(temps);
+		await store.claimAll(["src/a.ts", "src/b.ts"], "s1", "jack", 100);
+		const rival: string[][] = [];
+		const { moved, notHeld } = await store.transfer(["src/a.ts", "src/b.ts", "lib"], "s1", "s2", "gavin", 200, {
+			afterMove: async () => {
+				rival.push((await store.claimAll(["src/b.ts"], "s3", "tom", 150)).claimed);
+			},
+		});
+		expect(moved).toEqual(["src/a.ts", "src/b.ts"]);
+		// A path the first owner never held is not created by the move.
+		expect(notHeld).toEqual(["lib"]);
+		// One attempt per move, and both refused: the paths still to move were never free.
+		expect(rival).toEqual([[], []]);
+		expect((await store.claims()).map((claim) => [claim.path, claim.owner, claim.ownerLabel])).toEqual([
+			["src/a.ts", "s2", "gavin"],
+			["src/b.ts", "s2", "gavin"],
+		]);
+		// And the peer it was taken from is told who holds them, rather than silently losing a race.
+		expect((await store.claimAll(["src/b.ts"], "s1", "jack", 300)).conflicts).toEqual([
+			{ path: "src/b.ts", owner: "s2", ownerLabel: "gavin" },
+		]);
 	});
 });

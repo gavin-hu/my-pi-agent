@@ -368,33 +368,6 @@ describe("claims", () => {
 		]);
 	});
 
-	test("moves a session's claims to another in one step, so a rival cannot win the gap (\#835)", async () => {
-		const { store } = busStoreFixture(temps);
-		await store.claimAll(["src/a.ts", "src/b.ts"], "s1", "jack", 100);
-		const rival: string[][] = [];
-		const { moved, notHeld } = await store.transfer(["src/a.ts", "src/b.ts", "lib"], "s1", "s2", "gavin", 200, {
-			// The window a release-then-claim would open: a stranger reaches for the paths still to
-			// move, after the first has already changed hands.
-			afterMove: async () => {
-				rival.push((await store.claimAll(["src/b.ts"], "s3", "tom", 150)).claimed);
-			},
-		});
-		expect(moved).toEqual(["src/a.ts", "src/b.ts"]);
-		// A path the first owner never held is not created by the move.
-		expect(notHeld).toEqual(["lib"]);
-		// One attempt per move — after the first path changed hands and after the second — and both
-		// refused, which is the gap a release-then-claim would have left open.
-		expect(rival).toEqual([[], []]);
-		expect((await store.claims()).map((claim) => [claim.path, claim.owner, claim.ownerLabel])).toEqual([
-			["src/a.ts", "s2", "gavin"],
-			["src/b.ts", "s2", "gavin"],
-		]);
-		// And the peer it was taken from is told who holds them, rather than silently losing a race.
-		expect((await store.claimAll(["src/b.ts"], "s1", "jack", 300)).conflicts).toEqual([
-			{ path: "src/b.ts", owner: "s2", ownerLabel: "gavin" },
-		]);
-	});
-
 	test("releases all claims owned by a session", async () => {
 		const { store } = busStoreFixture(temps);
 		await store.claimAll(["src/a.ts"], "s1", "one", 100);

@@ -114,10 +114,9 @@ export interface BusStore {
 	/**
 	 * Move one owner's claims to another, without a moment when a path is unowned (#835).
 	 *
-	 * `release` then `claim` is two passes with a gap, and a third claimer can win the gap: the seat
-	 * would have released a peer's work to a stranger. Each path is therefore replaced in one step
-	 * ({@link replaceJson}), and a path this owner does not hold comes back in `notHeld` rather than
-	 * being created — a transfer moves claims that exist, and never conjures one nobody made.
+	 * `release` then `claim` is two passes with a gap, and a third claimer wins it. Each path is
+	 * replaced in one step ({@link replaceJson}), and a path this owner does not hold comes back in
+	 * `notHeld` — a transfer moves claims that exist, never one nobody made.
 	 */
 	transfer(
 		paths: readonly string[],
@@ -170,14 +169,7 @@ export interface ClaimSeams {
 	afterCheck?: () => Promise<void>;
 	/** Runs after each path is published: the window between two creates of one batch. */
 	afterClaim?: (path: string) => Promise<void>;
-	/**
-	 * Runs after each path a {@link BusStore.transfer} moved: the window between two moves of one
-	 * hand-over.
-	 *
-	 * There is no window where a moved path is unowned — the replace is one step — so this is the
-	 * only place a suite can put a rival claimer inside a transfer, and what it proves is that the
-	 * paths still to move were never free to take.
-	 */
+	/** Runs after each path a {@link BusStore.transfer} moved: the window between two moves. */
 	afterMove?: (path: string) => Promise<void>;
 }
 

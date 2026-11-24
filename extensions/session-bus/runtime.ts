@@ -1,18 +1,13 @@
 /**
  * Session-bus lifecycle and operations.
  *
- * No mode joins on start. A session is invisible until it names itself, or takes
- * an action that makes it addressable (`send`, `claim`, `join`, `watch`), so a
- * subagent or phone peer never joins a team merely because the package loaded,
- * and a fresh terminal session's board is empty. Reading — the board and
- * `status` — never joins: a reader is not a member.
- * The runtime owns the heartbeat, keeps no module-level state, and uses the
- * common git directory so worktrees of one repository share one bus.
+ * No mode joins on start: a session is invisible until it names itself or takes an action that makes
+ * it addressable (`send`, `claim`, `join`, `watch`), and reading — the board and `status` — never
+ * joins, because a reader is not a member. The runtime owns the heartbeat, keeps no module-level
+ * state, and uses the common git directory so worktrees of one repository share one bus.
  *
- * A wake that arrives while the agent is running is queued and raised by the
- * extension's reporter once the run settles. The watch itself — the poll, the
- * queue, and the reported set — is `mail-watch.ts`; this module supplies one
- * read-only peek and the actions that join.
+ * A wake that arrives while the agent is running is queued and raised by the extension's reporter
+ * once the run settles; the watch itself — the poll, the queue, the reported set — is `mail-watch.ts`.
  */
 
 import { randomBytes } from "node:crypto";
@@ -593,13 +588,12 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async release(rawPaths, holder) {
 			const me = await currentRecord();
 			const bus = requireStore();
-			if (holder !== undefined) {
-				const peer = (await bus.sessions()).find((entry) => entry.label === holder && entry.id !== me.id);
-				if (peer === undefined) throw new Error(`no live session labelled "${holder}" holds claims to take.`);
-				const { moved, notHeld } = await bus.transfer(storedPaths(me, rawPaths), peer.id, me.id, me.label, now());
-				return { released: moved, notOwned: notHeld };
-			}
-			return releaseClaimed(storedPaths(me, rawPaths), (path) => bus.release(path, me.id));
+			const paths = storedPaths(me, rawPaths);
+			if (holder === undefined) return releaseClaimed(paths, (path) => bus.release(path, me.id));
+			const peer = (await bus.sessions()).find((entry) => entry.label === holder && entry.id !== me.id);
+			if (peer === undefined) throw new Error(`no live session labelled "${holder}" holds claims to take.`);
+			const { moved: released, notHeld: notOwned } = await bus.transfer(paths, peer.id, me.id, me.label, now());
+			return { released, notOwned };
 		},
 	};
 }
