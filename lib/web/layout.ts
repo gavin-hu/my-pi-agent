@@ -93,6 +93,10 @@ export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height
 .bf-app__id{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-height:52px;padding:var(--space-2) var(--space-6)}
 .bf-app__rule{height:1px;background:var(--border)}
 .bf-app__ctl{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap;padding:5px var(--space-6)}
+/* The row's arrangement at the row's selector: a filter in the control row sits at its right end,
+   and the same field anywhere else is not pushed. narrowShell's narrow rule below is the same
+   variant at full width — it assumes the filter lives here, and now says so by naming the row. */
+.bf-app__ctl .bf-field--filter{margin-left:auto}
 /* The control row's rhythm: 12 inside a role, 24 between roles — the switch, the meter and the
    prompt line are three groups, and the row's height comes from its equal padding. */
 .bf-app__group{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap;min-width:0}

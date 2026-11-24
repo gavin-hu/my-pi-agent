@@ -60,6 +60,10 @@ describe("the shell's two rows", () => {
 		// margin above wins at equal specificity and would re-own a push the row makes (#827).
 		expect(WEB_LAYOUT_CSS).toContain(".bf-app__actions{display:flex;align-items:center;gap:var(--space-2)");
 		expect(WEB_LAYOUT_CSS).toContain("margin-left:auto}");
+		// The filter's push to the row's right end is the row's rule, not the field's: a filter in a
+		// panel is a field at its own width, and the narrow counterpart below is the same variant (#830).
+		expect(WEB_LAYOUT_CSS).toContain(".bf-app__ctl .bf-field--filter{margin-left:auto}");
+		expect(WEB_COMPONENTS_CSS).not.toContain(".bf-field--filter{width:15rem;margin-left:auto}");
 	});
 
 	test("runs every row of the shell on one gutter, at the viewport's width", () => {
