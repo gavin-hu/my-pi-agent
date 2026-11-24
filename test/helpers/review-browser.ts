@@ -209,11 +209,71 @@ export async function mountReviewPage(
 }
 
 /** Open the fixture's page and wait for its rail, which is drawn before any script runs. */
-export async function openReviewPage(browser: TestBrowser, fixture: ReviewPageFixture): Promise<Page> {
+export async function openReviewPage(
+	browser: TestBrowser,
+	fixture: ReviewPageFixture,
+	options: { stream?: boolean } = {},
+): Promise<Page> {
 	const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+	// Installed before the page's script runs, so the bundle that only a case opts into is the one
+	// it gets. Every other suite opens a page with no stream at all, exactly as before.
+	if (options.stream === true) await page.addInitScript(STREAM_STUB);
 	await page.goto(fixture.url, { waitUntil: "networkidle" });
 	await page.waitForSelector("#rv-filter", { timeout: REVIEW_PAINT_MS });
 	return page;
+}
+
+/**
+ * The page's stream, stood in for: an `EventSource` that opens nothing and takes its frames from a
+ * case.
+ *
+ * The alternative — a fixture whose handler carries a registry — would give every suite a real
+ * socket, and `openReviewPage`'s `networkidle` wait cannot settle against an SSE connection. A stub
+ * that never asks for a URL crosses neither: the client's own state machine is the subject here,
+ * and the transport's route is `transport/stream.test.ts`'s to prove.
+ */
+const STREAM_STUB = `(() => {
+  const streams = [];
+  globalThis.__reviewStreams = streams;
+  globalThis.EventSource = function EventSource(url) {
+    const listeners = [];
+    this.url = url;
+    this.onopen = null;
+    this.onerror = null;
+    this.onmessage = null;
+    this.addEventListener = (name, run) => listeners.push({ name, run });
+    this.close = () => { this.closed = true; };
+    // What a real source does on connect, so a case can tell the chip is following a stream at all.
+    this.open = () => { if (this.onopen) this.onopen({ type: "open" }); };
+    this.send = (name, event) => {
+      const handler = name === "message" ? this.onmessage : null;
+      if (handler) handler(event);
+      for (const entry of listeners) if (entry.name === name) entry.run(event);
+    };
+    streams.push(this);
+    queueMicrotask(this.open);
+  };
+})();`;
+
+/**
+ * Hand one frame to every open stream, the way the socket would.
+ *
+ * A case pushes rather than waits, so "this landed while the box was open" is a fact the case
+ * controls instead of a race it hopes for. The frame is the payload alone: the `data: …` framing is
+ * the registry's, on the server, and never reaches the page.
+ */
+export async function pushFrame(page: Page, frame: unknown): Promise<void> {
+	await page.evaluate(
+		(data) => {
+			const streams = (
+				globalThis as unknown as {
+					__reviewStreams?: ReadonlyArray<{ send?: (name: string, event: { data: string }) => void }>;
+				}
+			).__reviewStreams;
+			for (const stream of streams ?? []) stream.send?.("message", { data });
+		},
+		typeof frame === "string" ? frame : JSON.stringify(frame),
+	);
 }
 
 /** A browser case pays a launch, a load, and an interaction. */
@@ -230,9 +290,10 @@ export async function withReviewPage(
 	run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
 	options: SnapshotOptions = {},
 	seed: readonly SeedComment[] = [],
+	live = false,
 ): Promise<void> {
 	const fixture = await mountReviewPage(options, seed);
-	const page = await openReviewPage(browser, fixture);
+	const page = await openReviewPage(browser, fixture, { stream: live });
 	try {
 		await run(page, fixture);
 	} finally {
