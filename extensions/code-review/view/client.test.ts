@@ -45,11 +45,12 @@ describe("the review bundle", () => {
 		expect(REVIEW_CLIENT_JS).not.toContain("document.write");
 	});
 
-	test("keeps an unsent composer across the snapshot it was typed on", () => {
-		expect(REVIEW_CLIENT_JS).toContain('var DRAFT_KEY = "rv-review-draft";');
-		// The record keeps its rev and is restored anyway: a moved diff is the case the
-		// draft exists for, and the composer says where it came from.
-		expect(REVIEW_CLIENT_JS).toContain("var moved = kept.rev !== rev;");
+	test("keeps an unsent composer at its anchor, across the snapshot it was typed on", () => {
+		expect(REVIEW_CLIENT_JS).toContain('var DRAFT_KEY = "rv-review-drafts";');
+		// One record per anchor, and the record's rev is provenance rather than the write's gate:
+		// the composer says where it came from, and every write still carries the page's rev.
+		expect(REVIEW_CLIENT_JS).toContain("function draftKey(path, line, side)");
+		expect(REVIEW_CLIENT_JS).toContain("moved: kept.rev !== rev");
 		expect(REVIEW_CLIENT_JS).toContain("typed on the earlier diff");
 	});
 

@@ -118,7 +118,11 @@ export const REVIEW_KEYS_JS = String.raw`  function setWrap(on) {
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
       if (!byId("rv-send-dialog").hidden) { closeSend(); return; }
-      if (document.querySelector(".rv-compose")) { forgetDraft(); closeComposer(); return; }
+      // The composer Escape closes is the one the focus is in: with one per line, closing them all
+      // would take text the reviewer was not done writing. The textarea itself stops the event, so
+      // this branch is the Save and Cancel buttons' own.
+      var inComposer = document.activeElement && document.activeElement.closest ? document.activeElement.closest(".rv-compose") : null;
+      if (inComposer) { cancelComposer(inComposer); return; }
       var filter = byId("rv-filter");
       if (document.activeElement === filter || filter.value !== "") {
         filter.value = "";

@@ -38,6 +38,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `code-review`: an unsent comment belongs to its line rather than to the page — one record per anchor in this
+  tab, so a second composer no longer overwrites the first, a reload brings back every draft whose line is
+  drawn (one whose line moved opens on a drawn row saying `was a.ts:3`, and one whose file is gone is listed
+  above the diff to discard), and **Send feedback** writes the comment still being typed before it sends,
+  counting it in the button. A flush that stops halfway leaves the dialog shut with the unsent text in place.
+
 - `board`: the page's frame fan-out is the kit's stream registry, and its own set of sinks is gone. Every
   attached tab is a stream in `createStreams({})` with no lifetime, so the page keeps no second counter beside
   the map — `watchers` and the three "is anyone reading" guards ask the registry — and its close ends those

@@ -97,6 +97,11 @@ export interface ReviewPageFixture {
 	url: string;
 	/** Move the fingerprint, as a committed edit would; the page's next write sees it. */
 	move(): void;
+	/**
+	 * Rearrange the diff, as a commit that moves its hunks does: the lines drawn change and the
+	 * fingerprint moves with them, which `move()` alone does not do.
+	 */
+	reshape(next: SnapshotOptions): void;
 	/** The fingerprint the reader answers with now. */
 	rev(): string;
 	/**
@@ -132,6 +137,7 @@ export async function mountReviewPage(
 	seed: readonly SeedComment[] = [],
 ): Promise<ReviewPageFixture> {
 	let fingerprint = "rev-1";
+	let shape = options;
 	let minted = 0;
 	const store = createReviewStore({ mint: () => `token${++minted}`.padEnd(32, "a"), now: () => 1 });
 	if (seed.length > 0) {
@@ -149,7 +155,7 @@ export async function mountReviewPage(
 	const reader = {
 		baseRef: async () => "main",
 		text: async () => ({ kind: "text" as const, lines: [], binary: false, truncated: false }),
-		snapshot: async () => ({ kind: "snapshot" as const, snapshot: reviewSnapshot(fingerprint, options) }),
+		snapshot: async () => ({ kind: "snapshot" as const, snapshot: reviewSnapshot(fingerprint, shape) }),
 	};
 	const current: ReviewCurrent = {
 		place: () => ({ root: "/tmp/probe", repo: "probe" }),
@@ -171,6 +177,10 @@ export async function mountReviewPage(
 	return {
 		url: `${mount.mount.origin}${REVIEW_MOUNT}/new`,
 		move: () => {
+			fingerprint = "rev-2";
+		},
+		reshape: (next: SnapshotOptions) => {
+			shape = next;
 			fingerprint = "rev-2";
 		},
 		rev: () => fingerprint,
