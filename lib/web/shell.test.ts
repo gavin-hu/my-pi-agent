@@ -56,6 +56,10 @@ describe("the shell's two rows", () => {
 		);
 		expect(WEB_LAYOUT_CSS).toContain(".bf-app__group{display:flex;align-items:baseline;gap:var(--space-3)");
 		expect(WEB_LAYOUT_CSS).toContain(".bf-app__group+.bf-app__group{margin-left:var(--space-3)}");
+		// The actions group is its own class rather than a second `.bf-app__group`, because the sibling
+		// margin above wins at equal specificity and would re-own a push the row makes (#827).
+		expect(WEB_LAYOUT_CSS).toContain(".bf-app__actions{display:flex;align-items:center;gap:var(--space-2)");
+		expect(WEB_LAYOUT_CSS).toContain("margin-left:auto}");
 	});
 
 	test("runs every row of the shell on one gutter, at the viewport's width", () => {

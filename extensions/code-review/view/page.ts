@@ -262,7 +262,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const controls = `<div class="bf-app__group">
     ${scopeSegments(snapshot.scope)}
   </div>
-  <div class="bf-app__group rv-actions">
+  <div class="bf-app__actions">
     ${button({ label: "wrap", id: "rv-wrap", pressed: false, title: "Toggle line wrapping" })}
     ${button({ label: "copy all", id: "rv-copy", title: "Copy every comment as Markdown" })}
     ${button({ label: `Send feedback ${drafts.length}`, variant: "primary", id: "rv-send", title: "Send these comments back to the session", attrs: { "data-count": String(drafts.length) } })}
@@ -298,8 +298,8 @@ ${appHead({
     <aside class="bf-panel rv-side">
       <div class="rv-side-top">
         <label class="bf-field"><span class="bf-field__prompt" aria-hidden="true"></span><span class="sr-only">Filter files</span><input class="bf-input" id="rv-filter" type="search" placeholder="filter files" autocomplete="off"></label>
-        <p class="rv-view__label" id="rv-view-label">Show</p>
-        <div class="bf-tabs rv-view" role="group" aria-labelledby="rv-view-label" id="rv-view">
+        <p class="bf-tabs--view__label" id="rv-view-label">Show</p>
+        <div class="bf-tabs bf-tabs--view" role="group" aria-labelledby="rv-view-label" id="rv-view">
           <button type="button" class="bf-tabs__item" id="rv-view-all" data-only="false" aria-pressed="true">All</button>
           <button type="button" class="bf-tabs__item" id="rv-view-commented" data-only="true" aria-pressed="false">Commented</button>
         </div>

@@ -97,6 +97,10 @@ export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height
    prompt line are three groups, and the row's height comes from its equal padding. */
 .bf-app__group{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap;min-width:0}
 .bf-app__group+.bf-app__group{margin-left:var(--space-3)}
+/* A row's actions: the page's own controls, at the row's right end. Not a bf-app__group — the
+   sibling margin above would win at equal specificity — and the push is the row's arrangement, not
+   the group's, so a page that keeps two groups still reads as one rhythm. */
+.bf-app__actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;justify-content:flex-end;min-width:0;margin-left:auto}
 .bf-app__facts{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
 .bf-app__chrome{display:flex;align-items:center;gap:var(--space-2);margin-left:auto}
 /* Chrome is quieter than a control: a borderless icon here keeps the key-sheet button from

@@ -27,9 +27,6 @@ export const REVIEW_CSS = `
    Three stacked pieces, and no borrowed control-row rule — the kit's plain field spans the
    panel, so it sits flush on both edges. */
 .rv-side-top{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border)}
-.rv-view__label{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
-.rv-view{display:flex}
-.rv-view .bf-tabs__item{flex:1 1 auto;justify-content:center}
 .rv-count{align-self:flex-start}
 .rv-side-scroll{overflow:auto;min-height:0;padding:var(--space-2)}
 .rv-side__back{margin:0 0 var(--space-2)}
@@ -59,10 +56,6 @@ export const REVIEW_CSS = `
 .rv-add{color:var(--success)}
 .rv-del{color:var(--danger)}
 .rv-main{padding:0;gap:0}
-/* The control row's own group, pushed to the row's right end: the plan page's arrangement, kept
-   here until the kit owns it (#827). The kit's two-class group+group margin would otherwise win,
-   so this rule names the same pair. */
-.bf-app__group.rv-actions{margin-left:auto}
 .rv-files-scroll{min-height:0}
 .rv-banner{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--warn);background:var(--search-soft);border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm)}
 .rv-banner b{color:var(--text)}
