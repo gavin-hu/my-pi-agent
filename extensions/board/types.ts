@@ -37,10 +37,10 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 		"awaiting review, untold, blocked, unwritten, done, archivable",
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
-	release: "gives it back to `backlog`; an `execute` card re-claims paths, so edit it to hand one over",
+	release: "gives it back to `backlog`; an `execute` card re-claims its paths",
 	reclaim:
 		"returns it to `backlog`, leaving the holder's claims; the lead from anyone, a peer only from a stopped owner",
-	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store, and a `done` whose merge cannot be named takes `override`, or `landed` naming it",
+	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store, and `done` takes `override` when no merge can be named",
 	note: "appends to its history",
 	contract:
 		"records the plan file and the four lines a card promises, and drops any approval, because the wording changed",
@@ -48,9 +48,9 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	review:
 		"records a spot-check of the finished work: the same lead, in `execute`; the sign is announced to the owner's inbox (`session send` asks the lead). `override` instead signs a finished card nobody signed",
 	edit: "fixes what the card says",
-	archive:
-		"sets a finished card aside, still readable — never one an open card waits on; all if none named, `olderThan` bounds by age",
+	archive: "sets a finished card aside — never one an open card waits on; all if none named, `olderThan` bounds by age",
 	drop: "deletes a `backlog` or a `done` card, or one you hold",
+	land: "lands a reviewed card from the seat: fetch, merge, proof, push",
 };
 
 /**
@@ -78,6 +78,7 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	edit: ["card", "title", "paths", "type", "breaking", "priority", "dependsOn"],
 	archive: ["card", "olderThan"],
 	drop: ["card"],
+	land: ["card"],
 };
 
 /** A result the transcript renders and the page's routes mirror. */

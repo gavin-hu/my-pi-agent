@@ -242,14 +242,17 @@ describe("nudge rules", () => {
 		expect(isMutatingTool("plan_file", { readOnlyHint: false })).toBe(true);
 	});
 
-	test("a board card write is state, and `review` is the only work", () => {
+	test("a board card write is state, and `review` and `land` are the work", () => {
 		// This reverses what this case said before: a card is written to `~/.pi/agent/board/<repo.key>`
 		// — the agent directory a plan file and the bus already live in — so a claim, a move or a note
-		// is the board's state and says nothing about the checkout. `review` is the exception and stays
-		// work: it runs the contract's verify command as a child process in the tree the card names, so
-		// it can format a file or write build output, which is work by the same test `bash` meets.
+		// is the board's state and says nothing about the checkout. `review` and `land` are the two
+		// exceptions: `review` runs the contract's verify command as a child process in the tree the
+		// card names, and `land` fetches, merges and pushes the trunk itself — work by the same test
+		// `bash` meets, and the one whose work is the checkout's history rather than its files.
 		for (const action of BOARD_ACTIONS) {
-			expect(isMutatingTool("board", { readOnlyHint: false }, { action }), action).toBe(action === "review");
+			expect(isMutatingTool("board", { readOnlyHint: false }, { action }), action).toBe(
+				action === "review" || action === "land",
+			);
 		}
 		// A result with no action to read is not work either: the bias is a missed reminder, never a
 		// spent model request.

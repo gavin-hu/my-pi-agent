@@ -47,7 +47,7 @@ export const BOARD_DESCRIPTION =
 export const BOARD_GUIDELINES = [
 	"Claim a card, design it in plan mode, record the contract, then `execute`: `approve` gates that, `review` gates `done`, and both signs are the lead's.",
 	"Note each phase, and release or reclaim a card you stop holding, so the lane count means what it says.",
-	"A `handoff` in your inbox is work you now own: read it with `session inbox`, record the plan, and start it.",
+	"A `handoff` in your inbox is work you now own: `session inbox`, then its plan.",
 ];
 
 /** The one line in the system prompt's tool list: the actions, and nothing they do. */

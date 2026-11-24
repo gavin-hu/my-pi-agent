@@ -201,6 +201,8 @@ let notices: Promise<typeof import("./notices.ts")> | undefined;
 // The same rule for the plan proof: `contract`, `move` and `approve` each ask for one, and a session
 // that only lists cards pays nothing for the module that reads the plan store.
 let proofModule: Promise<typeof import("./proof.ts")> | undefined;
+// And for the landing door: one verb, its own module, loaded the first time the seat lands a card.
+let landModule: Promise<typeof import("./land-action.ts")> | undefined;
 
 /** What one call hands its dispatch: the tool's seams, the session it answers, and the arguments. */
 export interface ActionInput {
@@ -505,6 +507,15 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 			}
 			case "drop":
 				return await dropCard(store, me, args, now, cross, ownerLabel);
+			case "land": {
+				// The seat's one verb: its own module, because the fixed argv and the undo are more than
+				// this dispatch should carry, and loaded here so a session that never lands pays nothing.
+				const { landCardDoor } = await (landModule ??= import("./land-action.ts"));
+				const landed = await landCardDoor({ pi, runtime, ctx, me, card: args.card });
+				return landed.kind === "landed"
+					? textResult(landed.text, { action, me, card: landed.card })
+					: refusal(action, me, landed.error, landed.card);
+			}
 			case "archive":
 				// The archive action lives with the sweep it runs, loaded when it is called.
 				const { archiveCards } = await import("./archive.ts");
