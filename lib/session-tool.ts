@@ -28,9 +28,9 @@
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
-import type { MessageKind } from "./session-mail.ts";
 import { messageOf } from "./errors.ts";
 import { sanitizeLine } from "./format.ts";
+import type { MessageKind } from "./session-mail.ts";
 import { type PeerRow, type RosterState, watchingOf } from "./session-roster.ts";
 import { SESSION_TOOL } from "./tool-names.ts";
 
@@ -430,6 +430,8 @@ export interface SessionClaimRequest {
 export interface SessionReleaseRequest {
 	ctx: ExtensionContext;
 	paths: readonly string[];
+	/** The peer whose claims move to the caller, when the caller is the seat (#835). */
+	holder?: string;
 	respond(result: BusAnswer<ReleasePathsResult>): void;
 }
 
@@ -473,11 +475,17 @@ export async function releasePaths(
 	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
 	ctx: ExtensionContext,
 	paths: readonly string[],
+	/** A live peer's label: its claims move to this session instead of being released. */
+	holder?: string,
 ): Promise<ReleasePathsResult> {
 	if (paths.length === 0) return { ok: true, released: [], notOwned: [] };
 	const nested = toolContext(ctx);
 	if (nested !== undefined) {
-		const answer = await call(nested, { action: "release", paths: [...paths] });
+		const answer = await call(nested, {
+			action: "release",
+			paths: [...paths],
+			...(holder === undefined ? {} : { holder }),
+		});
 		if ("error" in answer) return { ok: false, error: answer.error };
 		return {
 			ok: true,
@@ -488,7 +496,7 @@ export async function releasePaths(
 	if (!busLoaded(pi)) return { ok: false, error: NO_BUS_ERROR };
 	return requestOverBus<ReleasePathsResult, SessionReleaseRequest>(pi, {
 		channel: SESSION_RELEASE_REQUEST,
-		payload: (respond) => ({ ctx, paths: [...paths], respond }),
+		payload: (respond) => ({ ctx, paths: [...paths], ...(holder === undefined ? {} : { holder }), respond }),
 		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
 		timedOut: () => ({ ok: false, error: NO_ANSWER_ERROR }),

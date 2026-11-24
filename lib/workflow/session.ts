@@ -286,8 +286,8 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			// card back — read it (`leadAuthority`), and a session that serves the page under its own
 			// name is a peer at both without it (#825). Deferred and cached in this closure, so a
 			// session with no seat pays one load of a small pure module and nothing after that.
-			const { modeOf } = await (modeState ??= import("../mode-state.ts"));
-			const seatHeld = modeOf(ctx.sessionManager.getBranch()) === "lead";
+			const { holdsSeat } = await (modeState ??= import("../mode-state.ts"));
+			const seatHeld = holdsSeat(ctx.sessionManager.getBranch());
 			const dressed = (actor: Actor): Actor => (seatHeld ? { ...actor, seat: true } : actor);
 			// The seat is a role rather than a session, so it outranks the record: the page a
 			// session serves is the name its cards are read against. A host that reports no id

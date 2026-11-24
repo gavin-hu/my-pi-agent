@@ -12,8 +12,7 @@ messages, consume an inbox, and claim paths before editing them.
   `/team join` join too.
 - **Listening is a mode**: mail reported at the next turn, or — with `wake` — one raised turn when
   idle. A board or team join asks for `wake`, and `listen: false` is the one opt-out.
-- **Waiting mail**: a listening session's turn starts with the count until `inbox` clears it.
-- **Claims are all-or-nothing**, on a file or a directory prefix, and they expire
+- **Waiting mail**: a listening session's turn starts with the count until `inbox` clears it.- **Claims are all-or-nothing**, on a file or a directory prefix, and they expire
   with the session.
 
 ## What you can do
@@ -27,7 +26,7 @@ messages, consume an inbox, and claim paths before editing them.
 | Read your mail | `session inbox`, or `session read` to show it and keep it (the waiting line counts files, so `read` leaves it) |
 | See mail no session holds, and clear one | the board's summary counts it; `/sessions drop` names each, and `<id>` clears one |
 | Claim files before editing | `session claim paths ["src/api"]` |
-| Release a claim | `session release paths ["src/api"]`, or `x` on the board |
+| Release a claim, or take a peer's | `session release paths ["src/api"]`, or `x` on the board; with `holder tom`, from the seat |
 | Be woken by mail | a board/team join asks for it; `session join wake: true` for a bare session |
 | Stop listening | `w`, on the board |
 
@@ -45,7 +44,8 @@ releases a claim you hold — after a confirmation. It joins nothing by itself.
 
 **Actions.** `session status` reads without joining; `session send` writes one message per
 recipient — `key` folds a resend into the waiting copy, `replyTo` names the message it answers, and
-`about` is what it concerns (a card's `#673`); `session claim`/`release` hold and drop claims;
+`about` is what it concerns (a card's `#673`); `session claim`/`release` hold and drop claims — with
+`holder`, the seat moves a live peer's claims instead ([`multi-session`](../multi-session.md#a-stopped-owner));
 `session join` puts this session on the bus, with `wake` and `listen`.
 
 **Message kinds.** `message`, `event`, `ask`, and `handoff`. An `ask` does not

@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: `session release` takes `holder`, a live peer's label, and the seat moves that peer's claims to
+  itself in one store call — so a stalled wave is re-dispatchable without a restart, and the peer's next claim meets a
+  conflict naming the seat rather than a path nobody holds. A caller with no seat is refused, naming the door.
+
 - `code-review`: the page is live. Its mount serves an event stream on `/events` with the page's own
   token, so a write in one tab repaints the others without a reload, and a write refused because the
   tree moved warns **every** tab through the header's reload chip rather than only the one that

@@ -87,6 +87,19 @@ requests   board, team ───► lib/session-tool.ts
 | a label | one session | its heartbeat stops and ten minutes pass |
 | an inbox message | one recipient | read, or after 24 hours |
 
+## A stopped owner
+
+A session that stops leaves its path claims behind, and the board says so rather than implying a free
+slot: over a card whose owner stopped, it prints `9 paths stay held by jack until it stops`. **A card
+whose owner has stopped is not a card whose paths are free** — a peer reaching for one is refused by a
+conflict naming that owner, and before this door the seat could only describe the state.
+
+`session release paths [...] holder tom`, from the seat, moves those claims to the seat in one store
+call: they change hands rather than being dropped, so nothing is free in between for a third session
+to take, and `tom`'s own next claim is refused with a conflict naming the seat. A forgotten transfer
+blocks that peer as firmly as a deletion did; only the refusal says whose claims they are. A caller
+with no seat is refused, and `/board` starts a session attached to a board, which holds no seat.
+
 ## What none of them promise
 
 - **No authentication.** The bus is files under

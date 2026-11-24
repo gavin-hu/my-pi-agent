@@ -14,16 +14,23 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { LEAD_ROUND } from "../lib/workflow/round-text.ts";
-import { registeredTools, type RegisteredTool } from "./helpers/registered.ts";
-import { buildBoardContext, MAX_CONTEXT_CHARS, MAX_CONTEXT_CARDS } from "../extensions/board/context.ts";
-import { buildLeadContext, LEAD_CONTEXT_MARKER, MAX_LEAD_CHARS, MAX_LEAD_LINES } from "../extensions/board/context.ts";
-import { numberedCard } from "./helpers/fixtures/board.ts";
-import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
-import { planModeContext, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
+import {
+	buildBoardContext,
+	buildLeadContext,
+	LEAD_CONTEXT_MARKER,
+	MAX_CONTEXT_CARDS,
+	MAX_CONTEXT_CHARS,
+	MAX_LEAD_CHARS,
+	MAX_LEAD_LINES,
+} from "../extensions/board/context.ts";
+import { buildGoalContext, GOAL_CONTEXT_MARKER } from "../extensions/goal/index.ts";
+import { PLAN_MODE_MARKER, planModeContext } from "../extensions/plan/index.ts";
 import { WECHAT_CHANNEL_PROMPT } from "../extensions/wechat/text/channel.ts";
 import { formatWorktreeSection } from "../extensions/worktree/index.ts";
 import type { WorktreeState } from "../extensions/worktree/state.ts";
+import { LEAD_ROUND } from "../lib/workflow/round-text.ts";
+import { numberedCard } from "./helpers/fixtures/board.ts";
+import { type RegisteredTool, registeredTools } from "./helpers/registered.ts";
 
 const WORKTREE: WorktreeState = {
 	active: true,
@@ -151,7 +158,11 @@ const CEILINGS: readonly Ceiling[] = [
 	// 2,135 before the parameters stopped restating the description; 2,159 after #748's bounds;
 	// 2,154 after #821 — the `action` doc took the fact that separates the two readers (`inbox`
 	// consumes, `read` keeps), and the description's `(consume/show)` copy is what paid for it.
-	{ tool: "session", max: 2_154, guidelines: 367, longest: 151 },
+	// 2,154 → 2,274 after #835: `release` took `holder`, ~120 net once `key` gave up its restatement
+	// and `about` its `maxLength` tail — the field costs that and buys a peer's claims moving to the
+	// seat, so a stalled wave is re-dispatchable without a restart. A ceiling that rises without the
+	// second half is drift with a green test.
+	{ tool: "session", max: 2_274, guidelines: 367, longest: 151 },
 	{ tool: "plan", max: 5_575, guidelines: 617, longest: 157 },
 	{ tool: "subagent", max: 2_757, guidelines: 602, longest: 137 },
 	{ tool: "job", max: 2_670, guidelines: 431, longest: 128 },
