@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { LEAD_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import {
 	baselineEntry,
 	planCtx,
@@ -395,5 +396,54 @@ describe("path-argument scan", () => {
 		expect(hasPathInput({ label: "/plan" })).toBe(false);
 		expect(hasPathInput({ query: "rate limiting" })).toBe(false);
 		expect(hasPathInput({ command: "ls" })).toBe(false);
+	});
+});
+
+describe("plan runtime — the seat's door", () => {
+	/**
+	 * A lead-mode entry: the branch a session serving the page opens on, and the one state this
+	 * mode must not land on top of. The mode is read from the branch, so a resumed session is
+	 * refused as surely as one that just took the seat.
+	 */
+	const leadEntry = (enabled = true): unknown => ({
+		type: "custom",
+		customType: LEAD_MODE_ENTRY_TYPE,
+		data: { enabled },
+	});
+
+	test("refuses to enter while the branch holds the seat, and names the hatch", () => {
+		const { runtime, activeTools } = setup();
+		const seat = planCtx({ branch: [leadEntry()] });
+
+		expect(runtime.toggle(seat.ctx)).toBe(false);
+		expect(runtime.isEnabled()).toBe(false);
+		expect(seat.notifications.some((line) => line.includes("/board exit"))).toBe(true);
+		// Nothing was hidden on the way to the refusal: the mode never turned on.
+		expect(activeTools()).toContain("write");
+	});
+
+	test("answers an entry request with the mode it did not enter", () => {
+		const { runtime } = setup();
+		const seat = planCtx({ branch: [leadEntry()] });
+
+		expect(runtime.enable(seat.ctx)).toBe(false);
+		expect(runtime.isEnabled()).toBe(false);
+	});
+
+	test("enters and leaves on a branch that holds no seat", () => {
+		const { runtime, ctx, activeTools } = setup();
+
+		expect(runtime.toggle(ctx)).toBe(true);
+		expect(activeTools()).not.toContain("write");
+		expect(runtime.toggle(ctx)).toBe(false);
+		expect(activeTools()).toContain("write");
+	});
+
+	test("opens again once the seat is withdrawn on the branch", () => {
+		const { runtime } = setup();
+		const released = planCtx({ branch: [leadEntry(), leadEntry(false)] });
+
+		expect(runtime.enable(released.ctx)).toBe(true);
+		expect(runtime.isEnabled()).toBe(true);
 	});
 });

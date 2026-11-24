@@ -148,7 +148,9 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 				PLAN_ENTER_REQUEST,
 				(request) => {
 					if (!runtime.isEnabled()) runtime.enable(request.ctx);
-					return true;
+					// What the mode is rather than what the call was: a branch whose mode refuses plan
+					// answers `false`, so the asker proceeds without a phase it never entered.
+					return runtime.isEnabled();
 				},
 				answers,
 			),
