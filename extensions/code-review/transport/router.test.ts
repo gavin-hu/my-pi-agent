@@ -8,24 +8,17 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
-import { request, reply, reviewRoute as harness } from "../../../test/helpers/review-route.ts";
-import { SNAPSHOT_MOVED } from "../review/store.ts";
+import {
+	openedPage,
+	pageToken,
+	request,
+	reply,
+	reviewRoute as harness,
+	stubFile,
+} from "../../../test/helpers/review-route.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-/** The token the page was served with, read from the store it minted. */
-function tokenOf(store: ReturnType<typeof harness>["store"]): string {
-	const page = store.current();
-	if (!page) throw new Error("the page was not opened");
-	return page.token;
-}
-
-/** Open the page and return its token. */
-async function opened(harnessed: ReturnType<typeof harness>): Promise<string> {
-	await reply(harnessed.handler, request("GET", "/new"));
-	return tokenOf(harnessed.store);
-}
 
 describe("the page's GETs", () => {
 	test("serves the page at /new, minting the token it will write with", async () => {
@@ -46,7 +39,7 @@ describe("the page's GETs", () => {
 		const unknown = await reply(harnessed.handler, request("GET", "/new?scope=staged&file=gone.ts"));
 		expect(unknown.body).not.toContain('id="rv-all-files"');
 
-		const token = tokenOf(harnessed.store);
+		const token = pageToken(harnessed.store);
 		await reply(
 			harnessed.handler,
 			request("POST", "/api/comment", {
@@ -66,7 +59,7 @@ describe("the page's GETs", () => {
 		const harnessed = harness();
 		const root = await reply(harnessed.handler, request("GET", "/"));
 		expect(root.status).toBe(200);
-		const token = tokenOf(harnessed.store);
+		const token = pageToken(harnessed.store);
 		const comment = await reply(
 			harnessed.handler,
 			request("POST", "/api/comment", {
@@ -85,9 +78,9 @@ describe("the page's GETs", () => {
 	});
 
 	test("accepts a write a focused page posts about a file it does not draw", async () => {
-		const harnessed = harness();
+		const harnessed = harness({ files: [stubFile("a.ts"), stubFile("b.ts")] });
 		await reply(harnessed.handler, request("GET", "/new?scope=base"));
-		const token = tokenOf(harnessed.store);
+		const token = pageToken(harnessed.store);
 		// The rev a focused page carries is the scope's, so the request it posts is the same
 		// one the full page would have posted — which is what keeps a hidden file writable.
 		const focused = await reply(harnessed.handler, request("GET", "/new?scope=base&file=a.ts"));
@@ -96,7 +89,7 @@ describe("the page's GETs", () => {
 		if (rev === undefined) throw new Error("no rev in the island");
 		const comment = await reply(
 			harnessed.handler,
-			request("POST", "/api/comment", { token, rev, comment: { rel: "b.ts", line: 2, side: "new", body: "hi" } }),
+			request("POST", "/api/comment", { token, rev, comment: { rel: "b.ts", line: 1, side: "new", body: "hi" } }),
 		);
 		expect(comment.status).toBe(200);
 		expect(harnessed.store.current()?.review?.comments.map((entry) => entry.rel)).toEqual(["b.ts"]);
@@ -104,7 +97,7 @@ describe("the page's GETs", () => {
 
 	test("refuses a scope change while a draft is on the page", async () => {
 		const harnessed = harness();
-		const token = await opened(harnessed);
+		const token = await openedPage(harnessed);
 		await reply(
 			harnessed.handler,
 			request("POST", "/api/comment", {
@@ -121,7 +114,7 @@ describe("the page's GETs", () => {
 
 	test("refuses a scope change for marks alone, and keeps them", async () => {
 		const harnessed = harness();
-		const token = await opened(harnessed);
+		const token = await openedPage(harnessed);
 		const marked = await reply(
 			harnessed.handler,
 			request("POST", "/api/reviewed", { token, rev: "rev-1", rel: "a.ts", reviewed: true }),
@@ -136,7 +129,7 @@ describe("the page's GETs", () => {
 
 	test("names both counts when a draft and a mark are on the page", async () => {
 		const harnessed = harness();
-		const token = await opened(harnessed);
+		const token = await openedPage(harnessed);
 		await reply(
 			harnessed.handler,
 			request("POST", "/api/comment", {
@@ -157,7 +150,7 @@ describe("the page's GETs", () => {
 
 	test("lets a scope change through once nothing is left to lose", async () => {
 		const harnessed = harness();
-		const token = await opened(harnessed);
+		const token = await openedPage(harnessed);
 		await reply(
 			harnessed.handler,
 			request("POST", "/api/comment", {
@@ -216,105 +209,5 @@ describe("the envelope", () => {
 		expect(refused.headers.Allow).toBe("POST");
 		expect(JSON.parse(String(refused.body)).error).toBe("Use POST to change this review.");
 		expect((await reply(harnessed.handler, request("POST", "/api/nope", { token: "x" }))).status).toBe(404);
-	});
-});
-
-describe("a write", () => {
-	test("refuses a missing or foreign token, and a snapshot the page no longer shows", async () => {
-		const harnessed = harness();
-		const token = await opened(harnessed);
-		const wrong = await reply(
-			harnessed.handler,
-			request("POST", "/api/comment", {
-				token: "not-it",
-				rev: "rev-1",
-				comment: { rel: "a.ts", line: 1, side: "new", body: "x" },
-			}),
-		);
-		expect(wrong.status).toBe(403);
-		harnessed.state.rev = "rev-2";
-		const stale = await reply(
-			harnessed.handler,
-			request("POST", "/api/comment", {
-				token,
-				rev: "rev-1",
-				comment: { rel: "a.ts", line: 1, side: "new", body: "x" },
-			}),
-		);
-		expect(stale.status).toBe(409);
-		expect(JSON.parse(String(stale.body)).error).toBe(SNAPSHOT_MOVED);
-		expect(harnessed.store.current()?.review).toBeUndefined();
-	});
-
-	test("mints the review on the first write and answers the state it produced", async () => {
-		const harnessed = harness();
-		const token = await opened(harnessed);
-		const result = await reply(
-			harnessed.handler,
-			request("POST", "/api/comment", {
-				token,
-				rev: "rev-1",
-				comment: { rel: "a.ts", line: 1, side: "new", body: "guard this" },
-			}),
-		);
-		expect(result.status).toBe(200);
-		const body = JSON.parse(String(result.body));
-		expect(body.id).toBeString();
-		expect(body.review.comments).toHaveLength(1);
-		expect(body.review.comments[0].body).toBe("guard this");
-		expect(harnessed.sent).toHaveLength(0);
-	});
-
-	test("marks a file reviewed, drops a comment, and refuses an unknown id", async () => {
-		const harnessed = harness();
-		const token = await opened(harnessed);
-		const commented = await reply(
-			harnessed.handler,
-			request("POST", "/api/comment", {
-				token,
-				rev: "rev-1",
-				comment: { rel: "a.ts", line: 1, side: "new", body: "x" },
-			}),
-		);
-		const id = JSON.parse(String(commented.body)).review.comments[0].id;
-		const marked = await reply(
-			harnessed.handler,
-			request("POST", "/api/reviewed", { token, rev: "rev-1", rel: "a.ts", reviewed: true }),
-		);
-		expect(JSON.parse(String(marked.body)).review.reviewed).toEqual(["a.ts"]);
-		const dropped = await reply(harnessed.handler, request("POST", "/api/drop", { token, rev: "rev-1", id }));
-		expect(JSON.parse(String(dropped.body)).review.comments).toEqual([]);
-		const missing = await reply(harnessed.handler, request("POST", "/api/drop", { token, rev: "rev-1", id }));
-		expect(missing.status).toBe(404);
-	});
-
-	test("reports the sent comments once, and marks them sent", async () => {
-		const harnessed = harness();
-		const token = await opened(harnessed);
-		await reply(
-			harnessed.handler,
-			request("POST", "/api/comment", {
-				token,
-				rev: "rev-1",
-				comment: { rel: "a.ts", line: 1, side: "new", body: "one" },
-			}),
-		);
-		await reply(
-			harnessed.handler,
-			request("POST", "/api/comment", {
-				token,
-				rev: "rev-1",
-				comment: { rel: "a.ts", line: 1, side: "new", body: "two" },
-			}),
-		);
-		const sent = await reply(harnessed.handler, request("POST", "/api/send", { token, rev: "rev-1" }));
-		expect(sent.status).toBe(200);
-		expect(harnessed.sent).toHaveLength(1);
-		expect(harnessed.sent[0].map((comment) => comment.body)).toEqual(["one", "two"]);
-		expect(
-			JSON.parse(String(sent.body)).review.comments.every((comment: { state: string }) => comment.state === "sent"),
-		).toBe(true);
-		await reply(harnessed.handler, request("POST", "/api/send", { token, rev: "rev-1" }));
-		expect(harnessed.sent).toHaveLength(1);
 	});
 });

@@ -50,6 +50,32 @@ describe("the review page", () => {
 		expect(second.review.comments.map((entry) => entry.state)).toEqual(["draft", "draft"]);
 	});
 
+	test("a send, a drop and a mark land on a snapshot the page no longer shows", () => {
+		const { store } = countingStore();
+		const page = store.open("base", "main", "main...HEAD");
+		const first = store.write(page.token, REV, REV, comment());
+		if (!first.ok) throw new Error(first.message);
+		const id = first.review.comments[0].id;
+		// Only a comment anchors to a line, so only a comment is refused by a tree that moved.
+		expect(store.write(page.token, REV, "snap-2", comment("stale")).ok).toBe(false);
+		expect(store.write(page.token, REV, "snap-2", { kind: "reviewed", rel: "a.ts", reviewed: true }).ok).toBe(true);
+		const sent = store.write(page.token, REV, "snap-2", { kind: "send" });
+		expect(sent.ok).toBe(true);
+		const dropped = store.write(page.token, REV, "snap-2", { kind: "drop", id });
+		if (!dropped.ok) throw new Error(dropped.message);
+		expect(dropped.review.comments).toEqual([]);
+	});
+
+	test("the first write records the page's snapshot, not the one it read", () => {
+		const { store } = countingStore();
+		const page = store.open("base", "main", "main...HEAD");
+		// A stale page's first write must not clear the banner saying the diff moved under it, so
+		// the review keeps the revision the page rendered rather than the fresh one.
+		const marked = store.write(page.token, REV, "snap-2", { kind: "reviewed", rel: "a.ts", reviewed: true });
+		if (!marked.ok) throw new Error(marked.message);
+		expect(marked.review.rev).toBe(REV);
+	});
+
 	test("a comment keeps its anchor, its quote, and its trimmed body", () => {
 		const { store } = countingStore();
 		const page = store.open("worktree", "", "worktree");

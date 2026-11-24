@@ -1,15 +1,15 @@
 /**
- * The review page's interactions, in a browser: the draft survives the diff moving, and a
- * write against a moved diff names the way out instead of taking the text.
+ * The review page's reading, in a browser: the cursor, the rail, the hunk jump, and the place a
+ * reload restores.
  *
- * Both are DOM facts after an interaction — a composer restored with its note, a chip
- * revealed, a textarea that still holds what was typed — which is exactly what a string
- * assertion cannot see. The card that added the first case is #758; the helper it lands is
- * `test/helpers/review-browser.ts`, and the later UI cards grow the suite from here.
+ * Each is a DOM fact after an interaction — a row picked, the rail's `aria-current` following the
+ * scroll, a hash written back — which is exactly what a string assertion cannot see. What a write
+ * does to this page is `writes.test.ts`; the fixture and its waits are
+ * `test/helpers/review-browser.ts`.
  *
  * No case sleeps. A fixed wait asserts that this machine was fast enough, which is what reddened
  * a gate under load (#711), so each case waits on the state its assertion reads — a scroll's
- * geometry, the spy's `aria-current`, a write's thread — with `REVIEW_PAINT_MS` as its budget.
+ * geometry, the spy's `aria-current`, a restored hash — with `REVIEW_PAINT_MS` as its budget.
  * Those predicates are functions and not strings: the page answers with `script-src 'self'`, and
  * a string predicate is evaluated, which that policy refuses (#764).
  */
@@ -24,13 +24,12 @@ import {
 	type ReviewDom,
 	type ReviewPageFixture,
 	type SnapshotOptions,
-	startComment,
 	withReviewPage,
 } from "../../../test/helpers/review-browser.ts";
 
 const gated = REVIEW_CHROME === undefined ? describe.skip : describe;
 
-gated("the review page's interactions", () => {
+gated("the review page's reading", () => {
 	let browser: TestBrowser;
 
 	beforeAll(async () => {
@@ -41,47 +40,11 @@ gated("the review page's interactions", () => {
 		await browser?.close();
 	});
 
-	/** The one launch, and the fixture-and-page ownership, the helper keeps for both suites. */
+	/** The one launch, and the fixture-and-page ownership, the helper keeps for each suite. */
 	const withPage = (
 		run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
 		options: SnapshotOptions = {},
 	): Promise<void> => withReviewPage(browser, run, options);
-
-	test(
-		"an unsent draft survives the diff moving, and saves on a current line",
-		async () => {
-			await withPage(async (page, fixture) => {
-				await startComment(page, "keep this note");
-				fixture.move();
-				await page.reload({ waitUntil: "networkidle" });
-
-				const area = page.locator(".rv-compose__area");
-				expect(await area.inputValue()).toBe("keep this note");
-				expect(await page.locator(".rv-compose__note").textContent()).toContain("typed on the earlier diff");
-
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-				expect(await page.locator(".rv-thread .bf-comment__body").textContent()).toBe("keep this note");
-			});
-		},
-		CASE_MS,
-	);
-
-	test(
-		"a write against a moved diff reveals the reload chip and keeps the text",
-		async () => {
-			await withPage(async (page, fixture) => {
-				await startComment(page, "stale note");
-				fixture.move();
-				await page.locator(".rv-compose__acts .bf-btn--primary").click();
-
-				await page.waitForSelector("#reload-hint", { state: "visible", timeout: REVIEW_PAINT_MS });
-				expect(await page.locator("#rv-toast").textContent()).toContain("reload");
-				expect(await page.locator(".rv-compose__area").inputValue()).toBe("stale note");
-			});
-		},
-		CASE_MS,
-	);
 
 	test(
 		"a rail click moves the file without selecting a line",
@@ -149,25 +112,6 @@ gated("the review page's interactions", () => {
 					expect(await page.locator(".rv-compose__area").count()).toBe(0);
 					await page.keyboard.press("c");
 					expect(await page.locator(".rv-compose__head").textContent()).toContain("a.ts:17");
-				},
-				{ start: 17 },
-			);
-		},
-		CASE_MS,
-	);
-
-	test(
-		"a save returns focus to the cursor row",
-		async () => {
-			await withPage(
-				async (page) => {
-					await page.keyboard.press("j");
-					await page.keyboard.press("Enter");
-					await page.locator(".rv-compose__area").fill("note at 17");
-					await page.locator(".rv-compose__acts .bf-btn--primary").click();
-					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17");
-					expect((await page.evaluate("document.activeElement.className")) as string).toContain("bf-diff-line");
 				},
 				{ start: 17 },
 			);
@@ -368,44 +312,6 @@ gated("the review page's interactions", () => {
 					);
 					expect((await page.evaluate("location.hash")) as string).toBe("#rv-file-0");
 					expect(await page.locator(".rv-rail").first().getAttribute("aria-current")).toBe("true");
-				},
-				{ start: 17 },
-			);
-		},
-		CASE_MS,
-	);
-
-	/**
-	 * The mint-then-write guard, and the words that come with it: the first save mints the review
-	 * and writes a comment, and the second save on the same page must land — if the shas had moved
-	 * the snapshot's fingerprint, the page's own next write would be refused as SNAPSHOT_MOVED.
-	 * The footer is the one place the comparison and the counts are read, which is why this case
-	 * reads them there and nowhere in the header.
-	 */
-	test(
-		"the footer names the comparison, and a second write lands",
-		async () => {
-			await withPage(
-				async (page) => {
-					await startComment(page, "one");
-					await page.locator(".rv-compose__acts .bf-btn--primary").click();
-					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-					// The footer is the comparison's home; the mark that moves the rail's progress is in
-					// rail-row's suite, and the draft count left the footer for the Send button.
-					const facts = await page.locator("#rv-facts").textContent();
-					expect(facts).toContain("main...HEAD");
-					expect(facts).not.toContain("draft");
-					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 1");
-					await startComment(page, "two");
-					await page.locator(".rv-compose__acts .bf-btn--primary").click();
-					await page.waitForFunction(
-						() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 2,
-						undefined,
-						{ timeout: REVIEW_PAINT_MS },
-					);
-					expect(await page.locator(".rv-thread").count()).toBe(2);
-					// The count is read exactly: `toContain("2 draft")` is green on "2 drafts" too.
-					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 2");
 				},
 				{ start: 17 },
 			);

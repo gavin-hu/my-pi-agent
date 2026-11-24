@@ -90,6 +90,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: a send, a delete and a file marked reviewed land even when the diff moved under the page — only a
+  comment names a line, so only a comment carries the snapshot it was written on, and only a comment on a line the
+  comparison actually draws is stored. A comment a moved diff leaves without a row is listed above the diff with a
+  delete, so the draft no longer keeps `code_review close` refusing, and a refused write repaints the controls it
+  rolled back rather than leaving a reviewed box ticked against the server's state.
+
 - `board`: the turn-start sweep pools a card only for an owner the card names by **id**, and keeps the spot-check it
   finds. A label is how a seat is handed over, so a card naming only a name could be pooled by a dead record under a
   live session's name — and the sweep that did it withdrew the lead's sign, a silent loss needing nobody to act. A

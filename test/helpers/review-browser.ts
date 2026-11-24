@@ -99,8 +99,26 @@ export interface ReviewPageFixture {
 	move(): void;
 	/** The fingerprint the reader answers with now. */
 	rev(): string;
+	/**
+	 * End the server's page, as closing it from the session does while a tab is still open: the
+	 * next write answers `NO_PAGE`, and the page a reviewer is looking at is refused, not lost.
+	 */
+	closePage(): void;
 	/** Close the listener; the case owns it, the way `serve` hands one out. */
 	close(): Promise<void>;
+}
+
+/**
+ * One comment a case starts the page with.
+ *
+ * Written through the store before the page is served, so a case can read the state a reviewer
+ * reaches when a diff moves: a comment on a line an earlier render drew, and this one does not.
+ */
+export interface SeedComment {
+	rel: string;
+	line: number;
+	side?: "new" | "old";
+	body: string;
 }
 
 /**
@@ -109,10 +127,25 @@ export interface ReviewPageFixture {
  * `testMountSource()` is the server `serve` runs, so the prefix stripping, the body cap and
  * the close path are the real ones; only the diff is a fixture.
  */
-export async function mountReviewPage(options: SnapshotOptions = {}): Promise<ReviewPageFixture> {
+export async function mountReviewPage(
+	options: SnapshotOptions = {},
+	seed: readonly SeedComment[] = [],
+): Promise<ReviewPageFixture> {
 	let fingerprint = "rev-1";
 	let minted = 0;
 	const store = createReviewStore({ mint: () => `token${++minted}`.padEnd(32, "a"), now: () => 1 });
+	if (seed.length > 0) {
+		const page = store.open("base", "", "");
+		for (const entry of seed) {
+			store.write(page.token, "rev-1", "rev-1", {
+				kind: "comment",
+				rel: entry.rel,
+				line: entry.line,
+				side: entry.side ?? "new",
+				body: entry.body,
+			});
+		}
+	}
 	const reader = {
 		baseRef: async () => "main",
 		text: async () => ({ kind: "text" as const, lines: [], binary: false, truncated: false }),
@@ -141,6 +174,7 @@ export async function mountReviewPage(options: SnapshotOptions = {}): Promise<Re
 			fingerprint = "rev-2";
 		},
 		rev: () => fingerprint,
+		closePage: () => store.close(),
 		close: () => mount.mount.release(),
 	};
 }
@@ -166,8 +200,9 @@ export async function withReviewPage(
 	browser: TestBrowser,
 	run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
 	options: SnapshotOptions = {},
+	seed: readonly SeedComment[] = [],
 ): Promise<void> {
-	const fixture = await mountReviewPage(options);
+	const fixture = await mountReviewPage(options, seed);
 	const page = await openReviewPage(browser, fixture);
 	try {
 		await run(page, fixture);

@@ -31,7 +31,7 @@ import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-
 import { reviewPageData, type ReviewPageData } from "./web-payload.ts";
 import { postReviewerAnnotations, saveOwnerAnnotations } from "./web-write.ts";
 import { createShareSession, type ShareSession } from "./web-share-session.ts";
-// The leaf, not the kit`s barrel: plan's entry budget counts static module evaluations, and
+// The leaf, not the kit's barrel: plan's entry budget counts static module evaluations, and
 // `lib/web/index.ts` re-exports eleven modules — taking the barrel here would put all of them
 // in plan's graph for one registry.
 import { createStreams } from "../../lib/web/streams.ts";

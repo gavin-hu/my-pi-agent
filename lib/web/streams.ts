@@ -16,8 +16,13 @@
  * no other.
  *
  * The grace is a race against that reload, so it takes the timer as a seam a test drives by hand.
- * This module is server-side and stays out of `lib/web/index.ts`'s barrel, which a page's bundle
- * splices: it imports `lib/http`'s sink and `lib/timer`'s arm, and nothing that reaches a browser.
+ *
+ * **Two files, two halves of one pipe, and the names do not carry the difference.** This is the
+ * server's side — who is connected to a page's stream. The client's side is `liveStream` in
+ * `lib/web/client-runtime.ts`, the `EventSource` state machine each page's bundle follows; its suite
+ * is `live-stream.test.ts` and this one is `streams.test.ts`. So this module stays out of
+ * `lib/web/index.ts`'s barrel, which a browser bundle splices: it imports `lib/http`'s sink and
+ * `lib/timer`'s arm, and nothing that reaches a page.
  */
 
 import type { EventSink } from "../http/index.ts";
