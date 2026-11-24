@@ -18,7 +18,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | What you want | What to do |
 |---|---|
 | See the board | `/board` — Board and Team tabs, live |
-| Take the seat | `/board` in the session that serves the page: code edits are refused until `/board exit` |
+| Take the seat | `/board` in the session that serves the page: code edits are refused until `/board stop`, which ends the page with the seat |
 | Put a feature on it | `board({ action: "add", title, paths })` — a call, because `add` takes a title rather than a card id |
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
@@ -69,8 +69,8 @@ A folded card names that merge in `landed`; the argument is checked at or below 
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints
 the URL, and a remote turn says the browser needs this machine); `/board approve <id>` and `review <id>
-[--root <tree>]` sign, `archive` sweeps, `status` prints the seat, repository, port, and tabs, `exit` leaves
-the seat without closing the page, and `stop` ends it.
+[--root <tree>]` sign, `archive` sweeps, `status` prints the seat, repository, port, and tabs, and `stop`
+ends the page and the seat together: leaving the seat costs the live round, and `/board` re-takes both.
 
 **Who signs.** The lead is `team.lead` in `bytefly.json` (default `gavin`), and the page serves as that name; an
 empty lead lets only the person sign and serves no page. A session signs only while it is the lead, never while
@@ -79,10 +79,10 @@ or not told — and an untold one is sent again.
 
 **Lead mode.** Serving the page is the seat: `/board` turns the mode on in that session and the bar draws `⏵ lead`. While it holds the seat keeps a closed
 allow-list — the readers `read`, `grep`, `find`, `ls`, `read_doc`, `run_doctor`; the board's verbs (`board`, `team`, `session`, `plan`, `todo`, `goal`,
-`question`, `subagent`); `web_search`, `web_fetch`, `bash` for read-only git — and every other tool is refused by a sentence naming `/board exit`. A tool's
+`question`, `subagent`); `web_search`, `web_fetch`, `bash` for read-only git — and every other tool is refused by a sentence naming `/board stop`. A tool's
 own `readOnlyHint` does not admit it, so an MCP reader is refused while the seat is held. `subagent` stays read-only, `plan` keeps `write` and `steps`
 while `enter` refuses, and each turn carries one `[LEAD MODE]` line: the seat's unread mail, what is yours to sign, each parked card's decision,
-the pool's three ids and a count, who is listening. A seated session lands a reviewed card with `board land`, which refuses anyone else, so no exit is needed.
+the pool's three ids and a count, who is listening. A seated session lands a reviewed card with `board land`, which refuses anyone else, so the seat stays on.
 
 **Where it lives.** `~/.pi/agent/repos/<repo-id>/board/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so nothing is rewritten. A card records its plan by the **name** it holds in this repository's plan store, not this host's path, so two machines sharing a store resolve it on either — and a card holding an older absolute path still executes. A shared store is compared on every write, so it converges rather than serializing — [two machines, one store](../multi-session.md#two-machines-one-store).
 

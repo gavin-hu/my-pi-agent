@@ -136,7 +136,7 @@ describe("the board extension", () => {
 		});
 	});
 
-	test("/board exit ends the seat for the next call, whatever the branch says", async () => {
+	test("/board stop ends the seat for the next call, whatever the branch says", async () => {
 		await withEnv(ENABLED, async () => {
 			const fake = createFakePi();
 			const session = seatSession();
@@ -151,7 +151,7 @@ describe("the board extension", () => {
 
 			// The exit, typed in the session. The branch is this double's array and takes no write —
 			// tonight's state, where the off-switch said it worked and the leash stayed on.
-			await command.handler("exit", fakeCtx({ branch: SEAT }).ctx);
+			await command.handler("stop", fakeCtx({ branch: SEAT }).ctx);
 			expect(await guard(CALL, fakeCtx({ branch: SEAT }).ctx)).toBeUndefined();
 			expect(fake.entries.at(-1)?.customType).toBe(LEAD_MODE_ENTRY_TYPE);
 			expect((fake.entries.at(-1)?.data as { enabled?: unknown }).enabled).toBe(false);

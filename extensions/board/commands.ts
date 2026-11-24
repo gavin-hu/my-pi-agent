@@ -1,13 +1,14 @@
 /**
  * `/board` — the page's one entry point, and the lead's door to the two signs.
  *
- * `team` opens the page on the Team tab, `status` prints one line, `stop` closes it, and
- * `approve <id>` / `review <id>` sign the two gates while `archive` folds finished cards away. All
- * three are the lead's: the gate reads the label of the session that typed the line, which is the
- * lead's own whenever that session serves the page, and a board naming no lead has nobody to read,
- * so the person's sign is the one door it keeps. Everything else opens the page. The command is a
- * thin parser — the lifecycle is `page.ts`'s, the transitions are `lib/workflow/steps.ts`'s — so the
- * idle grace and `session_shutdown` close the same server this opens.
+ * `team` opens the page on the Team tab, `status` prints one line, `stop` closes the page and
+ * stands the seat down with it, and `approve <id>` / `review <id>` sign the two gates while
+ * `archive` folds finished cards away. All three are the lead's: the gate reads the label of the
+ * session that typed the line, which is the lead's own whenever that session serves the page, and a
+ * board naming no lead has nobody to read, so the person's sign is the one door it keeps. Everything
+ * else opens the page. The command is a thin parser — the lifecycle is `page.ts`'s, the transitions
+ * are `lib/workflow/steps.ts`'s — so the idle grace and `session_shutdown` close the same server
+ * this opens.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
@@ -34,7 +35,7 @@ import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 export const BOARD_COMMAND = "board";
 
 /** The words the command accepts, in the order a user is likely to want them. */
-const BOARD_WORDS = ["archive", "approve", "exit", "review", "status", "stop", "team"] as const;
+const BOARD_WORDS = ["archive", "approve", "review", "status", "stop", "team"] as const;
 
 /**
  * The seat's two moves, as the command needs them: taking it when the page it just
@@ -55,7 +56,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, sign its two gates as the lead, take the lead's seat, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | exit | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+			"Open the shared board in a local browser, sign its two gates as the lead, take the lead's seat, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
@@ -114,41 +115,33 @@ export function registerCommands(
 				return;
 			}
 			if (word === "stop") {
+				// Reading the page first, and leaving the seat second: the seat is what the page implied,
+				// so every ending below is one fact — this session serves nothing now, and the tools are
+				// back. Leaving the seat before `stop` is what `exit` used to be for; a seat without its
+				// page is the one state that made a second word necessary, and it is gone.
 				const status = await page.status();
+				const left = deps.lead === undefined ? false : await deps.lead.exit(ctx);
+				const off = left ? " · lead mode off" : "";
 				// A note nobody answers is not a page to leave for the next session to trip over:
 				// it is dropped here, and the line says whose it was.
 				if (status.stale === true) {
 					const dropped = await page.dropStale(ctx);
-					ctx.ui.notify(dropLine(dropped, status), "info");
+					ctx.ui.notify(`${dropLine(dropped, status)}${off}`, "info");
 					return;
 				}
 				// A page another session serves is that session's to stop, and saying whose it is is the answer.
 				if (status.attached === true) {
 					ctx.ui.notify(
-						`board: nothing to stop here — ${status.seat} serves this repository on :${status.port}`,
+						`board: nothing to stop here — ${status.seat} serves this repository on :${status.port}${off}`,
 						"info",
 					);
 					return;
 				}
-				// The seat is left before the page goes: `exit` reads what this session serves, and the
-				// page's own close would already have cleared it. One fact, said in one line: the page
-				// stopped, and the seat it implied is off.
-				const left = deps.lead === undefined ? false : await deps.lead.exit(ctx);
 				const stopped = await page.stop();
 				// The word is this session saying it serves nothing now: the page clears the seat too
 				// when it closes itself (the idle grace), and both writes are the same fact.
 				session.serve(undefined);
-				ctx.ui.notify(`${stopped ? "board: stopped" : "board: not running"}${left ? " · lead mode off" : ""}`, "info");
-				return;
-			}
-			if (word === "exit") {
-				// Leaving the seat is the page's neighbour, not its opposite: the server keeps
-				// running and the round keeps arriving, because `/board` again is one keystroke.
-				const left = deps.lead === undefined ? false : await deps.lead.exit(ctx);
-				ctx.ui.notify(
-					left ? "board: lead mode off — every tool is back; the page is still serving" : "board: lead mode is not on",
-					"info",
-				);
+				ctx.ui.notify(`${stopped ? "board: stopped" : "board: not running"}${off}`, "info");
 				return;
 			}
 			if (word !== "" && word !== "team") {
@@ -163,7 +156,7 @@ export function registerCommands(
 			if (started.kind === "failed") return;
 			// An attached start stands this session down: the page answers under the seat that serves
 			// it, so this session's own seat is not one to keep. The seat is left before `serve` is
-			// told nothing, so `exit` reads the seat it had rather than a page already gone.
+			// told nothing, so the door reads the seat it had rather than a page already gone.
 			const stoodDown = started.kind !== "served" && deps.lead !== undefined ? await deps.lead.exit(ctx) : false;
 			session.serve(started.kind === "served" ? started.seat : undefined);
 			// The join is `lib/workflow/join.ts`'s one rule, loaded here so a session that never opens the
@@ -185,7 +178,7 @@ export function registerCommands(
 			// the session down — someone else's page is serving — and leaves the seat it held.
 			if (started.kind === "served" && deps.lead !== undefined) {
 				await deps.lead.enter(ctx);
-				ctx.ui.notify("lead mode on: sign and dispatch; /board exit to write.", "info");
+				ctx.ui.notify("lead mode on: sign and dispatch; /board stop to write.", "info");
 			}
 		},
 	});

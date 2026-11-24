@@ -117,7 +117,7 @@ describe("plan runtime — the seat's door", () => {
 
 		expect(runtime.toggle(seat.ctx)).toBe(false);
 		expect(runtime.isEnabled()).toBe(false);
-		expect(seat.notifications.some((line) => line.includes("/board exit"))).toBe(true);
+		expect(seat.notifications.some((line) => line.includes("/board stop"))).toBe(true);
 		// Nothing was hidden on the way to the refusal: the mode never turned on.
 		expect(activeTools()).toContain("write");
 	});
@@ -128,7 +128,7 @@ describe("plan runtime — the seat's door", () => {
 
 		// The sentence, not a boolean: `enable` answers with the gate's own words, which is what lets
 		// each door word the refusal once instead of describing it again.
-		expect(runtime.enable(seat.ctx)).toBe("Lead mode holds the seat: `/board exit` before planning.");
+		expect(runtime.enable(seat.ctx)).toBe("Lead mode holds the seat: `/board stop` before planning.");
 		expect(runtime.isEnabled()).toBe(false);
 	});
 

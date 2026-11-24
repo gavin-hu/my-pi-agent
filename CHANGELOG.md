@@ -134,6 +134,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `board`: `/board exit`, the second word that let a seated session drop the seat and keep the page. `stop` is the one
+  word now: it ends the page and the seat together, so leaving the seat costs the live round, and `/board` takes both
+  back in one keystroke. It supersedes the `/board exit` hatch the two `Unreleased` bullets above still name — the seat's
+  allow-list refusal and the `land` note — which from here is spelled `/board stop`; a session whose branch restored the
+  seat stops it with no page left to close.
+
 - `file-browse`: the **changes** tag's link, a changed file's **changes** action, and `/files/diff`
   with its `?mode=`. The tag stays — a dot, the count and the `+`/`−` totals — as a plain chip, so
   the page is whole with `code-review` switched off.

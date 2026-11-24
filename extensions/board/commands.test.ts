@@ -17,7 +17,7 @@ import {
 	pageWithNoRecording,
 } from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
-import { BOARD_COMMAND, registerCommands } from "./commands.ts";
+import { BOARD_COMMAND, type LeadDoor, registerCommands } from "./commands.ts";
 import type { TeamJoin } from "./join.ts";
 import type { BoardPage, StaleDrop } from "./page.ts";
 
@@ -64,13 +64,34 @@ function stalePage(dropped: StaleDrop = "dropped"): { page: BoardPage; calls: st
 	};
 }
 
+/** The seat's door as the command needs it: what it was asked, and whether a seat was on. */
+function fakeLeadDoor(was = true): LeadDoor & { calls: string[] } {
+	const calls: string[] = [];
+	return {
+		calls,
+		enter: async () => {
+			calls.push("enter");
+		},
+		exit: async () => {
+			calls.push("exit");
+			return was;
+		},
+	};
+}
+
 /** The command as the host invokes it. */
-async function run(args: string, options: { page?: BoardPage; team?: TeamJoin; session?: BoardSession } = {}) {
+async function run(
+	args: string,
+	options: { page?: BoardPage; team?: TeamJoin; session?: BoardSession; lead?: LeadDoor } = {},
+) {
 	const { page: recording, calls } = fakeBoardPage();
 	const target = options.page ?? recording;
 	const session = options.session ?? fakeBoardSession();
 	const fake = createFakePi();
-	registerCommands(fake.pi, session, target, options.team === undefined ? {} : { team: options.team });
+	registerCommands(fake.pi, session, target, {
+		...(options.team === undefined ? {} : { team: options.team }),
+		...(options.lead === undefined ? {} : { lead: options.lead }),
+	});
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");
 	// The id the fixture's session reports, so the roster it seeds is the record a join left.
@@ -250,10 +271,67 @@ describe("/board", () => {
 		expect(first.notifications.at(-1)).toBe("board: not running");
 	});
 
+	test("ends the seat with the page, and says so on the line", async () => {
+		const lead = fakeLeadDoor(true);
+		const { page } = fakeBoardPage();
+		await run("", { page, lead });
+		const stopped = await run("stop", { page, lead });
+		expect(lead.calls).toEqual(["enter", "exit"]);
+		expect(stopped.notifications.at(-1)).toBe("board: stopped · lead mode off");
+	});
+
+	test("ends a seat whose page was already closed", async () => {
+		// The seat a branch re-arms on resume has no page behind it: `stop` is the hatch that
+		// used to be `exit`'s, and the line must not claim it closed a page.
+		const lead = fakeLeadDoor(true);
+		const stopped = await run("stop", { lead });
+		expect(lead.calls).toEqual(["exit"]);
+		expect(stopped.notifications.at(-1)).toBe("board: not running · lead mode off");
+	});
+
+	test("stops the page without claiming a seat that was not on", async () => {
+		const lead = fakeLeadDoor(false);
+		const { page } = fakeBoardPage();
+		await run("", { page, lead });
+		const stopped = await run("stop", { page, lead });
+		expect(stopped.notifications.at(-1)).toBe("board: stopped");
+	});
+
+	test("ends the seat even when the page is another session's", async () => {
+		// Leaving the seat was `exit`'s other job, and `stop` is now the only word that does it: a
+		// watching session that kept the seat would have no way out of it.
+		const lead = fakeLeadDoor(true);
+		const { notifications } = await run("stop", { page: attachedPage(), lead });
+		expect(lead.calls).toEqual(["exit"]);
+		expect(notifications.at(-1)).toBe(
+			"board: nothing to stop here — team-lead serves this repository on :4812 · lead mode off",
+		);
+	});
+
+	test("ends the seat when it drops a note nobody answers", async () => {
+		const lead = fakeLeadDoor(true);
+		const stale = stalePage();
+		const { notifications } = await run("stop", { page: stale.page, lead });
+		expect(lead.calls).toEqual(["exit"]);
+		expect(notifications.at(-1)).toBe("board: dropped team-lead's note for :4812 — it answered nobody · lead mode off");
+	});
+
+	test("no longer knows the word exit, and lists the ones it has", async () => {
+		const lead = fakeLeadDoor(true);
+		const { calls, notifications } = await run("exit", { lead });
+		expect(calls).toEqual([]);
+		expect(lead.calls).toEqual([]);
+		expect(notifications.at(-1)).toBe(
+			'board: "exit" is not a word this command knows — try /board archive, /board approve <id>, /board review <id>, /board status, /board stop, /board team',
+		);
+	});
+
 	test("warns about a word it does not know, and lists the ones it does", async () => {
 		const { calls, notifications } = await run("scrub");
 		expect(calls).toEqual([]);
-		expect(notifications.at(-1)).toContain("try /board archive, /board approve <id>, /board exit, /board review <id>");
+		expect(notifications.at(-1)).toContain(
+			"try /board archive, /board approve <id>, /board review <id>, /board status, /board stop, /board team",
+		);
 	});
 
 	test("completes only the words it has, whatever case it is typed in", async () => {
@@ -280,7 +358,7 @@ describe("/board", () => {
 		// lead's session is for: a description that offers a peer the sign contradicts the gate.
 		expect(description).toContain("sign its two gates as the lead");
 		expect(description).toContain(
-			"/board [archive [--older-than <age>] | team | status | stop | exit | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+			"/board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		);
 	});
 });

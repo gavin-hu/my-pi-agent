@@ -344,7 +344,7 @@ describe("the board tool surface", () => {
 		expect(line.length).toBeLessThanOrEqual(620);
 		expect(line.split("\n").length).toBeLessThanOrEqual(6);
 		expect(line.startsWith(LEAD_CONTEXT_MARKER)).toBe(true);
-		expect(line).toContain("/board exit");
+		expect(line).toContain("/board stop");
 	});
 
 	test("the first-turn line stays inside its own ceiling", () => {

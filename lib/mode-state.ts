@@ -112,7 +112,7 @@ export function isPlanModeEnabled(entries: readonly unknown[]): boolean {
 export function mayEnter(to: string, from: SessionMode): string | undefined {
 	if (!isSessionMode(to)) return `"${to}" is not a mode; the modes are ${SESSION_MODES.join(", ")}.`;
 	if (to === from) return undefined;
-	if (from === "lead" && to === "plan") return "Lead mode holds the seat: `/board exit` before planning.";
+	if (from === "lead" && to === "plan") return "Lead mode holds the seat: `/board stop` before planning.";
 	return undefined;
 }
 

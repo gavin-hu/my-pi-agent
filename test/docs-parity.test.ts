@@ -231,7 +231,7 @@ describe("site front door parity", () => {
  *
  * The board page used to name five refused tools as if they were the set; `LEAD_ALLOWED_TOOLS` in
  * `extensions/board/runtime.ts` is what decides, and everything outside it is refused by a sentence
- * naming `/board exit`. So the page states the rule and lists what the seat *keeps*, and these two
+ * naming `/board stop`. So the page states the rule and lists what the seat *keeps*, and these two
  * cases keep it honest: a name promoted into the allow-list fails until the page follows, and the
  * rule itself cannot be dropped without a red gate.
  */

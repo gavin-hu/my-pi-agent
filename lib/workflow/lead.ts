@@ -87,7 +87,7 @@ function leadAuthority(actor: Actor, lead: Lead): boolean {
  * that one — if you came here to delete a duplicate, that case is what has to go first.
  */
 export function seatCannot(action: string): string {
-	return `Lead mode holds the seat: \`/board exit\` before ${action}.`;
+	return `Lead mode holds the seat: \`/board stop\` before ${action}.`;
 }
 
 /**
