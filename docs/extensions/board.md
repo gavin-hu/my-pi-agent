@@ -63,8 +63,9 @@ card whose plan is gone. An `execute` card claims the `paths` nobody else holds;
 ones, claiming first so a conflict releases nothing. A contract names a `verify` command — the card's own check, not the
 repository's gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs it in the tree `root` names.
 `done` refuses a sign with no result or one older than the card's state, and resolves the landing: an older tree, a tip
-declaring another card, or a squashed branch named by the card id its subject ends with. A reviewed merge is its own landing
+declaring another card, or a squashed branch its subject names. A reviewed merge is its own landing
 only while it is the tip; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
+A folded card names that merge in `landed`; the argument is checked at or below its spot-check, never above it.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints
 the URL, and a remote turn says the browser needs this machine); `/board approve <id>` and `review <id>

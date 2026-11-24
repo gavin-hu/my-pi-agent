@@ -45,3 +45,34 @@ describe("the card's own execute", () => {
 		expect(resolveLanding(proof(squashed, SQUASH), SQUASH, ID)).toEqual({ sha: SQUASH });
 	});
 });
+
+/**
+ * The folded card, which is where this order meets a landing it cannot name (#814, #828).
+ *
+ * A card's work ships inside another card's merge, and the card only enters `execute` after the
+ * spot-check that followed it. Read forward, the order rule refuses — correctly, because no commit
+ * after `since` carries this work. What answers it is not an instruction but a name: the merge the
+ * review came after, declared by the close and checked at or below that review.
+ */
+describe("a folded card's landing", () => {
+	// The other card's merge, the spot-check at the tip above it, and a card whose `execute` came last.
+	const MERGE = "a11c000000000000000000000000000000000000";
+	const TIP = "b0b0000000000000000000000000000000000";
+	const chain = [
+		commit(BASE, BASE_AT, [ROOT], "chore(repo): the base the branch was cut from"),
+		commit(MERGE, REVIEWED_AT, [BASE, "7ee0d10000000000000000000000000000000000"], "merge(work): #819's landing"),
+		commit(TIP, REVIEWED_AT + 1_000, [MERGE], "merge(main): the next card's landing"),
+	];
+	const folded = proof(chain, TIP, { since: REVIEWED_AT + 2_000 });
+
+	test("refuses the order by itself, so the fix is not a fourth attempt at the sentence", () => {
+		expect(resolveLanding(folded, TIP, ID)).toEqual({
+			error: beforeExecute("main", TIP, ID),
+			shape: "before-execute",
+		});
+	});
+
+	test("closes when the card names the merge its work landed in", () => {
+		expect(resolveLanding(folded, TIP, ID, MERGE)).toEqual({ sha: MERGE });
+	});
+});
