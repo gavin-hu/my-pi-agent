@@ -29,11 +29,11 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     } catch (error) { /* a full or blocked store is not a reason to lose the page */ }
   }
   function draftKey(path, line, side) { return JSON.stringify([path, line, side]); }
-  function keepDraft(path, line, side, text) {
+  function keepDraft(path, line, side, text, parent) {
     var all = storedDrafts();
     var key = draftKey(path, line, side);
     if (text === "") delete all[key];
-    else all[key] = { rev: rev, path: path, line: line, side: side, text: text };
+    else all[key] = { rev: rev, path: path, line: line, side: side, text: text, parent: parent };
     writeDrafts(all);
   }
   function forgetDraft(path, line, side) {
@@ -46,7 +46,13 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     var wrap = event && event.target && event.target.closest ? event.target.closest(".rv-compose") : null;
     if (!wrap) return;
     var area = wrap.querySelector(".rv-compose__area");
-    keepDraft(wrap.getAttribute("data-path"), Number(wrap.getAttribute("data-line")), wrap.getAttribute("data-side"), area ? area.value : "");
+    keepDraft(
+      wrap.getAttribute("data-path"),
+      Number(wrap.getAttribute("data-line")),
+      wrap.getAttribute("data-side"),
+      area ? area.value : "",
+      wrap.getAttribute("data-parent") || undefined,
+    );
     paintSend();
   }
   /** The composer standing on one anchor, or null: one per line, which is what the page is. */
@@ -55,6 +61,18 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
       return wrap.getAttribute("data-path") === path && wrap.getAttribute("data-line") === String(line) && wrap.getAttribute("data-side") === side;
     })[0] || null;
   }
+  /** One held comment's text, by id: the words the composer answering it quotes. */
+  function commentBody(id) {
+    var found = (data.comments || []).filter(function (comment) { return comment.id === id; })[0];
+    return found ? found.body : "";
+  }
+
+  /** A comment's opening words, so a head or a button names which one it is. */
+  function excerpt(text) {
+    var line = String(text || "").replace(/\s+/g, " ").trim();
+    return line.length > 40 ? line.slice(0, 39) + "…" : line;
+  }
+
   function closeComposer(wrap) {
     if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
   }
@@ -75,7 +93,16 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
       var kept = all[key];
       if (!kept || typeof kept.text !== "string" || kept.text === "") { delete all[key]; return; }
       if (rowFor(kept.path, kept.line, kept.side)) {
-        composer(kept.path, kept.line, kept.side, { seed: kept.text, moved: kept.rev !== rev, focus: false });
+        var parent = kept.parent && (data.comments || []).some(function (comment) { return comment.id === kept.parent; })
+          ? kept.parent
+          : undefined;
+        composer(kept.path, kept.line, kept.side, {
+          seed: kept.text,
+          moved: kept.rev !== rev,
+          focus: false,
+          parent: parent,
+          parentText: parent === undefined ? undefined : commentBody(parent),
+        });
         back.push(kept.path + ":" + kept.line);
         return;
       }
@@ -101,21 +128,27 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
   }
 
   // ── threads ───────────────────────────────────────────────────────────────
-  function threadNode(comment) {
+  function threadNode(comment, isReply) {
     var wrap = el("span", "rv-thread");
     wrap.setAttribute("data-thread", comment.id);
     wrap.setAttribute("data-state", comment.state);
+    if (isReply) wrap.setAttribute("data-parent", comment.parent);
     var card = el("span", "bf-comment");
     var label = el("span", "bf-comment__label", comment.state === "sent" ? "sent to the session" : "draft");
     card.appendChild(label);
     if (comment.quote) card.appendChild(el("span", "bf-comment__quote", comment.quote));
     card.appendChild(el("span", "bf-comment__body", comment.body));
     var acts = el("span", "bf-comment__row");
+    var where = comment.rel + ":" + comment.line;
     var reply = el("button", "bf-btn bf-btn--ghost", "reply");
     reply.type = "button";
-    reply.addEventListener("click", function () { composer(comment.rel, comment.line, comment.side); });
+    reply.setAttribute("aria-label", "Reply to the comment on " + where + ' — "' + excerpt(comment.body) + '"');
+    reply.addEventListener("click", function () {
+      composer(comment.rel, comment.line, comment.side, { parent: comment.id, parentText: comment.body });
+    });
     var drop = el("button", "bf-btn bf-btn--ghost", "delete");
     drop.type = "button";
+    drop.setAttribute("aria-label", "Delete the comment on " + where + ' — "' + excerpt(comment.body) + '"');
     drop.addEventListener("click", function () { dropComment(comment.id); });
     acts.appendChild(reply);
     acts.appendChild(drop);
@@ -129,15 +162,60 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
   /** The unsent drafts whose file this render does not draw: no composer can stand for them. */
   var unplaceableDrafts = [];
 
+  /**
+   * One row's threads in the order they are read: its roots as the review stores them, each followed
+   * by the replies it answers, in that same order.
+   *
+   * Never sorted. The review's array is arrival order, so two comments written in the same
+   * millisecond keep it, and the case that reads them is determined rather than lucky. A reply whose
+   * parent is not in this list — deleted, since the store only accepts a parent it holds — is a root:
+   * a comment that lost its parent is still a comment to read and delete, and hiding it would be the
+   * orphan shape #837 closed.
+   */
+  function rowThreads(comments) {
+    var known = {};
+    comments.forEach(function (comment) { known[comment.id] = true; });
+    var out = [];
+    comments
+      .filter(function (comment) { return comment.parent === undefined || !known[comment.parent]; })
+      .forEach(function (root) {
+        out.push({ comment: root, reply: false });
+        comments.forEach(function (comment) {
+          if (comment.parent === root.id) out.push({ comment: comment, reply: true });
+        });
+      });
+    return out;
+  }
+
   function paintThreads() {
     nodeList(".rv-thread").forEach(function (el) { el.remove(); });
     unplaceableComments = [];
+    var rows = [];
     (data.comments || []).forEach(function (comment) {
       var row = rowFor(comment.rel, comment.line, comment.side);
-      if (row) { row.parentNode.insertBefore(threadNode(comment), row.nextSibling); return; }
-      // Only a comment on a file this page draws is unplaced: one on a file a focused page hides is
-      // out of view by the reader's own request, and the page says so.
-      if (sectionFor(comment.rel)) unplaceableComments.push(comment);
+      if (!row) {
+        // Only a comment on a file this page draws is unplaced: one on a file a focused page hides is
+        // out of view by the reader's own request, and the page says so.
+        if (sectionFor(comment.rel)) unplaceableComments.push(comment);
+        return;
+      }
+      var held = rows.filter(function (entry) { return entry.row === row; })[0];
+      if (!held) {
+        held = { row: row, comments: [] };
+        rows.push(held);
+      }
+      held.comments.push(comment);
+    });
+    rows.forEach(function (held) {
+      // After the row's own last thread, so the newest lands at the bottom of the thread it belongs
+      // to rather than above everything written before it.
+      var after = held.row;
+      while (after.nextSibling && after.nextSibling.classList && after.nextSibling.classList.contains("rv-thread")) after = after.nextSibling;
+      rowThreads(held.comments).forEach(function (entry) {
+        var node = threadNode(entry.comment, entry.reply);
+        after.parentNode.insertBefore(node, after.nextSibling);
+        after = node;
+      });
     });
     paintOrphans();
   }
@@ -249,6 +327,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
         path: wrap.getAttribute("data-path"),
         line: Number(wrap.getAttribute("data-line")),
         side: wrap.getAttribute("data-side"),
+        parent: wrap.getAttribute("data-parent") || undefined,
         text: area ? area.value.trim() : "",
       };
     }).filter(function (entry) { return entry.text !== ""; });
@@ -327,7 +406,9 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
   }
 
   function addComment(path, line, side, text, wrap) {
-    return post("/api/comment", { comment: { rel: path, line: line, side: side, body: text } }, function () {
+    var parent = wrap && wrap.getAttribute("data-parent") ? wrap.getAttribute("data-parent") : undefined;
+    var comment = { rel: path, line: line, side: side, body: text };
+    return post("/api/comment", { comment: parent === undefined ? comment : { ...comment, parent: parent } }, function () {
       forgetDraft(path, line, side);
       closeComposer(wrap);
       focusCursor();
@@ -367,8 +448,10 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     if (!row) { toast("Select a line that is in the diff, then comment"); return; }
     var open = composerAt(path, line, side);
     if (open) {
+      // One composer per line, and the line is what owns its text: pressing reply on a line whose
+      // composer is already open returns to that text rather than starting a second.
       var openArea = open.querySelector(".rv-compose__area");
-      if (opts.seed !== undefined && openArea) { openArea.value = opts.seed; keepDraft(path, line, side, opts.seed); }
+      if (opts.seed !== undefined && openArea) { openArea.value = opts.seed; keepDraft(path, line, side, opts.seed, opts.parent); }
       if (openArea && opts.focus !== false) openArea.focus();
       return;
     }
@@ -376,12 +459,14 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
     wrap.setAttribute("data-path", path);
     wrap.setAttribute("data-line", String(line));
     wrap.setAttribute("data-side", side);
-    var head = el("span", "rv-compose__head", "comment on " + splitPath(path).name + ":" + line);
+    if (opts.parent) wrap.setAttribute("data-parent", opts.parent);
+    var head = el("span", "rv-compose__head", (opts.parent ? "reply on " : "comment on ") + splitPath(path).name + ":" + line);
+    if (opts.parentText) head.appendChild(el("span", "rv-compose__note", "“" + excerpt(opts.parentText) + "”"));
     if (opts.was) head.appendChild(el("span", "rv-compose__note", "was " + opts.was + " — the diff moved"));
     else if (opts.moved) head.appendChild(el("span", "rv-compose__note", "typed on the earlier diff — check the line"));
     var area = el("textarea", "rv-compose__area");
     area.placeholder = "What is wrong, and what would you do instead?";
-    area.setAttribute("aria-label", "Comment on " + path + ":" + line);
+    area.setAttribute("aria-label", (opts.parent ? "Reply on " : "Comment on ") + path + ":" + line);
     if (opts.seed !== undefined) area.value = opts.seed;
     var acts = el("span", "rv-compose__acts");
     var save = el("button", "bf-btn bf-btn--primary", "Save comment");
@@ -427,7 +512,15 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
         if (!ok) return false;
         return post(
           "/api/comment",
-          { comment: { rel: entry.path, line: entry.line, side: entry.side, body: entry.text } },
+          {
+            comment: {
+              rel: entry.path,
+              line: entry.line,
+              side: entry.side,
+              ...(entry.parent === undefined ? {} : { parent: entry.parent }),
+              body: entry.text,
+            },
+          },
           function () {
             forgetDraft(entry.path, entry.line, entry.side);
             closeComposer(entry.wrap);
