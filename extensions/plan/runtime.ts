@@ -65,8 +65,15 @@ const MODE_TOOLS = [PLAN_TOOL];
 export interface PlanRuntime {
 	/** Whether plan mode is currently on. */
 	isEnabled(): boolean;
-	/** Turn plan mode on; `false` when the branch's mode refuses it, and the refusal is shown. */
-	enable(ctx: ExtensionContext): boolean;
+	/**
+	 * Turn plan mode on, or hand back the sentence that refused it.
+	 *
+	 * The sentence rather than a boolean, because a door that enters has to say what happened: a tool
+	 * answering "entered" over a mode that is off, or a `/plan <task>` sending work into one it never
+	 * got, is a green result over a refusal. The gate words it once — `mayEnterFrom`'s own line — so no
+	 * caller derives a second copy, and `undefined` is the answer when the mode is on.
+	 */
+	enable(ctx: ExtensionContext): string | undefined;
 	disable(ctx: ExtensionContext): void;
 	/** Flip the mode, and answer the state it left: `true` only when plan mode is on afterwards. */
 	toggle(ctx: ExtensionContext): boolean;
@@ -263,16 +270,18 @@ export function createPlanRuntime(
 	 * The one gate every entering door goes through: the tool's `enter`, the request another extension
 	 * sends, and Shift+Tab's toggle. The mode is read from the branch rather than from this closure's
 	 * flag, because a resume or a `/tree` hop is what moved it — and a refusal names the hatch and
-	 * leaves the mode off, so two entries cannot both replay as on.
+	 * leaves the mode off, so two entries cannot both replay as on. The refusal is handed back as the
+	 * sentence it already notified, which is what lets a door put the same words in its own result
+	 * rather than describing the refusal a second way.
 	 */
-	const enterPlan = (ctx: ExtensionContext): boolean => {
+	const enterPlan = (ctx: ExtensionContext): string | undefined => {
 		const refused = mayEnterFrom("plan", ctx.sessionManager.getBranch());
 		if (refused !== undefined) {
 			ctx.ui.notify(refused, "warning");
-			return false;
+			return refused;
 		}
 		setEnabled(true, ctx, true);
-		return true;
+		return undefined;
 	};
 
 	return {
@@ -280,7 +289,9 @@ export function createPlanRuntime(
 		enable: (ctx) => enterPlan(ctx),
 		disable: (ctx) => setEnabled(false, ctx, true),
 		toggle: (ctx) => {
-			if (!enabled) return enterPlan(ctx);
+			// The state it left, not the sentence: a toggle has no one to explain a refusal to, and the
+			// key that pressed it shows the mode off. A door that must word the refusal calls `enable`.
+			if (!enabled) return enterPlan(ctx) === undefined;
 			setEnabled(false, ctx, true);
 			return false;
 		},

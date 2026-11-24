@@ -127,6 +127,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a refused entry now reads as a refusal at both doors that enter the mode. A branch holding the board's seat —
+  with `board` not loaded to refuse the call before it arrives — used to get "You are now in plan mode" from the `plan`
+  tool's `enter` and "Plan mode enabled" from `/plan <task>` over a mode that never came on, the task sent with writing
+  still allowed. `runtime.enable` now answers with the gate's own sentence instead of a bare boolean, so neither caller
+  derives a second copy of it: the tool returns that sentence as a `RefusedPlanDetails` refusal, and the command stops
+  before `sendUserMessage`.
+
 - `board`: a session holding the seat can no longer claim a card, or open `execute` on one it holds. The claim took the
   session's one wip slot and, on `execute`, the card's path claims — for work the seat structurally cannot do, since it
   refuses `edit`. Both verdicts come from the state machine rather than the tool, so every door answers the same way, and
