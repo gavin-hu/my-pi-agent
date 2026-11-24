@@ -254,7 +254,7 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							if (!holdsSeat(ctx.sessionManager.getBranch())) {
 								return errorResult(
 									"release",
-									`only the seat takes a peer's claims; /board can start a session attached to one, which holds no seat.`,
+									`only the seat takes a peer's claims — a session started from /board holds no seat of its own.`,
 								);
 							}
 						}
