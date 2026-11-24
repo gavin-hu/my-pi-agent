@@ -1,6 +1,6 @@
 # code-review — review a diff as a page, line by line
 
-<img src="../../assets/screens/code-review.png" alt="The review page: the changed-file rail as the kit's collapsible sidebar — a search field, an All/Commented switch and the file count over each file's state — and the diff's full column, one draft comment under the line it names, a commented file on its warn paper and a reviewed one on its success paper, the scope switch and Send feedback at the control row's right end, and the footer's comparison and progress" width="1280" height="910">
+<img src="../../assets/screens/code-review.png" alt="The review page: the changed-file rail as the kit's collapsible sidebar — a search field, an All/Commented switch, and over the rows the file count, how much of the review is marked and the scope's totals — and the diff's full column, one draft comment under the line it names, a commented file on its warn paper and a reviewed one on its success paper, the scope switch and Send feedback at the control row's right end, and the footer's comparison alone" width="1280" height="910">
 
 A branch, an uncommitted change, or the index, served as a page you can read
 line by line and comment on. The comments are the model's next turn — nothing
@@ -70,9 +70,12 @@ refused, naming the key to set.
 by the first write, so opening a page to look costs nothing; the query carries
 the write token, and the first write puts the review's own id in the address. A
 comment is a draft until **Send feedback** marks it sent. The changed files are
-the shell's sidebar — a search, **All** / **Commented**, a count, one row per
-file — folding into a band below 900px; `wrap` wraps at any width, and narrowing
-hides rows and never sections.
+the shell's sidebar — a search, **All** / **Commented**, the file count, how much
+of the review is marked, the scope's totals, one row per file — folding into a
+band below 900px; `wrap` wraps at any width, and narrowing hides rows and never
+sections. Each fact has one home: the rail's head carries the files and the
+progress, the footer carries the comparison, and **Send feedback** carries the
+draft count on the page (the tab title keeps its own).
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff:
 the rail shows that file and an **all files** link back, and the comparison is

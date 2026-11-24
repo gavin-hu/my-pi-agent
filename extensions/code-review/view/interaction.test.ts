@@ -383,20 +383,21 @@ gated("the review page's interactions", () => {
 	 * reads them there and nowhere in the header.
 	 */
 	test(
-		"the footer names the comparison and the drafts, and a second write lands",
+		"the footer names the comparison, and a second write lands",
 		async () => {
 			await withPage(
 				async (page) => {
 					await startComment(page, "one");
 					await page.locator(".rv-compose__acts .bf-btn--primary").click();
 					await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
-
-					expect(await page.locator("#rv-facts").textContent()).toContain("main...HEAD");
-					expect(await page.locator("#rv-facts").textContent()).toContain("1 draft");
-
+					// The footer is the comparison's home; the mark that moves the rail's progress is in
+					// rail-row's suite, and the draft count left the footer for the Send button.
+					const facts = await page.locator("#rv-facts").textContent();
+					expect(facts).toContain("main...HEAD");
+					expect(facts).not.toContain("draft");
+					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 1");
 					await startComment(page, "two");
 					await page.locator(".rv-compose__acts .bf-btn--primary").click();
-					// The second write's thread is the state the counts below read.
 					await page.waitForFunction(
 						() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread").length === 2,
 						undefined,
@@ -404,7 +405,6 @@ gated("the review page's interactions", () => {
 					);
 					expect(await page.locator(".rv-thread").count()).toBe(2);
 					// The count is read exactly: `toContain("2 draft")` is green on "2 drafts" too.
-					expect(await page.locator("#rv-facts").textContent()).toContain("2 drafts");
 					expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 2");
 				},
 				{ start: 17 },

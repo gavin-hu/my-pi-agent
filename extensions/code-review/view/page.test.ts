@@ -117,10 +117,11 @@ describe("the review page", () => {
 		expect(html).toContain("Send feedback 1");
 	});
 
-	test("counts the drafts as one or many, in the title and the footer", () => {
-		// Two places print it — the tab title and the footer — and `toContain("1 draft")` is green
-		// on "1 drafts", so each count is counted with its boundary rather than found. The header
-		// used to be a third place, and the chip that carried it is gone: the footer owns the fact.
+	test("counts the drafts as one or many, in the tab title and on the Send button", () => {
+		// On the page the draft count has one home, the Send button; the tab title keeps its own,
+		// because a backgrounded tab saying "2 drafts" is the one fact a reader can act on without
+		// looking at the page. Each count is counted with its boundary: `toContain("1 draft")` is
+		// green on "1 drafts".
 		const many = renderReviewPage(
 			input({
 				review: review({
@@ -139,15 +140,16 @@ describe("the review page", () => {
 				}),
 			}),
 		);
-		expect(many).toContain("· 2 drafts ·");
 		expect(many).toContain("<title>review · my-pi-agent · 2 drafts</title>");
-		expect(many.match(/2 drafts/g)?.length).toBe(2);
+		expect(many).toContain("Send feedback 2");
+		// One, not two: the footer's copy left with the sentence that carried it.
+		expect(many.match(/2 drafts/g)?.length).toBe(1);
 		expect(many.match(/2 draft(?!s)/g)).toBeNull();
 
 		const one = renderReviewPage(input({ review: review() }));
-		expect(one).toContain("· 1 draft ·");
 		expect(one).toContain("<title>review · my-pi-agent · 1 draft</title>");
-		expect(one.match(/1 draft(?!s)/g)?.length).toBe(2);
+		expect(one).toContain("Send feedback 1");
+		expect(one.match(/1 draft(?!s)/g)?.length).toBe(1);
 		expect(one.match(/1 drafts/g)).toBeNull();
 	});
 
@@ -219,11 +221,12 @@ describe("the review page", () => {
 		expect(html).not.toContain("undefined");
 	});
 
-	test("states no fact in the header that the footer already carries", () => {
-		// The comparison, the file and draft counts, and the progress are the footer's one line, so
-		// the header's facts zone is the reload hint alone — the three chips that restated them are
-		// gone, not hidden. The draft count is also on the Send button, and the review's id is in
-		// the address the first write mints.
+	test("gives each fact one home: the rail's head, the footer's comparison, the Send button's drafts", () => {
+		// The rule this replaced put the counts and the progress in the footer. Now the rail's head
+		// carries everything about files — how many are shown, their totals, and how far the review
+		// has got — the footer carries only the comparison, and on the page the draft count is the
+		// Send button's. The header's facts zone stays the reload hint alone: the three chips that
+		// restated the footer are gone, not hidden.
 		const empty = renderReviewPage(input());
 		const withWork = renderReviewPage(input({ review: review() }));
 		for (const html of [empty, withWork]) {
@@ -232,8 +235,17 @@ describe("the review page", () => {
 			expect(html).not.toContain('id="rv-scope"');
 			expect(html).toContain('id="reload-hint"');
 		}
+		// One line of the rail's head, one fact each: shown/total, the progress, the totals.
+		expect(withWork).toContain('id="rv-file-count" aria-live="polite">2 of 2 files');
+		expect(withWork).toContain('id="rv-progress" aria-live="polite">1 of 2 reviewed');
+		expect(withWork).toContain('id="rv-totals"');
+		// The footer keeps the comparison and nothing that belongs to a file.
+		const footer = withWork.slice(withWork.indexOf("<footer"), withWork.indexOf("</footer>"));
+		expect(footer).toContain('id="rv-facts"');
+		expect(footer).not.toContain("reviewed");
+		expect(footer).not.toContain("files");
+		expect(footer).not.toContain("draft");
 		expect(withWork).toContain("Send feedback 1");
-		expect(withWork).toContain("1 of 2 reviewed");
 	});
 
 	/**
