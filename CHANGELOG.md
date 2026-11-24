@@ -32,6 +32,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `code-review`: a rail row spends its lines on the path. The state word — `no comment`, `marked reviewed`
+  — leaves the visible line for the row's `title`, where it costs no height, and the comment count keeps
+  the name's line; two rows more fit the rail at 1280px, one at 900 and one at 420, on a rail that is
+  capped and scrolls there. The left rule leaves the row and the file head with it: the paper and the
+  status badge already say the state, so one fact wears one mark rather than three.
+
 - `code-review`: the changed-file rail is the kit's collapsible sidebar, so the page wears the same
   shell as the plan review and browse: a `<details>` that folds into a band above the diff below
   900px, the file search as the kit's plain field (flush in the panel — the control row's variant

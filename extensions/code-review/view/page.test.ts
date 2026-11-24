@@ -242,14 +242,32 @@ describe("the review page", () => {
 	 * line box around a bdi path — the trap the card's risk section names), the count a screen
 	 * reader is told when it changes, and both empty-state hooks the client reveals.
 	 */
-	test("names each row's path, truncates its directory, and announces the count", () => {
+	test("names each row's path and state, truncates its directory, and announces the count", () => {
 		const html = renderReviewPage(input());
-		expect(html).toContain('title="lib/http/mount.ts"');
+		// The title carries what the row's own line no longer spends a line on: the whole path, then
+		// the state. It is also the hover a reader gets for a name the rail had to shorten.
+		expect(html).toContain('title="lib/http/mount.ts — no comment"');
 		expect(html).toContain('<span class="rv-rail__dir" dir="rtl"><bdi>lib/http</bdi></span>');
 		expect(html).toContain('id="rv-file-count" aria-live="polite"');
 		expect(html).toContain('aria-label="Mark lib/http/mount.ts reviewed"');
 		expect(html).toContain('id="rv-rail-empty" hidden');
 		expect(html).toContain('id="rv-filter-note" hidden');
+	});
+
+	test("keeps the state out of a row's own line, and in its title", () => {
+		const html = renderReviewPage(input({ review: review() }));
+		// The lines a row spends are the path's: name, then directory. The state word is what made
+		// a third one, in a rail that is capped and scrolls (#817) — so it moves into the title,
+		// where it is a sentence the row's own line does not carry.
+		const notes = [...html.matchAll(/<span class="rv-rail__notes">([^<]*)<\/span>/g)].map((match) => match[1]);
+		expect(notes).toEqual(["1 comment"]);
+		// The count stayed: it is a count, and the paper cannot say how many.
+		expect(html).not.toMatch(/rv-rail__notes">(no comment|marked reviewed)/);
+		// Each row's title is the whole path and the state a screen reader would otherwise miss: the
+		// count here, and the state where the count leaves it unsaid (the fixture marks serve.md
+		// reviewed, which is the row that used to spend a line saying so).
+		expect(html).toContain('title="lib/http/mount.ts — 1 comment"');
+		expect(html).toContain('title="docs/serve.md — marked reviewed"');
 	});
 
 	test("draws one file when the address names it, with one rail row and the way back", () => {
