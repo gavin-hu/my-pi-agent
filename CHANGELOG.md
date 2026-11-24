@@ -49,6 +49,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `lib/http/prefixes.ts` (`FILES_BASE`, `REVIEW_BASE`, `reviewHref`) is gone with them: each prefix
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
+### Fixed
+
+- `code-review`: a comment's thread renders in the page's UI face, so prose reads as prose instead of
+  as the code face it inherited from the `<code>` it sits in. The line a thread quotes and the path in
+  the send dialog keep the code face — the mono stays on what is code.
+
 ## [0.30.0] - 2026-11-23
 
 ### Added
