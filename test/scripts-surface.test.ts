@@ -191,4 +191,34 @@ describe("the scripts surface", () => {
 		}
 		expect(offenders, "a hint that names a retired command sends the reader nowhere").toEqual([]);
 	});
+
+	/**
+	 * What the format gate may walk, held where a reader of `check:format` will meet it.
+	 *
+	 * `biome.json` sets `vcs.useIgnoreFile`, so biome honours the **root** `.gitignore` and no other —
+	 * and #823 removed `.pi/` from it, to keep one owner for ignore rules. The formatter then descended
+	 * into `.pi/worktrees/`, where every managed checkout carries its own `biome.json`, and refused the
+	 * tree with "Found a nested root configuration": `bun run check` was red in the main checkout while
+	 * every worktree stayed green. The negation lives here rather than back in `.gitignore` because the
+	 * ignore file must not grow a second job, and the pattern names the root's own `.pi` directory
+	 * rather than matching a `.pi` segment anywhere: a worktree's root *is* `.pi/worktrees/<name>`, so
+	 * the wider form excludes the whole checkout and the gate silently checks nothing — measured.
+	 *
+	 * No behavioural test can see the defect: it needs a populated `.pi/worktrees/`, which CI never has
+	 * and a review tree never has. So this pins the one line the failure depends on — a drift guard,
+	 * and the hand check in #832's acceptance (`mkdir -p .pi/worktrees/probe && cp biome.json
+	 * .pi/worktrees/probe/ && bun run check:format`) is what proves it against biome itself.
+	 */
+	test("the format gate does not descend into the managed worktrees", () => {
+		const config = JSON.parse(readFileSync(join(repo, "biome.json"), "utf-8")) as {
+			files?: { includes?: string[] };
+		};
+		const includes = config.files?.includes ?? [];
+		expect(includes, "biome.json names no `files.includes`, so the root .gitignore is the only rule").toContain(
+			"!.pi/**",
+		);
+		// The narrower spelling matters: `**/.pi/**` matches a worktree's own root as well, and the gate
+		// then reports `Checked 0 files` there — worse than the red it replaced.
+		expect(includes, "the pattern must not exclude a worktree's whole checkout").not.toContain("!**/.pi/**");
+	});
 });

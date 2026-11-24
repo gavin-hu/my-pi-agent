@@ -71,6 +71,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `check`: the format gate stops at `.pi`. `biome.json` now carries `!.pi/**` in `files.includes`, so
+  `biome format .` no longer descends into `.pi/worktrees/`, where each managed checkout's own
+  `biome.json` made biome refuse the tree with "Found a nested root configuration" — `bun run check`
+  was red in the main checkout while every worktree stayed green. The negation lives in the
+  formatter's config rather than back in the root `.gitignore`, so #823's one-owner rule stands, and
+  it names the root's `.pi` rather than any `.pi` segment: a worktree's own root *is*
+  `.pi/worktrees/<name>`, so the wider form would exclude the whole checkout and check nothing.
+
 - `board`: the session holding the lead's **seat** can take a live peer's card back, and open `execute`
   through its own approval. Both doors compared the session's label with `team.lead`, so a session
   serving the page under its own name was a peer at both: the lead was refused with a sentence naming
