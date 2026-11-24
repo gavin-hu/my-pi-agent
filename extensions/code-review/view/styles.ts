@@ -118,6 +118,7 @@ export const REVIEW_CSS = `
 /* The one thing in a thread that is code: the lines it quotes, in the face a diff line wears. */
 .rv-thread .bf-comment__quote{font-family:var(--font-mono)}
 .rv-thread[data-state="sent"]{border-left-color:var(--success);opacity:.86}
+.rv-thread[data-parent]{margin-left:calc(132px + var(--space-5))}
 .rv-compose{display:block;margin:0 var(--space-4) var(--space-1) 132px;max-width:820px;background:var(--raised);border:1px solid var(--accent);border-radius:var(--radius-md);overflow:hidden}
 .rv-compose__area{display:block;width:100%;min-height:74px;resize:vertical;border:0;outline:0;background:transparent;color:var(--text);padding:var(--space-3);font:var(--fs-sm)/1.6 var(--font-ui);box-sizing:border-box}
 .rv-compose__head{display:flex;align-items:baseline;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--border);color:var(--muted);font-size:var(--fs-xs)}
@@ -153,6 +154,9 @@ ${collapsedShell(
 .rv-sidebar .bf-panel__summary{position:sticky;top:0;z-index:1;background:var(--raised);border-bottom:1px solid var(--border)}
 .rv-side{position:static;flex:1 1 auto;min-height:0}
 .rv-thread,.rv-compose{margin-left:var(--space-4);max-width:100%}
+/* A reply sits one step in from the comment it answers. It is the only mark of depth, because one
+   level is all the store holds: a reply to a reply is refused, not drawn deeper. */
+.rv-thread[data-parent]{margin-left:calc(var(--space-4) + var(--space-5))}
 .rv-diff:not([data-wrap="false"]) .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}`,
 )}
 `;

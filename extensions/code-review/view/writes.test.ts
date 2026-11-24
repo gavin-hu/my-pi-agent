@@ -5,7 +5,8 @@
  * A write is a DOM fact the markup cannot show — a chip revealed for the reader's own way out, a
  * reviewed box back where the server has it, a comment listed because no line is left to draw it
  * under, a send that carries the comment still being typed. The drafts those writes come from are
- * `drafts.test.ts`, the page's reading is `interaction.test.ts`, and the fixture and its waits are
+ * `threads.test.ts`, the drafts are `drafts.test.ts`, the page's reading is `interaction.test.ts`, and the
+ * fixture and its waits are
  * `test/helpers/review-browser.ts`.
  *
  * The partial flush is staged with `MAX_COMMENTS - 1` seeded comments rather than a refused first

@@ -82,6 +82,46 @@ describe("a write", () => {
 		expect(comment.status).toBe(200);
 	});
 
+	test("carries a reply's parent to the review, and refuses one answering another line", async () => {
+		const harnessed = harness();
+		const token = await openedPage(harnessed);
+		const wrote = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", body: "one" },
+			}),
+		);
+		const parent = JSON.parse(String(wrote.body)).review.comments[0].id;
+		const answered = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "new", parent, body: "two" },
+			}),
+		);
+		expect(answered.status).toBe(200);
+		expect(
+			JSON.parse(String(answered.body)).review.comments.map((entry: { parent?: string }) => entry.parent ?? null),
+		).toEqual([null, parent]);
+		// The old side's line is drawn too, so this reply reaches the store and meets its rule rather
+		// than the anchor gate: the sentence names both sides of a line that only differs by side.
+		const elsewhere = await reply(
+			harnessed.handler,
+			request("POST", "/api/comment", {
+				token,
+				rev: "rev-1",
+				comment: { rel: "a.ts", line: 1, side: "old", parent, body: "three" },
+			}),
+		);
+		expect(elsewhere.status).toBe(400);
+		expect(JSON.parse(String(elsewhere.body)).error).toBe(
+			"a reply answers a comment on its own line — a.ts:1 (new) is not a.ts:1 (old)",
+		);
+	});
+
 	test("sends, drops and marks a page whose snapshot moved", async () => {
 		const harnessed = harness();
 		const token = await openedPage(harnessed);

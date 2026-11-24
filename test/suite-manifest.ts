@@ -151,6 +151,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/interaction",
 		"view/writes",
 		"view/drafts",
+		"view/threads",
 		"view/chrome",
 		"view/rail-row",
 		"report",

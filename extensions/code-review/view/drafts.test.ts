@@ -140,6 +140,34 @@ gated("the review page's drafts", () => {
 		CASE_MS,
 	);
 
+	test(
+		"a reply's composer comes back as a reply, and saves with the parent",
+		async () => {
+			await withPage(async (page) => {
+				await startComment(page, "older");
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+				await page.locator(".rv-thread").first().locator("button", { hasText: "reply" }).click();
+				expect(await page.locator(".rv-compose__head").textContent()).toContain("reply on a.ts:3");
+				await page.locator(".rv-compose__area").fill("answering older");
+
+				await page.reload({ waitUntil: "networkidle" });
+				await page.waitForSelector(".rv-compose", { timeout: REVIEW_PAINT_MS });
+				// The record carries the parent: a reload restores a reply as a reply rather than
+				// demoting it to a comment, which is the failure a reader would never notice.
+				expect(await page.locator(".rv-compose__head").textContent()).toContain("reply on a.ts:3");
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForFunction(
+					() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-thread[data-parent]").length === 1,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await page.locator(".rv-thread[data-parent] .bf-comment__body").textContent()).toBe("answering older");
+			});
+		},
+		CASE_MS,
+	);
+
 	/**
 	 * A draft whose line the diff stopped drawing but whose file it still draws: the text comes back
 	 * on the file's first drawn row and says which line it was typed on, rather than moving silently.
