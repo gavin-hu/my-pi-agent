@@ -49,6 +49,20 @@ describe("the lead's move", () => {
 		expect(refusal(applyOp(card, opening, OTHER, NOW, boardOf(card)))).toContain("Only its owner can move it.");
 	});
 
+	test("the seat opens `execute`, though its label is not the lead's", () => {
+		// #825, the other door of the same defect: `mayMove` compared the label in its power check
+		// *and* in the sentence it chose, so a session holding the seat read `plan → execute` as
+		// somebody else's card. The case above is the control: the same actor without the seat hears
+		// "Only its owner can move it." and is not let through.
+		const card = approved();
+		const seat = { ...OTHER, seat: true };
+		const opened = accepted(
+			applyOp(card, { kind: "move", lane: "execute", artifact: provedFor(card) }, seat, NOW, boardOf(card)),
+		);
+		expect(opened.card.lane).toBe("execute");
+		expect(opened.card.owner).toEqual(card.owner);
+	});
+
 	test("closes a signed card whose holder the bus has lost, and only then", () => {
 		// #657: the holder's session ended while the card was signed and landed, so the holder could not
 		// close it and the lead could not sign it. The close is bookkeeping — the review is the
