@@ -30,6 +30,10 @@ export const REVIEW_LIVE_JS = String.raw`  // Live frames: the review's state fr
   /** One sink for both a frame that could apply and one that had to wait. */
   function liveApply(review) {
     adopt({ body: { review: review } });
+    // The frame is a write another tab made, so it repaints what a write repaints. paintChrome
+    // owns the count, the states, the progress and the filter; the threads are paintThreads', and a
+    // frame that stopped at data.comments changed the count while drawing nothing (#843).
+    paintThreads();
     paintChrome();
   }
 

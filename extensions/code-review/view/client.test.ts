@@ -73,6 +73,10 @@ describe("the review bundle", () => {
 	 * The clause with a consequence: a frame that lands under an open composer is held, and the
 	 * box closing is what releases it. A drop that nothing flushed would be indistinguishable from
 	 * a tab that stopped updating, which is why both halves are asserted here rather than one.
+	 *
+	 * This is the cheap half of the proof and it is a guard, not evidence: it says the bundle
+	 * carries both calls, and it was green while the page drew nothing, because a call being
+	 * present is not a call drawing anything. `view/live.test.ts` is the half that reads the page.
 	 */
 	test("holds a frame an open composer would lose, and lands it when the box closes", () => {
 		expect(REVIEW_CLIENT_JS).toContain("if (liveTyping()) { livePending = frame.review; return; }");
