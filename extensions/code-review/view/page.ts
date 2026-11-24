@@ -14,6 +14,7 @@
 import { renderDiffLines } from "../../../lib/diff/render.ts";
 import { detectLanguage, type HighlightLanguage } from "../../../lib/highlight.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
+import { plural } from "../../../lib/format.ts";
 import {
 	appHead,
 	baseAttribute,
@@ -235,7 +236,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
 		chip({
 			// Hidden at zero: a chip announcing an absence is noise, where the footer's count inside
 			// a sentence is information. The client reveals it with the first draft.
-			label: `${drafts.length} draft`,
+			label: plural(drafts.length, "draft"),
 			tone: drafts.length === 0 ? "dim" : "warn",
 			attrs: { id: "rv-state", ...(drafts.length === 0 ? { hidden: "" } : {}) },
 		}),
@@ -271,7 +272,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	return `<!doctype html>
 <html lang="en"${baseAttribute(base)}>
 <head>
-${docHead({ title: tabTitle("review", input.repo, drafts.length > 0 ? `${drafts.length} draft` : undefined), css: pageSheet(REVIEW_CSS), base })}
+${docHead({ title: tabTitle("review", input.repo, drafts.length > 0 ? plural(drafts.length, "draft") : undefined), css: pageSheet(REVIEW_CSS), base })}
 </head>
 <body class="bf-app">
 <h1 class="sr-only">review — a code review of ${escapeHtml(input.repo)}</h1>
@@ -308,7 +309,7 @@ ${appHead({
     </div>
   </main>
 </div>
-${pageFooter({ facts: `${comparisonLine(snapshot)} · ${all.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${drafts.length} draft · ${done} of ${all.length} reviewed`, factsId: "rv-facts" })}
+${pageFooter({ facts: `${comparisonLine(snapshot)} · ${all.length} files · +${snapshot.insertions} −${snapshot.deletions} · ${plural(drafts.length, "draft")} · ${done} of ${all.length} reviewed`, factsId: "rv-facts" })}
 
 <div class="rv-selbar" id="rv-selbar" data-open="false" role="toolbar" aria-label="Selected lines">
   <span class="rv-selbar__ref" id="rv-selbar-ref"></span>
