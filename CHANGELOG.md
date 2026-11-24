@@ -59,6 +59,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `worktree`: **enter** no longer offers to add the managed directory to `.gitignore` when git declines
+  to answer whether it is already ignored. A shell carrying `GIT_LITERAL_PATHSPECS` made `check-ignore`
+  refuse the question before it read any rule, and that refusal was read as "not ignored" — so the offer
+  fired every session and each accept appended the same line again. Only a definite "not ignored" offers
+  now, and the question is asked with literal pathspecs off.
+
 - `code-review`: the **wrap** button reports what the diff is doing at every width. Below 900px the
   page wrapped by its own rule while the button still flipped unattributed — pressing it twice
   turned wrapping "off" over text that stayed wrapped. The narrow rule now unwraps only under
