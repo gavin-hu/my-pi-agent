@@ -99,6 +99,11 @@ export interface ReviewPageFixture {
 	move(): void;
 	/** The fingerprint the reader answers with now. */
 	rev(): string;
+	/**
+	 * End the server's page, as closing it from the session does while a tab is still open: the
+	 * next write answers `NO_PAGE`, and the page a reviewer is looking at is refused, not lost.
+	 */
+	closePage(): void;
 	/** Close the listener; the case owns it, the way `serve` hands one out. */
 	close(): Promise<void>;
 }
@@ -141,6 +146,7 @@ export async function mountReviewPage(options: SnapshotOptions = {}): Promise<Re
 			fingerprint = "rev-2";
 		},
 		rev: () => fingerprint,
+		closePage: () => store.close(),
 		close: () => mount.mount.release(),
 	};
 }

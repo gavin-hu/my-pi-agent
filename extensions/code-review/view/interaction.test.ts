@@ -193,6 +193,28 @@ gated("the review page's interactions", () => {
 	);
 
 	test(
+		"a refused mark puts the reviewed box back where the server has it",
+		async () => {
+			await withPage(async (page, fixture) => {
+				// The session closed its page while this tab was still reading it: the mark is refused,
+				// and the box must not keep the tick the browser put there.
+				fixture.closePage();
+				await page.locator("[data-reviewed='a.ts']").click();
+				await page.waitForFunction(
+					() =>
+						(globalThis as unknown as ReviewDom).document
+							.querySelector("#rv-toast")
+							?.textContent?.includes("no review page open") === true,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await page.locator("[data-reviewed='a.ts']").isChecked()).toBe(false);
+			});
+		},
+		CASE_MS,
+	);
+
+	test(
 		"the file head pins, and a hunk jump lands below it at 1280 and 390",
 		async () => {
 			await withPage(

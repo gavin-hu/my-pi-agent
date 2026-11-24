@@ -163,6 +163,9 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
       } else {
         var message = answer.body && (answer.body.message || answer.body.error) ? answer.body.message || answer.body.error : "the write was refused";
         toast(message);
+        // A refused write changed nothing, so every control goes back to the state the page was
+        // rendered with: a checkbox the reviewer just toggled is the one that would otherwise lie.
+        paintChrome();
         if (answer.status === 409) {
           // The tree moved under this page: the kit's reload chip is the way out, and the
           // draft survives the reload.
