@@ -95,7 +95,13 @@ export interface SessionBus {
 	 */
 	read(limit?: number): Promise<InboxPeek>;
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
-	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
+	/**
+	 * Release this session's claims, or — with `holder` — move a live peer's claims to this session.
+	 *
+	 * The second form is the seat's move, and it answers in the same two lists: what changed hands
+	 * and what the named peer did not hold (#835).
+	 */
+	release(paths: unknown, holder?: string): Promise<{ released: string[]; notOwned: string[] }>;
 	/**
 	 * Join the team: join the bus, name this session when given a label, and listen for
 	 * mail unless `listen` is false. One action, because they are one act — a session on

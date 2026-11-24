@@ -23,10 +23,10 @@ import { realPathOfNearest } from "../../lib/path.ts";
 import { BUS_DIR_NAME, ensureHostIdentity, type HostIdentity } from "../../lib/session-files.ts";
 import { labelKey, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
 import {
-	recordFacts,
+	peerRowOf,
 	type RosterSeams,
 	type RosterState,
-	peerRowOf,
+	recordFacts,
 	rosterStateOf,
 	SESSION_TTL_MS,
 } from "../../lib/session-roster.ts";
@@ -42,9 +42,9 @@ import {
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
-	settleSend,
 	resolveRecipients,
 	sessionMode,
+	settleSend,
 	shortId,
 } from "./protocol.ts";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
@@ -590,9 +590,15 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			return requireStore().claimAll(storedPaths(me, rawPaths), me.id, me.label, now());
 		},
 
-		async release(rawPaths) {
+		async release(rawPaths, holder) {
 			const me = await currentRecord();
 			const bus = requireStore();
+			if (holder !== undefined) {
+				const peer = (await bus.sessions()).find((entry) => entry.label === holder && entry.id !== me.id);
+				if (peer === undefined) throw new Error(`no live session labelled "${holder}" holds claims to take.`);
+				const { moved, notHeld } = await bus.transfer(storedPaths(me, rawPaths), peer.id, me.id, me.label, now());
+				return { released: moved, notOwned: notHeld };
+			}
 			return releaseClaimed(storedPaths(me, rawPaths), (path) => bus.release(path, me.id));
 		},
 	};

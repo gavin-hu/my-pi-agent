@@ -16,7 +16,16 @@ import { StringEnum } from "../../lib/tool-schema.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
-import { formatClaim, formatInbox, formatJoin, formatRead, formatRelease, formatSend, formatStatus } from "./format.ts";
+import {
+	formatClaim,
+	formatInbox,
+	formatJoin,
+	formatRead,
+	formatRelease,
+	formatSend,
+	formatStatus,
+	formatTransfer,
+} from "./format.ts";
 import {
 	MAX_LABEL,
 	MAX_PATHS,
@@ -237,8 +246,24 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 						});
 					}
 					case "release": {
-						const result = await bus.release(args.paths);
-						return textResult(formatRelease(result.released, result.notOwned), {
+						const holder = typeof args.holder === "string" ? args.holder.trim() : "";
+						if (holder !== "") {
+							// Taking a peer's claims is the seat's move, and the refusal names the door: a
+							// session without the seat is refused rather than silently releasing nothing.
+							const { holdsSeat } = await import("../../lib/mode-state.ts");
+							if (!holdsSeat(ctx.sessionManager.getBranch())) {
+								return errorResult(
+									"release",
+									`only the seat takes a peer's claims; /board can start a session attached to one, which holds no seat.`,
+								);
+							}
+						}
+						const result = await bus.release(args.paths, holder === "" ? undefined : holder);
+						const line =
+							holder === ""
+								? formatRelease(result.released, result.notOwned)
+								: formatTransfer(holder, result.released, result.notOwned);
+						return textResult(line, {
 							action,
 							released: result.released,
 							notOwned: result.notOwned,

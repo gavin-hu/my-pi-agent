@@ -11,12 +11,13 @@
  */
 
 import { ageWords, clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
+import { unreadableText } from "../../lib/session-mail.ts";
 import { peerMark } from "../../lib/session-roster.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
-import { unreadableText } from "../../lib/session-mail.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { shortId } from "./protocol.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
+
 /** The separator as a glyph, for the scan that neutralizes it inside a value. */
 const SEPARATOR_GLYPH = SEPARATORS.item.trim();
 
@@ -304,4 +305,20 @@ export function formatRelease(released: readonly string[], notOwned: readonly st
 	if (released.length > 0) lines.push(`Released: ${released.map((path) => sanitizeLine(path)).join(", ")}.`);
 	if (notOwned.length > 0) lines.push(`Not yours: ${notOwned.map((path) => sanitizeLine(path)).join(", ")}.`);
 	return lines.length > 0 ? lines.join("\n") : "Nothing to release.";
+}
+
+/**
+ * What a hand-over says.
+ *
+ * The moved paths are now the caller's, and the peer is named: its own next turn is refused with a
+ * conflict that names the seat, so the sentence here is the one the peer will meet (#835).
+ */
+export function formatTransfer(holder: string, moved: readonly string[], notHeld: readonly string[]): string {
+	const name = sanitizeLine(holder);
+	const lines: string[] = [];
+	if (moved.length > 0) lines.push(`Taken from ${name}: ${moved.map((path) => sanitizeLine(path)).join(", ")}.`);
+	if (notHeld.length > 0) {
+		lines.push(`Not held by ${name}: ${notHeld.map((path) => sanitizeLine(path)).join(", ")}.`);
+	}
+	return lines.length > 0 ? lines.join("\n") : `Nothing to take from ${name}.`;
 }
