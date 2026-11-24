@@ -77,24 +77,37 @@ export interface Actor {
  */
 export type Place = "board" | "archive";
 
+/**
+ * The name the bus shows for a holder's session id, when the caller could read it.
+ *
+ * A refusal that names a holder prints this rather than the label the card record captured: a
+ * renamed session leaves the record holding a name nobody answers to, and a reader who sees it
+ * concludes the holder is gone. It rides the op because `prepare` is the one funnel every surface
+ * writes through, and the steps it calls are pure — none of them can ask the bus.
+ *
+ * Absent is "the caller could not read it", which prints the record's label as it always did. It is
+ * a reading either way: nothing stored changes.
+ */
+export type HolderLabel = { ownerLabel?: string };
+
 /** One named mutation of one card. */
 export type CardOp =
 	/** Pull a backlog card into `plan`: the only way a card starts moving. */
-	| { kind: "claim" }
+	| ({ kind: "claim" } & HolderLabel)
 	/**
 	 * Hand a pool card to `to`: the owner is recorded as given and the card enters `plan`. A held card
 	 * is refused — `reclaim` is how it changes hands — and the handoff record rides the owner, because
 	 * the door that sent the message is the one that knows whether it landed.
 	 */
-	| { kind: "assign"; to: CardOwner }
-	| { kind: "release" }
+	| ({ kind: "assign"; to: CardOwner } & HolderLabel)
+	| ({ kind: "release" } & HolderLabel)
 	/**
 	 * Change lane. `blockedBy` and `blocker` are what a block records, and `artifact` is the
 	 * plan proof a card entering `execute` or `done` carries: each is read only by the lanes
 	 * that ask for it. The proof is a question as often as an answer: a door hands over the way
 	 * to find out, and the rule takes it where it asks — inside the store's locked pass.
 	 */
-	| {
+	| ({
 			kind: "move";
 			lane: Lane;
 			blockedBy?: unknown;
@@ -112,35 +125,35 @@ export type CardOp =
 			 * not answer, or a fact bound to another owner.
 			 */
 			holder?: HolderFact;
-	  }
+	  } & HolderLabel)
 	// `text` and the contract fields are whatever the model sent: the modules that own
 	// them validate them, and the refusal they produce is the one the caller shows.
-	| { kind: "note"; text: unknown }
+	| ({ kind: "note"; text: unknown } & HolderLabel)
 	/**
 	 * Write the contract and the plan it is executed against. `artifact` is what the caller
 	 * proved: a resolved, existing plan file, or the sentence refusing it. The state machine
 	 * decides — nothing here touches a filesystem — and a contract naming neither is refused,
 	 * so a caller cannot skip the check by omitting it.
 	 */
-	| {
+	| ({
 			kind: "contract";
 			artifact?: ArtifactProof;
 			goal?: unknown;
 			acceptance?: unknown;
 			scopeOut?: unknown;
 			verify?: unknown;
-	  }
+	  } & HolderLabel)
 	/**
 	 * Read the contract *and* the plan it names, and approve them: the lead, and never the card's
 	 * holder; `text` is noted with the sign. `artifact` is what the caller proved about the plan, as
 	 * `move` hands it in, so an approval cannot cover a plan file that is already gone.
 	 */
-	| { kind: "approve"; text?: unknown; artifact?: ArtifactProof }
+	| ({ kind: "approve"; text?: unknown; artifact?: ArtifactProof } & HolderLabel)
 	/** Spot-check the finished work: the lead, in `execute`, and never the card's holder; `text` is noted with the sign. */
-	| { kind: "review"; text?: unknown; override?: unknown; verified?: unknown }
+	| ({ kind: "review"; text?: unknown; override?: unknown; verified?: unknown } & HolderLabel)
 	// Every field but `kind` is optional, and an absent one is left as it was: the page
 	// sends the three it can show, and omitting a link must not clear it.
-	| {
+	| ({
 			kind: "edit";
 			title?: unknown;
 			paths?: unknown;
@@ -148,7 +161,7 @@ export type CardOp =
 			breaking?: unknown;
 			priority?: unknown;
 			dependsOn?: unknown;
-	  }
+	  } & HolderLabel)
 	/**
 	 * Take a card back to `backlog`: the holder's own, the person's, the lead's, or — for anybody
 	 * else — only when the bus says the owner has stopped. `holder` is what the caller found out
@@ -177,13 +190,13 @@ export type CardOp =
 	 * Record that the card was offered to the team: `team offer` broadcasts it on the bus
 	 * and then writes this, because an event nobody answers otherwise leaves no trace.
 	 */
-	| { kind: "offer" }
+	| ({ kind: "offer" } & HolderLabel)
 	/**
 	 * Set a finished card aside: the store moves its file out of the board, and the record
 	 * itself is unchanged, because the pile its file lies in is the whole of the state.
 	 */
 	| { kind: "archive" }
-	| { kind: "drop" }
+	| ({ kind: "drop" } & HolderLabel)
 	/**
 	 * Record that a sign's message to the owner was settled: the bus took it, or there was nobody
 	 * to tell. Written by the door that sent it, after it sent — a sign nobody heard leaves this
@@ -308,21 +321,21 @@ function prepare(
 	if (place === "archive" && op.kind !== "drop" && op.kind !== "archive") return { error: closedArchive(card) };
 	switch (op.kind) {
 		case "claim":
-			return claim(card, actor, board, config.wip);
+			return claim(card, actor, board, config.wip, op.ownerLabel);
 		case "assign":
-			return assign(card, op.to, board, config.wip);
+			return assign(card, op.to, board, config.wip, op.ownerLabel);
 		case "release":
-			return release(card, actor);
+			return release(card, actor, op.ownerLabel);
 		case "move":
 			return move(card, op, actor, board, config, now);
 		case "note":
-			return note(card, op.text, actor, now);
+			return note(card, op.text, actor, now, op.ownerLabel);
 		case "contract":
 			return contractOp(card, op, actor);
 		case "approve":
 			return approve(card, op, actor, now, board, config);
 		case "review":
-			return review(card, actor, now, config, op.text, op.override, op.verified);
+			return review(card, actor, now, config, op.text, op.override, op.verified, op.ownerLabel);
 		case "edit":
 			return edit(card, op, actor, board);
 		case "reclaim":
@@ -332,11 +345,11 @@ function prepare(
 		case "announced":
 			return announced(card, op, actor, config, now);
 		case "offer":
-			return offer(card, now, board, config.wip);
+			return offer(card, now, board, config.wip, op.ownerLabel);
 		case "archive":
 			return archive(card, board);
 		case "drop":
-			return drop(card, actor, board);
+			return drop(card, actor, board, op.ownerLabel);
 		default:
 			// A caller from an older build, or a hand-written fixture, names an operation this
 			// one does not know: that is a refusal, not a crash on `undefined`.
