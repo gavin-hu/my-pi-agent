@@ -1,25 +1,21 @@
 /**
- * Always-on prompt budget: the per-turn injected context, and the one tool surface large
- * enough to have its own ceiling.
+ * Always-on prompt budget: the per-turn injected context, and every tool surface a request pays for.
  *
- * The injected-context builders are pure, so a regression in the text re-injected every turn
- * fails fast. The board tool's surface is the largest in the package, so its four blocks are
- * summed here the way a request pays for them; `test/dependencies.test.ts` holds the
- * registration graph, and this holds the text.
+ * The injected-context builders are pure, so a regression in the text re-injected every turn fails
+ * fast. A tool's surface is its description, its line in the tools list, its guidelines, and its
+ * parameter schema as JSON — summed the way a request pays for them — and the ceilings live in one
+ * table, `CEILINGS`, one row per always-on multi-verb tool.
+ *
+ * Every number is measured on the **registered** surface (`helpers/registered.ts`), never on an
+ * exported constant's copy: a ceiling read from an export would pass while the text the model
+ * receives had grown, and the copy is the half that drifts. That is the same loader
+ * `tool-caps.test.ts` uses for the schema keywords, so one definition answers both questions.
+ * `test/dependencies.test.ts` holds the registration graph; this holds the text.
  */
 
 import { describe, expect, test } from "bun:test";
-import { BoardParams } from "../extensions/board/schema.ts";
-import {
-	SESSION_DESCRIPTION,
-	SESSION_GUIDELINES,
-	SESSION_SNIPPET,
-	SessionParams,
-} from "../extensions/session-bus/tools.ts";
-import { BOARD_DESCRIPTION, BOARD_GUIDELINES, BOARD_SNIPPET } from "../extensions/board/tools.ts";
-import { TEAM_DESCRIPTION, TEAM_GUIDELINES, TEAM_SNIPPET } from "../extensions/team/types.ts";
 import { LEAD_ROUND } from "../lib/workflow/round-text.ts";
-import { TeamParams } from "../extensions/team/schema.ts";
+import { registeredTools, type RegisteredTool } from "./helpers/registered.ts";
 import { buildBoardContext, MAX_CONTEXT_CHARS, MAX_CONTEXT_CARDS } from "../extensions/board/context.ts";
 import { buildLeadContext, LEAD_CONTEXT_MARKER, MAX_LEAD_CHARS, MAX_LEAD_LINES } from "../extensions/board/context.ts";
 import { numberedCard } from "./helpers/fixtures/board.ts";
@@ -87,46 +83,141 @@ describe("injected prompt budget", () => {
 	});
 });
 
-/** The `team` tool's always-on characters, summed the same way and for the same reason. */
-function teamSurface(): number {
+/**
+ * The always-on text of one tool, summed the way a request pays for it: its description, the
+ * line in the tools list, its guidelines, and its parameter schema as JSON.
+ *
+ * Read from the *registered* definition (`helpers/registered.ts`), never from a constant's
+ * copy. That is the rule the table below rests on: a ceiling measured on an export would pass
+ * while the text the model receives had grown, and the copy is the half that drifts — so the
+ * loader is shared with `tool-caps.test.ts`, which reads the same definitions' schema keywords.
+ */
+function surface(tool: RegisteredTool): number {
 	return (
-		TEAM_DESCRIPTION.length +
-		TEAM_SNIPPET.length +
-		TEAM_GUIDELINES.join("\n").length +
-		JSON.stringify(TeamParams).length
+		tool.description.length +
+		tool.promptSnippet.length +
+		tool.promptGuidelines.join("\n").length +
+		JSON.stringify(tool.parameters ?? {}).length
 	);
 }
 
-describe("the team tool surface", () => {
-	test("stays under its ceiling, and keeps every verb in the description", () => {
-		// 3,111 before the verb list stopped being written twice: the `action` parameter repeated
-		// every sentence of the description, and the copy is what drifted, so the parameter now
-		// names the fields each verb reads and the description is the only place that says what a
-		// verb does. 2,349 today, after `claim` and `reclaim` left: they were two doors onto `board`'s
-		// store ops, each with a second sentence and a second result line, and the round keeps only
-		// the verbs that reach another session. The ceiling is what stops a surface with no gate
-		// before it growing back, and it only ever falls. 2,335 ≤ 2,335 today: `action` became a
-		// string enum (−63, the form a provider that supports neither `anyOf` nor `const` needs),
-		// and `note`/`question`/`to` gained the bounds the bus and the label rules already refused
-		// (+49) — a call that names a 5,000-character handoff now fails before it sends anything.
-		expect(teamSurface()).toBeLessThanOrEqual(2_335);
-		expect(TEAM_GUIDELINES.join("\n").length).toBeLessThanOrEqual(720);
+/** The registered definition of one tool, or a failure naming which is missing. */
+async function toolNamed(name: string): Promise<RegisteredTool> {
+	const tool = (await registeredTools()).find((candidate) => candidate.name === name);
+	if (tool === undefined) throw new Error(`no registered tool "${name}"`);
+	return tool;
+}
+
+/** One surface's ceiling: the characters, the guidelines' joined length, and the longest bullet. */
+interface Ceiling {
+	tool: string;
+	/** Most characters the registered surface may cost, measured. It may only fall. */
+	max: number;
+	/** Most characters the guidelines may join to, measured. It may only fall. */
+	guidelines: number;
+	/**
+	 * The longest single bullet the surface had when it was first measured; a bullet may not grow
+	 * past it. Per row rather than one number for the package: the 170 this file used to hold was
+	 * what `board`'s three cost, and two surfaces that joined the table already had a 177 and a
+	 * 178-character bullet, so a package-wide bound here would be a new rule, not a measurement.
+	 */
+	longest: number;
+}
+
+/**
+ * The ceilings of every always-on multi-verb tool, measured rather than quoted.
+ *
+ * One table, one home: a tool with verbs pays for its whole surface on every request, so its
+ * ceiling lives here, beside the three that had one before this table existed. The two
+ * mode-shaped tools with no `action` parameter (`subagent`'s three modes, `send_wechat`'s one
+ * of three fields) are rows too — they are just as redraw-heavy a call surface — and the case
+ * below fails a registered tool that has an `action` and no row here, so a new verb-shaped tool
+ * cannot arrive with nobody having measured it. A single-verb tool (`goal`, `todo`, `read_doc`,
+ * `open_path`, `web_search`, `web_fetch`, `run_doctor`) is out of scope: it has no verb list to
+ * choose wrong.
+ */
+const CEILINGS: readonly Ceiling[] = [
+	// 8,156 before the restating bullets were cut; 7,200 held until `review` took the one-line
+	// `override`; 6,378 after every union became a string enum; 6,284 when the two note fields
+	// merged; 6,282 after #821, where `lane` gave up the transition clause `move`'s own doc states
+	// and `root` gained the tree it names, paid out of that deletion.
+	{ tool: "board", max: 6_282, guidelines: 361, longest: 150 },
+	// 3,111 before the verb list stopped being written twice; 2,349 after `claim`/`reclaim` left;
+	// 2,335 when `action` became a string enum and the bus's bounds moved into the schema.
+	{ tool: "team", max: 2_335, guidelines: 662, longest: 167 },
+	// 2,135 before the parameters stopped restating the description; 2,159 after #748's bounds;
+	// 2,154 after #821 — the `action` doc took the fact that separates the two readers (`inbox`
+	// consumes, `read` keeps), and the description's `(consume/show)` copy is what paid for it.
+	{ tool: "session", max: 2_154, guidelines: 367, longest: 151 },
+	{ tool: "plan", max: 5_575, guidelines: 617, longest: 157 },
+	{ tool: "subagent", max: 2_757, guidelines: 602, longest: 137 },
+	{ tool: "job", max: 2_670, guidelines: 431, longest: 128 },
+	{ tool: "watch", max: 2_509, guidelines: 382, longest: 116 },
+	{ tool: "worktree", max: 2_017, guidelines: 534, longest: 177 },
+	{ tool: "memory", max: 1_889, guidelines: 474, longest: 108 },
+	{ tool: "question", max: 1_639, guidelines: 380, longest: 144 },
+	{ tool: "send_wechat", max: 1_232, guidelines: 390, longest: 178 },
+	{ tool: "code_review", max: 1_143, guidelines: 293, longest: 102 },
+];
+
+describe("the always-on tool surfaces", () => {
+	test("every verb-shaped tool is measured, and every ceiling names a registered tool", async () => {
+		const tools = await registeredTools();
+		const rows = new Set(CEILINGS.map((ceiling) => ceiling.tool));
+		const missing = tools
+			.filter((tool) => tool.parameters?.properties?.action !== undefined && !rows.has(tool.name))
+			.map((tool) => tool.name);
+		expect(missing, "add a measured row to CEILINGS").toEqual([]);
+		const unknown = [...rows].filter((name) => !tools.some((tool) => tool.name === name));
+		expect(unknown, "a ceiling for a tool this package does not register").toEqual([]);
 	});
 
-	test("keeps each guideline to a bullet-sized line", () => {
-		// `board`'s guidelines have had this bound since the surface was measured; the round's did
-		// not, so the `ask` bullet grew to 191 characters — longer than any bullet a session is
-		// meant to read on every request.
-		for (const guideline of TEAM_GUIDELINES) {
-			expect(guideline.endsWith(".")).toBe(true);
-			expect(guideline.length).toBeLessThanOrEqual(170);
+	test("holds each surface to its ceiling", async () => {
+		const offenders: string[] = [];
+		for (const ceiling of CEILINGS) {
+			const tool = await toolNamed(ceiling.tool);
+			const measured = surface(tool);
+			if (measured > ceiling.max) offenders.push(`${ceiling.tool}: ${measured} > ${ceiling.max}`);
 		}
+		expect(offenders, "fund an addition by deleting a restatement, not by raising the ceiling").toEqual([]);
 	});
 
-	test("states the lead's duty once, in the tool a lead works in", () => {
+	test("keeps each guideline to a bullet-sized line, in every measured tool", async () => {
+		// Before #821 this bound was three copies of one case over three tools, so a surface that
+		// joined the table arrived with no bullet bound at all — and two of the seven that joined
+		// had a 177 and a 178-character bullet in place. The bound is now one case over the table,
+		// and each row carries its own longest rather than the package adopting a number four
+		// unmeasured surfaces would fail.
+		const offenders: string[] = [];
+		for (const ceiling of CEILINGS) {
+			const tool = await toolNamed(ceiling.tool);
+			const joined = tool.promptGuidelines.join("\n").length;
+			if (joined > ceiling.guidelines) offenders.push(`${ceiling.tool}: guidelines ${joined} > ${ceiling.guidelines}`);
+			for (const guideline of tool.promptGuidelines) {
+				if (!guideline.endsWith(".")) offenders.push(`${ceiling.tool}: a guideline does not end with a full stop`);
+				if (guideline.length > ceiling.longest) {
+					offenders.push(`${ceiling.tool}: a guideline is ${guideline.length} > ${ceiling.longest}`);
+				}
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+});
+
+describe("the team tool surface", () => {
+	test("keeps every verb in the description", async () => {
+		// The verb list is written once, in the description: the `action` parameter used to repeat
+		// every sentence of it, and the copy is what drifted. `claim` and `reclaim` left because they
+		// were two doors onto `board`'s store ops; the round keeps the verbs that reach another session.
+		const tool = await toolNamed("team");
+		for (const verb of ["assign", "offer", "ask"]) expect(tool.description).toContain(`\`${verb}\``);
+	});
+
+	test("states the lead's duty once, in the tool a lead works in", async () => {
 		// `board`'s `approve` doc gave the `team.lead` key up to this bullet, so the two cannot
 		// disagree about who signs; the gate's own sentence stays in the action doc that owns it.
-		const naming = TEAM_GUIDELINES.filter((guideline) => guideline.includes("team.lead"));
+		const tool = await toolNamed("team");
+		const naming = tool.promptGuidelines.filter((guideline) => guideline.includes("team.lead"));
 		expect(naming).toHaveLength(1);
 		expect(naming[0]).toContain("`approve`");
 		expect(naming[0]).toContain("`review`");
@@ -136,63 +227,35 @@ describe("the team tool surface", () => {
 	});
 });
 
-/** The `session` tool's always-on characters, summed the way a request pays for them. */
-function sessionSurface(): number {
-	return (
-		SESSION_DESCRIPTION.length +
-		SESSION_SNIPPET.length +
-		SESSION_GUIDELINES.join("\n").length +
-		JSON.stringify(SessionParams).length
-	);
-}
-
 describe("the session tool surface", () => {
-	test("stays under its ceiling, and names every action", () => {
-		// 2,135 before the parameters stopped restating what they and the description already
-		// said: `action` was word-for-word the enum, `limit` claimed `read` consumes, and `key`
-		// described a fold that its own rule (the same key) did not allow. The four that gained a
-		// fact were paid for by the description and by three `join`/`send` parameters that
-		// repeated their own verb line. 2,116 today, after `about` stopped being held to an
-		// alphabet: the schema now publishes the one `key` and `replyTo` keep, and the
-		// description's delivery line — which the first guideline already says — paid for it.
-		// 2,159 ≤ 2,159 after #748: `paths`, `text`, `to`, and `label` gained the bounds the
-		// protocol already refused (+43), paid partly by the two prose clauses they replaced. The
-		// ceiling rises here and nowhere else, because the three bounds buy a refusal before the
-		// send instead of after it.
-		expect(sessionSurface()).toBeLessThanOrEqual(2_159);
+	test("names every action in its description", async () => {
 		// The prose and the schema cannot drift apart: every verb a caller can pass is one the
 		// description tells it about.
+		const tool = await toolNamed("session");
 		for (const action of ["status", "send", "inbox", "read", "claim", "release", "join"]) {
-			expect(SESSION_DESCRIPTION).toContain(`\`${action}\``);
+			expect(tool.description).toContain(`\`${action}\``);
 		}
 	});
 
-	test("keeps each guideline to a bullet-sized line", () => {
-		for (const guideline of SESSION_GUIDELINES) {
-			expect(guideline.endsWith(".")).toBe(true);
-			expect(guideline.length).toBeLessThanOrEqual(170);
-		}
+	test("says which reader consumes the mail, in the field the verb is chosen in", async () => {
+		// `inbox` consumes what it showed and `read` keeps every file (`tools.ts`), which is the
+		// difference between losing mail and keeping it. The one-word standoff `(consume/show)` is
+		// what a model read as a blur, so the sentence lives in the `action` description — where the
+		// choice is made — and the description gave up its copy to pay for it.
+		const tool = await toolNamed("session");
+		expect(tool.parameters?.properties?.action?.description).toContain("`inbox` consumes, `read` keeps");
 	});
 
-	test("keeps claim and release on paths, which is what separates them from board's card verbs", () => {
+	test("keeps claim and release on paths, which is what separates them from board's card verbs", async () => {
 		// `board` claims a card and this claims a file: the object is the whole difference, so it
 		// stays in the line a caller reads before choosing a tool.
-		expect(SESSION_DESCRIPTION).toContain("`claim`/`release` (paths)");
+		const tool = await toolNamed("session");
+		expect(tool.description).toContain("`claim`/`release` (paths)");
 	});
 });
 
-/** The board tool's always-on characters, summed the way a request pays for them. */
-function boardSurface(): number {
-	return (
-		BOARD_DESCRIPTION.length +
-		BOARD_SNIPPET.length +
-		BOARD_GUIDELINES.join("\n").length +
-		JSON.stringify(BoardParams).length
-	);
-}
-
 describe("the board tool surface", () => {
-	test("stays under its ceiling, with three guidelines", () => {
+	test("keeps three guidelines, and leaves every other fact to the field or action that owns it", async () => {
 		// 8,156 characters before the restating bullets were cut; the ceiling is what the
 		// three that are not already in the schema, the description, or the action docs cost.
 		// 7,200 held until `review` took the one-line `override`, which is the record a card
@@ -238,17 +301,13 @@ describe("the board tool surface", () => {
 		// #752 then merged the two note fields — `add`'s `note` and the `text` three other verbs
 		// published for the same thing — so one field's JSON left while a description absorbed it:
 		// 6,378 → 6,284, and the ceiling fell with the surface rather than keeping 94 characters
-		// nobody measured: 6,284 ≤ 6,284.
-		expect(boardSurface()).toBeLessThanOrEqual(6_284);
-		expect(BOARD_GUIDELINES).toHaveLength(3);
-		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
-	});
-
-	test("keeps each guideline to a bullet-sized line", () => {
-		for (const guideline of BOARD_GUIDELINES) {
-			expect(guideline.endsWith(".")).toBe(true);
-			expect(guideline.length).toBeLessThanOrEqual(170);
-		}
+		// nobody measured: 6,284 ≤ 6,284. #821 spent the passage the other way: `root` gained the tree
+		// it names (+58) and `lane` gave up the transition clause `move`'s own doc already states, so
+		// the four blocks come to 6,282 and the ceiling lives in `CEILINGS` with the others.
+		//
+		// What stays here is the shape, not the price: three bullets, one idea each.
+		const tool = await toolNamed("board");
+		expect(tool.promptGuidelines).toHaveLength(3);
 	});
 
 	test("the seat's line stays inside its own ceiling, every turn", () => {

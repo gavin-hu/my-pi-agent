@@ -8,7 +8,7 @@
 import { describe, expect, test } from "bun:test";
 import { fakeTheme, createFakePi, toolRenderContext } from "../../test/helpers/fakes.ts";
 import type { Bridge, OwnerMessage, SendResult } from "./bridge.ts";
-import { registerTools, TOOL_NAME } from "./tools.ts";
+import { registerTools, MESSAGE_FIELDS, TOOL_NAME } from "./tools.ts";
 
 function stubBridge(outcome: SendResult, calls: OwnerMessage[] = []): Bridge {
 	return {
@@ -33,8 +33,11 @@ describe("send_wechat registration", () => {
 		expect(tool.name).toBe(TOOL_NAME);
 		expect(tool.executionMode).toBe("sequential");
 		expect(tool.annotations).toMatchObject({ readOnlyHint: false, openWorldHint: true });
-		// The model cannot choose a recipient: the owner is the only target.
+		// The model cannot choose a recipient: the owner is the only target, and "exactly one"
+		// is the object's own count — the bound the host refuses before `execute`.
 		expect(Object.keys(tool.parameters.properties)).toEqual(["text", "image", "file"]);
+		expect(tool.parameters.minProperties).toBe(MESSAGE_FIELDS);
+		expect(tool.parameters.maxProperties).toBe(MESSAGE_FIELDS);
 		expect(tool.parameters.required ?? []).toEqual([]);
 	});
 });
