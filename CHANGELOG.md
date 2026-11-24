@@ -50,6 +50,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: a server-sent event frame is spelled once, beside the streams registry — `eventFrame(payload, event?)` — so the
+  registry's `broadcast`/`end`, a board page's attach frame and a browse page's two named frames cannot disagree
+  about the bytes. Every frame on the wire is unchanged: the payload is one line by contract, and a newline inside
+  it is a caller's bug rather than something the helper splits.
+
 - `code-review`: an unsent comment belongs to its line rather than to the page — one record per anchor in this
   tab, so a second composer no longer overwrites the first, a reload brings back every draft whose line is
   drawn (one whose line moved opens on a drawn row saying `was a.ts:3`, and one whose file is gone is listed

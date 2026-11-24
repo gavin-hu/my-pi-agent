@@ -88,17 +88,23 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	/**
 	 * The seat, or undefined when the branch is not holding it — asked before the
 	 * runtime is loaded, because three of the four modes never need it.
+	 *
+	 * The reading is `lib/mode-state.ts`'s: it owns what holding the seat means (`holdsSeat`), so this
+	 * door asks rather than comparing the mode itself — a second comparison here is how one surface
+	 * came to disagree with the others about the same word (#825, #821, #835). The import is deferred,
+	 * which is what makes asking it free: the module is already outside this entry's static graph, so
+	 * two more questions cost the entry nothing until a door is asked.
 	 */
 	const seatHeld = async (ctx: ExtensionContext): Promise<LeadRuntime | undefined> => {
-		const { modeOf } = await (branchState ??= import("../../lib/mode-state.ts"));
-		return modeOf(ctx.sessionManager.getBranch()) === "lead" ? lead(ctx) : undefined;
+		const { holdsSeat } = await (branchState ??= import("../../lib/mode-state.ts"));
+		return holdsSeat(ctx.sessionManager.getBranch()) ? lead(ctx) : undefined;
 	};
 	const leadDoor: LeadDoor = {
 		async enter(ctx) {
 			// Planning strips the contract and the signature the seat exists for, so entering
 			// the seat leaves plan mode first: the one cross-mode sequence the table allows.
-			const { modeOf } = await (branchState ??= import("../../lib/mode-state.ts"));
-			if (modeOf(ctx.sessionManager.getBranch()) === "plan") {
+			const { isPlanModeEnabled } = await (branchState ??= import("../../lib/mode-state.ts"));
+			if (isPlanModeEnabled(ctx.sessionManager.getBranch())) {
 				const { requestPlanLeave } = await import("../../lib/mode-entry.ts");
 				await requestPlanLeave(pi, ctx);
 			}
