@@ -358,7 +358,9 @@ describe("the crossing the tool reports", () => {
 		writeBusRecord(await lead.board.runtime.busDir(cwd), { id: "s-repair", label: LEAD, lastSeen: NOW });
 		const taken = await lead.call({ action: "reclaim", card: "1" });
 		expect(taken.details.card?.lane).toBe("backlog");
-		expect(taken.details.held).toBe(`1 path stays held by ${HOLDER} until it stops`);
+		expect(taken.details.held).toBe(
+			`1 path stays held by ${HOLDER} until it stops; only \`session release\` in that session frees it`,
+		);
 		expect(resultText(taken)).toContain(`\n  1 path stays held by ${HOLDER} until it stops`);
 	});
 });

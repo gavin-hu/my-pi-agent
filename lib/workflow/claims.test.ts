@@ -17,7 +17,7 @@ import {
 	CLAIMS_CTX as CTX,
 	CLAIMS_OTHER as OTHER_LABEL,
 } from "../../test/helpers/claims.ts";
-import { holdPaths } from "./claims.ts";
+import { holdPaths, reclaimHeld } from "./claims.ts";
 
 describe("the lane crossing", () => {
 	test("entering execute claims the paths the card names, and says how many", async () => {
@@ -228,7 +228,7 @@ describe("what a release could not free", () => {
 		const claims = claimsBus({ release: { ok: true, released: [], notOwned: ["src/api", "src/web"] } });
 		const after = { ...claimsCard("backlog"), owner: undefined, by: OTHER_LABEL };
 		expect(await holdPaths(claims, CTX, claimsWrite(claimsCard("execute"), after))).toBe(
-			"2 paths stay held by api-core until it stops",
+			"2 paths stay held by api-core until it stops; only `session release` in that session frees it",
 		);
 		expect(claims.sent).toEqual([{ call: "release", paths: ["src/api", "src/web"] }]);
 	});
@@ -237,7 +237,7 @@ describe("what a release could not free", () => {
 		const claims = claimsBus({ release: { ok: true, released: ["src/web"], notOwned: ["src/api"] } });
 		const after = { ...claimsCard("backlog"), owner: undefined, by: OTHER_LABEL };
 		expect(await holdPaths(claims, CTX, claimsWrite(claimsCard("execute"), after))).toBe(
-			"1 path stays held by api-core until it stops",
+			"1 path stays held by api-core until it stops; only `session release` in that session frees it",
 		);
 	});
 
@@ -256,6 +256,30 @@ describe("what a release could not free", () => {
 		expect(
 			await holdPaths(claims, CTX, claimsWrite({ ...claimsCard("execute"), owner: undefined }, after)),
 		).toBeUndefined();
+	});
+});
+
+describe("a release inside `execute`", () => {
+	test("is undone at the next turn start: the held card takes its paths back", async () => {
+		// mike's observation on #831, made a case rather than a suspicion: releasing a path of a card
+		// that stays in `execute` clears it until the next turn, when `reclaimHeld` claims every path
+		// the held card names. The rule is this module's own — a card in `execute` holds its paths —
+		// so the release is temporary, and the exits that last are `paths: []` or leaving the lane.
+		const claims = claimsBus({ release: { ok: true, released: ["src/api", "src/web"], notOwned: [] } });
+		await claims.release(CTX, ["src/api", "src/web"]);
+		expect(await reclaimHeld(claims, CTX, [claimsCard("execute")])).toBeUndefined();
+		expect(claims.sent).toEqual([
+			{ call: "release", paths: ["src/api", "src/web"] },
+			{ call: "claim", paths: ["src/api", "src/web"] },
+		]);
+	});
+
+	test("is not undone for a card that left the lane or names no paths", async () => {
+		// The two exits that last, asserted as the guard they are: a backlog card is not re-claimed,
+		// and neither is an `execute` card whose record carries `paths: []` — #814's lesson.
+		const claims = claimsBus();
+		expect(await reclaimHeld(claims, CTX, [claimsCard("backlog"), claimsCard("execute", [])])).toBeUndefined();
+		expect(claims.sent).toEqual([]);
 	});
 });
 
