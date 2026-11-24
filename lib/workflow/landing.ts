@@ -58,7 +58,7 @@ export interface LandingProof {
 export type LandingCheck = { sha: string } | { error: string; shape: LandingShape };
 
 /** Why no merge could be named: what a refusal may offer, in the one place both read it. */
-export type LandingShape = "moved" | "ancestor" | "unlanded";
+export type LandingShape = "moved" | "ancestor" | "unlanded" | "before-execute";
 
 /** The card as a refusal names it, spelled here so this module reads no card. */
 function ref(id: string): string {
@@ -135,6 +135,7 @@ export function resolveLanding(proof: LandingProof, reviewed: string, id: string
 		return { error: movedTree(proof.branch, reviewed, commit.sha, moved, id), shape: "moved" };
 	}
 	const ancestor = proof.chain.some((commit) => commit.sha === reviewed);
+	const reviewedAt = proof.chain.find((commit) => commit.sha === reviewed)?.at;
 	// A squashed landing names itself in its own subject: the branch's work is one commit whose subject
 	// ends with the card's id, and the review is at or above it on the chain (#440). Asked only after
 	// the tip and the merge shapes, so those two still win; newest wins among several, since a card can
@@ -144,6 +145,14 @@ export function resolveLanding(proof: LandingProof, reviewed: string, id: string
 		const landedAt = proof.chain.indexOf(squash);
 		if (proof.chain.findIndex((commit) => commit.sha === reviewed) >= landedAt) return { sha: squash.sha };
 	}
+	// A commit on the chain that predates the card's own `execute` is not a landing this card can name:
+	// the board reads a landing as the work committed **after** the card began (#641). In a squashing
+	// repository this is the shape an owner hits by landing first and moving to `execute` afterwards —
+	// no merge was ever involved, so the refusal has to name the order rather than a merge (#475).
+	if (reviewedAt !== undefined && reviewedAt < proof.since) {
+		return { error: beforeExecute(proof.branch, reviewed, id), shape: "before-execute" };
+	}
+
 	return ancestor
 		? { error: landedWithoutMerge(proof.branch, reviewed, id), shape: "ancestor" }
 		: { error: absentFromBranch(proof.branch, reviewed, id), shape: "unlanded" };
@@ -163,6 +172,19 @@ export function absentFromBranch(branch: string, reviewed: string, id: string): 
  */
 export function landedWithoutMerge(branch: string, reviewed: string, id: string): string {
 	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, which is on \`${branch}\` and is not the merge that carried this card: either the run was taken on an older tree, or the commit landed with no merge to point at. Sign again from the card's own commit if the tree was older; if the commit is the card's write and it landed without a merge, the lead may close the card by instruction — \`override\` with the one line saying why.`;
+}
+
+/**
+ * What `done` is refused with when the review named a commit older than the card's own `execute`.
+ *
+ * It is its own sentence because the old one was wrong for the repository that squashes: a card whose
+ * work landed and only then moved to `execute` fell through to `landedWithoutMerge`, which speaks of a
+ * merge a squashing repository never makes — so the reader was pointed at `override` for a cause that
+ * was the order of two steps (#475). The cause is said first, and the two ways out are the order and a
+ * relocate, never an instruction.
+ */
+export function beforeExecute(branch: string, reviewed: string, id: string): string {
+	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, which is on \`${branch}\` and was committed before this card entered \`execute\`: the board reads a landing as the work committed after the card began (its \`since\`), so this commit cannot be named for it. Move the card to \`execute\` before landing — if it already landed, relocate the landing; an instruction does not fix an order.`;
 }
 
 /** What `done` is refused with when the merge rewrote the review's own lines. */
