@@ -31,7 +31,10 @@ import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-
 import { reviewPageData, type ReviewPageData } from "./web-payload.ts";
 import { postReviewerAnnotations, saveOwnerAnnotations } from "./web-write.ts";
 import { createShareSession, type ShareSession } from "./web-share-session.ts";
-import { createStreams } from "./web-streams.ts";
+// The leaf, not the kit`s barrel: plan's entry budget counts static module evaluations, and
+// `lib/web/index.ts` re-exports eleven modules — taking the barrel here would put all of them
+// in plan's graph for one registry.
+import { createStreams } from "../../lib/web/streams.ts";
 import { createTokens } from "./web-tokens.ts";
 import type { NetworkInterfaces, ShareResult, ShareState } from "./web-share.ts";
 
@@ -211,8 +214,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 		const streams = createStreams({
 			onAbandoned: () => abandon(),
 			// Whose page ends this session: a review's owner, whose leaving is a decision about the
-			// plan, or a view's reader, who is the only page a view has.
-			lifetime: viewing ? "viewer" : "owner",
+			// plan, or a view's reader, who is the only page a view has. The kit counts records, so the
+			// role it means is stated here rather than known there.
+			lifetime: (record) => record.key === (viewing ? "viewer" : "owner"),
 			graceMs: deps.dropGraceMs ?? DROP_GRACE_MS,
 			schedule: deps.schedule ?? defaultTimer,
 			settled: () => settled,
@@ -375,7 +379,8 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 			mintReviewer: () => tokens.mint("reviewer"),
 			revokeReviewer: (value) => tokens.revoke(value),
 			nameOf: (value) => tokens.get(value)?.name,
-			broadcast: (kind, only) => streams.broadcast(kind, only === undefined ? undefined : { role: only }),
+			// The share session names a role; the kit addresses a record by key, so the word crosses here.
+			broadcast: (kind, only) => streams.broadcast(kind, only === undefined ? undefined : { key: only }),
 			endStreams: (kind, only) => streams.end(kind, only),
 		});
 		const hosts = (): readonly string[] => shareSession.hosts();
@@ -436,7 +441,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 			return {
 				result,
 				openSink: (sink) => {
-					if (streamCaller !== undefined) streams.add(sink, { role: streamCaller.role, token });
+					if (streamCaller !== undefined) streams.add(sink, { key: streamCaller.role, token });
 					return () => streams.remove(sink);
 				},
 			};

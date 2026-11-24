@@ -38,6 +38,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: the served pages' stream registry moved into the kit. `createStreams` now lives in
+  `lib/web/streams.ts` and records a `key` with an optional `token` rather than a review's role, with
+  the closed-tab grace **optional** — so a page that wants a plain fan-out (a board's cards, a
+  browse page's tree) can share one owner instead of writing a third set of sinks. Plan converts its
+  roles at the call site and its page still ends when its owner's tab leaves.
+
 - `code-review`: the review page's facts have one home each. The footer keeps only the comparison — the
   counts, the totals and the progress it also carried are gone from it — while the rail's head states the
   file count, the scope's totals and how far the review has got, and the draft count on the page is the
