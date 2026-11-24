@@ -165,7 +165,7 @@ describe("the review page", () => {
 		expect(side).toContain('<label class="bf-field"><span class="bf-field__prompt"');
 		expect(side).not.toContain("bf-field--filter");
 		// The narrowing is one switch with two segments, captioned the way the plan page's is.
-		expect(html).toContain('<p class="rv-view__label" id="rv-view-label">Show</p>');
+		expect(html).toContain('<p class="bf-tabs--view__label" id="rv-view-label">Show</p>');
 		expect(html).toContain('id="rv-view-all" data-only="false" aria-pressed="true"');
 		expect(html).toContain('id="rv-view-commented" data-only="true" aria-pressed="false"');
 		expect(html).not.toContain("rv-only-commented");
@@ -173,7 +173,7 @@ describe("the review page", () => {
 
 	test("pushes the page's actions to the control row's right end", () => {
 		const html = renderReviewPage(input());
-		expect(html).toContain('<div class="bf-app__group rv-actions">');
+		expect(html).toContain('<div class="bf-app__actions">');
 		expect(html).toContain('id="rv-wrap"');
 		expect(html).toContain('id="rv-copy"');
 		expect(html).toContain('id="rv-send"');

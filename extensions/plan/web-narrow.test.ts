@@ -221,7 +221,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 			const view = doc.getElementById("review-view");
 			const note = doc.getElementById("review-note");
 			const share = doc.getElementById("share");
-			const row = doc.querySelector(".review-actions");
+			const row = doc.querySelector(".bf-app__actions");
 			return {
 				sectionsOpen: sections ? sections.open : false,
 				moreOpen: doc.getElementById("review-more")?.open ?? false,

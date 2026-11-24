@@ -82,8 +82,6 @@ export const REVIEW_CSS = pageSheet(
    styles it through the toolbar rather than wearing a class of its own. */
 .review-bar .bf-status{max-width:42ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-bar .bf-status:empty{display:none}
-/* The page's own actions: the bar is the kit's, and the group sits under the header's chrome. */
-.review-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;justify-content:flex-end;min-width:0}
 /* The finish block: what this page's own decisions do, in the reader's role. One or two
    button names in the text colour, and the sentence around them quiet. */
 .review-finish{margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-snug)}
@@ -126,17 +124,6 @@ export const REVIEW_CSS = pageSheet(
 .review-steps__track{display:inline-block;flex:0 0 auto;width:62px;height:6px;border-radius:var(--radius-badge);background-image:repeating-linear-gradient(90deg,var(--dim) 0 6px,transparent 6px 8px);overflow:hidden}
 .review-steps__fill{display:block;height:100%;width:0;background-image:repeating-linear-gradient(90deg,var(--accent) 0 6px,transparent 6px 8px);transition:width var(--motion-fast) linear}
 .review-fact__value{color:var(--text);font-family:var(--font-ui);font-variant-numeric:tabular-nums}
-/* The switch is a filter over the plan, not a fourth segment of the outline: its caption names the
-   document it redraws, the way the outline's own title names the sections. */
-.review-view__label{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
-.review-view{display:flex}
-.review-view .bf-tabs__item{flex:1 1 auto;justify-content:center}
-/* The page's switch fills its segment when pressed. The kit's tabs say it in colour and
-   weight alone, which is the right quiet for three links; this control redraws the whole
-   document, so the segment the reader pressed has to be findable at a glance. The label takes the
-   token's own pair for an accent fill, --on-accent on --accent (5.19:1 light, 7.49:1 dark); the
-   accent on the accent wash it replaced measured 4.27:1 under a 13px semibold word. */
-.review-view .bf-tabs__item[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 /* The count of what the view hid, beside the switch that hid it: a filtered plan that reads
    as a short one is the defect, and this is the fact that undoes it. */
 .review-note{margin:0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-relaxed)}
@@ -280,7 +267,7 @@ ${collapsedShell(
 @media print{
 .bf-review{padding:0}
 .bf-review>.bf-block{max-width:none;padding:0 0 6px}
-.bf-block__rail,.bf-composer,.bf-block__add,.review-view,.review-note{display:none}
+.bf-block__rail,.bf-composer,.bf-block__add,.bf-tabs--view,.review-note{display:none}
 /* A printed review is the whole plan, never the view the reader had on screen: the
    base layer's hidden rule is !important, so the un-hide has to be too, and a thread
    the filter hid on screen goes back under its block. */
@@ -422,8 +409,8 @@ export function renderReviewPage(data: ReviewPageData): string {
 <summary class="bf-panel__summary"><span class="review-sections__name">Sections</span><span class="review-band"><span class="review-band__chip review-band__chip--view" id="band-view">All</span><span class="review-band__chip" id="band-steps"></span><span class="review-band__chip" id="band-comments">0</span></span></summary>
 <div class="bf-panel review-panel review-panel--head">
 ${reviewFacts(data.role)}
-<p class="review-view__label" id="review-view-label">Show in the plan</p>
-<div class="bf-tabs review-view" role="group" aria-labelledby="review-view-label" id="review-view">
+<p class="bf-tabs--view__label" id="review-view-label">Show in the plan</p>
+<div class="bf-tabs bf-tabs--view" role="group" aria-labelledby="review-view-label" id="review-view">
 <button type="button" class="bf-tabs__item" data-view="all" aria-pressed="true">All</button>
 <button type="button" class="bf-tabs__item" data-view="changed" aria-pressed="false">Changed</button>
 <button type="button" class="bf-tabs__item" data-view="comments" aria-pressed="false">Comments</button>
@@ -474,6 +461,10 @@ ${reviewHints(data.role, data.canApprove)}
 <div class="review-more__panel">${aside}</div>
 </details>`;
 	const controls = `${approveButton}${saveControl}${moreControl}`;
+	// The kit owns the actions group, so the page writes the controls inside it rather than
+	// styling its own row: `bf-app__actions` carries the right-end push that `controlsClass` used
+	// to spell here.
+	const actions = controls === "" ? "" : `<div class="bf-app__actions">${controls}</div>`;
 	// One name for the page, read from the role: a view is not a review, and the tab, the
 	// toolbar lockup, and the section of the docs that explains it must not disagree.
 	const pageName = isViewer ? "plan view" : "plan review";
@@ -491,9 +482,8 @@ ${appHead({
 ${reloadChip({ title: isViewer ? "Reload to read the plan again" : "Reload to review the plan again" })}
 <span class="bf-status" id="status"></span>
 <p class="sr-only" id="review-announce" role="status" aria-live="polite"></p>`,
-	controls: controls === "" ? undefined : controls,
+	controls: actions === "" ? undefined : actions,
 	identityClass: "review-bar",
-	controlsClass: "review-actions",
 })}
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review bf-md" id="plan" aria-label="Plan"></main>

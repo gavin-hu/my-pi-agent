@@ -24,6 +24,7 @@ import {
 	REVIEW_PAGE,
 	REVIEW_PAINT_MS,
 } from "../../test/helpers/plan-browser.ts";
+import { WEB_COMPONENTS_CSS } from "../../lib/web/index.ts";
 import { REVIEW_CSS } from "./web-page.ts";
 
 /** Where a rail part starts in the page, which is the whole of what its order is. */
@@ -58,7 +59,7 @@ describe("the rail's markup and rules", () => {
 		// carries a caption the way the outline's title names the sections — and the group takes
 		// its name from that caption rather than from a sentence drawn nowhere on the page.
 		const html = reviewPage();
-		expect(html).toContain('<p class="review-view__label" id="review-view-label">Show in the plan</p>');
+		expect(html).toContain('<p class="bf-tabs--view__label" id="review-view-label">Show in the plan</p>');
 		expect(html).toContain('role="group" aria-labelledby="review-view-label" id="review-view"');
 		expect(html).not.toContain("What to show");
 	});
@@ -88,9 +89,12 @@ describe("the rail's markup and rules", () => {
 		// 4.5 a 13px semibold word owes, and a section's count badge was the third instance. The
 		// pressed label takes the token's own pair for an accent fill; the other two take --text,
 		// and the accent wash stays the mark of the current row.
-		expect(REVIEW_CSS).toContain(
-			'.review-view .bf-tabs__item[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}',
+		// The pressed fill is the kit's now: the page writes the atom and the pair is measured where it
+		// lives, so a page that re-declares its own fill reddens here rather than passing twice (#827).
+		expect(WEB_COMPONENTS_CSS).toContain(
+			'.bf-tabs--view .bf-tabs__item[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}',
 		);
+		expect(REVIEW_CSS).not.toContain('.review-view .bf-tabs__item[aria-pressed="true"]');
 		expect(REVIEW_CSS).toContain(
 			".review-nav a:hover{background:var(--surface);color:var(--text);text-decoration:none}",
 		);

@@ -213,7 +213,7 @@ describe("the page's chrome", () => {
 		expect(html).toContain('<span class="bf-live__text">connecting…</span>');
 		expect(html).toContain('id="reload-hint"');
 		expect(html).toContain('<div class="bf-app__chrome">');
-		expect(html).toContain('<div class="bf-app__ctl review-actions">');
+		expect(html).toContain('<div class="bf-app__ctl">');
 		expect(html).toContain('<footer class="bf-app__foot">');
 		expect(html).toContain("plan ~/.pi/agent/plans/repo-key/add-rate-limiting.md");
 		// The header line is painted, never announced: a reader looks here for the state, and the
@@ -228,7 +228,7 @@ describe("the page's chrome", () => {
 		// reader saw a floating strip of buttons between two rules that did not belong to it.
 		const html = reviewPage();
 		const head = /<header class="bf-app__head">[\s\S]*?<\/header>/.exec(html)?.[0] ?? "";
-		expect(head).toContain('<div class="bf-app__rule"></div><div class="bf-app__ctl review-actions">');
+		expect(head).toContain('<div class="bf-app__rule"></div><div class="bf-app__ctl">');
 		expect(html).not.toMatch(/<\/header>\s*<div class="bf-app__ctl/);
 	});
 
