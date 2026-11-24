@@ -83,6 +83,20 @@ ${CLIENT_RUNTIME_JS}
     // A file without a comment is not "unread": the page cannot know that.
     return "no comment";
   }
+  /**
+   * What a row says about itself on its title, where the visible line no longer says it.
+   *
+   * The same rule as page.ts's railNote: the count if there is one, then the state where the
+   * count leaves it unsaid. Two copies because the client is a spliced body and cannot import —
+   * stateWord and plural are already split the same way, and the markup case and the browser case
+   * hold the two to one answer (#817).
+   */
+  function railNote(path) {
+    var count = commentsFor(path).length;
+    var state = stateOf(path);
+    if (count === 0) return stateWord(state);
+    return plural(count, "comment") + (state === "reviewed" ? ", marked reviewed" : "");
+  }
   function splitPath(path) {
     var cut = path.lastIndexOf("/");
     return cut < 0 ? { dir: "", name: path } : { dir: path.slice(0, cut), name: path.slice(cut + 1) };

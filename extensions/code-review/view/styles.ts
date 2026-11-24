@@ -36,18 +36,25 @@ export const REVIEW_CSS = `
 .rv-side-head{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-2) var(--space-2);color:var(--dim);font:var(--fw-medium) var(--fs-xs) var(--font-ui);text-transform:uppercase;letter-spacing:.06em}
 .rv-side-head span:last-child{margin-left:auto;font-family:var(--font-mono);text-transform:none;letter-spacing:0}
 .rv-files{display:flex;flex-direction:column;gap:var(--space-1)}
-/* A rail row wears its state's paper: the board's rule, in a list. */
-.rv-rail{--paper:var(--raised);--role:var(--muted);display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:var(--space-2);align-items:start;padding:var(--space-2) var(--space-3);border:1px solid transparent;border-left:2px solid var(--role);border-radius:var(--radius-md);background:var(--paper);color:var(--text);text-decoration:none}
-.rv-rail:hover{border-color:var(--border-strong);border-left-color:var(--role);text-decoration:none}
-.rv-rail[aria-current="true"]{background:var(--accent-soft);border-color:var(--accent);border-left-color:var(--accent)}
+/* A rail row wears its state's paper: the board's rule, in a list. The paper and the mark's colour
+   are the two marks the state gets — the left rule that used to be the third is gone (#817): one
+   fact, one mark, and the row is a card rather than a tab. */
+.rv-rail{--paper:var(--raised);--role:var(--muted);display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:var(--space-2);align-items:start;padding:var(--space-2) var(--space-3);border:1px solid transparent;border-radius:var(--radius-md);background:var(--paper);color:var(--text);text-decoration:none}
+.rv-rail:hover{border-color:var(--border-strong);text-decoration:none}
+.rv-rail[aria-current="true"]{background:var(--accent-soft);border-color:var(--accent)}
 .rv-rail[data-state="commented"]{--paper:var(--search-soft);--role:var(--warn)}
 .rv-rail[data-state="reviewed"]{--paper:var(--success-soft);--role:var(--success)}
 .rv-rail__mark{font:var(--fw-semibold) var(--fs-xs)/1.7 var(--font-mono);color:var(--role)}
-.rv-rail__name{font:var(--fw-semibold) var(--fs-sm)/1.4 var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The name and its count share one line: the name takes what is left and ellipsizes, the count never
+   wraps and never shrinks. Before #817 the count had a line of its own, and a row spent three. */
+.rv-rail__line{display:flex;align-items:baseline;gap:var(--space-2);min-width:0}
+.rv-rail__name{flex:1;min-width:0;font:var(--fw-semibold) var(--fs-sm)/1.4 var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The directory keeps its leaf in view: an rtl line box puts the ellipsis at the start, and
    the bdi isolates the path as the LTR text it is, so its own slashes stay where they were. */
 .rv-rail__dir{display:block;direction:rtl;text-align:left;font:var(--fs-xs)/1.5 var(--font-mono);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv-rail__notes{display:block;margin-top:2px;font:var(--fs-xs)/1.5 var(--font-ui);color:var(--role)}
+/* Font and colour only: a display here would beat the hidden attribute a zero count sets, and the
+   empty box would keep the line the count was supposed to stop costing. */
+.rv-rail__notes{flex:none;white-space:nowrap;font:var(--fs-xs)/1.5 var(--font-ui);color:var(--role)}
 .rv-rail__meta{display:flex;gap:5px;font:var(--fs-xs)/1.5 var(--font-mono);font-variant-numeric:tabular-nums}
 .rv-add{color:var(--success)}
 .rv-del{color:var(--danger)}
@@ -62,7 +69,7 @@ export const REVIEW_CSS = `
 .rv-file{margin-top:var(--space-4)}
 /* The head is outside the diff's own scroll box, so the page is its scrollport: it pins while
    the reader scrolls the file, and a hunk jump lands below it (scroll-margin-top, measured). */
-.rv-file__head{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-2) var(--space-5);background:var(--paper,var(--raised));border-left:2px solid var(--role,var(--muted));border-bottom:1px solid var(--border)}
+.rv-file__head{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-2) var(--space-5);background:var(--paper,var(--raised));border-bottom:1px solid var(--border)}
 .rv-file[data-state="commented"] .rv-file__head{--paper:var(--search-soft);--role:var(--warn)}
 .rv-file[data-state="reviewed"] .rv-file__head{--paper:var(--success-soft);--role:var(--success)}
 .rv-file__mark{font:var(--fw-semibold) var(--fs-xs)/1.6 var(--font-mono);color:var(--role,var(--accent));border:1px solid currentColor;border-radius:var(--radius-sm);padding:0 4px}

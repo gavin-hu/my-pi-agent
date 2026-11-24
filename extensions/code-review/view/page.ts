@@ -100,6 +100,25 @@ function stateWord(state: string): string {
 	return "no comment";
 }
 
+/** A comment count as words: the one number a row shows, and it says what it counts. */
+function commentWords(count: number): string {
+	return `${count} comment${count === 1 ? "" : "s"}`;
+}
+
+/**
+ * What a row says about itself on its title, now that its own line does not spend one on the state.
+ *
+ * The count first, because it is the fact the row's paper cannot carry; the state second, and only
+ * where the count would otherwise hide it. `stateWord`'s judgement survives in full — a file without
+ * a comment is not "unread" — as the sentence a screen reader and a hover hear, rather than a third
+ * line a reader sees. The client holds the same rule (`client.ts`'s `railNote`): a spliced body
+ * cannot import, and the markup case and the browser case hold the two to one answer.
+ */
+function railNote(state: string, count: number): string {
+	if (count === 0) return stateWord(state);
+	return state === "reviewed" ? `${commentWords(count)}, marked reviewed` : commentWords(count);
+}
+
 /** A path split for the rail: its directory and its name. */
 function splitPath(rel: string): { dir: string; name: string } {
 	const cut = rel.lastIndexOf("/");
@@ -116,10 +135,12 @@ function railRow(
 	const state = fileState(file.rel, comments, reviewed);
 	const count = comments.filter((comment) => comment.rel === file.rel).length;
 	const { dir, name } = splitPath(file.rel);
-	const note = count === 0 ? stateWord(state) : `${count} comment${count === 1 ? "" : "s"}`;
-	return `<a class="rv-rail" href="#rv-file-${index}" data-path="${escapeHtml(file.rel)}" data-state="${state}"${index === 0 ? ' aria-current="true"' : ""} title="${escapeHtml(file.rel)}">
+	// The state is the title's, not a line's: a row that spends a line on its state is a file fewer
+	// in a rail that is capped and scrolls (#817). A zero count hides its box rather than emptying
+	// it, so no row is taller for having nothing to say.
+	return `<a class="rv-rail" href="#rv-file-${index}" data-path="${escapeHtml(file.rel)}" data-state="${state}"${index === 0 ? ' aria-current="true"' : ""} title="${escapeHtml(file.rel)} — ${escapeHtml(railNote(state, count))}">
   <span class="rv-rail__mark" aria-hidden="true">${escapeHtml(file.status)}</span>
-  <span><span class="rv-rail__name">${escapeHtml(name)}</span><span class="rv-rail__dir" dir="rtl"><bdi>${escapeHtml(dir)}</bdi></span><span class="rv-rail__notes">${escapeHtml(note)}</span></span>
+  <span><span class="rv-rail__line"><span class="rv-rail__name">${escapeHtml(name)}</span><span class="rv-rail__notes"${count === 0 ? " hidden" : ""}>${count === 0 ? "" : escapeHtml(commentWords(count))}</span></span><span class="rv-rail__dir" dir="rtl"><bdi>${escapeHtml(dir)}</bdi></span></span>
   <span class="rv-rail__meta"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
 </a>`;
 }

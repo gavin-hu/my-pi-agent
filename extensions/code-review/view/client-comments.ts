@@ -99,9 +99,15 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── drafts ─────�
       var rail = railFor(path);
       if (rail) {
         rail.setAttribute("data-state", state);
+        // The count keeps the name's line; the state word is the title's now, because a row that
+        // spends a line on its state is a row fewer in a rail that is capped and scrolls (#817).
         var notes = rail.querySelector(".rv-rail__notes");
         var count = commentsFor(path).length;
-        if (notes) notes.textContent = count === 0 ? stateWord(state) : plural(count, "comment");
+        if (notes) {
+          notes.textContent = count === 0 ? "" : plural(count, "comment");
+          notes.hidden = count === 0;
+        }
+        rail.setAttribute("title", path + " — " + railNote(path));
         var mark = rail.querySelector(".rv-rail__mark");
         if (mark) mark.setAttribute("data-state", state);
       }
