@@ -14,6 +14,7 @@ import {
 	isPlanModeEnabled,
 	lastModeState,
 	mayEnter,
+	mayEnterFrom,
 	modeOf,
 } from "./mode-state.ts";
 
@@ -110,5 +111,35 @@ describe("mayEnter", () => {
 
 	test("refuses a mode it does not know", () => {
 		expect(mayEnter("surf", "auto")).toContain("is not a mode");
+	});
+});
+
+describe("mayEnterFrom", () => {
+	const planEntry = (): unknown => ({ type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: { enabled: true } });
+	const leadEntry = (): unknown => ({ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } });
+
+	test("reads the mode the branch carries", () => {
+		expect(mayEnterFrom("plan", [])).toBeUndefined();
+		expect(mayEnterFrom("plan", [planEntry()])).toBeUndefined();
+		expect(mayEnterFrom("lead", [leadEntry()])).toBeUndefined();
+		expect(mayEnterFrom("lead", [planEntry()])).toBeUndefined();
+	});
+
+	test("refuses plan on a lead branch, naming the hatch a reader can type", () => {
+		expect(mayEnterFrom("plan", [leadEntry()])).toContain("/board exit");
+	});
+
+	test("refuses plan on a lead branch whose lead entry was later withdrawn", () => {
+		// The last valid lead entry wins, so a disable opens the door again: the refusal is about
+		// the seat being held now, not about the branch having ever held it.
+		const withdrawn = { type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: false } };
+		expect(mayEnterFrom("plan", [leadEntry(), withdrawn])).toBeUndefined();
+	});
+
+	test("allows plan on a branch carrying both, which the replay already calls plan", () => {
+		// The defect's own state, and why the gate is not the repair: plan wins the replay, so
+		// there is no switch left to refuse. Reconciling such a branch is #852's card.
+		expect(modeOf([leadEntry(), planEntry()])).toBe("plan");
+		expect(mayEnterFrom("plan", [leadEntry(), planEntry()])).toBeUndefined();
 	});
 });

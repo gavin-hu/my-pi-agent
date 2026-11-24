@@ -115,3 +115,15 @@ export function mayEnter(to: string, from: SessionMode): string | undefined {
 	if (from === "lead" && to === "plan") return "Lead mode holds the seat: `/board exit` before planning.";
 	return undefined;
 }
+
+/**
+ * Whether this branch may switch to `to`, read from the branch rather than taken from a caller.
+ *
+ * {@link mayEnter}'s answer for a caller that holds a session instead of a mode: the `from` half is
+ * the mode the branch carries, which is the one a resume or a `/tree` hop moved and the only one
+ * that can hold the seat. A caller's own enabled flag knows what this session did, not what the
+ * branch says — and the branch is what both runtimes replay.
+ */
+export function mayEnterFrom(to: string, entries: readonly unknown[]): string | undefined {
+	return mayEnter(to, modeOf(entries));
+}

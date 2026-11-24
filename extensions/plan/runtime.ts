@@ -20,7 +20,7 @@ import { basename, resolve } from "node:path";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
+import { mayEnterFrom, PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { toolResultDetails } from "../../lib/tool-result.ts";
@@ -65,9 +65,11 @@ const MODE_TOOLS = [PLAN_TOOL];
 export interface PlanRuntime {
 	/** Whether plan mode is currently on. */
 	isEnabled(): boolean;
-	enable(ctx: ExtensionContext): void;
+	/** Turn plan mode on; `false` when the branch's mode refuses it, and the refusal is shown. */
+	enable(ctx: ExtensionContext): boolean;
 	disable(ctx: ExtensionContext): void;
-	toggle(ctx: ExtensionContext): void;
+	/** Flip the mode, and answer the state it left: `true` only when plan mode is on afterwards. */
+	toggle(ctx: ExtensionContext): boolean;
 	/** Restore state from the branch and the `--plan` flag. */
 	restore(ctx: ExtensionContext): void;
 	/** Plan-file storage for the `write` and `exit` actions. */
@@ -255,11 +257,33 @@ export function createPlanRuntime(
 		if (ctx) setStatus(ctx);
 	};
 
+	/**
+	 * Turn plan mode on, or say why the branch will not have it.
+	 *
+	 * The one gate every entering door goes through: the tool's `enter`, the request another extension
+	 * sends, and Shift+Tab's toggle. The mode is read from the branch rather than from this closure's
+	 * flag, because a resume or a `/tree` hop is what moved it — and a refusal names the hatch and
+	 * leaves the mode off, so two entries cannot both replay as on.
+	 */
+	const enterPlan = (ctx: ExtensionContext): boolean => {
+		const refused = mayEnterFrom("plan", ctx.sessionManager.getBranch());
+		if (refused !== undefined) {
+			ctx.ui.notify(refused, "warning");
+			return false;
+		}
+		setEnabled(true, ctx, true);
+		return true;
+	};
+
 	return {
 		isEnabled: () => enabled,
-		enable: (ctx) => setEnabled(true, ctx, true),
+		enable: (ctx) => enterPlan(ctx),
 		disable: (ctx) => setEnabled(false, ctx, true),
-		toggle: (ctx) => setEnabled(!enabled, ctx, true),
+		toggle: (ctx) => {
+			if (!enabled) return enterPlan(ctx);
+			setEnabled(false, ctx, true);
+			return false;
+		},
 		restore: (ctx) => {
 			const branch = readBranchState(ctx);
 			lastPlanPath = branch.lastPlan;
