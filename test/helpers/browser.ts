@@ -39,14 +39,22 @@ interface PoolRecord {
 	wsEndpoint: string;
 }
 
-/** The record's path: the machine's temp directory, so two checkouts share one browser. */
-const POOL_RECORD = join(tmpdir(), "my-pi-agent-browser.json");
+/**
+ * The record's path: the machine's temp directory, so two checkouts share one browser.
+ *
+ * `PI_BROWSER_POOL_FILE` points the pool somewhere else, for a suite that has to create the live-pool
+ * condition rather than hope for it: a file of its own keeps that browser out of every other checkout's
+ * run, where writing the machine's record would hand them this suite's process and then take it away.
+ */
+function poolRecordPath(): string {
+	return process.env.PI_BROWSER_POOL_FILE ?? join(tmpdir(), "my-pi-agent-browser.json");
+}
 
 /** The record the pool wrote last, or nothing when there is none or it is not readable. */
 function readPoolRecord(): PoolRecord | undefined {
 	let text: string;
 	try {
-		text = readFileSync(POOL_RECORD, "utf-8");
+		text = readFileSync(poolRecordPath(), "utf-8");
 	} catch {
 		return undefined;
 	}
@@ -72,7 +80,7 @@ function reap(record: PoolRecord): void {
 			// It went between the check and the kill, which is the answer we wanted.
 		}
 	}
-	rmSync(POOL_RECORD, { force: true });
+	rmSync(poolRecordPath(), { force: true });
 }
 
 /** The exit a pooled browser left, when this file did not spawn it and cannot name a code. */
@@ -132,7 +140,7 @@ async function pooledBrowser(executablePath: string): Promise<BrowserHandle> {
 	const server = await launchChromeServer(executablePath);
 	const browser = await chromium.connect(server.wsEndpoint);
 	const record: PoolRecord = { ownerPid: process.pid, browserPid: server.pid(), wsEndpoint: server.wsEndpoint };
-	writeFileSync(POOL_RECORD, `${JSON.stringify(record)}\n`);
+	writeFileSync(poolRecordPath(), `${JSON.stringify(record)}\n`);
 	// Best effort: Bun's test process may not run this, and the next run's reap is what actually
 	// bounds the process. It costs nothing when it does run.
 	process.on("exit", () => {
@@ -167,13 +175,34 @@ export async function suiteTab(browser: TestBrowser): Promise<Page> {
 	return page;
 }
 
+/**
+ * The binary a suite passes, or the sentence that says why it cannot have one.
+ *
+ * A suite that forgot its skip says so, rather than launching a browser this package does not ship and
+ * reading a build error out of Playwright.
+ */
+function requireBrowser(executablePath: string | undefined): string {
+	if (executablePath === undefined) throw new Error("no browser on this machine: PI_CHROME names one");
+	return executablePath;
+}
+
 /** Boot or join the run's browser from `executablePath`, or say why a suite cannot. */
 export async function launchBrowser(executablePath: string | undefined): Promise<TestBrowser> {
-	// A suite that forgot its skip says so, rather than launching a browser this package does
-	// not ship and reading a build error out of Playwright.
-	if (executablePath === undefined) throw new Error("no browser on this machine: PI_CHROME names one");
-	if (process.env.PI_NO_BROWSER_POOL === "1") return launchChrome(executablePath);
-	return pooledBrowser(executablePath);
+	const binary = requireBrowser(executablePath);
+	if (process.env.PI_NO_BROWSER_POOL === "1") return launchChrome(binary);
+	return pooledBrowser(binary);
+}
+
+/**
+ * Boot a browser this file owns, for a case that has to read *how* it went.
+ *
+ * A handle joined to the pool carries no child process, so its `exited()` can only ever be
+ * `UNKNOWN_DEATH` (`{ code: null, signal: null }`): the exit event reaches the process that spawned the
+ * child and no other. A case asserting a signal therefore must not join the run's browser — and a case
+ * that kills a browser it does not own takes the run's browser down with it.
+ */
+export async function launchOwnBrowser(executablePath: string | undefined): Promise<TestBrowser> {
+	return launchChrome(requireBrowser(executablePath));
 }
 
 /**
