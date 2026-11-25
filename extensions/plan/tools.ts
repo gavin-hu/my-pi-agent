@@ -30,7 +30,8 @@ import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { detailsOrLine, messageText, callLine, reuseLines } from "../../lib/tui/tool.ts";
 import { MAX_STEPS, PLAN_OUTLINE } from "./steps.ts";
-import { PLAN_ACTIONS, PLAN_TOOL, type PlanAction, type PlanRuntime } from "./runtime.ts";
+import { planRefusal } from "./tools/refusal.ts";
+import { PLAN_ACTIONS, PLAN_FIELDS, PLAN_TOOL, type PlanAction, type PlanRuntime } from "./runtime.ts";
 import { callCancel, executeCancel, textCancel } from "./tools/cancel.ts";
 import { callEnter, executeEnter, textEnter } from "./tools/enter.ts";
 import { callExit, executeExit, exitText } from "./tools/exit.ts";
@@ -40,7 +41,7 @@ import type { PlanDetails } from "./types.ts";
 import { createLazyPlanWebReview, NO_SERVER_DEPS } from "./web-lazy.ts";
 import type { PlanWebReview } from "./web.ts";
 
-const PlanParams = Type.Object({
+export const PlanParams = Type.Object({
 	action: StringEnum(PLAN_ACTIONS, {
 		description:
 			"`enter` asks to plan, `write` saves the plan file, `exit` presents it for approval, `steps` ticks its steps, `cancel` leaves without approving.",
@@ -132,7 +133,19 @@ export function registerTools(
 		annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			switch (params.action) {
+			// The host's enum refuses an action it does not know, but a codemod caller does not go through
+			// it, and this switch has no `default`: without this the call answered nothing at all.
+			const action = PLAN_ACTIONS.find((candidate) => candidate === params.action);
+			if (action === undefined) {
+				return planRefusal("unknown", `unknown action "${String(params.action)}"; use ${PLAN_ACTIONS.join(", ")}.`);
+			}
+			// Before any executor and after the verb is known: a field this verb never reads would
+			// otherwise be dropped in silence. Loaded here so registration pays nothing for a sentence
+			// only a refused call needs.
+			const { strayField } = await import("../../lib/stray-fields.ts");
+			const stray = strayField(action, params, PLAN_FIELDS);
+			if (stray !== undefined) return planRefusal(action, stray);
+			switch (action) {
 				case "enter":
 					return await executeEnter(runtime, ctx);
 				case "write":

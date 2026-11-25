@@ -205,6 +205,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/memory-picker-notices",
 	],
 	plan: [
+		"stray-field",
 		"config",
 		"plans",
 		"plan-store-write",
@@ -287,7 +288,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	],
 	team: ["ask", "commands", "dispatch", "extension", "handoff", "join", "offer", "owner", "tools"],
 	todo: ["lag-reminder", "runtime", "tools", "view/todo-screen"],
-	watch: ["files", "format", "runtime", "tools", "view/watch-screen"],
+	watch: ["files", "format", "runtime", "tools", "stray-field", "view/watch-screen"],
 	serve: ["registry", "extension"],
 	"session-bus": [
 		"format",
