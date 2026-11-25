@@ -2,10 +2,11 @@
  * The session's review page: opening it, reading it, and the comments it sent.
  *
  * One page per session, like `/browse`: a second `/review` reports the address
- * rather than replacing a review somebody is reading, and re-scoping is allowed
- * only while no comment is written. The sent comments live beside the page, so
- * closing it or a reload does not take the model's copy away — they are the one
- * thing the review hands over.
+ * rather than replacing a review somebody is reading, and re-scoping is allowed while
+ * the page holds nothing a replacement would destroy — no draft, no mark. Sent comments
+ * are the session's already, so they never hold a scope change. The sent comments live
+ * beside the page, so closing it or a reload does not take the model's copy away — they
+ * are the one thing the review hands over.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -17,6 +18,7 @@ import { loadReviewConfig } from "../config/config.ts";
 import { parseScope, type ReviewScope } from "../scope.ts";
 import { createReviewPage, type ReviewServer } from "../transport/server.ts";
 import { createReviewCurrent } from "./current.ts";
+import { scopeRefusal, scopeWork } from "./scope-work.ts";
 import { createReviewStore, type ReviewComment } from "./store.ts";
 
 /** What a review page is showing, as a tool or a command reports it. */
@@ -64,11 +66,6 @@ export interface ReviewSessionDeps {
 	mint?: () => string;
 	/** Wall-clock seam, for a case. */
 	now?: () => number;
-}
-
-/** The refusal a scope change gets while the review holds comments. */
-export function scopeLocked(count: number, label: string): string {
-	return `this review has ${count} comment${count === 1 ? "" : "s"} on ${label} — send them before switching scope`;
 }
 
 /** The page lifecycle for one session. */
@@ -155,10 +152,16 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 					await openTab(running.url);
 					return { kind: "open", status: await describe() };
 				}
-				if (held.review !== undefined && held.review.comments.length > 0) {
-					const reason = scopeLocked(held.review.comments.length, held.label);
-					ctx.ui.notify(`review: ${reason}`, "error");
-					return { kind: "refused", reason };
+				if (held.review !== undefined) {
+					const work = scopeWork(held.review);
+					if (work.drafts + work.marks > 0) {
+						// The address is appended here rather than at each door, so a notice, a tool's
+						// failure text and a page's 409 cannot disagree about where the reader still is.
+						const still = running.url === undefined ? "" : ` — still open at ${running.url}`;
+						const reason = `${scopeRefusal(held.review, held.label)}${still}`;
+						ctx.ui.notify(`review: ${reason}`, "error");
+						return { kind: "refused", reason };
+					}
 				}
 				await running.close();
 				running = undefined;

@@ -2,7 +2,8 @@
  * `/review`: serve the working tree as a review page, and drive it.
  *
  * Bare `/review` serves the branch against its base; a scope word serves that
- * comparison instead, and is refused while the review holds comments. `status`
+ * comparison instead, and is refused while the page holds a draft or a mark — the same
+ * rule the page's own tabs apply, since sent comments survive a scope change. `status`
  * prints the address and what it holds, `stop` closes the page — the page's own
  * comments stay readable through the `code_review` tool either way.
  */
