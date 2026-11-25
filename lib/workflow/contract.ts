@@ -143,7 +143,24 @@ export interface Verification {
 	 * `false`, so a record states a checkout or says nothing.
 	 */
 	checkout?: true;
+	/**
+	 * What the repository's size gates answered before this run, when the sign got that far (#481).
+	 *
+	 * The gates belong to a repository — two suites under `test/`, run with `bun` — so a sign in a
+	 * repository without them records a skip rather than a silence: a reader cannot ask a card why
+	 * nothing ran, and the next person to meet a green sign should be able to tell "they held" from
+	 * "they were not there". Absent on signs written before this was recorded.
+	 */
+	sizeGates?: SizeGatesOutcome;
 }
+
+/**
+ * One answer for the repository's own gate: it ran and passed, or it was skipped and why.
+ *
+ * `skipped` names the files the rule looks for rather than a count, because a repository that moved
+ * them is telling the reader something a bare "none here" would hide.
+ */
+export type SizeGatesOutcome = { ran: true } | { skipped: string };
 
 /** What a card promises before it may be executed. */
 export interface Contract {
@@ -265,7 +282,8 @@ export function isSign(value: unknown): value is Sign {
  * The exit code is kept as it ran rather than required to be zero — a file may hold the run that
  * failed, and the gate is what refuses it — so this checks the shape and not the verdict. `checkout`
  * is the one shape with a value of its own: `true` is the fact and `false` is a spelling of the
- * absence, so a record says which tree it was or says nothing.
+ * absence, so a record says which tree it was or says nothing. `sizeGates` is absent on signs written
+ * before the gate recorded one, and one of its two shapes when it is there.
  */
 export function isVerification(value: unknown): value is Verification {
 	if (typeof value !== "object" || value === null) return false;
@@ -276,7 +294,21 @@ export function isVerification(value: unknown): value is Verification {
 	if (!optionalText(run.root)) return false;
 	if (!optionalText(run.branch)) return false;
 	if (run.checkout !== undefined && run.checkout !== true) return false;
+	if (run.sizeGates !== undefined && !isSizeGatesOutcome(run.sizeGates)) return false;
 	return optionalText(run.sha);
+}
+
+/**
+ * The gate's one record: `ran` is the fact and nothing else, `skipped` the reason as a whole line.
+ *
+ * Both at once is not a state a call can produce, so a hand-edited file saying both is refused with
+ * the rest of the record rather than read as whichever the reader happens to check first.
+ */
+function isSizeGatesOutcome(value: unknown): boolean {
+	if (typeof value !== "object" || value === null) return false;
+	const gates = value as Record<string, unknown>;
+	if (gates.ran !== undefined) return gates.ran === true && gates.skipped === undefined;
+	return typeof gates.skipped === "string" && gates.skipped !== "";
 }
 
 /** A string a record carries, or nothing: absent is fine, empty and non-text are not. */

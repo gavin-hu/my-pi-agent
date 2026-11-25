@@ -29,7 +29,7 @@ import { signingBoard } from "../../test/helpers/board-command.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { SIZE_GATES, type VerifyRun } from "../../lib/workflow/verify.ts";
+import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import { MAX_NOTE } from "../../lib/workflow/card.ts";
 
 const temps = makeTempTracker();
@@ -120,13 +120,15 @@ describe("a review that will be refused", () => {
 		expect(run.ran).toEqual([]);
 	});
 
-	test("still runs it once when the gate allows the sign", async () => {
+	test("runs the card's line once when the gate allows the sign", async () => {
 		const run = runner();
 		const who = board(run);
 		await reviewable(who);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		expect(reviewed.isError).toBeFalsy();
-		expect(run.ran).toEqual([SIZE_GATES, VERIFY]);
+		// This bench keeps no `test/`, so the repository's size gates are skipped (#481) and the one
+		// process this case counts is the card's own line — once, not once per gate.
+		expect(run.ran).toEqual([VERIFY]);
 	});
 });
 

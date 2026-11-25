@@ -24,7 +24,7 @@ import {
 } from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { runner } from "../../test/helpers/board-signs.ts";
-import { SIZE_GATES } from "../../lib/workflow/verify.ts";
+import { noSizeGatesSentence, SIZE_GATES, SIZE_GATE_FILES } from "../../lib/workflow/verify.ts";
 import type { Deliver } from "../../lib/session-tool.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 
@@ -53,6 +53,9 @@ function toldBy(answer: { ok: true } | { ok: false; error: string }) {
 
 /** The command a card's contract names in the cases about the lead's run. */
 const VERIFY = "bun run check";
+
+/** The skip these benches record: their temp roots keep no `test/` directory (#481). */
+const NO_SIZE_GATES = noSizeGatesSentence([...SIZE_GATE_FILES]);
 
 /** The four lines a case writes, and no more: the plan is what the call varies. */
 const LINES = { goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY };
@@ -90,12 +93,19 @@ describe("/board approve and /board review", () => {
 		await executableWith(board);
 		// The tree rides the line too: a lead signing from a worktree needs to see which tree ran.
 		const root = board.store.root();
+		// The tree keeps no `test/`, so the gate is skipped and the line says so (#481).
 		expect(await board.say("review 1")).toBe(
-			`board: #1 reviewed by team-lead · ran \`${VERIFY}\` in ${root} (exit 0)${NOT_TOLD}`,
+			`board: #1 reviewed by team-lead · ran \`${VERIFY}\` in ${root} (exit 0) · size gates: skipped (${NO_SIZE_GATES})${NOT_TOLD}`,
 		);
-		expect(run.ran).toEqual([SIZE_GATES, VERIFY]);
-		// The record is the run's, written by the lead's own door, and it names the tree.
-		expect((await board.store.read(board.id))?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: 1_000, root });
+		expect(run.ran).toEqual([VERIFY]);
+		// The record is the run's, written by the lead's own door, and it names the tree and the skip.
+		expect((await board.store.read(board.id))?.review?.verified).toEqual({
+			cmd: VERIFY,
+			exit: 0,
+			at: 1_000,
+			root,
+			sizeGates: { skipped: NO_SIZE_GATES },
+		});
 		board.temps.flush();
 	});
 
@@ -110,9 +120,10 @@ describe("/board approve and /board review", () => {
 		await executableWith(board);
 		const tree = join(board.cwd, "card-tree");
 		expect(await board.say(`review 1 --root ${tree}`)).toContain(`in ${tree}`);
-		// Both commands run in the tree `--root` names: the gates are proof of the same tree.
-		expect(seen).toEqual([tree, tree]);
-		expect((await board.store.read(board.id))?.review?.verified?.root).toBe(tree);
+		// The run is the tree `--root` names — and the gate is asked of that same tree, which keeps no
+		// `test/`, so it is skipped there rather than in whichever repository the reviewer stood in (#481).
+		expect(seen).toEqual([tree]);
+		expect((await board.store.read(board.id))?.review?.verified?.sizeGates).toEqual({ skipped: NO_SIZE_GATES });
 		board.temps.flush();
 	});
 

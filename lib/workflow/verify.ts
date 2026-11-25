@@ -15,14 +15,15 @@
  * buffer in a card file would grow with whatever the command decided to print.
  */
 
-import { dirname, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type ChildSink, type ChildSlot, createChildSupervisor } from "../child.ts";
 import { messageOf } from "../errors.ts";
 import { sanitizeLine } from "../format.ts";
 import { createExecRunner, currentBranch, gitCommonDir, headSha } from "../git/index.ts";
 import type { Card } from "./card.ts";
-import type { Verification } from "./contract.ts";
+import type { SizeGatesOutcome, Verification } from "./contract.ts";
 import type { Lead } from "./contract.ts";
 import { failedSpotCheck, killedSpotCheck, reviewGate } from "./lead.ts";
 import type { Actor } from "./rules.ts";
@@ -37,8 +38,46 @@ export const VERIFY_TIMEOUT_MS = 10 * 60_000;
  * module to 638 against a 600 bar, #853 a suite to 449 against a 400, and both were signed green
  * before `bun run check` went red. Running the two gates here is what makes a green sign mean the
  * repository's own bars held on that tree, whatever the card remembered to name.
+ *
+ * **The gates belong to a repository, so their files decide whether they run** (#481): the command is
+ * this repository's shape — `bun`, and two suites under `test/` — while a sign happens in whatever
+ * tree the reviewer names. A repository without them keeps no size gates, and `bun test` answers a
+ * filter that matches nothing with exit 1, which read as "red" refused every sign in every other
+ * repository. So the files are looked for first, and their absence is a skip that the sign records
+ * rather than a silence (#475: silence is the harder one to trace).
  */
 export const SIZE_GATES = "bun test test/module-sizes.test.ts test/suite-sizes.test.ts";
+
+/**
+ * The two files that make {@link SIZE_GATES} mean something: both here, the repository keeps them.
+ *
+ * A path rather than a probe of `bun` or of a script name: the command names these two files, so
+ * whether they exist is the same question as whether the command has anything to run.
+ */
+export const SIZE_GATE_FILES = ["test/module-sizes.test.ts", "test/suite-sizes.test.ts"] as const;
+
+/**
+ * Which of the size gates' files a tree lacks: none means the repository keeps them.
+ *
+ * The seam the suite drives, because the alternative's answer would depend on the checkout the tests
+ * happen to run in — a suite that only passes in this repository is the bug being fixed.
+ */
+export type MissingSizeGates = (cwd: string) => readonly string[];
+
+/** The files absent under `cwd`, read from the filesystem unless a caller says otherwise. */
+export function missingSizeGates(cwd: string, exists: (path: string) => boolean = existsSync): string[] {
+	return SIZE_GATE_FILES.filter((file) => !exists(join(cwd, file)));
+}
+
+/**
+ * The skip a sign records, in the one line a reader meets it: the files it looked for, by path.
+ *
+ * Named rather than counted — `no size gates here` would leave the next reader guessing which two
+ * files the gate wanted, and a repository that moved them would look identical to one that has none.
+ */
+export function noSizeGatesSentence(missing: readonly string[]): string {
+	return `no ${missing.join(" or ")} in this repo`;
+}
 
 /** Characters of output kept for a refusal: enough for a failing assertion, not the whole log. */
 export const MAX_VERIFY_OUTPUT = 400;
@@ -221,16 +260,25 @@ export async function verifySpotCheck(
 	run: VerifyRun,
 	now: () => number,
 	tree?: TreeReader,
+	missing: MissingSizeGates = missingSizeGates,
 ): Promise<{ verified: Verification } | { error: string } | undefined> {
 	const cmd = card?.contract?.verify;
 	if (card === undefined || cmd === undefined) return undefined;
 	// The gates first, and to their own outcome: two runs on one checkout collide over `.pi/cache` and
 	// the board store (#804), so the card's line does not start until this one has settled. No tree
 	// read for the gate: the facts belong to the run the sign records, and that is the card's line.
-	const gates = await verifiedCommand(SIZE_GATES, cwd, run, now);
-	if ("failure" in gates) return { error: sizeGatesSentence(gates.failure) };
+	//
+	// A repository that keeps no size gates is one this rule has nothing to say about (#481): the skip
+	// is read from the files and recorded on the sign, and it is never read from an exit code — a red
+	// gate in the repository that owns them must still refuse the sign.
+	const absent = missing(cwd);
+	const sizeGates: SizeGatesOutcome = absent.length > 0 ? { skipped: noSizeGatesSentence(absent) } : { ran: true };
+	if (absent.length === 0) {
+		const gates = await verifiedCommand(SIZE_GATES, cwd, run, now);
+		if ("failure" in gates) return { error: sizeGatesSentence(gates.failure) };
+	}
 	const answer = await verifiedCommand(cmd, cwd, run, now, tree);
-	if ("verified" in answer) return answer;
+	if ("verified" in answer) return { verified: { ...answer.verified, sizeGates } };
 	const tail = outputLine(answer.failure);
 	const sentence = answer.failure.killed
 		? killedSpotCheck(card, cmd, VERIFY_TIMEOUT_MS)
