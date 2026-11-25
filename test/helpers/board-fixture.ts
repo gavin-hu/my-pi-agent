@@ -1,6 +1,6 @@
 /**
- * The working board two page suites drive: two cards to do, one being worked, and seven
- * finished.
+ * The working board two page suites drive: two cards to do, one being worked, two waiting on the
+ * seat, and seven finished.
  *
  * Seven rather than six is what puts the Done lane past its fold, which is a lane's state the
  * reader has to click to see. The card being worked carries a plan, a contract, its approval, a
@@ -22,6 +22,18 @@ export const CORE: Actor = { id: "s-core", label: "billing-core" };
 /** The plan the card being worked is executed against, as the tool records it. */
 export const WORKING_PLAN =
 	"~/.pi/agent/plans/8872d3adda0e/2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md";
+
+/** The plan a planned card names, so the record has one wherever the page reads a plan path. */
+export const PLANNED_PLAN =
+	"~/.pi/agent/plans/8872d3adda0e/2026-10-27-0900-the-queue-lists-only-the-seats-own-moves.md";
+
+/**
+ * The session the fixture leaves a card in the hands of.
+ *
+ * A suite that declares this id gone reads the `gone` ask; the label is the one the page suites
+ * already declare that way, so one fixture answers both kinds the queue files.
+ */
+export const ORPHAN: Actor = { id: "s-gone", label: "ops-gone" };
 
 /** The board, seeded. */
 export async function seedWorkingBoard(store: BoardStore, now: number): Promise<void> {
@@ -72,6 +84,46 @@ export async function seedWorkingBoard(store: BoardStore, now: number): Promise<
 		CORE,
 		now - 118_000,
 	);
+	// The two asks the seat owns and nobody else can finish, so the queue is drawn from a board that
+	// holds one of each: a complete contract nobody has read, and a card left in a session the
+	// suites declare gone. Everything else this fixture seeds is somebody else's work, which is the
+	// point of the rule the queue follows.
+	const planned = await store.create(
+		{
+			title: "Round invoice totals at the boundary",
+			paths: ["src/billing/totals"],
+			// A kind and a breaking marker: the ask row wears the same label the card face does, and
+			// the fixture keeps one row that carries both and one that carries neither.
+			type: "feature",
+			breaking: true,
+		},
+		LEAD,
+		now - 90_000,
+	);
+	// A holder writes it, never the lead: the seat approves a contract it does not hold, which is
+	// the rule the sign enforces (`#4 is held by … A lead releases a card before signing it`).
+	await store.mutate(planned.id, { kind: "claim" }, CORE, now - 89_000);
+	await store.mutate(
+		planned.id,
+		{
+			kind: "contract",
+			artifact: { record: PLANNED_PLAN },
+			goal: "A total is rounded once",
+			acceptance: "A two-line invoice totals to the cent",
+			scopeOut: "No currency conversion",
+			// All four lines: a contract missing one is still being written, and the queue asks
+			// for its approval only once there is something to approve.
+			verify: "bun test extensions/board",
+		},
+		CORE,
+		now - 88_000,
+	);
+	const orphan = await store.create(
+		{ title: "Retry branches merge cleanly", paths: ["src/retry"] },
+		LEAD,
+		now - 80_000,
+	);
+	await store.mutate(orphan.id, { kind: "claim" }, ORPHAN, now - 79_000);
 	for (let index = 1; index <= 7; index++) {
 		const card = await store.create(
 			{ title: `Shipped change ${index}`, paths: ["src/old"] },

@@ -117,7 +117,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/chrome",
 		"view/team",
 		"view/team-mail",
-		"view/queue-bands",
+		"view/queue",
 		"view/queue-row-facts",
 	],
 	context: ["report", "view/context-report", "extension"],

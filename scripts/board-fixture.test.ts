@@ -41,29 +41,34 @@ describe("the board fixture's seed", () => {
 			const cards = await createStore(board, {}).list();
 			// Lane order, then id: the page's trays, read as data.
 			expect(cards.map((card) => [card.id, card.lane])).toEqual([
-				["6", "backlog"],
-				["7", "backlog"],
+				["8", "backlog"],
+				["9", "backlog"],
 				["3", "plan"],
+				["6", "plan"],
 				["2", "execute"],
 				["1", "execute"],
+				["7", "execute"],
 				["4", "blocked"],
 				["5", "done"],
 			]);
+			// The holder of the ledger card has no live session, which is the `owner gone` ask.
 			expect(cards.map((card) => card.owner?.label)).toEqual([
 				undefined,
 				undefined,
+				"billing-core",
+				"ops-relay",
 				"billing-core",
 				"billing-core",
 				"billing-core",
 				"billing-core",
 				"billing-other",
 			]);
-			// Four plans, each written where its record says and nowhere else.
-			expect(seeded.plans.length).toBe(4);
+			// Six plans, each written where its record says and nowhere else.
+			expect(seeded.plans.length).toBe(6);
 			for (const file of seeded.plans) expect(isInside(plans, file), file).toBe(true);
 			const recorded = cards.flatMap((card) => (card.planPath === undefined ? [] : [card.planPath]));
-			expect(recorded.length).toBe(4);
-			expect(new Set(recorded).size, "two cards share a plan").toBe(4);
+			expect(recorded.length).toBe(6);
+			expect(new Set(recorded).size, "two cards share a plan").toBe(6);
 			for (const path of recorded) expect(isInside(plans, resolvePlanArg(plans, path)), path).toBe(true);
 			// The sign one card's owner never heard, and no other: the face draws ` · not told` off it.
 			expect(cards.filter((card) => formatCard(card).includes("not told")).map((card) => card.id)).toEqual(["1"]);

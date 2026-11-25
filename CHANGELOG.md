@@ -62,6 +62,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`, `team`: the Team tab's middle column files only what the seat itself can finish — a contract to
+  approve, a notice that never landed, a card whose owner is gone, and a card nobody has written to while its
+  holder is idle — so its count no longer totals other people's work, and every open card is drawn once: the
+  bands, their head rows and the printed rank numbers are gone. `backlog` joins the column as the fourth
+  swimlane, its cards drawn while the pool is small and one line and a door past twelve, which is also what
+  lets the tab's filter find a pool card. The terminal's rollup keeps `unassigned` / `unplanned` / `unwritten`,
+  because it answers what the board holds rather than what the seat owes.
+
 - `team`: `/team` closes with a count and a door, `2 of 4 sessions live — /team who lists them`, and its `… N more`
   names the surface that draws the rest. The presence sentence is gone: it rendered the one `whoIsHere` grouping a
   second time, naming a session under its state and again under `not listening`, and wrapped into a wall on a narrow

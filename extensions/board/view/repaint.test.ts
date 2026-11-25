@@ -2,14 +2,11 @@
  * What a frame repaints: a card whose own record did not move, but whose face prints a fact
  * about another card.
  *
- * A link is stored on the waiting card alone, so the two sentences a face derives from the
- * rest of the board — what the card waits for, and what it holds up — belong to the board
- * rather than to that card's file. Each case here writes to a card in another lane than the
- * face it moves, so the lane being watched holds no card that moved and only the derived
- * facts can tell it that the frame is news.
+ * A link is stored on the waiting card alone, so the sentences a face derives from the rest of
+ * the board belong to the board rather than to that card's file: each case writes to a card in
+ * another lane, so only the derived facts can tell the watched lane the frame is news.
  *
- * It needs a browser. Where the machine has none the suite skips, naming `PI_CHROME`, so
- * `bun run check` stays green on a runner without Chrome and still says why nothing ran.
+ * It needs a browser: where the machine has none the suite skips, naming `PI_CHROME`.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -18,7 +15,7 @@ import type { Actor } from "../../../lib/workflow/rules.ts";
 import type { BoardStore } from "../../../lib/workflow/store.ts";
 import { type Doc, type ElementLike, focusedId, hidden } from "../../../test/helpers/board-dom.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
-import { advance } from "../../../test/helpers/board-flow.ts";
+import { TEST_CONTRACT, advance } from "../../../test/helpers/board-flow.ts";
 import {
 	BOARD_CHROME as CHROME,
 	BOARD_PAINT_MS as PAINT_MS,
@@ -62,36 +59,41 @@ async function seedBoard(store: BoardStore, now: number): Promise<void> {
 	await advance(store, blocker.id, "execute", { owner: CORE }, now + 2_000);
 	await store.create({ title: "Invoice totals round the wrong way", paths: [] }, LEAD, now + 3_000);
 	// The link a session writes: one id on the waiting card, so the blocker's file is untouched.
-	await store.mutate(
-		"1",
-		{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: [blocker.id] },
-		LEAD,
-		now + 4_000,
-	);
-	// And one card offered to a team that never took it: its reason line is the one sentence on the
-	// page with an age inside it, which is what the ticker has to keep honest.
+	const link = {
+		kind: "edit" as const,
+		title: undefined,
+		paths: undefined,
+		priority: undefined,
+		dependsOn: [blocker.id],
+	};
+	await store.mutate("1", link, LEAD, now + 4_000);
+	// And one offered to a team that never took it: the page's one aged sentence.
 	const offered = await store.create({ title: "Refunds land in the wrong currency", paths: [] }, LEAD, now + 5_000);
 	await store.mutate(offered.id, { kind: "offer" }, LEAD, now + 6_000);
+	// The seat's own ask: a complete contract nobody has read.
+	const planned = await store.create({ title: "Round totals at the boundary", paths: [] }, CORE, now + 7_000);
+	await store.mutate(planned.id, { kind: "claim" }, CORE, now + 8_000);
+	const record = { record: "repaint.md" };
+	await store.mutate(planned.id, { kind: "contract", artifact: record, ...TEST_CONTRACT }, CORE, now + 9_000);
 }
 
 /** The ids wearing the change mark, in the order the page draws them. */
 async function changed(page: Page): Promise<string[]> {
-	return page.$$eval("[data-changed]", (nodes) =>
+	return page.$$eval("#board-lanes [data-changed]", (nodes) =>
 		Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("data-card") ?? ""),
 	);
 }
 
 /**
- * Wait until exactly these cards wear the mark.
- *
- * The window is one and a half seconds against a per-frame poll, so the wait is on the
- * attribute rather than on a sleep: a mark that never arrived and a mark already cleared
- * are the same picture by the time a fixed wait is over.
+ * Wait until exactly these cards wear the mark — on the attribute, never on a sleep: a mark that
+ * never arrived and a mark already cleared are one picture by the time a fixed wait is over.
  */
 async function marks(page: Page, ids: readonly string[]): Promise<void> {
 	await page.waitForFunction(
 		(expected) => {
-			const nodes = (globalThis as unknown as { document: Doc }).document.querySelectorAll("[data-changed]");
+			const nodes = (globalThis as unknown as { document: Doc }).document.querySelectorAll(
+				"#board-lanes [data-changed]",
+			);
 			return (
 				nodes.length === expected.length &&
 				Array.from(nodes).every((node, at) => node.getAttribute("data-card") === expected[at])
@@ -116,8 +118,7 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		// The other half of a link is the reason line's, after a middot: one row for one edge.
 		const holds = () => page.textContent('#lane-execute .board-row[data-card="2"] .bf-row__reason');
 		await expect(holds()).resolves.toContain("holds up #1 (backlog) Export orders as CSV");
-		// A third card is linked to the executing one. That is a write to a card in another
-		// lane, and the blocker's own record keeps the revision it had.
+		// A third card is linked to the executing one: a write to another lane, the blocker unmoved.
 		await board.store.mutate(
 			"3",
 			{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: ["2"] },
@@ -223,8 +224,8 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		// A card that has just arrived is news in the same way, and the one that moved before it
 		// keeps the revision it had — so the mark is the card the frame is about, not the pile.
 		await board.store.create({ title: "Settle refunds nightly", paths: [] }, LEAD, clock.now() + 11_000);
-		await marks(page, ["5"]);
-		// The window is a breath, not a state: the board goes quiet and the mark leaves with it.
+		await marks(page, ["6"]);
+		// The window is a breath, not a state: the board goes quiet and the mark leaves.
 		await marks(page, []);
 	});
 
@@ -364,12 +365,12 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
 		// The queue is built from the rollup, and the rollup on the wire is a list of card ids: a row
 		// can only be drawn if `paintFrame` expanded those names against the lanes the same frame
-		// carries. #1 is unassigned and waits on the executing card, so its title is what proves the
+		// carries. The seed's one ask is a contract nobody has read, so its title is what proves the
 		// card itself arrived rather than a name nothing resolved.
 		const drawn = await page.$$eval("#board-team .board-queue__row", (nodes) =>
 			Array.from(nodes as ArrayLike<ElementLike>, (node) => (node.textContent ?? "").trim()),
 		);
-		expect(drawn.some((text) => text.includes("Export orders as CSV"))).toBe(true);
+		expect(drawn.some((text) => text.includes("Round totals at the boundary"))).toBe(true);
 	});
 
 	test("writes the repository into the label's isolate, never over it", async () => {

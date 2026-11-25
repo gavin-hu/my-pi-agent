@@ -49,8 +49,8 @@ describe.skipIf(CHROME === undefined)("the card dialog's reviewed row", () => {
 	test("says which tree the spot-check's run was taken in, and the branch and commit there", async () => {
 		const page = await openPage();
 		await page.click("#lane-head-done");
-		await page.waitForSelector('#lane-done .bf-row[data-card="4"]', { timeout: PAINT_MS });
-		await page.click('#lane-done .bf-row[data-card="4"] .bf-row__title');
+		await page.waitForSelector('#lane-done .bf-row[data-card="6"]', { timeout: PAINT_MS });
+		await page.click('#lane-done .bf-row[data-card="6"] .bf-row__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		// The record names the tree, and the clause says `the checkout` rather than the path every
 		// reader of this repository already knows — the word for where the work lands, which a path
@@ -63,8 +63,8 @@ describe.skipIf(CHROME === undefined)("the card dialog's reviewed row", () => {
 	test("names the merge the close recorded, and draws the run whole", async () => {
 		const page = await openPage();
 		await page.click("#lane-head-done");
-		await page.waitForSelector('#lane-done .bf-row[data-card="4"]', { timeout: PAINT_MS });
-		await page.click('#lane-done .bf-row[data-card="4"] .bf-row__title');
+		await page.waitForSelector('#lane-done .bf-row[data-card="6"]', { timeout: PAINT_MS });
+		await page.click('#lane-done .bf-row[data-card="6"] .bf-row__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 
 		// The two rows name different commits on purpose, and this case holds both so neither can be

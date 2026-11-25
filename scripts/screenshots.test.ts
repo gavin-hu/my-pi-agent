@@ -443,8 +443,8 @@ describe("board fixture plan paths", () => {
 	test("every plan a fixture records is one the shipped contract accepts", () => {
 		const dir = storeDir();
 		const plans = recorded(dir);
-		// The four cards that leave the pool: a shape proved on nothing would pass as readily.
-		expect(plans.length).toBe(4);
+		// The six cards that leave the pool: a shape proved on nothing would pass as readily.
+		expect(plans.length).toBe(6);
 		for (const spelled of plans) {
 			// One file directly in the store: `plan` action `write` makes no subdirectory of it.
 			const name = spelled.slice(spelled.lastIndexOf("/") + 1);

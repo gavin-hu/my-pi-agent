@@ -63,8 +63,8 @@ describe.skipIf(CHROME === undefined)("the card dialog's values", () => {
 	test("stamps both record rows one way", async () => {
 		const page = await openPage();
 		await page.click("#lane-head-done");
-		await page.waitForSelector('#lane-done .bf-row[data-card="4"]', { timeout: PAINT_MS });
-		await page.click('#lane-done .bf-row[data-card="4"] .bf-row__title');
+		await page.waitForSelector('#lane-done .bf-row[data-card="6"]', { timeout: PAINT_MS });
+		await page.click('#lane-done .bf-row[data-card="6"] .bf-row__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 
 		// Both record rows are stamps of one moment, so both lead with the age: `3d by jack` and

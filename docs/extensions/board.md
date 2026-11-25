@@ -53,7 +53,7 @@ is closed. Each move follows the one transition from where the card is; no lane 
 
 **The page.** A lane's width follows its work; five sit side by side (one below 1180px, via the picker) and a
 lane of 24 folds. The pane is the one scroll box: a lane is as tall as the board, its head riding its edge. The
-Team tab raises what needs a lead: a band shows five rows, folds the rest, pins its head, and lets each row say why.
+Team tab raises what needs the seat: one list of the moves only it can finish — sign a contract nobody read, send a notice that never landed, free a card whose owner is gone, chase one nobody has written to — each a two-line row that says its own reason, folded at five. Under it, `The board · N open` counts the four lanes it draws: `blocked`, `execute`, `plan`, and `backlog`, whose cards appear while the pool is small and become one line and a door past twelve. The terminal's rollup keeps its own counts (`9 unassigned · 5 unplanned`), because it answers what the board holds rather than what the seat owes.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`, `approve`,
 `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while a lane is full; `assign` is `team`'s verb under that
