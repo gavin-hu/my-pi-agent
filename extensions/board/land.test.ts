@@ -9,74 +9,20 @@
 
 import { describe, expect, test } from "bun:test";
 import { boardCard } from "../../test/helpers/fixtures/board.ts";
+import {
+	Answer,
+	BASE,
+	BRANCH,
+	CARD,
+	cleanLanding,
+	fakeGit,
+	landingWith,
+	MERGE,
+	REVIEWED,
+} from "../../test/helpers/land-git.ts";
 import { landCardDoor } from "./land-action.ts";
 import type { Card } from "../../lib/workflow/card.ts";
-import { type LandRow, landCard, landScope, landSubject, parseNumstat } from "../../lib/workflow/land.ts";
-import type { RunGit } from "../../lib/git/runner.ts";
-
-const BASE = "1111111111111111111111111111111111111111";
-const BRANCH = "2222222222222222222222222222222222222222";
-const REVIEWED = "3333333333333333333333333333333333333333";
-const MERGE = "4444444444444444444444444444444444444444";
-
-/** One scripted answer; an array is consumed in call order for a command asked twice. */
-interface Answer {
-	code?: number;
-	stdout?: string;
-	stderr?: string;
-}
-
-/** A git seam that answers from a script, recording every argv it was handed. */
-function fakeGit(script: Record<string, Answer | Answer[]>) {
-	const calls: string[][] = [];
-	const queues = new Map<string, Answer[]>();
-	for (const [key, value] of Object.entries(script)) queues.set(key, Array.isArray(value) ? [...value] : [value]);
-	const run: RunGit = async (args) => {
-		calls.push(args);
-		const key = args.slice(0, 2).join(" ");
-		const queue = queues.get(key) ?? queues.get(args[0] ?? "");
-		const answer = queue?.length === 1 ? queue[0] : queue?.shift();
-		if (answer === undefined) return { stdout: "", stderr: `no answer for "${key}"`, code: 128 };
-		return { stdout: answer.stdout ?? "", stderr: answer.stderr ?? "", code: answer.code ?? 0 };
-	};
-	return { run, calls, argv: (verb: string) => calls.filter((args) => args[0] === verb) };
-}
-
-/** The script a clean landing hears: everything succeeds, and `main` is on the remote's tip. */
-function cleanLanding(overrides: Record<string, Answer | Answer[]> = {}) {
-	return {
-		fetch: { stdout: "" },
-		"rev-parse --abbrev-ref": { stdout: "main\n" },
-		status: { stdout: "" },
-		"rev-parse HEAD": [{ stdout: `${BASE}\n` }, { stdout: `${MERGE}\n` }],
-		"rev-parse origin/main": { stdout: `${BASE}\n` },
-		"rev-parse worktree-one": { stdout: `${REVIEWED}\n` },
-		"merge-base --is-ancestor": { stdout: "" },
-		merge: { stdout: "" },
-		"diff --numstat": { stdout: "5\t0\tCHANGELOG.md\n59\t0\textensions/board/lead-gate.test.ts\n" },
-		push: { stdout: "" },
-		...overrides,
-	};
-}
-
-const CARD = boardCard("856", {
-	title: "board: land is a reviewed card's verb, not a mode exit",
-	paths: ["extensions/board/actions.ts", "lib/workflow/land.ts"],
-});
-
-/** What a landing is handed: the card, the checkout, and the review's own evidence. */
-function land(script: Record<string, Answer | Answer[]>) {
-	const git = fakeGit(script);
-	return {
-		git,
-		answer: landCard({
-			card: CARD,
-			cwd: "/checkout",
-			reviewed: { sha: REVIEWED, branch: "worktree-one" },
-			run: git.run,
-		}),
-	};
-}
+import { type LandRow, landScope, landSubject, parseNumstat } from "../../lib/workflow/land.ts";
 
 describe("landSubject", () => {
 	test("derives the scope from the extension the paths share, and strips a title's own prefix", () => {
@@ -140,7 +86,7 @@ describe("landSubject", () => {
 
 describe("landCard — the order and the argv", () => {
 	test("lands a reviewed card: fetch, equality, ancestry, merge, proof, named-ref push", async () => {
-		const { git, answer } = land(cleanLanding());
+		const { git, answer } = landingWith(cleanLanding());
 		const result = await answer;
 		if ("error" in result) throw new Error(result.error);
 		expect(result.merge).toBe(MERGE);
@@ -177,7 +123,9 @@ describe("landCard — the order and the argv", () => {
 
 describe("landCard — every refusal, and what it leaves behind", () => {
 	test("refuses a fetch it could not make, before anything is read", async () => {
-		const { git, answer } = land(cleanLanding({ fetch: { code: 128, stderr: "Permission denied (publickey)" } }));
+		const { git, answer } = landingWith(
+			cleanLanding({ fetch: { code: 128, stderr: "Permission denied (publickey)" } }),
+		);
 		expect(await answer).toEqual({
 			error: "could not fetch origin (Permission denied (publickey)) — `/board stop` and land by hand.",
 		});
@@ -185,24 +133,24 @@ describe("landCard — every refusal, and what it leaves behind", () => {
 	});
 
 	test("refuses a checkout that is not on the branch", async () => {
-		const { answer } = land(cleanLanding({ "rev-parse --abbrev-ref": { stdout: "worktree-one\n" } }));
+		const { answer } = landingWith(cleanLanding({ "rev-parse --abbrev-ref": { stdout: "worktree-one\n" } }));
 		expect(await answer).toMatchObject({
 			error: expect.stringContaining("this checkout is on `worktree-one`, not `main`"),
 		});
 	});
 
 	test("refuses a dirty tree", async () => {
-		const { answer } = land(cleanLanding({ status: { stdout: " M lib/workflow/lead.ts\n" } }));
+		const { answer } = landingWith(cleanLanding({ status: { stdout: " M lib/workflow/lead.ts\n" } }));
 		expect(await answer).toMatchObject({ error: expect.stringContaining("uncommitted changes") });
 	});
 
 	test("refuses when main is not the remote's tip", async () => {
-		const { answer } = land(cleanLanding({ "rev-parse origin/main": { stdout: `${REVIEWED}\n` } }));
+		const { answer } = landingWith(cleanLanding({ "rev-parse origin/main": { stdout: `${REVIEWED}\n` } }));
 		expect(await answer).toMatchObject({ error: expect.stringContaining("reconcile it first") });
 	});
 
 	test("refuses a branch that moved past the sign, before any merge", async () => {
-		const { git, answer } = land(cleanLanding({ "rev-parse worktree-one": { stdout: `${BRANCH}\n` } }));
+		const { git, answer } = landingWith(cleanLanding({ "rev-parse worktree-one": { stdout: `${BRANCH}\n` } }));
 		expect(await answer).toMatchObject({
 			error: expect.stringContaining("the branch moved past the sign — review it again"),
 		});
@@ -211,14 +159,16 @@ describe("landCard — every refusal, and what it leaves behind", () => {
 	});
 
 	test("aborts a conflicting merge and says the branch is untouched", async () => {
-		const { git, answer } = land(cleanLanding({ merge: { code: 1, stdout: "CONFLICT (content): CHANGELOG.md" } }));
+		const { git, answer } = landingWith(
+			cleanLanding({ merge: { code: 1, stdout: "CONFLICT (content): CHANGELOG.md" } }),
+		);
 		expect(await answer).toMatchObject({ error: expect.stringContaining("the branch is untouched") });
 		expect(git.calls).toContainEqual(["merge", "--abort"]);
 		expect(git.argv("reset")).toEqual([]);
 	});
 
 	test("undoes a merge whose sha it cannot read, and never with --hard", async () => {
-		const { git, answer } = land(
+		const { git, answer } = landingWith(
 			cleanLanding({ "rev-parse HEAD": [{ stdout: `${BASE}\n` }, { code: 128, stderr: "bad revision" }] }),
 		);
 		expect(await answer).toMatchObject({ error: expect.stringContaining("the merge was undone") });
@@ -227,22 +177,13 @@ describe("landCard — every refusal, and what it leaves behind", () => {
 	});
 
 	test("undoes a merge that does not carry the signed tree", async () => {
-		const { git, answer } = land(cleanLanding({ "merge-base --is-ancestor": { code: 1 } }));
+		const { git, answer } = landingWith(cleanLanding({ "merge-base --is-ancestor": { code: 1 } }));
 		expect(await answer).toMatchObject({ error: expect.stringContaining("does not carry the signed tree") });
 		expect(git.argv("reset").at(0)).toEqual(["reset", "--keep", BASE]);
 	});
 
-	test("undoes a landing that deletes lines in an append-hotspot", async () => {
-		const { git, answer } = land(
-			cleanLanding({ "diff --numstat": { stdout: "5\t2\tCHANGELOG.md\n59\t0\tlead-gate.test.ts\n" } }),
-		);
-		expect(await answer).toMatchObject({ error: expect.stringContaining("deletes lines in CHANGELOG.md") });
-		expect(git.argv("reset").at(0)).toEqual(["reset", "--keep", BASE]);
-		expect(git.argv("push")).toEqual([]);
-	});
-
 	test("undoes the merge when the push is refused, and says the remote moved", async () => {
-		const { git, answer } = land(
+		const { git, answer } = landingWith(
 			cleanLanding({ push: { code: 1, stderr: "! [rejected] main -> main (fetch first)" } }),
 		);
 		expect(await answer).toMatchObject({ error: expect.stringContaining("the remote moved") });

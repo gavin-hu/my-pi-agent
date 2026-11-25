@@ -200,6 +200,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `land` carries a card that deletes a suite again. The proof refused any line removed from
+  `test/suite-manifest.ts`, and removing a suite requires removing its declaration, so a card that deletes one
+  could never land. A suite the merge no longer has may leave the manifest, while one it still carries is refused
+  — naming the stem and the file it found — because that is a rewrite; `CHANGELOG.md` stays absolute, since a
+  bullet has no legitimate deletion.
+
 - `web-access`: `web_fetch`'s schema states the two header caps narrow enough to be constants — 20 headers, 4 096
   characters each — so Pi refuses an over-long call before `execute` rather than the tool doing it after a round trip,
   and the body's published ceiling is the constant the clamp reads. The enforced body cap stays a project's
