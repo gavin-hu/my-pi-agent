@@ -36,11 +36,11 @@ import {
 	TAB_TITLE_JS,
 	THEME_TOGGLE_JS,
 } from "../../../lib/web/index.ts";
-import { HISTORY_LINE_JS, HISTORY_OWNER_JS, PLURAL_JS, RAN_CLAUSE_JS } from "../../../lib/workflow/round-text.ts";
+import { HISTORY_LINE_JS, HISTORY_OWNER_JS, RAN_CLAUSE_JS } from "../../../lib/workflow/round-text.ts";
 import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
 import { unreadableText } from "../../../lib/session-mail.ts";
 import { skippedText } from "../../../lib/workflow/skipped.ts";
-import { AGE_WORDS_JS, FORMAT_AGE_JS, pageSource, SHORTEN_PATH_JS } from "../../../lib/format.ts";
+import { AGE_WORDS_JS, FORMAT_AGE_JS, pageSource, PLURAL_JS, SHORTEN_PATH_JS } from "../../../lib/format.ts";
 import { BOARD_CARD_JS } from "./card.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { BOARD_EMPTY_JS } from "./empty.ts";

@@ -24,6 +24,7 @@ import {
 	pageSource,
 	pathRef,
 	PATH_REF_JS,
+	PLURAL_JS,
 	plural,
 	sanitize,
 	sanitizeLine,
@@ -143,6 +144,23 @@ describe("formatAge", () => {
 		expect(AGE_WORDS_JS).toBe(String(ageWords));
 		const browserWords = new Function(`return (${AGE_WORDS_JS});`)() as (age: string) => string;
 		for (const age of ["now", "1m", "2h", "1d"]) expect(browserWords(age)).toBe(ageWords(age));
+	});
+});
+
+describe("PLURAL_JS", () => {
+	test("is the same body, safe to splice into a script", () => {
+		expect(PLURAL_JS).toBe(String(plural));
+	});
+
+	test("answers what the module answers", () => {
+		const browserPlural = new Function(`return (${PLURAL_JS});`)() as (count: number, noun: string) => string;
+		for (const [count, noun] of [
+			[0, "note"],
+			[1, "card"],
+			[2, "cards"],
+		] as const) {
+			expect(browserPlural(count, noun)).toBe(plural(count, noun));
+		}
 	});
 });
 

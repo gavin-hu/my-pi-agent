@@ -20,7 +20,7 @@
  * reason: it is the first thing that reads what the fragments declare.
  */
 
-import { PATH_REF_JS } from "../../../lib/format.ts";
+import { PATH_REF_JS, PLURAL_JS } from "../../../lib/format.ts";
 import {
 	CLIENT_BASE_JS,
 	CLIENT_RUNTIME_JS,
@@ -28,7 +28,6 @@ import {
 	keysDialogScript,
 	THEME_TOGGLE_JS,
 } from "../../../lib/web/index.ts";
-import { PLURAL_JS } from "../../../lib/workflow/round-text.ts";
 import { REVIEW_COMMENTS_JS } from "./client-comments.ts";
 import { REVIEW_DRAFTS_JS } from "./client-drafts.ts";
 import { REVIEW_KEYS_JS } from "./client-keys.ts";

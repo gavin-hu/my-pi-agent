@@ -485,8 +485,8 @@ That rollup as the lines a reader gets, because `board`'s tool returns them — 
 decision is taken from the counts and the ids — and `team`'s `/team` prints them, because a
 lead in a terminal should not have to open a browser. `formatRound` folds the owners a bus has
 no record of and that hold nothing into one line, given the roster, and counts the closes made
-by instruction on the done count. `teamPhrase` is the clause both doors print for a team state, so `listening` is one name rather than a board word and a round word for the same watch. `plural` and the fold's own bodies (`isHistoryOwner`,
-`historyLine`) are spliced into the page as `PLURAL_JS` / `HISTORY_OWNER_JS` / `HISTORY_LINE_JS`;
+by instruction on the done count. `teamPhrase` is the clause both doors print for a team state, so `listening` is one name rather than a board word and a round word for the same watch. The fold's own bodies (`isHistoryOwner`,
+`historyLine`) are spliced into the page as `HISTORY_OWNER_JS` / `HISTORY_LINE_JS`, and `plural`'s crossing lives with its body in `lib/format.ts`;
 the page's filter rule and the card face's reason arrive the same way.
 
 `LEAD_ROUND` is the round's one line rather than its contents: `/team`'s command description and

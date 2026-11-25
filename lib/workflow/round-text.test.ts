@@ -20,14 +20,13 @@ import {
 	holdingOf,
 	isHistoryOwner,
 	liveLabelOf,
-	PLURAL_JS,
 	RAN_CLAUSE_JS,
 	ranClause,
 	type RosterLabel,
 	withLiveOwner,
 } from "./round-text.ts";
 import { buildView } from "./view.ts";
-import { plural } from "../format.ts";
+import { PLURAL_JS, plural } from "../format.ts";
 import { sameLabel, SAME_LABEL_JS } from "../session-label.ts";
 
 const NOW = 1_760_000_000_000;
@@ -177,23 +176,6 @@ describe("the owners who are only history", () => {
 		expect(isHistoryOwner("Billing-Old", 0, bus("billing-old"))).toBe(false);
 		expect(isHistoryOwner("billing-core", 1, bus())).toBe(false);
 		expect(isHistoryOwner("billing-old", 0, undefined)).toBe(false);
-	});
-});
-
-describe("PLURAL_JS", () => {
-	test("is the same body, safe to splice into a script", () => {
-		expect(PLURAL_JS).toBe(String(plural));
-	});
-
-	test("answers what the module answers", () => {
-		const browserPlural = new Function(`return (${PLURAL_JS});`)() as (count: number, noun: string) => string;
-		for (const [count, noun] of [
-			[0, "note"],
-			[1, "card"],
-			[2, "cards"],
-		] as const) {
-			expect(browserPlural(count, noun)).toBe(plural(count, noun));
-		}
 	});
 });
 
