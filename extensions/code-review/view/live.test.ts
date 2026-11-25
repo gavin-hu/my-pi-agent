@@ -22,11 +22,22 @@ import {
 	pushFrame,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
+	type ReviewDom,
 	type ReviewPageFixture,
 	startComment,
 } from "../../../test/helpers/review-browser.ts";
 
 const gated = REVIEW_CHROME === undefined ? describe.skip : describe;
+
+/**
+ * Press comment on the added line and stop: whether a box opens is the page's answer, and the
+ * case's subject. `startComment` goes on to type, which is the outcome this change exists to
+ * prevent on a stale page.
+ */
+const pressComment = async (page: Page): Promise<void> => {
+	await page.locator(".bf-diff-line--add .browse-diff-no").filter({ hasText: /^\d+$/ }).first().click();
+	await page.locator("#rv-sel-comment").click();
+};
 
 /** The comment the frame carries: the page has never seen it, because only the frame has it. */
 const FROM_ANOTHER_TAB = {
@@ -90,6 +101,52 @@ gated("the review page's live frames", () => {
 				// assertion above would pass without this line.
 				expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 1");
 				expect(await page.locator(".rv-compose").count()).toBe(0);
+			});
+		},
+		CASE_MS,
+	);
+
+	test(
+		"a press on a page the tree moved under opens no composer, and the chip is the way out",
+		async () => {
+			await withLivePage(async (page, fixture) => {
+				// The reader moved: a commit landed while this tab was rendering the earlier diff.
+				fixture.move();
+				await pressComment(page);
+				await page.waitForFunction(
+					() => (globalThis as unknown as ReviewDom).document.getElementById("reload-hint")?.hidden === false,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				// The point of the press asking first: nothing was typed, so nothing is lost.
+				expect(await page.locator(".rv-compose").count()).toBe(0);
+				expect(await page.locator("#rv-toast").textContent()).toContain("the diff moved");
+			});
+		},
+		CASE_MS,
+	);
+
+	test(
+		"a press on a page that still draws the line opens the box",
+		async () => {
+			await withLivePage(async (page) => {
+				await pressComment(page);
+				await page.waitForSelector(".rv-compose__area", { timeout: REVIEW_PAINT_MS });
+				expect(await page.locator("#reload-hint").isHidden()).toBe(true);
+			});
+		},
+		CASE_MS,
+	);
+
+	test(
+		"a check that cannot run still opens the box, and the write stays the guarantee",
+		async () => {
+			await withLivePage(async (page, fixture) => {
+				// The session's page is gone, so the check is answered NO_PAGE: a courtesy that cannot
+				// run must not be a gate, or a closed page would look like a moved tree and refuse typing.
+				fixture.closePage();
+				await pressComment(page);
+				await page.waitForSelector(".rv-compose__area", { timeout: REVIEW_PAINT_MS });
 			});
 		},
 		CASE_MS,

@@ -7,6 +7,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { NO_PAGE } from "../review/store.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
 import {
 	openedPage,
@@ -174,6 +175,41 @@ describe("the page's GETs", () => {
 		expect(script.body).toContain("pageBase");
 		const theme = await reply(harnessed.handler, request("GET", "/theme.js"));
 		expect(theme.status).toBe(200);
+	});
+});
+
+describe("the page's revision", () => {
+	test("answers the fingerprint a tab compares, and it moves when the tree does", async () => {
+		const harnessed = harness();
+		const token = await openedPage(harnessed);
+		const first = await reply(harnessed.handler, request("GET", `/rev?token=${token}`));
+		expect(first.status).toBe(200);
+		expect(JSON.parse(String(first.body))).toEqual({ rev: "rev-1" });
+		// The tree a commit moved: the same route, one value later, and nothing else to read.
+		harnessed.state.rev = "rev-2";
+		const moved = await reply(harnessed.handler, request("GET", `/rev?token=${token}`));
+		expect(JSON.parse(String(moved.body))).toEqual({ rev: "rev-2" });
+	});
+
+	test("refuses a caller without the page, or without its token", async () => {
+		const none = harness({ scope: undefined });
+		const noPage = await reply(none.handler, request("GET", "/rev?token=tok-1"));
+		expect(noPage.status).toBe(403);
+		expect(JSON.parse(String(noPage.body)).error).toBe(NO_PAGE);
+		const harnessed = harness();
+		await openedPage(harnessed);
+		const missing = await reply(harnessed.handler, request("GET", "/rev"));
+		expect(missing.status).toBe(403);
+		const wrong = await reply(harnessed.handler, request("GET", "/rev?token=not-the-token"));
+		expect(wrong.status).toBe(403);
+		expect(JSON.parse(String(wrong.body)).error).toBe("Invalid or missing token.");
+	});
+
+	test("is a read: a POST on it is refused, and it does not open a page", async () => {
+		const harnessed = harness({ scope: undefined });
+		const posted = await reply(harnessed.handler, request("POST", "/rev", {}));
+		expect(posted.status).toBe(405);
+		expect(harnessed.store.current()).toBeUndefined();
 	});
 });
 

@@ -102,6 +102,15 @@ gated("the review page's threads", () => {
 				expect(await page.locator(".rv-compose__head").textContent()).toContain("comment on a.ts:3");
 
 				await page.locator(".rv-thread").first().locator("button", { hasText: "reply" }).click();
+				// A press asks the session about the tree first (#877), so the head changes one round trip later.
+				await page.waitForFunction(
+					() =>
+						(globalThis as unknown as ReviewDom).document
+							.querySelector(".rv-compose__head")
+							?.textContent?.startsWith("reply on") === true,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
 				expect(await page.locator(".rv-compose__head").textContent()).toContain("reply on a.ts:3");
 				await page.locator(".rv-compose__acts .bf-btn--primary").click();
 				await page.waitForFunction(

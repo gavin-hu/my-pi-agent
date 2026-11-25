@@ -58,6 +58,9 @@ gated("the review page's comment faces", () => {
 	async function openComposer(page: Page): Promise<void> {
 		await page.locator(".bf-diff-line--add .browse-diff-no").filter({ hasText: /^\d+$/ }).first().click();
 		await page.locator("#rv-sel-comment").click();
+		// The press asks the session whether the tree moved before the box opens (#877), so the box is
+		// a round trip away rather than the same tick.
+		await page.waitForSelector(".rv-compose__area", { timeout: REVIEW_PAINT_MS });
 	}
 
 	/**
