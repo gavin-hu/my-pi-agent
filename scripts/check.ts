@@ -20,6 +20,7 @@
 
 import { spawnSync } from "node:child_process";
 import { acquireGate } from "./gate-lock.ts";
+import { BROWSER_SUITES, SMOKE_SUITES } from "../test/helpers/browser-suites.ts";
 
 /** One command in the chain: what to run, as `spawnSync` takes it. */
 export type Command = readonly string[];
@@ -36,6 +37,19 @@ function tests(...selection: readonly string[]): Command {
 }
 
 /**
+ * The browser tier: the layer's suites a local gate does not run, one exact path at a time.
+ *
+ * A landing pays this gate on every branch, so `bun run check` keeps the smoke three and ignores the
+ * rest; `check:all`, the widened answers below and CI pass no tier and run all of `BROWSER_SUITES`.
+ * Exact paths rather than a glob: a mistyped entry then ignores nothing and the gate is slow rather
+ * than wrong. A suite added to the layer runs locally until it is named smoke, so an addition costs
+ * time and never coverage.
+ */
+export const BROWSER_TIER: readonly string[] = BROWSER_SUITES.filter((suite) => !SMOKE_SUITES.includes(suite)).map(
+	(suite) => `--path-ignore-patterns=${suite}`,
+);
+
+/**
  * The files a change to which makes the run a change to the *runner*: the test invocation, its
  * preload, the compiler's options, the lockfile. `test/README.md` states the rule; this is what
  * enforces it, so nobody has to remember it on the one morning it matters.
@@ -46,6 +60,8 @@ export const RUNNER_FILES: readonly string[] = [
 	"bun.lock",
 	"bunfig.toml",
 	"test/helpers/preload.ts",
+	// The layer's declaration is the gate's selection too: a change to it changes what `check` runs.
+	"test/helpers/browser-suites.ts",
 ];
 
 /** What the gate knows before it starts. */
@@ -80,7 +96,7 @@ export function planFor(facts: Facts): Plan {
 	if (facts.changed.length === 0) return full("there is no branch to narrow against, so the full sweep runs");
 	const runner = facts.changed.find((path) => RUNNER_FILES.includes(path));
 	if (runner !== undefined) return full(`\`${runner}\` is the runner, so the full sweep runs`);
-	return { commands: [FORMAT, TYPES, tests("--changed=main"), tests("test/")] };
+	return { commands: [FORMAT, TYPES, tests("--changed=main", ...BROWSER_TIER), tests("test/", ...BROWSER_TIER)] };
 }
 
 /** One command as the gate prints it: `bun` for the running interpreter, then its arguments. */

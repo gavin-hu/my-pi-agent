@@ -5,8 +5,9 @@
  * run is a case and not a comment. What the cases hold, in order of what breaks quietly:
  *
  * - **the ordinary plan is exactly four commands** — format, types, `--changed=main`, and the `test/`
- *   sweeps. Without this one a later edit can drop a step and every other case still passes, which is
- *   the failure #745 exists to prevent: a `check` that has quietly become the fast half.
+ *   sweeps, the last two over the browser tier. Without this one a later edit can drop a step and
+ *   every other case still passes, which is the failure #745 exists to prevent: a `check` that has
+ *   quietly become the fast half.
  * - **format and types are in every plan**, asked for or widened anyway, because they are what a
  *   landing owes whatever the tests cost.
  * - **the budget rides every test command**, so a narrower plan cannot lose the timeout the one
@@ -17,6 +18,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { CASE_BUDGET_MS } from "../test/helpers/budget.ts";
+import { BROWSER_SUITES, SMOKE_SUITES } from "../test/helpers/browser-suites.ts";
 import { display, type Facts, planFor, RUNNER_FILES } from "./check.ts";
 
 /** A branch that changed one leaf module. */
@@ -32,24 +34,72 @@ function testLines(facts: Facts): string[] {
 	return lines(facts).filter((line) => line.startsWith("bun test"));
 }
 
+/** The browser suites a plan ignores, by the exact paths its tier flags name. */
+function ignoredSuites(facts: Facts): string[] {
+	// The same tier rides both test commands, so the list here is the set, not the occurrences.
+	return [
+		...new Set(
+			planFor(facts)
+				.commands.flatMap((command) => command)
+				.filter((argument) => argument.startsWith("--path-ignore-patterns="))
+				.map((argument) => argument.slice("--path-ignore-patterns=".length)),
+		),
+	];
+}
+
+describe("the browser tier", () => {
+	test("ignores exactly the layer's suites outside the smoke three", () => {
+		const ignored = ignoredSuites(LEAF);
+		expect(ignored).toHaveLength(BROWSER_SUITES.length - SMOKE_SUITES.length);
+		for (const suite of ignored) expect(BROWSER_SUITES).toContain(suite);
+		// A smoke suite in the ignore list would be a suite the gate claims to run and does not.
+		for (const suite of SMOKE_SUITES) expect(ignored).not.toContain(suite);
+	});
+
+	test("rides both test commands of the ordinary plan, and no other", () => {
+		const plan = planFor(LEAF);
+		const carries = (command: readonly string[]) =>
+			command.filter((argument) => argument.startsWith("--path-ignore-patterns=")).length;
+		expect(carries(plan.commands[2] ?? [])).toBe(BROWSER_SUITES.length - SMOKE_SUITES.length);
+		expect(carries(plan.commands[3] ?? [])).toBe(BROWSER_SUITES.length - SMOKE_SUITES.length);
+	});
+
+	test("is absent from every widened plan, so CI runs the whole layer", () => {
+		const wider: Facts[] = [
+			{ all: true, changed: ["lib/workflow/verify.ts"] },
+			{ changed: [] },
+			{ changed: undefined },
+			{},
+		];
+		for (const facts of wider) expect(ignoredSuites(facts)).toEqual([]);
+	});
+
+	test("names the layer's declaration as the runner's, since it decides what the gate runs", () => {
+		expect(RUNNER_FILES).toContain("test/helpers/browser-suites.ts");
+		expect(testLines({ changed: ["test/helpers/browser-suites.ts"] })).toEqual(["bun test --timeout 90000"]);
+	});
+});
+
 describe("the ordinary gate", () => {
-	test("is format, types, this branch's suites, and the sweeps", () => {
-		expect(lines(LEAF)).toEqual([
-			"bun run check:format",
-			"bun run check:types",
-			"bun test --timeout 90000 --changed=main",
-			"bun test --timeout 90000 test/",
-		]);
+	test("is format, types, this branch's suites, and the sweeps, the last two over the tier", () => {
+		const plan = planFor(LEAF);
+		expect(plan.commands).toHaveLength(4);
+		expect(display(plan.commands[0] ?? [])).toBe("bun run check:format");
+		expect(display(plan.commands[1] ?? [])).toBe("bun run check:types");
+		// The tier is asserted by count and membership above rather than pasted here: a 37-flag
+		// literal in a case is a diff nobody reads and a copy that drifts with the layer.
+		expect(display(plan.commands[2] ?? []).startsWith("bun test --timeout 90000 --changed=main ")).toBe(true);
+		expect(display(plan.commands[3] ?? []).startsWith("bun test --timeout 90000 test/ ")).toBe(true);
 	});
 
 	test("says nothing about widening, because it did not widen", () => {
 		expect(planFor(LEAF).why).toBeUndefined();
 	});
 
-	test("keeps the sweeps, which no import graph can select", () => {
+	test("the sweeps, which no import graph can select", () => {
 		// The tree contracts read files rather than import them, so `--changed` cannot see them. Dropping
 		// this command would leave a docs change gated by nothing at all.
-		expect(testLines(LEAF)).toContain("bun test --timeout 90000 test/");
+		expect(testLines(LEAF).filter((line) => line.includes(" test/ "))).toHaveLength(1);
 	});
 });
 
@@ -106,11 +156,12 @@ describe("what widens the gate", () => {
 		expect(testLines({})).toEqual(["bun test --timeout 90000"]);
 	});
 
-	test("the runner is the four files the test invocation is made of", () => {
+	test("the runner is the files the test invocation is made of", () => {
 		expect([...RUNNER_FILES].sort()).toEqual([
 			"bun.lock",
 			"bunfig.toml",
 			"package.json",
+			"test/helpers/browser-suites.ts",
 			"test/helpers/preload.ts",
 			"tsconfig.json",
 		]);

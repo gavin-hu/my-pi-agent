@@ -115,6 +115,11 @@ ${PATH_REF_JS}
   function toast(message) {
     var el = byId("rv-toast");
     if (!el) return;
+    // The bar owns the bottom slot while it is open, so a toast shown then sits above it — measured,
+    // because the bar's height follows its content. A closed bar leaves the sheet's 64px.
+    var bar = byId("rv-selbar");
+    var lifted = bar !== null && bar.getAttribute("data-open") === "true";
+    el.style.bottom = lifted ? window.innerHeight - bar.getBoundingClientRect().top + 8 + "px" : "";
     el.textContent = message;
     el.setAttribute("data-open", "true");
     clearTimeout(toastTimer);

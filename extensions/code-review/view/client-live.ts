@@ -64,6 +64,9 @@ export const REVIEW_LIVE_JS = String.raw`  // Live frames: the review's state fr
     // frame that stopped at data.comments changed the count while drawing nothing (#843).
     paintThreads();
     paintChrome();
+    // A confirmation must list what the press would send: the dialog's list is re-read while it is
+    // open, rather than holding the frame until it closes.
+    if (window.rvSend && window.rvSend.isOpen()) paintSendList();
   }
 
   /** A composer is open on this page: the reader is typing, and a repaint would close it. */

@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: the page's toast clears the selection bar it used to cover, the send dialog hands focus back on every exit, and a live frame refreshes the list it is about to send — an emptied list stays open saying there is nothing left to send.
+
 - `code-review`: a `?file=` page counts and measures the whole scope it was opened on — `1 of 2 files`, `0 of 2 reviewed` — instead of the one file it draws, a shift-click writes the place a reload restores, and `]`/`[` land the next or previous hunk below the pinned head rather than on the hunk they just reached.
 
 - `code-review`: a scope change is one reversible rule. The page's tabs, `/review <scope>` and `code_review` all refuse it on the drafts and marks a replacement would destroy — never on sent comments, which the session keeps — with one sentence built in `review/scope-work.ts`, and a refusal from the command or the tool now names the address the page is still open at.

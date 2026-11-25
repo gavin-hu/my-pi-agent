@@ -21,7 +21,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative as relativePath } from "node:path";
 import { describe, expect, test } from "bun:test";
 import ts from "typescript";
-import { BROWSER_SUITES } from "./helpers/browser-suites.ts";
+import { BROWSER_SUITES, SMOKE_SUITES } from "./helpers/browser-suites.ts";
 import { posixPath, walkFiles } from "./helpers/files.ts";
 
 const repo = join(import.meta.dir, "..");
@@ -172,5 +172,13 @@ describe("the browser-suite declaration", () => {
 			declared.filter((path) => !tree.includes(path)),
 			"declared as a browser suite but imports no boot helper — drop the entry or the import",
 		).toEqual([]);
+	});
+
+	test("the smoke tier is a strict subset of the layer", () => {
+		// The local gate runs these and ignores the rest, so a smoke suite outside the layer would be
+		// ignored everywhere, and a tier as wide as the layer would save nothing.
+		expect(SMOKE_SUITES.length).toBeGreaterThan(0);
+		expect(SMOKE_SUITES.length).toBeLessThan(BROWSER_SUITES.length);
+		for (const suite of SMOKE_SUITES) expect(BROWSER_SUITES).toContain(suite);
 	});
 });
