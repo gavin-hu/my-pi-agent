@@ -19,7 +19,6 @@ import { MATCHES_QUERY_JS } from "../../../lib/workflow/card.ts";
 import { CURRENT_REVIEW_JS } from "../../../lib/workflow/signs.ts";
 import { REASON_FOR_JS } from "../../../lib/workflow/reason.ts";
 import {
-	DECISION_BAND_JS,
 	DECISION_LABEL_JS,
 	DECISION_RANK_JS,
 	DECISION_TONE_JS,
@@ -83,7 +82,7 @@ ${renderJs({
 })}
 ${rosterJs({ historyOwner: HISTORY_OWNER_JS, sameLabel: SAME_LABEL_JS, labelKey: LABEL_KEY_JS, unreadable: pageSource(unreadableText) })}
 ${fleetJs({ historyLine: HISTORY_LINE_JS })}
-${activeJs({ decisionLabels: DECISION_LABEL_JS, decisionBands: DECISION_BAND_JS, sameLabel: SAME_LABEL_JS, labelKey: LABEL_KEY_JS })}
+${activeJs({ decisionLabels: DECISION_LABEL_JS, sameLabel: SAME_LABEL_JS, labelKey: LABEL_KEY_JS })}
 ${feedJs({ labels: ACTIVITY_LABEL_JS })}
 ${teamJs()}
 ${BOARD_CARD_JS}

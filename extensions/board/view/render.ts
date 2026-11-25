@@ -252,7 +252,9 @@ __RUNTIME__
    * hides: the box is the only honest test of whether a reader can see one.
    */
   function drawnCards() {
-    var nodes = document.querySelectorAll(".board-row, .board-queue__row");
+    // Cards only: an ask row is a line about a card, marked with data-ask rather than data-card,
+    // so counting it here made one card two stops in the keyboard walk and moved every position.
+    var nodes = document.querySelectorAll(".board-row");
     var seen = [];
     for (var i = 0; i < nodes.length; i++) {
       if (nodes[i].hidden) continue;

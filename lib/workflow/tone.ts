@@ -1,6 +1,5 @@
 /**
- * What tone a lane, a reason, and a Team decision row wear, and which band a decision is filed
- * under.
+ * What tone a lane, a reason, and a Team decision row wear, and the words a decision wears.
  *
  * The page and the terminal each decide a colour, and before this table they decided it in
  * seven places: a lane role in the lane table, a reason class in the browser bundle, two
@@ -8,9 +7,9 @@
  * and a transcript that painted every lane the same accent. A tone stated once is the only
  * version of that which cannot drift.
  *
- * The words a decision row wears live here for the same reason: its pill, its rank, and the
- * band it is filed under are three facts about one kind, and the page, whose whole vocabulary
- * is a string, has no compiler to catch them drifting apart.
+ * The words a decision row wears live here for the same reason: its pill, its rank, and its tone
+ * are three facts about one kind, and the page, whose whole vocabulary is a string, has no
+ * compiler to catch them drifting apart.
  *
  * A tone is a word the page's kit already names as a property (`var(--warn)`), so the page
  * wears one directly and needs no map. The terminal speaks its own vocabulary — `ok`, `warn`,
@@ -20,6 +19,12 @@
  * The rule behind the words, so a future kind is not a guess: **warn is a person who must act
  * next** (approve, review, decide), **danger is a refusal or a loss** (blocked, gone), and
  * anything merely true of the card — waiting, offered, executing, done, noted — is muted.
+ *
+ * A decision's tone ranks it inside one list, which is what the queue has read since its bands
+ * went: a gate the seat must sign is `warn`, a loss already suffered is `danger`, and advice —
+ * a card nobody has written to, which the seat may chase or spot-check — is `dim`, drawn and not
+ * emphasised. Tone is the only ranking a flat list carries, so it follows that rule and no
+ * other.
  *
  * Value-only: no I/O, no clock, no card.
  */
@@ -58,12 +63,17 @@ export const REASON_TONE: Record<ReasonKind, BoardTone> = {
 };
 
 /**
- * The Team queue's decision kinds, in the order a lead reads them.
+ * Every kind of reason a card can wait on the lead, in the order a lead reads them.
  *
- * One list for both facts a row needs: the position is the rank (a `gone` owner outranks a
- * card merely sitting still), and {@link DECISION_TONE} is the colour. They were two lists — a
+ * One list for every fact a row needs: the position is the rank (a `gone` owner outranks a card
+ * merely sitting still), and {@link DECISION_TONE} is the colour. They were two lists — a
  * `KIND_RANK` object in the bundle and a hand-written set of `[data-kind]` rules in the
  * stylesheet — which is how `gone` came to be ranked second and drawn quietest.
+ *
+ * The page's queue files four of these — `gone`, `untold`, `approval`, `unwritten` — because a
+ * row is a move only the seat can finish; the other five are what a card owes its own holder, and
+ * the transcript's rollup is the surface that counts them. The table stays whole: the rank is one
+ * order whichever subset a surface draws, and a kind that files again needs no new word.
  */
 export const DECISION_KINDS = [
 	"blocked",
@@ -77,7 +87,7 @@ export const DECISION_KINDS = [
 	"unassigned",
 ] as const;
 
-/** One reason a card is in the lead's queue. */
+/** One reason a card can wait on the lead. */
 export type DecisionKind = (typeof DECISION_KINDS)[number];
 
 /**
@@ -86,6 +96,10 @@ export type DecisionKind = (typeof DECISION_KINDS)[number];
  * The row's sentence says why in full and is one hover away; this is what a reader scans by.
  * A label that repeats its kind ("blocked" for `blocked`) is the right answer rather than a
  * wasted entry: the pill is the shape, and the word is what a colour alone cannot say.
+ *
+ * A kind's own name is not always the pill's word: `unwritten` reads `no writes`, because the
+ * row's sentence counts writes and `quiet` is already a `RosterState` this page prints beside a
+ * holder's name — one word for two facts is what a pill must not do.
  */
 export const DECISION_LABEL: Record<DecisionKind, string> = {
 	blocked: "blocked",
@@ -94,7 +108,7 @@ export const DECISION_LABEL: Record<DecisionKind, string> = {
 	approval: "needs approval",
 	review: "needs review",
 	waiting: "waits",
-	unwritten: "unwritten",
+	unwritten: "no writes",
 	unplanned: "no contract",
 	unassigned: "unassigned",
 };
@@ -123,51 +137,13 @@ export const GATE_WORD: Record<Gate, string> = {
 };
 
 /**
- * How the queue's rows are grouped, in the order the column reads them.
+ * The tone a decision's pill wears, and a danger row's sentence.
  *
- * A lead reads the queue to answer one question first — *whose move is this?* — and the kinds
- * alone cannot: `unassigned` and `needs approval` sat in one list, which is why a queue of
- * backlog cards read as the backlog. The order is the order of obligation: what only the lead
- * can sign, then what is nobody's, then what a card's own owner owes.
+ * Read down the four kinds the page's queue can file: a loss is `danger`, a gate the seat signs is
+ * `warn`, and the one judgement the page makes for itself — a card with no writes — is `dim`,
+ * because it is advice rather than a gate. `dim` exists for that row (see {@link BoardTone}), and
+ * tone is the only ranking a flat list carries.
  */
-export const DECISION_BANDS = ["signature", "claim", "stalled"] as const;
-
-/** One band a queue row is filed under. */
-export type DecisionBand = (typeof DECISION_BANDS)[number];
-
-/**
- * The band each kind is filed under.
- *
- * A table over every kind rather than a rule over the ones that fit: a new kind must name its
- * band here, and the compiler is what says so — the alternative was a `switch` in a string.
- */
-export const DECISION_BAND: Record<DecisionKind, DecisionBand> = {
-	approval: "signature",
-	review: "signature",
-	unassigned: "claim",
-	gone: "claim",
-	waiting: "claim",
-	blocked: "stalled",
-	untold: "signature",
-	unwritten: "stalled",
-	unplanned: "stalled",
-};
-
-/** The band's name in the column: the word for whose move it is, not for what is wrong. */
-export const DECISION_BAND_LABEL: Record<DecisionBand, string> = {
-	signature: "Your signature",
-	claim: "Unclaimed",
-	stalled: "Stalled",
-};
-
-/** The bands, their kinds, and their names as the bundle's own source, spliced in like the rank. */
-export const DECISION_BAND_JS = JSON.stringify({
-	order: DECISION_BANDS,
-	of: DECISION_BAND,
-	label: DECISION_BAND_LABEL,
-});
-
-/** The tone a decision's pill wears, and a danger row's sentence. */
 export const DECISION_TONE: Record<DecisionKind, BoardTone> = {
 	blocked: "danger",
 	gone: "danger",
@@ -175,7 +151,7 @@ export const DECISION_TONE: Record<DecisionKind, BoardTone> = {
 	approval: "warn",
 	review: "warn",
 	waiting: "dim",
-	unwritten: "warn",
+	unwritten: "dim",
 	unplanned: "dim",
 	unassigned: "dim",
 };

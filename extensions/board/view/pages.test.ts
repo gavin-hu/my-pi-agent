@@ -526,6 +526,7 @@ describe("the class contract", () => {
 		"data-base": "the prefix the page was served under, read by the client",
 		"data-pane": "a column's panes are found by the name they hold",
 		"data-at-title": "a stamp's own wording, which the ticker fills from the same stamp",
+		"data-ask": "an ask row names the card it is about, without becoming one",
 		"data-card": "the open card is found by its id",
 		"data-fold": "a fold control names its key, so focus finds it again after the repaint it caused",
 		"data-host": "a machine's row carries the machine it is about, which a rendered case reads",

@@ -226,68 +226,87 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		await board.store.create({ title, paths: ["src/triage"] }, LEAD, clock.now() - index * 1_000);
 	};
 
-	/** Each band: its label, the count in its head, the rows it drew, and what its head says. */
-	async function bands(page: Page): Promise<Array<{ label: string; count: number; rows: number; fold: string }>> {
-		return page.$$eval("#board-team .board-queue__band", (nodes) =>
-			Array.from(nodes as ArrayLike<HeadNode>, (band) => ({
-				label: band.querySelector("span")?.textContent ?? "",
-				// By class: the head holds two spans, the label and this one, and folded or not this is
-				// the band's whole, where `rows` is what a fold chose to draw.
-				count: Number(band.querySelector(".bf-lane__count")?.textContent ?? "0"),
-				rows: Array.from(band.querySelectorAll(".board-queue__row")).length,
-				fold: band.querySelector(".board-fold")?.textContent ?? "",
-			})),
+	/** The asks this suite added, so it can hand them back and leave the board as it found it. */
+	const added: Array<{ id: string; owner: { id: string; label: string } }> = [];
+
+	/** One complete contract nobody has read: an ask the seat can sign now, and only it can. */
+	const unread = async (title: string, index: number): Promise<void> => {
+		const card = await board.store.create({ title, paths: ["src/contract"] }, LEAD, clock.now() - index * 1_000);
+		const owner = { id: "s-contract-" + index, label: "contract-" + index };
+		const claimed = await board.store.mutate(card.id, { kind: "claim" }, owner, clock.now() - index * 1_000 + 1);
+		if (!claimed.ok) throw new Error("unread: " + claimed.error);
+		const written = await board.store.mutate(
+			card.id,
+			{
+				kind: "contract",
+				artifact: { record: "~/.pi/agent/plans/8872d3adda0e/" + card.id + ".md" },
+				goal: "The feature does what the card says",
+				acceptance: "A reader can tell it is done",
+				scopeOut: "Everything the card does not name",
+				verify: "bun run check",
+			},
+			owner,
+			clock.now() - index * 1_000 + 2,
 		);
+		if (!written.ok) throw new Error("unread: " + written.error);
+		added.push({ id: card.id, owner });
+	};
+
+	/** The ask list, as drawn: the rows it shows, and what its fold says. */
+	async function asks(page: Page): Promise<{ rows: number; fold: string; behind: number }> {
+		return page.evaluate(() => {
+			const document = (globalThis as unknown as { document: Doc }).document;
+			const list = document.querySelector("#team-asks");
+			const fold = document.querySelector('#board-team [data-fold="needs-you"]');
+			const said = fold?.textContent ?? "";
+			return {
+				rows: list === null ? 0 : list.querySelectorAll(".board-queue__row").length,
+				fold: said,
+				// The control says how many rows are behind it, which is the list's own count minus five.
+				behind: Number(/\d+/.exec(said)?.[0] ?? "0"),
+			};
+		});
 	}
 
-	/** The unclaimed band, as drawn: its head's count, its rows, and its fold. */
-	const bandOf = async (page: Page) => (await bands(page)).find((band) => band.label === "Unclaimed");
-
-	test("folds a band at five rows, and every row says its own reason", async () => {
+	test("folds its one list at five rows, and every row says its own reason", async () => {
 		const page = await board.reuse();
 		await page.click("#tab-team");
-		// Ten more unclaimed cards arrive the way a peer's write does, so the band is past its fold.
-		for (let index = 0; index < 10; index++) await unclaimed(`Triage item ${index + 1}`, index);
-		// Wait for the count the head prints, not the fold control: the writes land one at a time, and a
-		// redraw between two of them draws five rows of ten and reads "+5 more". One pass paints all.
-		await waitFor(async () => (await bandOf(page))?.count === 12, PAINT_MS);
-		const closed = await bandOf(page);
-		// The count in the head is what says the rest exists, the rows are five, and the sentence
-		// the head used to print is now each row's own — the head is its name and count.
-		expect(closed).toMatchObject({ count: 12, rows: 5, fold: "Show 7 more" });
-		const repeated = await page.$$eval(
-			"#board-team .board-queue__why",
-			(nodes) =>
-				Array.from(nodes as ArrayLike<ElementLike>).filter(
-					(node) => (node.textContent ?? "").trim() === "nobody holds it",
-				).length,
-		);
-		expect(repeated).toBe(5);
-		// Every row is described by its own line: the sentence moved from the head onto the row,
-		// and the claim band is read because the tab draws a signature band above it.
+		// Ten more complete contracts arrive the way a peer's write does: the queue is one list of
+		// the seat's own moves, so the way past its fold is more asks, not more unowned cards.
+		for (let index = 0; index < 10; index++) await unread("Unread contract " + (index + 1), index);
+		// Wait for the fold's own count, not for a row: the writes land one at a time, and a redraw
+		// between two of them draws six behind the control and reads "Show 1 more".
+		await waitFor(async () => (await asks(page)).behind === 6, PAINT_MS);
+		const closed = await asks(page);
+		// Eleven asks — the fixture's own approval and these ten — of which the list draws five and
+		// counts six behind one control.
+		expect(closed).toMatchObject({ rows: 5, fold: "Show 6 more", behind: 6 });
+		// Every drawn row is described by its own line: the sentence is the row's, not the list's.
 		const described = await page.evaluate(() => {
 			const document = (globalThis as unknown as { document: Doc }).document;
-			type Node = ElementLike & {
-				querySelector(selector: string): ElementLike | null;
-			};
-			const band = Array.from(document.querySelectorAll("#board-team .board-queue__band"))
-				.map((node) => node as unknown as Node)
-				.find((node) => (node.querySelector("span")?.textContent ?? "") === "Unclaimed");
-			const title = band?.querySelector(".board-queue__head .bf-row__title") ?? null;
-			const id = title?.getAttribute("aria-describedby") ?? "";
-			return { id, said: document.getElementById(id)?.textContent ?? "" };
+			const rows = Array.from(document.querySelectorAll("#team-asks .board-queue__row"));
+			return rows.map((row) => {
+				const title = row.querySelector(".bf-row__title");
+				const id = title?.getAttribute("aria-describedby") ?? "";
+				return { row: row.getAttribute("data-ask") ?? "", id, said: document.getElementById(id)?.textContent ?? "" };
+			});
 		});
-		expect(described.id.startsWith("team-why-")).toBe(true);
-		expect(described.said).toBe("nobody holds it");
+		expect(described).toHaveLength(5);
+		for (const row of described) expect(row.id).toBe("team-why-" + row.row);
+		for (const row of described) expect(row.said).toBe("contract ready \u2014 needs approval");
 		// One press draws the rest and one more folds them back: nothing is cut, only folded.
-		await page.click('#board-team [data-fold="team-band-claim"]');
-		await waitFor(async () => (await bandOf(page))?.rows === 12, PAINT_MS);
-		const open = await bandOf(page);
-		expect(open?.rows).toBe(12);
-		expect(open?.fold).toBe("Show fewer");
-		await page.click('#board-team [data-fold="team-band-claim"]');
-		await waitFor(async () => (await bandOf(page))?.rows === 5, PAINT_MS);
-		expect((await bandOf(page))?.rows).toBe(5);
+		await page.click('#board-team [data-fold="needs-you"]');
+		await waitFor(async () => (await asks(page)).rows === 11, PAINT_MS);
+		expect(await asks(page)).toMatchObject({ rows: 11, fold: "Show fewer" });
+		await page.click('#board-team [data-fold="needs-you"]');
+		await waitFor(async () => (await asks(page)).rows === 5, PAINT_MS);
+		expect((await asks(page)).rows).toBe(5);
+		// Hand the cards back: the board is the suite's, and an owner this fixture never had would
+		// draw an extra row in every case that reads the Agents column after this one.
+		for (const card of added.splice(0)) {
+			const freed = await board.store.mutate(card.id, { kind: "release" }, card.owner, clock.now());
+			if (!freed.ok) throw new Error("release: " + freed.error);
+		}
 	});
 
 	test("separates its rows with space, and draws no rule on one", async () => {
@@ -363,14 +382,20 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 					getComputedStyle(node: ElementLike): { backgroundColor: string };
 				}
 			).getComputedStyle;
-			const read = (node: ElementLike) => ({
-				card: node.getAttribute("data-card"),
+			// A row names its card with `data-ask` and a card with `data-card`: an ask is a line
+			// about a card, not a second drawing of it, and the id is how the two are compared.
+			const read = (node: ElementLike, hook: string) => ({
+				card: node.getAttribute(hook),
 				paper: computed(node).backgroundColor,
 			});
-			const rows = Array.from(document.querySelectorAll("#board-team .board-queue__row"), read);
-			const cards = Array.from(document.querySelectorAll("#board-team .bf-lane .board-row"), read);
-			// The card this fixture puts in both places: the executing one, which nobody has
-			// spot-checked, so the queue and its swimlane draw the same id.
+			const rows = Array.from(document.querySelectorAll("#board-team .board-queue__row")).map((node) =>
+				read(node, "data-ask"),
+			);
+			const cards = Array.from(document.querySelectorAll("#board-team .bf-lane .board-row")).map((node) =>
+				read(node, "data-card"),
+			);
+			// The card this fixture puts in both places: the one whose contract nobody has read, so
+			// the queue says the seat must sign it and its swimlane draws the card itself.
 			const shared = rows.find((row) => cards.some((card) => card.card === row.card)) ?? null;
 			const pill = document.querySelector("#board-team .board-queue__row .bf-tag");
 			return {
@@ -384,8 +409,9 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		// this tab is the lane's.
 		expect(paint.row?.paper).toBe("rgba(0, 0, 0, 0)");
 		expect(paint.card?.paper).not.toBe(paint.row?.paper);
-		// The pill is what says why, in a word and a tone: the row has no paper left to say it.
-		expect(paint.pill.text).toBe("needs review");
+		// The pill is what says why, in a word and a tone: the row has no paper left to say it. The
+		// shared card is the fixture's unread contract, so the word is the seat's own move.
+		expect(paint.pill.text).toBe("needs approval");
 		expect(paint.pill.classes).toContain("bf-tone--warn");
 	});
 
@@ -395,10 +421,11 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		await page.waitForSelector("#board-team .board-agent", { timeout: PAINT_MS });
 		await drawn(page);
 		const { rows } = await census(page);
-		// Three sessions, three rows. The fixture's executing card is owned by `s-core`, whose record
-		// answers to `billing-core-renamed`; a card that kept the label its claim wrote would draw a
-		// fourth row here — that dead name, as an owner nothing answers to.
-		expect(rows["board-agent"]).toBe(3);
+		// Four rows: three sessions, and the label the fixture leaves holding a card no record answers
+		// to. The fixture's executing card is owned by `s-core`, whose record answers to
+		// `billing-core-renamed`; a card that kept the label its claim wrote would draw a fifth row
+		// here — that dead name, as an owner nothing answers to.
+		expect(rows["board-agent"]).toBe(4);
 		const labels = await page.$$eval("#board-team .board-agent", (nodes) =>
 			Array.from(nodes as ArrayLike<ElementLike>).map(
 				(node) => (node as unknown as { textContent: string | null }).textContent ?? "",

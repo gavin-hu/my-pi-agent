@@ -13,10 +13,6 @@ import {
 	BOARD_TONES,
 	GATE_WORD,
 	GATES,
-	DECISION_BAND,
-	DECISION_BAND_JS,
-	DECISION_BAND_LABEL,
-	DECISION_BANDS,
 	DECISION_KINDS,
 	DECISION_LABEL,
 	DECISION_LABEL_JS,
@@ -39,10 +35,13 @@ describe("the tone table", () => {
 
 	test("ranks a gone owner above a card merely sitting still, and colours it as the loss it is", () => {
 		// The defect this table exists for: `gone` was ranked second and drawn quieter than
-		// `unwritten`, because the rank and the colour were two lists in two files.
+		// `unwritten`, because the rank and the colour were two lists in two files. The gap is now
+		// two steps of tone — a loss, then advice — which is the ranking a flat list reads.
 		expect(DECISION_KINDS.indexOf("gone")).toBeLessThan(DECISION_KINDS.indexOf("unwritten"));
 		expect(DECISION_TONE.gone).toBe("danger");
-		expect(DECISION_TONE.unwritten).toBe("warn");
+		expect(DECISION_TONE.unwritten).toBe("dim");
+		// `dim` is quieter than the gates, which is the whole of what the ranking now says.
+		expect(BOARD_TONES.indexOf("dim")).toBeLessThan(BOARD_TONES.indexOf("warn"));
 	});
 
 	test("gives a lane its own role, and never the page's accent for all of them", () => {
@@ -57,11 +56,6 @@ describe("the tone table", () => {
 		expect(JSON.parse(DECISION_RANK_JS)).toEqual([...DECISION_KINDS]);
 		expect(JSON.parse(DECISION_TONE_JS)).toEqual(DECISION_TONE);
 		expect(JSON.parse(DECISION_LABEL_JS)).toEqual(DECISION_LABEL);
-		expect(JSON.parse(DECISION_BAND_JS)).toEqual({
-			order: [...DECISION_BANDS],
-			of: DECISION_BAND,
-			label: DECISION_BAND_LABEL,
-		});
 		expect(JSON.parse(REASON_TONE_JS)).toEqual(REASON_TONE);
 	});
 
@@ -78,26 +72,25 @@ describe("the tone table", () => {
 		for (const gate of GATES) expect(REASON_TONE[gate], gate).toBe("warn");
 	});
 
-	test("files every kind under a band, and names every band it files one under", () => {
-		// Exhaustive both ways: a kind with no band would draw under the last band it was
-		// written beside, and a band no kind files under is a heading over nothing.
-		expect(Object.keys(DECISION_BAND).sort()).toEqual([...DECISION_KINDS].sort());
-		expect([...new Set(Object.values(DECISION_BAND))].sort()).toEqual([...DECISION_BANDS].sort());
-		for (const band of DECISION_BANDS) expect(DECISION_BAND_LABEL[band].length, band).toBeGreaterThan(0);
+	test("ranks the queue's four kinds by precedence, and names each one", () => {
+		// The page's queue files four kinds; their rank is what orders a flat list, since the bands
+		// that used to order it are gone. A loss outranks a gate, and a gate outranks advice.
+		const filed = ["gone", "untold", "approval", "unwritten"] as const;
+		const rank = (kind: string) => DECISION_KINDS.indexOf(kind as (typeof DECISION_KINDS)[number]);
+		expect(filed).toEqual([...filed].sort((a, b) => rank(a) - rank(b)));
+		expect(DECISION_TONE.gone).toBe("danger");
+		expect(DECISION_TONE.approval).toBe("warn");
+		expect(DECISION_TONE.untold).toBe("warn");
+		// Advice rather than a gate: a card nobody has written to may be chased or spot-checked.
+		expect(DECISION_TONE.unwritten).toBe("dim");
+		for (const kind of filed) expect(DECISION_LABEL[kind].length, kind).toBeGreaterThan(0);
 	});
 
-	test("puts the lead's own gates first, then what is nobody's, then what an owner owes", () => {
-		// The order is the redesign's whole point: a lead opens the pane for the two things only
-		// it can do, and the backlog pool must not outrank them.
-		expect(DECISION_BANDS).toEqual(["signature", "claim", "stalled"]);
-		expect(DECISION_BAND.approval).toBe("signature");
-		expect(DECISION_BAND.review).toBe("signature");
-		expect(DECISION_BAND.unassigned).toBe("claim");
-		expect(DECISION_BAND.gone).toBe("claim");
-		expect(DECISION_BAND.unwritten).toBe("stalled");
-		// A blocked card is not the lead's own work to sign, and it is not nobody's: its
-		// blocker is a decision somebody already owes.
-		expect(DECISION_BAND.blocked).toBe("stalled");
+	test("gives the unwritten row its own word, because `quiet` is a session state here", () => {
+		// One word for two facts is what a pill must not do: the roster already prints `quiet`
+		// beside a holder's name, so the card's row counts writes instead.
+		expect(DECISION_LABEL.unwritten).toBe("no writes");
+		for (const word of Object.values(DECISION_LABEL)) expect(word).not.toBe("quiet");
 	});
 
 	test("keeps a merely-true reason quiet, so a card is not shouted at", () => {
