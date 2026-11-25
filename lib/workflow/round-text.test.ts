@@ -222,6 +222,17 @@ describe("the run clause three surfaces print", () => {
 		expect(ranClause(undefined)).toBe("");
 	});
 
+	test("names a size gate that did not run, and stays quiet about one that did", () => {
+		// Only the skip is news: a repository that keeps the gates answers `ran` on every sign, and a
+		// constant segment would train the reader to skip the sentence that carries the difference (#481).
+		expect(ranClause({ cmd: VERIFY, exit: 0, at: NOW, sizeGates: { ran: true } })).toBe(
+			" · ran `bun run check` (exit 0)",
+		);
+		expect(
+			ranClause({ cmd: VERIFY, exit: 0, at: NOW, sizeGates: { skipped: "no test/module-sizes.test.ts in this repo" } }),
+		).toBe(" · ran `bun run check` (exit 0) · size gates: skipped (no test/module-sizes.test.ts in this repo)");
+	});
+
 	test("is the same body the browser receives, safe to splice into a script", () => {
 		expect(RAN_CLAUSE_JS).toBe(String(ranClause));
 		const browserClause = new Function(`return (${RAN_CLAUSE_JS});`)() as typeof ranClause;
