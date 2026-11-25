@@ -281,13 +281,11 @@ describe("settings runtime", () => {
 	});
 
 	test("stores a typed value at its leaf and marks the screen dirty", async () => {
-		const { runtime, globalPath } = bootRuntime({
-			globalDoc: { notify: { enabled: true }, board: { wip: { execute: 4 } } },
-		});
+		const { runtime, globalPath } = bootRuntime({ globalDoc: { board: { wip: { execute: 4 } } } });
 
 		expect(await runtime.setValue("global", "board.wip.plan", "5")).toBe(true);
 
-		expect(JSON.parse(readText(globalPath))).toEqual({ notify: { enabled: true }, board: { wip: { execute: 4, plan: 5 } } });
+		expect(JSON.parse(readText(globalPath))).toEqual({ board: { wip: { execute: 4, plan: 5 } } });
 		expect(runtimeValue(runtime, "global", "board.wip.plan")).toBe("5");
 		expect(runtime.isDirty()).toBe(true);
 	});

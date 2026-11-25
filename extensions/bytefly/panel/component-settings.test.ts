@@ -381,5 +381,4 @@ describe("PanelComponent theme setting", () => {
 		expect(after).toContain("bytefly-dark");
 		expect(after).toContain("unsaved changes");
 	});
-
 });

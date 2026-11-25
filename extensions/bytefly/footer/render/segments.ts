@@ -15,14 +15,7 @@ import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
 import { chip } from "../../../../lib/tui/rows.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
 import { CONFIG } from "../config.ts";
-import {
-	contextRole,
-	formatCost,
-	formatCwd,
-	formatPercent,
-	thinkingColor,
-	truncateLabel,
-} from "./format.ts";
+import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, truncateLabel } from "./format.ts";
 import { compactStatus } from "./status.ts";
 import type { Segment, StatusSnapshot } from "../types.ts";
 

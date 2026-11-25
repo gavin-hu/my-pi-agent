@@ -94,7 +94,7 @@ const LONG_SUITES: Record<string, number> = {
 	"lib/tui/interaction.test.ts": 1245,
 	"lib/tui/layout.test.ts": 577,
 	"lib/web/web.test.ts": 653,
-	"scripts/screenshots.test.ts": 684,
+	"scripts/screenshots.test.ts": 683,
 	"extensions/wechat/bridge.test.ts": 1180,
 	"extensions/wechat/commands/commands.test.ts": 760,
 	"extensions/wechat/conversation/turn.test.ts": 529,
