@@ -307,29 +307,35 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	return { merge, subject, rows, pushed: `${remote} ${branch}` };
 }
 
-/** The suite a removed manifest line declared: its stem, and the file the merge still has for it. */
+/** The suite a removed declaration left behind: its stem, and the file the merge still has for it. */
 interface RemovedSuite {
 	stem: string;
 	path: string;
 }
 
-/** The suite stems a manifest diff removed, in the order they went. */
-function removedSuiteStems(diff: string): string[] {
-	const stems: string[] = [];
-	for (const line of diff.split("\n")) {
-		if (!line.startsWith("-") || line.startsWith("---")) continue;
-		const quoted = /"([^"]+)"/.exec(line);
-		if (quoted?.[1] !== undefined) stems.push(quoted[1]);
+/**
+ * The stems a manifest declares: every quoted string but a quoted group key.
+ *
+ * A key is `"web-access":` and a stem is `"fetch/schema",`; an unquoted key (`wechat:`) contributes
+ * nothing. Read from the file rather than from a diff line, because a group may be wrapped on one
+ * line: a line's first quoted string is then the key, so a reflow would read as the removal of
+ * `"web-access"` and a suite dropped from that line would read as nothing at all.
+ */
+function declaredStems(text: string): Set<string> {
+	const stems = new Set<string>();
+	for (const quoted of text.matchAll(/"([^"]+)"(\s*:)?/g)) {
+		if (quoted[2] !== undefined) continue;
+		if ((quoted[1] ?? "") !== "") stems.add(quoted[1] ?? "");
 	}
 	return stems;
 }
 
 /**
- * The suites a landing removed from the manifest that the merge still carries.
+ * The suites a landing stopped declaring that the merge still carries.
  *
- * A removed line is legitimate when the suite it named left the tree, because the layout gate
- * requires both directions: a declared suite must exist, and an existing one must be declared. It
- * is a rewrite when the merge still has the suite — the record another card appended, dropped.
+ * A removed declaration is legitimate when the suite it named left the tree, because the layout gate
+ * requires both directions: a declared suite must exist, and an existing one must be declared. It is
+ * a rewrite when the merge still has the suite — the record another card appended, dropped.
  *
  * The match is by stem, because the group an entry sat in is not on its line and re-spelling
  * `declaredSuiteFiles`' four owner shapes (`test/suite-manifest.ts`) inside `lib/` would be a second
@@ -342,12 +348,13 @@ async function removedSuitesAbove(
 	base: string,
 	merge: string,
 ): Promise<{ kind: "failed"; message: string } | { kind: "checked"; alive: RemovedSuite[] }> {
-	const diff = await call(["diff", "--unified=0", base, merge, "--", SUITE_HOTSPOT]);
-	if (!diff.ok) {
-		return { kind: "failed", message: `could not read the manifest's removed lines (${firstLine(diff.out)})` };
-	}
-	const stems = removedSuiteStems(diff.out);
-	if (stems.length === 0) return { kind: "checked", alive: [] };
+	const before = await call(["show", `${base}:${SUITE_HOTSPOT}`]);
+	if (!before.ok) return { kind: "failed", message: `could not read the base manifest (${firstLine(before.out)})` };
+	const after = await call(["show", `${merge}:${SUITE_HOTSPOT}`]);
+	if (!after.ok) return { kind: "failed", message: `could not read the merge's manifest (${firstLine(after.out)})` };
+	const kept = declaredStems(after.out);
+	const removed = [...declaredStems(before.out)].filter((stem) => !kept.has(stem));
+	if (removed.length === 0) return { kind: "checked", alive: [] };
 	const tree = await call(["ls-tree", "-r", "--name-only", merge]);
 	if (!tree.ok) return { kind: "failed", message: `could not read the merge's files (${firstLine(tree.out)})` };
 	const files = tree.out
@@ -355,7 +362,7 @@ async function removedSuitesAbove(
 		.map((line) => line.trim())
 		.filter((line) => line !== "");
 	const alive: RemovedSuite[] = [];
-	for (const stem of stems) {
+	for (const stem of removed) {
 		const path = files.find((file) => file === `${stem}.test.ts` || file.endsWith(`/${stem}.test.ts`));
 		if (path !== undefined) alive.push({ stem, path });
 	}

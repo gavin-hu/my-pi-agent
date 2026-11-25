@@ -201,10 +201,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - `board`: `land` carries a card that deletes a suite again. The proof refused any line removed from
-  `test/suite-manifest.ts`, and removing a suite requires removing its line, so a card that deletes one could
-  never land. A removed line is allowed when the merge no longer holds the suite it names, and refused — naming
-  the stem and the file it found — when the suite survives; `CHANGELOG.md` stays absolute, because a bullet has
-  no legitimate deletion.
+  `test/suite-manifest.ts`, and removing a suite requires removing its declaration, so a card that deletes one
+  could never land. A suite the merge no longer has may leave the manifest, while one it still carries is refused
+  — naming the stem and the file it found — because that is a rewrite; `CHANGELOG.md` stays absolute, since a
+  bullet has no legitimate deletion.
 
 - `tools`: three caps that only a tool's own normalizer held are now in its parameter schema — `todo`'s item
   `content` and `activeForm`, `goal`'s `objective`, and `session`'s `paths` list — each a read of the constant the
