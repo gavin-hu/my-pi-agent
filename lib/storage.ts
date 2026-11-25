@@ -97,6 +97,7 @@ export const RESERVED_PATHS: readonly ReservedPath[] = [
 		holds: "the typecheck's build info and the gate's lock",
 		written: [],
 	},
+	{ home: "project", owner: "you", name: "tmp/", holds: "scratch a one-off probe or script writes", written: [] },
 	{
 		home: "agent",
 		owner: "package",

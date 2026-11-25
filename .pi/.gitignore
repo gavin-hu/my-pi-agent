@@ -1,9 +1,11 @@
 # Pi runtime state for this checkout: this package's project document, Pi's own project
-# settings, the last gate's scratch, the managed checkouts, and the two legacy spellings
-# an older build left behind. Nothing here belongs in a commit.
+# settings, the gate's cache and the scratch directory a one-off probe is written in, the
+# managed checkouts, and the two legacy spellings an older build left behind. Nothing here
+# belongs in a commit.
 bytefly.json
 settings.json
 cache/
+tmp/
 worktrees/
 memory.md
 plans/
