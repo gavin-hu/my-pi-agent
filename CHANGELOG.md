@@ -200,6 +200,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `web-access`: `web_fetch`'s schema states the two header caps narrow enough to be constants — 20 headers, 4 096
+  characters each — so Pi refuses an over-long call before `execute` rather than the tool doing it after a round trip,
+  and the body's published ceiling is the constant the clamp reads. The enforced body cap stays a project's
+  `fetch.maxBodyChars`, which no schema can know at registration: the schema publishes the widest body it accepts and
+  the description now names the default and the installable range, so a 200 KB POST is refused with the limit that
+  actually applied instead of one the schema never mentioned. The header count counts the entries a call sends.
+
 - `tools`: three caps that only a tool's own normalizer held are now in its parameter schema — `todo`'s item
   `content` and `activeForm`, `goal`'s `objective`, and `session`'s `paths` list — each a read of the constant the
   refusal already uses, so no number is written twice. A tool call past the limit now answers with Pi's schema
