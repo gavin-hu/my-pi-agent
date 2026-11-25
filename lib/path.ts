@@ -1,5 +1,5 @@
 /**
- * Path containment shared by the extensions that resolve untrusted paths.
+ * Path handling shared by the extensions that resolve a target a person typed.
  *
  * The file-browse extension serves files under a root, the worktree guards keep tool
  * calls inside the active worktree, and the doc extension canonicalizes the path
@@ -7,10 +7,11 @@
  * the root itself or beneath it? Keeping the predicates here means the guards
  * cannot drift apart.
  *
- * `isInside` compares path strings; `isInsideReal` first resolves symlinks in
- * the deepest existing ancestor, so a link that leaves the root is refused.
- * `lastSegment` names the part a path ends in — the directory a session is read as,
- * the last folder of a root-relative page.
+ * `normalizeTarget` is the step before all of that: the argument a command received,
+ * unwrapped from what the editor's completion wrote around it. `isInside` compares path
+ * strings; `isInsideReal` first resolves symlinks in the deepest existing ancestor, so a
+ * link that leaves the root is refused. `lastSegment` names the part a path ends in — the
+ * directory a session is read as, the last folder of a root-relative page.
  *
  * One spelling rule, stated here because four functions read it: `posixPath` is the
  * POSIX spelling this package prints, compares and encodes in, and its separators come
@@ -23,9 +24,25 @@
 
 import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from "node:path";
+import { stripControlChars } from "./format.ts";
 
 /** The separators a path may arrive with, taken from `node:path` rather than typed. */
 const SEPARATORS = [win32.sep, posix.sep] as const;
+
+/**
+ * Strip Pi's `@` file-mention prefix and any surrounding quotes from a target.
+ * The editor's `@` completion keeps the `@` in the text, so `/open @src/app.ts`
+ * and `/open @"my file.txt"` must be unwrapped before resolving. Control
+ * characters are removed first so a pasted path cannot smuggle an escape into
+ * the process arguments or the notification.
+ */
+export function normalizeTarget(raw: string): string {
+	let target = stripControlChars(raw).trim();
+	if (target.startsWith("@")) target = target.slice(1).trim();
+	const quoted = (target.startsWith('"') && target.endsWith('"')) || (target.startsWith("'") && target.endsWith("'"));
+	if (target.length >= 2 && quoted) target = target.slice(1, -1);
+	return target.trim();
+}
 
 /** `value` in the POSIX spelling this package prints, compares and encodes in. */
 export function posixPath(value: string): string {
