@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "playwright-core";
 import type { Actor } from "../../../lib/workflow/rules.ts";
 import type { Card } from "../../../lib/workflow/card.ts";
+import type { ElementLike } from "../../../test/helpers/board-dom.ts";
 import { UNWRITTEN_MS } from "../../../lib/workflow/round.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
 import { LEAD, seedWorkingBoard } from "../../../test/helpers/board-fixture.ts";
@@ -32,6 +33,19 @@ const clock = makeClock(1_760_000_000_000);
 
 /** How long a suite's hooks may take: two boots, and a teardown that closes each browser. */
 const HOOK_MS = 30_000;
+
+/** A node with the children these cases query; the DOM lib is not this project's. */
+interface Node extends ElementLike {
+	querySelector(selector: string): Node | null;
+	querySelectorAll(selector: string): ArrayLike<Node>;
+}
+
+/** The sliver of the document a case reads, typed the way the page's helpers type it. */
+interface TeamDoc {
+	querySelector(selector: string): Node | null;
+	querySelectorAll(selector: string): ArrayLike<Node>;
+	getElementById(id: string): Node | null;
+}
 
 /** The four lanes the column carries, in the order it reads them. */
 const LANES = ["blocked", "execute", "plan", "backlog"];
@@ -60,7 +74,7 @@ interface Column {
 
 const column = (page: Page): Promise<Column> =>
 	page.evaluate(() => {
-		const document = (globalThis as unknown as { document: Doc }).document;
+		const document = (globalThis as unknown as { document: TeamDoc }).document;
 		const root = document.querySelector('#board-team [data-column="active"]');
 		if (root === null) throw new Error("the middle column is not on the page");
 		const text = (selector: string) => document.querySelector(selector)?.textContent ?? "";
@@ -83,7 +97,7 @@ const column = (page: Page): Promise<Column> =>
 /** Every `data-card` the middle column drew, in document order: the lanes, not the ask rows. */
 const drawnCards = (page: Page): Promise<string[]> =>
 	page.evaluate(() => {
-		const document = (globalThis as unknown as { document: Doc }).document;
+		const document = (globalThis as unknown as { document: TeamDoc }).document;
 		return Array.from(
 			document.querySelectorAll('#board-team [data-column="active"] [data-card]'),
 			(node) => node.getAttribute("data-card") ?? "",
@@ -107,7 +121,10 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		await page.waitForSelector("#team-asks .board-queue__row", { timeout: PAINT_MS });
 		await drawn(page);
 		const cards = await board.store.list();
-		const open = cards.filter((card) => card.lane !== "done").map((card) => String(card.id)).sort();
+		const open = cards
+			.filter((card) => card.lane !== "done")
+			.map((card) => String(card.id))
+			.sort();
 		const drew = (await drawnCards(page)).sort();
 		// The invariant the redesign is: a card is drawn once on this tab — the ask row above it is
 		// a line about the card (`data-ask`), not a second drawing of it, and that is the difference
@@ -115,9 +132,10 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		expect(new Set(drew).size).toBe(drew.length);
 		expect(drew).toEqual(open);
 		const asked = await page.evaluate(() => {
-			const document = (globalThis as unknown as { document: Doc }).document;
-			return Array.from(document.querySelectorAll("#team-asks .board-queue__row"), (row) =>
-				row.getAttribute("data-ask") ?? "",
+			const document = (globalThis as unknown as { document: TeamDoc }).document;
+			return Array.from(
+				document.querySelectorAll("#team-asks .board-queue__row"),
+				(row) => row.getAttribute("data-ask") ?? "",
 			);
 		});
 		expect(new Set(asked).size).toBe(asked.length);
@@ -140,7 +158,7 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		await page.click("#tab-team");
 		await page.waitForSelector("#team-asks .board-queue__row", { timeout: PAINT_MS });
 		const filed = await page.$$eval("#team-asks .board-queue__row", (nodes) =>
-			Array.from(nodes as ArrayLike<ElementLike>, (row) => ({
+			Array.from(nodes as ArrayLike<Node>, (row) => ({
 				card: row.getAttribute("data-card") ?? "",
 				tone: row.getAttribute("data-tone") ?? "",
 				pill: row.querySelector(".bf-tag")?.textContent ?? "",
@@ -153,10 +171,13 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		// A card being worked, a plan with no contract, and the pool under it are the lanes' facts,
 		// and the queue does not restate one of them.
 		const said = await page.$$eval("#team-asks .board-queue__why", (nodes) =>
-			Array.from(nodes as ArrayLike<ElementLike>, (node) => node.textContent ?? ""),
+			Array.from(nodes as ArrayLike<Node>, (node) => node.textContent ?? ""),
 		);
 		for (const sentence of ["nobody holds it", "no contract yet", "no spot-check yet", "waits on"]) {
-			expect(said.some((text) => text.includes(sentence)), sentence).toBe(false);
+			expect(
+				said.some((text) => text.includes(sentence)),
+				sentence,
+			).toBe(false);
 		}
 	});
 
@@ -174,7 +195,7 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		const quiet = await silentExecution();
 		await waitFor(async () => (await drawnCards(page)).includes(String(quiet.id)), PAINT_MS);
 		const row = await page.evaluate((id: string) => {
-			const document = (globalThis as unknown as { document: Doc }).document;
+			const document = (globalThis as unknown as { document: TeamDoc }).document;
 			const node = document.querySelector('#team-asks .board-queue__row[data-ask="' + id + '"]');
 			return {
 				pill: node?.querySelector(".bf-tag")?.textContent ?? "",
@@ -326,7 +347,12 @@ async function silentExecution(): Promise<{ id: string; at: number }> {
 	}
 	const approved = await board.store.mutate(card.id, { kind: "approve", artifact: { record } }, LEAD, at + 3_000);
 	if (!approved.ok) throw new Error(approved.error);
-	const moved = await board.store.mutate(card.id, { kind: "move", lane: "execute", artifact: { record } }, owner, at + 4_000);
+	const moved = await board.store.mutate(
+		card.id,
+		{ kind: "move", lane: "execute", artifact: { record } },
+		owner,
+		at + 4_000,
+	);
 	if (!moved.ok) throw new Error(moved.error);
 	return { id: card.id, at: at + 4_000 };
 }

@@ -64,6 +64,13 @@ describe("the Team tab's one paper", () => {
 	});
 });
 
+/** A node with the children these cases query; the DOM lib is not this project's. */
+interface Querying extends ElementLike {
+	querySelector(selector: string): Querying | null;
+	querySelectorAll(selector: string): ArrayLike<Querying>;
+	getBoundingClientRect(): { x: number; top: number; width: number; height: number };
+}
+
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
 const clock = makeClock(1_760_000_000_000);
 
@@ -221,11 +228,6 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		await board?.close();
 	}, HOOK_MS);
 
-	/** One unclaimed backlog card, written by the board's lead the way a peer's write lands. */
-	const unclaimed = async (title: string, index: number): Promise<void> => {
-		await board.store.create({ title, paths: ["src/triage"] }, LEAD, clock.now() - index * 1_000);
-	};
-
 	/** The asks this suite added, so it can hand them back and leave the board as it found it. */
 	const added: Array<{ id: string; owner: { id: string; label: string } }> = [];
 
@@ -256,8 +258,8 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 	async function asks(page: Page): Promise<{ rows: number; fold: string; behind: number }> {
 		return page.evaluate(() => {
 			const document = (globalThis as unknown as { document: Doc }).document;
-			const list = document.querySelector("#team-asks");
-			const fold = document.querySelector('#board-team [data-fold="needs-you"]');
+			const list = document.querySelector("#team-asks") as unknown as Querying | null;
+			const fold = document.querySelector('#board-team [data-fold="needs-you"]') as unknown as Querying | null;
 			const said = fold?.textContent ?? "";
 			return {
 				rows: list === null ? 0 : list.querySelectorAll(".board-queue__row").length,
@@ -284,7 +286,9 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		// Every drawn row is described by its own line: the sentence is the row's, not the list's.
 		const described = await page.evaluate(() => {
 			const document = (globalThis as unknown as { document: Doc }).document;
-			const rows = Array.from(document.querySelectorAll("#team-asks .board-queue__row"));
+			const rows = Array.from(
+				document.querySelectorAll("#team-asks .board-queue__row") as unknown as ArrayLike<Querying>,
+			);
 			return rows.map((row) => {
 				const title = row.querySelector(".bf-row__title");
 				const id = title?.getAttribute("aria-describedby") ?? "";

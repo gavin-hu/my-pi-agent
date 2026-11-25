@@ -27,11 +27,7 @@
  * the card face and the terminal share, so a blocked card is described one way everywhere.
  */
 
-export function activeJs(rules: {
-	decisionLabels: string;
-	sameLabel: string;
-	labelKey: string;
-}): string {
+export function activeJs(rules: { decisionLabels: string; sameLabel: string; labelKey: string }): string {
 	return activeTemplate
 		.replace("__DECISION_LABEL__", rules.decisionLabels)
 		.replace("__SAME_LABEL__", rules.sameLabel)

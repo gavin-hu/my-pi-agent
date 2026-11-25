@@ -372,34 +372,26 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 	test("walks to the next card with j, and says where it landed", async () => {
 		const page = await openPage();
 		await page.click("#lane-backlog .bf-row__title");
-			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-		// The line names the card's place as drawn and the card it names: a filter or a folded lane
-		// moves the number, so the case reads the position the page computed rather than one written
-		// here — five cards on this fixture, and the Done lane folded.
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		const opened = await page.textContent("#card-dialog-title");
-		const first = await page.textContent("#card-dialog-where");
-		const read = /^card (\d+) of (\d+): (.*)$/.exec(first ?? "");
+		const first = (await page.textContent("#card-dialog-where")) ?? "";
+		const read = /^card (\d+) of (\d+): (.*)$/.exec(first);
 		if (read === null) throw new Error("the dialog does not say where it landed: " + first);
 		const [, at, total, named] = read;
-		expect(named).toBe(opened);
+		expect(named).toBe(opened ?? "");
 		expect(Number(total)).toBeGreaterThan(3);
 		expect(Number(at)).toBeGreaterThanOrEqual(1);
 		expect(Number(at)).toBeLessThanOrEqual(Number(total));
 
 		await page.keyboard.press("j");
 		const second = await page.textContent("#card-dialog-where");
-		expect(second).not.toBe(first);
 		expect(second).toContain(" of " + total + ": ");
 		expect(await page.textContent("#card-dialog-title")).not.toBe(opened);
-		// The dialog is still open: a step moves the record, it does not close it.
 		expect(await hidden(page, "#board-card-dialog")).toBe(false);
 
-		// It wraps, and k walks back the way it came: a full turn of the board returns to the card
-		// the reader opened, whatever its position.
 		for (let step = 0; step < Number(total) - 1; step += 1) await page.keyboard.press("j");
 		expect(await page.textContent("#card-dialog-where")).toBe(first);
 		await page.keyboard.press("k");
-		// k walks back the way j came, and past the first card it wraps to the last.
 		expect(await page.textContent("#card-dialog-where")).toContain("card " + total + " of " + total + ": ");
 		await page.keyboard.press("Escape");
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);

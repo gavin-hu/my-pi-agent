@@ -77,7 +77,8 @@ describe("the tone table", () => {
 		// that used to order it are gone. A loss outranks a gate, and a gate outranks advice.
 		const filed = ["gone", "untold", "approval", "unwritten"] as const;
 		const rank = (kind: string) => DECISION_KINDS.indexOf(kind as (typeof DECISION_KINDS)[number]);
-		expect(filed).toEqual([...filed].sort((a, b) => rank(a) - rank(b)));
+		const byRank = [...filed].sort((a, b) => rank(a) - rank(b));
+		expect(byRank.join(",")).toBe(filed.join(","));
 		expect(DECISION_TONE.gone).toBe("danger");
 		expect(DECISION_TONE.approval).toBe("warn");
 		expect(DECISION_TONE.untold).toBe("warn");

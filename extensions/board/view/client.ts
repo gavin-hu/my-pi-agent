@@ -18,12 +18,7 @@ import { ACTIVITY_LABEL_JS } from "../../../lib/workflow/activity.ts";
 import { MATCHES_QUERY_JS } from "../../../lib/workflow/card.ts";
 import { CURRENT_REVIEW_JS } from "../../../lib/workflow/signs.ts";
 import { REASON_FOR_JS } from "../../../lib/workflow/reason.ts";
-import {
-	DECISION_LABEL_JS,
-	DECISION_RANK_JS,
-	DECISION_TONE_JS,
-	REASON_TONE_JS,
-} from "../../../lib/workflow/tone.ts";
+import { DECISION_LABEL_JS, DECISION_RANK_JS, DECISION_TONE_JS, REASON_TONE_JS } from "../../../lib/workflow/tone.ts";
 import { LANES } from "../../../lib/workflow/lanes.ts";
 import {
 	CLIENT_BASE_JS,
