@@ -24,7 +24,7 @@ import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { PageStart } from "../../extensions/board/page.ts";
 import { testMountSource } from "./serve.ts";
 import { type BoardServer, createBoardServer } from "../../extensions/board/transport/server.ts";
-import { BOARD_CLIENT_JS } from "../../extensions/board/view/client.ts";
+import { boardClientJs, type BoardPeriods } from "../../extensions/board/view/client.ts";
 import { renderBoardPage } from "../../extensions/board/view/page.ts";
 
 /** The page a start served here, or a failure that says why there is none. */
@@ -96,6 +96,14 @@ export interface ServedBoardPageOptions {
 	 */
 	bus?: string;
 	/**
+	 * The page's two clocks, in ms.
+	 *
+	 * Omitted, the page is the one `/board` serves, on its own 1500 ms mark and 1000 ms tick. A
+	 * suite that asserts a mark leaving or an age moving passes a shorter pair rather than waiting
+	 * the product's period out for every assertion: the code path is the same one, smaller.
+	 */
+	periods?: BoardPeriods;
+	/**
 	 * The hint the page's stream sends its first reconnect, in ms.
 	 *
 	 * A case that reads what the page does once its stream is dead would otherwise wait out
@@ -117,7 +125,7 @@ export interface ServedBoardPage {
 
 /** Serve the shipped page over `store`, with a snapshot re-read for every frame. */
 export async function serveBoardPage(options: ServedBoardPageOptions): Promise<ServedBoardPage> {
-	const { store, now, display = {}, roster, waiting, bus, host, retryMs } = options;
+	const { store, now, display = {}, roster, waiting, bus, host, retryMs, periods } = options;
 	// What the page prints for its repository, resolved once so the document and every frame
 	// name the same board: the toolbar is named before the first frame rather than after it.
 	const repo = display.repo ?? store.name();
@@ -163,7 +171,7 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 		dirs: [join(store.dir, CARDS_DIR_NAME)],
 		page: async (tab) =>
 			renderBoardPage({ view: tab, base: BOARD_BASE, repo, root, where: display.where ?? store.where() }),
-		script: BOARD_CLIENT_JS,
+		script: boardClientJs(periods),
 		...(retryMs === undefined ? {} : { retryMs }),
 		view,
 	});

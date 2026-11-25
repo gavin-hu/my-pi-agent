@@ -171,21 +171,17 @@ export function budgetProblems(source: Source): string[] {
 }
 
 /**
- * The fixed sleeps a suite may still take, and why.
+ * The fixed sleeps a suite may still take, and why — empty, and it stays that way.
  *
  * A fixed wait is not a budget: no floor makes it safe, because what it waits for may not have
  * happened yet — a case that sleeps is asserting that the machine was fast enough, which is how the
- * board suites reddened on a loaded four-worker gate. The exception is a case whose assertion *is*
- * an absence of change over an interval: there is no condition to wait for, so the sleep is the
- * test. Each entry names the call's line, and a stale entry fails — an allowlist nobody re-reads is
- * how an exception outlives its reason.
+ * board suites reddened on a loaded four-worker gate. The one entry this list held was a case
+ * asserting an *absence* of change over an interval, which read as a condition nobody could wait
+ * for; it turned out the page counts its own age ticks, so the case waits for one (#901). An entry
+ * names the call's line and a stale entry fails, so a case that reintroduces a sleep has to argue
+ * for it here rather than by leaving one in.
  */
-const FIXED_SLEEP_EXCEPTIONS = [
-	{
-		at: "extensions/board/view/behaviour.test.ts:700",
-		why: "the case asserts the agents column does not repaint as time passes — an absence of change, which no condition can wait for",
-	},
-];
+const FIXED_SLEEP_EXCEPTIONS: readonly { at: string; why: string }[] = [];
 
 /** The message one fixed sleep reports. */
 function fixedSleepOffence(path: string, line: number): string {
@@ -328,8 +324,8 @@ describe("fixed sleeps", () => {
 		expect(stale).toEqual([]);
 	});
 
-	test("the exception list has no room to grow", () => {
-		expect(FIXED_SLEEP_EXCEPTIONS).toHaveLength(1);
+	test("the exception list stays empty", () => {
+		expect(FIXED_SLEEP_EXCEPTIONS).toEqual([]);
 	});
 
 	test("names a fixed sleep with its line, and lets a condition wait through", () => {

@@ -697,7 +697,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 					page.$eval('.board-team__column[data-column="agents"]', (node) => node.getAttribute("data-sig"));
 				const settled = await agentsSig();
 				beat += 10_000;
-				await page.waitForTimeout(1_100);
+				await board.ticked(page);
 				expect(await agentsSig()).toBe(settled);
 
 				// The filter narrows cards, so the roster stands still: only the middle column empties, and the fold stays shut.

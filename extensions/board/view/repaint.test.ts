@@ -4,9 +4,8 @@
  *
  * A link is stored on the waiting card alone, so the sentences a face derives from the rest of
  * the board belong to the board rather than to that card's file: each case writes to a card in
- * another lane, so only the derived facts can tell the watched lane the frame is news.
- *
- * It needs a browser: where the machine has none the suite skips, naming `PI_CHROME`.
+ * another lane, so only the derived facts can tell the watched lane the frame is news. It needs a
+ * browser: where the machine has none the suite skips, naming `PI_CHROME`.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -21,6 +20,7 @@ import {
 	BOARD_PAINT_MS as PAINT_MS,
 	type BoardBrowser,
 	openBoardBrowser,
+	SUITE_PERIODS,
 } from "../../../test/helpers/board-browser.ts";
 
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
@@ -106,7 +106,7 @@ async function marks(page: Page, ids: readonly string[]): Promise<void> {
 
 describe.skipIf(CHROME === undefined)("a frame", () => {
 	beforeAll(async () => {
-		board = await openBoardBrowser({ lead: LEAD.label, now: clock.now, seed: seedBoard });
+		board = await openBoardBrowser({ lead: LEAD.label, now: clock.now, seed: seedBoard, periods: SUITE_PERIODS });
 	}, 30_000);
 
 	afterAll(async () => {

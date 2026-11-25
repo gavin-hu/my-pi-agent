@@ -14,7 +14,8 @@ import { REASON_FOR_JS } from "../../../lib/workflow/reason.ts";
 import { HISTORY_OWNER_JS } from "../../../lib/workflow/round-text.ts";
 import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
 import { duplicateFunctions, missingBundleBodies } from "../../../test/helpers/bundle.ts";
-import { BOARD_CLIENT_JS } from "./client.ts";
+import { BOARD_CLIENT_JS, boardClientJs } from "./client.ts";
+import { unfilledPlaceholders } from "../../../test/helpers/bundle.ts";
 
 /** A bundle with one name defined twice: two bodies, or one body twice. */
 function bundle(secondBody: string | undefined): string {
@@ -123,5 +124,18 @@ describe("the bundle's definitions", () => {
 		// carries two copies of one body. Two identical bodies cannot disagree about which answers
 		// a caller, and the alternative — naming the allowance — would pin the dialog kit's shape.
 		expect(duplicateFunctions(bundle("(at) { return at; }"))).toEqual([]);
+	});
+});
+describe("the clocks the page runs on", () => {
+	test("ships its own two periods, and lets a fixture shorten them without a placeholder surviving", () => {
+		// The splice has three ways to lie: the shipped page loses its numbers, a fixture's pair never
+		// reaches the template, or a `__NAME__` is left for the browser to read as a variable.
+		expect(BOARD_CLIENT_JS).toContain("var CHANGE_MS = 1500;");
+		expect(BOARD_CLIENT_JS).toContain("}, 1000);");
+		const short = boardClientJs({ changeMs: 500, ageTickMs: 100 });
+		expect(short).toContain("var CHANGE_MS = 500;");
+		expect(short).toContain("}, 100);");
+		expect(unfilledPlaceholders(BOARD_CLIENT_JS)).toEqual([]);
+		expect(unfilledPlaceholders(short)).toEqual([]);
 	});
 });

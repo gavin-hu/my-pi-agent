@@ -107,7 +107,7 @@ const LONG_SUITES: Record<string, number> = {
 	"test/shared-helpers.test.ts": 628,
 	"test/site-docs.test.ts": 829,
 	"test/theme.test.ts": 560,
-	"test/wait-budget.test.ts": 493,
+	"test/wait-budget.test.ts": 489,
 };
 
 /**

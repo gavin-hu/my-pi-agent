@@ -72,6 +72,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lets the tab's filter find a pool card. The terminal's rollup keeps `unassigned` / `unplanned` / `unwritten`,
   because it answers what the board holds rather than what the seat owes.
 
+- `board`: the page's two clocks are spliced numbers rather than template literals — the 1500 ms mark a moved card
+  wears and the 1000 ms age tick — so a case drives a short pair instead of waiting the product's period out. The
+  shipped page keeps its own values and asserts them, and only the suites that measure a ticker ask for the short
+  ones: the four mark cases in `repaint.test.ts` went 1.7–4.1 s to 0.6–1.3 s on the same
+  machine. The page also counts its ticks, which is what turned the last fixed sleep in the layer — a case asserting
+  the agents column does not repaint as time passes — into a wait on the tick itself, so
+  `test/wait-budget.test.ts`'s exception list is empty.
+
 - `team`: `/team` closes with a count and a door, `2 of 4 sessions live — /team who lists them`, and its `… N more`
   names the surface that draws the rest. The presence sentence is gone: it rendered the one `whoIsHere` grouping a
   second time, naming a session under its state and again under `not listening`, and wrapped into a wall on a narrow
