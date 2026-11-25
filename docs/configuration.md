@@ -125,7 +125,7 @@ the file for the scope you want, and the next session reads it.
 | I want to… | Where |
 |---|---|
 | get a desktop alert when a turn, a job, or a question needs me | **Desktop notifications** in `/bytefly settings` |
-| see costs in another currency, or set a budget | **Currency**, **Session budget** |
+| see costs in another currency | **Currency** in `/bytefly settings` |
 | set the cost precision after choosing a currency | [`price.currency.decimals`](./configuration-reference.md#price--cost-calculation) |
 | change the rail glyph beside tool results | [`chrome.rail`](./configuration-reference.md#chrome--transcript-chrome) |
 | use the light palette, or follow the system's preference | **Theme** in `/bytefly settings`, or `theme` in Pi's own settings |
@@ -140,8 +140,8 @@ the file for the scope you want, and the next session reads it.
 | change document read limits | [`file-read`](./configuration-reference.md#file-read--document-and-spreadsheet-extraction) |
 | raise the board's WIP limits, name the team lead whose signature the board's gates take, or say who is on the team | **Plan limit**, **Execute limit**, **Lead**, **Teammates** in `/bytefly settings`, or [`board`](./configuration-reference.md#board--the-shared-feature-board) and [`team`](./configuration-reference.md#team--the-projects-own-team) |
 
-`/bytefly settings` is a shortlist of the preferences a session changes — seventeen
-rows under six headings (Startup, Notifications, Session, Board, Team, and Price), named in
+`/bytefly settings` is a shortlist of the preferences a session changes — sixteen
+rows across five headings (Setup, Notifications, Session, Board, and Team), named in
 bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
 screen; the full list is on

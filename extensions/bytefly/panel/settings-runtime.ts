@@ -116,7 +116,7 @@ function refusal(row: SettingDescriptor, scope: WriteScope, trusted: boolean): s
 	if (scope === "project" && !trusted) {
 		return UNTRUSTED_SETTINGS_NOTE;
 	}
-	if (row.source === "app" && scope !== "global") return `${row.label} is a Global setting.`;
+	if (row.globalOnly === true && scope !== "global") return `${row.label} is a Global setting.`;
 	return undefined;
 }
 

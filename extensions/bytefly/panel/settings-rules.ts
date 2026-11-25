@@ -3,8 +3,8 @@
  *
  * A rule lives beside the catalogue but not inside it, because the screen's list is sixteen
  * rows long and each row's arithmetic is one paragraph: the two together are what pushed the
- * catalogue past the module bar. Every limit here is the loader's own — the budget's clamp, the
- * WIP range, the team cap — so a value the screen accepts is a value the loader keeps, and
+ * catalogue past the module bar. Every limit here is the loader's own — the WIP range and the
+ * team's cap — so a value the screen accepts is a value the loader keeps, and
  * `test/settings-coverage.test.ts` holds the pair together.
  */
 
@@ -20,25 +20,7 @@ export interface TextRule {
 }
 
 /**
- * A text rule for a money amount inside an inclusive range: a whole number or a
- * decimal with up to four places, matching the loader's clamp for `price.budget`.
- * `0` is a legitimate value (the guardrail is off), so it is not rejected.
- */
-export function amountRule(min: number, max: number): TextRule {
-	return {
-		maxLength: 16,
-		validate(raw) {
-			const text = raw.trim();
-			if (!/^\d+(?:\.\d{1,4})?$/.test(text)) return `Use an amount like 5 or 2.50, ${min} to ${max}.`;
-			const value = Number(text);
-			if (!Number.isFinite(value) || value < min || value > max) return `Out of range: ${min} to ${max}.`;
-			return undefined;
-		},
-	};
-}
-
-/**
- * A text rule for a whole number inside an inclusive range: the board's two WIP limits, at the
+ * A text rule for a whole number inside an inclusive range: the board's three WIP limits, at the
  * `1..MAX_WIP` the loader clamps to, so the screen cannot save a number the board would shorten.
  */
 export function countRule(min: number, max: number): TextRule {

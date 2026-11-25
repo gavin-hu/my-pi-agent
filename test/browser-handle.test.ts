@@ -13,18 +13,61 @@
  * It needs a browser; where the machine has none it skips, naming `PI_CHROME`.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { findChrome } from "../scripts/capture/chrome.ts";
-import { alive, browserDeath, guarded, launchBrowser } from "./helpers/browser.ts";
+import { alive, browserDeath, guarded, launchBrowser, launchOwnBrowser, type TestBrowser } from "./helpers/browser.ts";
 
 const CHROME = findChrome();
+
+/**
+ * The suite's own pool record, and the browser it names.
+ *
+ * Every case here used to join whatever browser the machine had, so the kill case's `SIGKILL` was
+ * observable only when the pool happened to be cold — the state that made this file red under load and
+ * green alone. Creating that state here is what turns the repro into a gate: the record is this suite's,
+ * so no other checkout's run is touched, and the kill case below fails on a helper that joins it.
+ */
+const SUITE_POOL = join(tmpdir(), `my-pi-agent-browser-handle-${process.pid}.json`);
+let pooled: TestBrowser | undefined;
 
 /** How long the process gets to report its own death: a kill is fast, but the event is async. */
 const EXIT_BUDGET_MS = 5_000;
 
 describe.skipIf(CHROME === undefined)("a headless browser that dies", () => {
+	/**
+	 * Make the pool live before the cases run, so each one starts from the condition that used to break
+	 * this file: a browser another process started, which a handle can join but cannot own.
+	 */
+	beforeAll(async () => {
+		process.env.PI_BROWSER_POOL_FILE = SUITE_POOL;
+		// Cold, because this record does not exist yet: the boot spawns the browser and writes the record,
+		// and the process outlives the handle by design — which is what makes every later launch join.
+		pooled = await launchBrowser(CHROME);
+	}, 30_000);
+
+	afterAll(async () => {
+		const pid = pooled?.pid();
+		// `close()` drops this file's connection and leaves the process up for the next file, so the
+		// fixture owes both the kill and the record it wrote.
+		await pooled?.close();
+		if (typeof pid === "number") {
+			try {
+				process.kill(pid, "SIGKILL");
+			} catch {
+				// Already gone, which is the state this hook wanted.
+			}
+		}
+		rmSync(SUITE_POOL, { force: true });
+		delete process.env.PI_BROWSER_POOL_FILE;
+	}, 30_000);
+
 	test("names its exit instead of leaving the case to spend its budget", async () => {
-		const browser = await launchBrowser(CHROME);
+		// Own the process: a joined handle cannot name a death (see the last case here), and the signal
+		// asserted below is only observable from the process that spawned the child.
+		const browser = await launchOwnBrowser(CHROME);
 		try {
 			await browser.newPage();
 			const pid = browser.pid();
@@ -75,7 +118,9 @@ describe.skipIf(CHROME === undefined)("a headless browser that dies", () => {
 	});
 
 	test("reports the death rather than the call's error once the browser is gone", async () => {
-		const browser = await launchBrowser(CHROME);
+		// Owned for the same reason as the first case, and for one more: killing the run's shared browser
+		// would take a concurrent suite down with this one.
+		const browser = await launchOwnBrowser(CHROME);
 		try {
 			await browser.newPage();
 			process.kill(browser.pid() as number, "SIGKILL");
@@ -88,5 +133,18 @@ describe.skipIf(CHROME === undefined)("a headless browser that dies", () => {
 		} finally {
 			await browser.close();
 		}
+	});
+
+	test("a joined handle cannot name the death, which is why the cases above own one", async () => {
+		// Last, because it spends the fixture's browser. This is the state the machine used to provide by
+		// accident: a pooled browser another process started. A handle that joined it has no child, so the
+		// exit event never reaches this process and all it can report is an exit with no cause.
+		const joined = await launchBrowser(CHROME);
+		const pid = joined.pid();
+		expect(typeof pid).toBe("number");
+		process.kill(pid as number, "SIGKILL");
+		const deadline = Date.now() + EXIT_BUDGET_MS;
+		while (joined.exited() === undefined && Date.now() < deadline) await Bun.sleep(20);
+		expect(joined.exited()).toEqual({ code: null, signal: null });
 	});
 });

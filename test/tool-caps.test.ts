@@ -31,6 +31,8 @@ import { MAX_PATHS as MAX_SESSION_PATHS, MIN_PATHS } from "../extensions/session
 import { MAX_CONTENT } from "../lib/todo-state.ts";
 import { MAX_OBJECTIVE } from "../extensions/goal/schema.ts";
 import { MAX_MESSAGE_TEXT } from "../lib/session-tool.ts";
+import { MAX_BODY_CHARS } from "../extensions/web-access/fetch/config.ts";
+import { MAX_HEADERS, MAX_HEADER_VALUE, MAX_URL_LENGTH } from "../extensions/web-access/fetch/schema.ts";
 import { REGISTERED } from "./helpers/registry.ts";
 import { registeredTools, type SchemaNode } from "./helpers/registered.ts";
 
@@ -109,6 +111,13 @@ const CARRIED: readonly Carried[] = [
 	{ tool: "watch", at: "exclude[items]", bound: "maxLength", value: MAX_PATTERN },
 	{ tool: "memory", at: "to", bound: "maxLength", value: MAX_ENTRY_CHARS },
 	{ tool: "memory", at: "merged", bound: "maxLength", value: MAX_ENTRY_CHARS },
+	// `web_fetch`'s three constants, and the body's installable ceiling: the enforced body cap is a
+	// project's `fetch.maxBodyChars`, which no schema can state at registration, so the schema publishes
+	// the widest body it can accept and the description names the configured one (#898).
+	{ tool: "web_fetch", at: "url", bound: "maxLength", value: MAX_URL_LENGTH },
+	{ tool: "web_fetch", at: "body", bound: "maxLength", value: MAX_BODY_CHARS },
+	{ tool: "web_fetch", at: "headers", bound: "maxProperties", value: MAX_HEADERS },
+	{ tool: "web_fetch", at: "headers[value]", bound: "maxLength", value: MAX_HEADER_VALUE },
 ];
 
 /**

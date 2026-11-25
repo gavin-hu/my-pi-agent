@@ -192,6 +192,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `bytefly`: the session spend guardrail leaves whole — the `price.budget` key, its **Session budget** row, the footer's
+  `spent/limit` form, and the one warning and OS notification a crossing raised. A file that still states `price.budget`
+  is ignored, and a project that stated one now gets no warning at all: there is no ceiling left to cross, and nothing
+  replaces it. **Currency** is the third **Setup** row — read when the session starts, applied on reload — and a Global
+  setting now, so Project lists it to read and refuses the write; the **Price** heading goes with the row that named it.
+
 - `board`: `/board exit`, the second word that let a seated session drop the seat and keep the page. `stop` is the one
   word now: it ends the page and the seat together, so leaving the seat costs the live round, and `/board` takes both
   back in one keystroke; a session whose branch restored the seat stops it with no page left to close.
@@ -207,6 +213,43 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ### Fixed
+
+- `watch`, `plan`: a field an action never reads is refused rather than dropped in silence — a `logs` call carrying
+  `path` now answers that `add` takes it, and `enter` with a `title` points at `write`. Each table lives beside its
+  tool's action list, `lib/stray-fields.ts` words the refusal, and a test holds every published field to an action
+  that reads it. Both guards load where they are used, so no entry pays a module at start. `plan` also refuses an
+  action it does not know, where it used to fall off the end of its switch and answer nothing.
+
+- `test`: `browser-handle`'s exit case owns the browser it kills, and the suite now makes the state that used to
+  break it. A handle joined to the run's pooled browser carries no child process, so `exited()` could only answer
+  `{ code: null, signal: null }` — which is why `signal: "SIGKILL"` was observable alone and read `null` on a machine
+  with another session's browser live, reddening a sweep every card pays for. The file gives the pool a record of its
+  own (`PI_BROWSER_POOL_FILE`), boots one browser through it before the cases and kills it after, and pins the joined
+  handle's blindness in a case of its own, so the reason is executable rather than remembered. The second kill case
+  owns its browser too: a warm kill used to take down the browser a concurrent suite was using.
+
+- `session-bus`, `memory`, `code-review`, `job`: a field an action never reads is refused instead of dropped in
+  silence — a `status` call that also names `to` now answers that `send` is the action that takes it, and a `list`
+  with a `command` says `start` owns it. The table of what each action reads lives beside that tool's action list,
+  `lib/stray-fields.ts` words the refusal, and a test holds every published field to an action that reads it. A field
+  the caller left out is not a stray, so a codemod caller's `key: undefined` is not refused for a field it never
+  sent. Two descriptions that denied their own dispatch now say what they do: `memory`'s `scope` is read by `list` as
+  well as the four writes (the sentence shrank, so its surface ceiling fell 1,889 → 1,857), and `session`'s `paths`
+  names `send` as well as `claim`/`release`, paid for by `to` giving up the broadcast rule the description already
+  states. `code_review` also stops treating an action it does not know as `close`.
+
+- `board`: `land` carries a card that deletes a suite again. The proof refused any line removed from
+  `test/suite-manifest.ts`, and removing a suite requires removing its declaration, so a card that deletes one
+  could never land. A suite the merge no longer has may leave the manifest, while one it still carries is refused
+  — naming the stem and the file it found — because that is a rewrite; `CHANGELOG.md` stays absolute, since a
+  bullet has no legitimate deletion.
+
+- `web-access`: `web_fetch`'s schema states the two header caps narrow enough to be constants — 20 headers, 4 096
+  characters each — so Pi refuses an over-long call before `execute` rather than the tool doing it after a round trip,
+  and the body's published ceiling is the constant the clamp reads. The enforced body cap stays a project's
+  `fetch.maxBodyChars`, which no schema can know at registration: the schema publishes the widest body it accepts and
+  the description now names the default and the installable range, so a 200 KB POST is refused with the limit that
+  actually applied instead of one the schema never mentioned. The header count counts the entries a call sends.
 
 - `tools`: three caps that only a tool's own normalizer held are now in its parameter schema — `todo`'s item
   `content` and `activeForm`, `goal`'s `objective`, and `session`'s `paths` list — each a read of the constant the

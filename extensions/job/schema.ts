@@ -12,6 +12,7 @@ import { StringEnum } from "../../lib/tool-schema.ts";
 import { JOB_ACTIONS, KILL_SIGNALS, type JobAction, type KillSignal } from "./types.ts";
 import { MAX_WAIT_MS } from "./waiters.ts";
 import { overLimit } from "../../lib/format.ts";
+import { strayField } from "../../lib/stray-fields.ts";
 
 /** Longest accepted command string. */
 export const MAX_COMMAND = 4000;
@@ -78,6 +79,25 @@ export const JobParams = Type.Object({
 export type JobArgs = Static<typeof JobParams>;
 
 /**
+ * The fields each action reads.
+ *
+ * The parameters are one flat object, so every field is published to every action at once and
+ * only this table stops one reaching an action that would drop it — `list` with a `command`, or
+ * `start` with an `id` that no job has. `lib/stray-fields.ts` words the refusal; `tools.ts` builds
+ * it once the action is known, and `schema.test.ts` holds the table in both directions.
+ */
+export const JOB_FIELDS: Record<JobAction, readonly string[]> = {
+	start: ["command", "cwd", "label", "wake", "detached", "stdin", "timeoutMs"],
+	list: [],
+	status: ["id"],
+	logs: ["id", "lines"],
+	send: ["id", "input", "newline", "eof"],
+	kill: ["id", "signal"],
+	wait: ["id", "timeoutMs"],
+	clear: ["id", "all"],
+};
+
+/**
  * A validated call: the action plus exactly the fields that action uses.
  *
  * A discriminated union so callers narrow on `action` and never need a
@@ -109,6 +129,12 @@ export function normalizeCall(raw: unknown): JobCall {
 	if (!action || !(JOB_ACTIONS as readonly string[]).includes(action)) {
 		throw new Error(`action must be one of ${JOB_ACTIONS.join(", ")}.`);
 	}
+	// Before the branch reads anything: a field this action never reads would otherwise be dropped in
+	// silence, and `execute` already turns a throw here into the call's refusal. It cannot defer like
+	// the other three, because this dispatch is synchronous: an `await` before `wait` registers its
+	// timer would move that registration past `jest.advanceTimersByTime` in the tool's own cases.
+	const stray = strayField(action, args, JOB_FIELDS);
+	if (stray !== undefined) throw new Error(stray);
 
 	const id = optionalString(args.id);
 	const requireId = (): string => {

@@ -165,8 +165,8 @@ export interface CancelPlanModeDetails {
  * absent discriminant is what tells a renderer it is looking at a rejection.
  */
 export interface RefusedPlanDetails {
-	/** The verb the call named. */
-	refused: PlanAction;
+	/** The verb the call named, or `unknown` when it named none of the five. */
+	refused: PlanAction | "unknown";
 	/** Why the call was refused, as the model reads it. */
 	error: string;
 }

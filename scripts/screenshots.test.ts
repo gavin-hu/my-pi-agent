@@ -146,7 +146,6 @@ describe("docs screenshots", () => {
 			currency: CURRENCY_DEFAULTS.USD,
 			rates: DEFAULT_RATES_USD,
 			peak: { timezone: "Asia/Shanghai", windows: [] },
-			budget: 0,
 		})([
 			{
 				provider: "deepseek",

@@ -172,13 +172,16 @@ function resourceRows(input: SideInput): string[] {
 
 /** Where a setting's value is written, and which scope supplied the one shown. */
 function originLine(view: SettingView, paths: SidePaths): string {
-	const scope = view.origin === "inherited" ? "global" : paths.scope;
+	// A row only Global writes names the personal file wherever the screen is, so the line
+	// cannot promise a Project write the row refuses.
+	const scope = view.readOnly || view.origin === "inherited" ? "global" : paths.scope;
 	const file =
 		view.source === "app"
 			? join(paths.agentDir, PI_SETTINGS_FILE)
 			: configPath(scope, paths.cwd, paths.agentDir, paths.settingsRoot);
-	const origin =
-		view.origin === "inherited"
+	const origin = view.readOnly
+		? "Global only"
+		: view.origin === "inherited"
 			? "Inherited from Global"
 			: view.origin === "project"
 				? "Project"
