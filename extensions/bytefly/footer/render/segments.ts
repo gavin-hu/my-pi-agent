@@ -159,7 +159,7 @@ export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 }
 
 /**
- * The mode: `≡ plan` while planning, `⬢ lead` while a session holds the board's
+ * The mode: `≡ plan` while planning, `⚑ lead` while a session holds the board's
  * seat, `▶ auto` otherwise.
  *
  * A mode owns its flag, so the presence of a mode's status key is what the bar

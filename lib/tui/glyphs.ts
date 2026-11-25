@@ -45,7 +45,7 @@ export const GLYPHS = {
 	snapshot: "⬥",
 	arrow: "→",
 	plan: "≡",
-	lead: "⬢",
+	lead: "⚑",
 	jobsRunning: "▸",
 	jobsFailure: "✗",
 	stopped: "⊘",
@@ -185,7 +185,8 @@ export const GLYPH_SEQUENCES = {
  * `plan` is the document, `lead` the held position, `auto` the resting default.
  * The slot draws one of them at a time, so they are compared from memory rather
  * than side by side — which is why no two may share a silhouette, the reason
- * `lead` is not a second right-pointing triangle.
+ * `lead` is not a second right-pointing triangle. A planted flag says the
+ * position is held, and its asymmetry keeps it apart from the round marks.
  */
 export const MODE_GLYPHS = {
 	auto: GLYPHS.autoMode,

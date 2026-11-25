@@ -62,6 +62,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`, `board`: the mode slot's third silhouette is a planted flag, `⚑`, in the chip's `⚑ lead` — asymmetric against `▶ auto`'s
+  triangle and `≡ plan`'s bars, where the seat's hexagon read as one more polygon. The `⬢ lead` bullet below stays as written; the ink and
+  the measured width class are still the `lead` record's, so `lib/tui/glyphs.test.ts` holds the literal to one column.
+
 - `bytefly`, `board`: the seat's chip is `⬢ lead`, a solid hexagon rather than the second right-pointing triangle it
   shared with `▶ auto`. Two triangles in one slot differed by weight alone, and the slot draws one mode at a time, so a
   reader had no comparison to make: the shape now differs and the colour still carries the verdict. It supersedes the
