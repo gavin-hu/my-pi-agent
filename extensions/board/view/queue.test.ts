@@ -207,7 +207,7 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		// The sentence is the page's, so its age is read against the reader's clock; what a case can
 		// hold is the shape the wording promises and the value the decision keyed on.
 		expect(row.pill).toBe("no writes");
-		expect(row.said).toMatch(/^no writes for \d+[a-z]+( \d+[a-z]+)? ago$/);
+		expect(row.said).toMatch(/^last write \d+[a-z]+( \d+[a-z]+)? ago$/);
 		expect(row.tone).toBe("dim");
 		// The sentence carries the age, so the row keeps no second copy of it.
 		expect(row.stamp).toBe("");

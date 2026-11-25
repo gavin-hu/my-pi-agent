@@ -128,7 +128,7 @@ __LABEL_KEY__
     add(
       round.unwritten.filter(function (card) { return !holderBusy(view, card); }),
       function (card) {
-        return { text: "no writes for " + ago(card.updatedAt), at: card.updatedAt, wording: "no writes for {age}" };
+        return { text: "last write " + ago(card.updatedAt), at: card.updatedAt, wording: "last write {age}" };
       },
       "unwritten"
     );

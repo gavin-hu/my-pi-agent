@@ -81,6 +81,27 @@ export const FIXTURE_CARDS = [
 		notes: ["shipped behind a flag"],
 	},
 	{
+		title: "Reconcile the payout ledger nightly",
+		paths: ["src/billing/payouts"],
+		plan: "payout-ledger",
+		// The holder's process is gone: the one ask the page reads off the roster rather than a card.
+		owner: { id: "s-gone", label: "ops-relay" },
+		lane: "plan" as const,
+		type: "feature" as const,
+		notes: ["parked when the session died"],
+	},
+	{
+		title: "Backfill the settlement table",
+		paths: ["src/billing/settle"],
+		plan: "settlement-backfill",
+		owner: CORE,
+		lane: "execute" as const,
+		type: "chore" as const,
+		// Silent past the window while its holder is between turns: the card the page calls
+		// `no writes` for, which is advice rather than a gate.
+		notes: ["half the range loaded", "waiting on a index rebuild"],
+	},
+	{
 		title: "Invoice totals round the wrong way",
 		paths: ["src/billing/totals"],
 		lane: "backlog" as const,
