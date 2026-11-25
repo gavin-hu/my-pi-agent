@@ -26,7 +26,7 @@ import {
 import type { WatchRuntime } from "./runtime.ts";
 import { WatchParams, normalizeCall, type WatchArgs, type WatchCall } from "./schema.ts";
 import { WatchResult, type WatchResultInput } from "./render.ts";
-import type { WatchDetails } from "./types.ts";
+import { WATCH_FIELDS, type WatchDetails } from "./types.ts";
 
 export const TOOL_NAME = "watch";
 
@@ -57,12 +57,19 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 		executionMode: "sequential",
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const args = params as WatchArgs;
 			let call: WatchCall;
 			try {
-				call = normalizeCall(params as WatchArgs);
+				call = normalizeCall(args);
 			} catch (error) {
-				return errorResult((params as WatchArgs)?.action ?? "list", (error as Error).message);
+				return errorResult(args?.action ?? "list", (error as Error).message);
 			}
+			// After the action is known and before the dispatch: a field this verb never reads would
+			// otherwise be dropped in silence. It loads here rather than at registration, and outside the
+			// schema's normalizer, whose job is parsing; the refusal is policy.
+			const { strayField } = await import("../../lib/stray-fields.ts");
+			const stray = strayField(call.action, args, WATCH_FIELDS);
+			if (stray !== undefined) return errorResult(call.action, stray);
 
 			try {
 				switch (call.action) {

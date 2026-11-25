@@ -10,6 +10,28 @@
 export const WATCH_ACTIONS = ["add", "list", "status", "matches", "logs", "stop", "clear"] as const;
 export type WatchAction = (typeof WATCH_ACTIONS)[number];
 
+/**
+ * The fields each action reads.
+ *
+ * The parameters are one flat object, so every field is published to every action at once and
+ * only this table stops one reaching an action that would drop it — `logs` with a `path`, or an
+ * `add` with an `id`. It lives beside the action list so a new verb adds its row where the verb is
+ * declared; `lib/stray-fields.ts` words the refusal, and `stray-field.test.ts` holds the other
+ * direction, so a published field cannot go unclaimed.
+ *
+ * `matches` and `logs` both read `lines`, and `status`/`stop` read only `id`: the table does not
+ * collapse those pairs, because the verbs differ in what they do, not in what they read.
+ */
+export const WATCH_FIELDS: Record<WatchAction, readonly string[]> = {
+	add: ["path", "command", "cwd", "pattern", "exclude", "caseSensitive", "label", "wake", "fromStart"],
+	list: [],
+	status: ["id"],
+	matches: ["id", "lines"],
+	logs: ["id", "lines"],
+	stop: ["id"],
+	clear: ["id", "all"],
+};
+
 export const WATCH_STATUSES = ["running", "stopped", "exited", "error"] as const;
 export type WatchStatus = (typeof WATCH_STATUSES)[number];
 

@@ -206,6 +206,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`, `plan`: a field an action never reads is refused rather than dropped in silence — a `logs` call carrying
+  `path` now answers that `add` takes it, and `enter` with a `title` points at `write`. Each table lives beside its
+  tool's action list, `lib/stray-fields.ts` words the refusal, and a test holds every published field to an action
+  that reads it. Both guards load where they are used, so no entry pays a module at start. `plan` also refuses an
+  action it does not know, where it used to fall off the end of its switch and answer nothing.
+
 - `session-bus`, `memory`, `code-review`, `job`: a field an action never reads is refused instead of dropped in
   silence — a `status` call that also names `to` now answers that `send` is the action that takes it, and a `list`
   with a `command` says `start` owns it. The table of what each action reads lives beside that tool's action list,

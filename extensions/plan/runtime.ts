@@ -44,6 +44,25 @@ export const PLAN_ACTIONS = ["enter", "write", "exit", "steps", "cancel"] as con
 
 /** One verb of the `plan` tool. */
 export type PlanAction = (typeof PLAN_ACTIONS)[number];
+
+/**
+ * The fields each action reads.
+ *
+ * The parameters are one flat object, so every field is published to every action at once and
+ * only this table stops one reaching an action that would drop it — a `title` on `enter`, an
+ * `updates` batch on `write`. It lives beside the action list so a new verb adds its row where the
+ * verb is declared; `lib/stray-fields.ts` words the refusal, and `stray-field.test.ts` holds the
+ * other direction, so a published field cannot go unclaimed.
+ *
+ * `enter` and `cancel` read none: their executors are handed no params.
+ */
+export const PLAN_FIELDS: Record<PlanAction, readonly string[]> = {
+	enter: [],
+	write: ["title", "content", "plan_path"],
+	exit: ["plan_path"],
+	steps: ["plan_path", "updates"],
+	cancel: [],
+};
 /** Custom-entry type used for plan-mode state. */
 export const STATE_TYPE = PLAN_MODE_ENTRY_TYPE;
 /** Custom-entry type used for a plan's review baseline. */
