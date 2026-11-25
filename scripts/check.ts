@@ -36,6 +36,9 @@ function tests(...selection: readonly string[]): Command {
 	return [process.execPath, "test", ...BUDGET, ...selection];
 }
 
+/** The one spelling of the tier's flag, shared by the builder above and the printer below. */
+const IGNORE_PREFIX = "--path-ignore-patterns=";
+
 /**
  * The browser tier: the layer's suites a local gate does not run, one exact path at a time.
  *
@@ -46,7 +49,7 @@ function tests(...selection: readonly string[]): Command {
  * time and never coverage.
  */
 export const BROWSER_TIER: readonly string[] = BROWSER_SUITES.filter((suite) => !SMOKE_SUITES.includes(suite)).map(
-	(suite) => `--path-ignore-patterns=${suite}`,
+	(suite) => `${IGNORE_PREFIX}${suite}`,
 );
 
 /**
@@ -99,9 +102,23 @@ export function planFor(facts: Facts): Plan {
 	return { commands: [FORMAT, TYPES, tests("--changed=main", ...BROWSER_TIER), tests("test/", ...BROWSER_TIER)] };
 }
 
-/** One command as the gate prints it: `bun` for the running interpreter, then its arguments. */
+/**
+ * One command as the gate prints it: `bun` for the running interpreter, then its arguments.
+ *
+ * The browser tier prints as one token, `--path-ignore-patterns=<n> browser suites`, while the argv
+ * keeps every exact path: this line is the transcript of what is running, not a command to paste,
+ * and thirty-seven flags a line twice a run made it unreadable. The count is the command's own — a
+ * line describes the command it prints, never the two lists it came from.
+ */
 export function display(command: Command): string {
-	return [command[0] === process.execPath ? "bun" : command[0], ...command.slice(1)].join(" ");
+	const parts: string[] = [command[0] === process.execPath ? "bun" : (command[0] ?? "")];
+	let ignored = 0;
+	for (const argument of command.slice(1)) {
+		if (argument.startsWith(IGNORE_PREFIX)) ignored += 1;
+		else parts.push(argument);
+	}
+	if (ignored > 0) parts.push(`${IGNORE_PREFIX}<${ignored} browser suites>`);
+	return parts.join(" ");
 }
 
 /** `git diff --name-only main`, or `undefined` when git cannot answer. */

@@ -175,6 +175,21 @@ describe("the line a reader sees", () => {
 		expect(display([process.execPath, "test", "--timeout", "90000"])).toBe("bun test --timeout 90000");
 	});
 
+	test("prints the browser tier as one token, while the argv keeps every flag", () => {
+		// The line is a transcript, not a command: it names what the gate ignores once, and the
+		// argv's exact paths are what runs. `--all` carries no tier, so its line is the plain sweep.
+		const plan = planFor(LEAF);
+		const changed = plan.commands[2] ?? [];
+		const flags = changed.filter((argument) => argument.startsWith("--path-ignore-patterns=")).length;
+		const line = display(changed);
+		expect(flags).toBeGreaterThan(0);
+		expect(line.endsWith(`--path-ignore-patterns=<${flags} browser suites>`)).toBe(true);
+		expect(line.length).toBeLessThan(120);
+		expect(line).not.toContain("extensions/");
+		expect(display(plan.commands[3] ?? [])).toContain(`<${flags} browser suites>`);
+		expect(display(planFor({ all: true }).commands[2] ?? [])).toBe("bun test --timeout 90000");
+	});
+
 	test("prints a command that is its own binary as it is", () => {
 		expect(display(["git", "status"])).toBe("git status");
 	});
