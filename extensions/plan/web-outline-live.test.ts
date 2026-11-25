@@ -26,7 +26,6 @@ import {
 	REVIEW_PAINT_MS,
 	REVIEW_PAGE,
 	retryLine,
-	warmReviewBrowser,
 } from "../../test/helpers/plan-browser.ts";
 import type { ReviewPageData } from "./web-payload.ts";
 
@@ -214,7 +213,6 @@ let browser: TestBrowser;
 describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", () => {
 	beforeAll(async () => {
 		browser = await launchReviewBrowser();
-		await warmReviewBrowser(browser);
 	}, 30_000);
 
 	afterAll(async () => {

@@ -34,11 +34,11 @@ gated("the review page's reading", () => {
 
 	beforeAll(async () => {
 		browser = await launchBrowser(REVIEW_CHROME);
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-	});
+	}, 30_000);
 
 	/** The one launch, and the fixture-and-page ownership, the helper keeps for each suite. */
 	const withPage = (

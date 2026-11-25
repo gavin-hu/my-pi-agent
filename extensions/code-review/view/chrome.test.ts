@@ -13,6 +13,7 @@ import type { Page } from "playwright-core";
 import { launchBrowser, type TestBrowser } from "../../../test/helpers/browser.ts";
 import {
 	CASE_MS,
+	reloadReview,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	type ReviewDom,
@@ -30,11 +31,11 @@ gated("the review page's chrome", () => {
 
 	beforeAll(async () => {
 		browser = await launchBrowser(REVIEW_CHROME);
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-	});
+	}, 30_000);
 
 	/** The one launch, and the fixture-and-page ownership, the helper keeps for both suites. */
 	const withPage = (
@@ -128,7 +129,7 @@ gated("the review page's chrome", () => {
 
 				// Below the fold the page wraps on its own, and a fresh load says so.
 				await page.setViewportSize({ width: 760, height: 900 });
-				await page.reload({ waitUntil: "networkidle" });
+				await reloadReview(page);
 				await page.waitForFunction(
 					() =>
 						(globalThis as unknown as ReviewDom).document.getElementById("rv-wrap")?.getAttribute("aria-pressed") ===

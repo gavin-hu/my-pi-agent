@@ -99,11 +99,18 @@ A suite that boots a browser states its hooks' budget — `}, 30_000);` on its
 that setup needs longer than bun's five-second hook default: a temp store, a
 seeded board, a loopback socket, and Chromium. Without it the suite is dropped
 whole when it is run as `bun test <path>`, and every case under it goes with it.
-`test/wait-budget.test.ts` names the browser suites in one list and fails a hook
-that states no budget, or one under ten seconds, and fails the list when an entry
-is gone or no longer shows a boot call. It holds the clocks too: the watchdog
-leaves its case room to report, and a case that states a budget names a constant
-rather than writing a number.
+`test/wait-budget.test.ts` reads the browser suites from one list —
+`helpers/browser-suites.ts`, which also feeds `test/browser-budget.test.ts`'s check
+that every extension suite importing a boot helper is on it, and every entry still
+imports one — and fails a hook that states no budget, or one under ten seconds. It
+holds the clocks too: the watchdog leaves its case room to report, and a case that
+states a budget names a constant rather than writing a number.
+
+A browser case waits on the page, not on the page's silence. `waitUntil:
+"networkidle"` is Playwright's five-hundred-millisecond idle floor — measured at
+682–745 ms against 184–196 ms for `load` plus the page's own first paint — so
+`test/browser-budget.test.ts` fails it in every suite and every helper, with one
+stale-checked file exemption while its card lands.
 
 A case that waits for a served page's stream to die is waiting on the browser's own
 backoff, not on a paint: the fixture serves a shorter `retry:` hint
@@ -488,6 +495,7 @@ test/
   tool-render.test.ts      # every tool's call and result through the shared frame
   tool-rows.test.ts        # the rows a collapsed block may draw, and the token each must keep
   wait-budget.test.ts      # no test waits on `waitFor` for a literal budget under a second, and a timeout names its test
+  browser-budget.test.ts   # no browser case waits on `networkidle`, and every boot helper is in the declaration
 ```
 
 Rules:

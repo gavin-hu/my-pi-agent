@@ -77,17 +77,55 @@ export interface BrowserHandle {
  * Boot one headless browser, closed by killing it.
  *
  * Chrome's own shutdown asks four seconds once a page is open — measured, and no launch flag
- * shortens it — and a capture launches one browser per shot, so a run of the screens pays it
- * once per image. `launchServer` is the only handle on that process: a SIGKILL drops the
- * browser and its helper processes in ten milliseconds, with Playwright still removing the
- * profile it made. Nothing reads back from a capture's browser after its image is written.
+ * shortens it — so a run that wants a browser for one image kills it rather than asking it to
+ * leave. `launchServer` is the only handle on that process: a SIGKILL drops the browser and its
+ * helper processes in ten milliseconds, with Playwright still removing the profile it made.
  */
 export async function launchChrome(executablePath: string, args: readonly string[] = []): Promise<BrowserHandle> {
+	const server = await launchChromeServer(executablePath, args);
+	const browser = await chromium.connect(server.wsEndpoint);
+	return {
+		newPage: (options) => browser.newPage(options),
+		exited: () => server.exited(),
+		pid: () => server.pid(),
+		close: async () => {
+			server.kill();
+			await browser.close().catch(() => {});
+			await server.close().catch(() => {});
+		},
+	};
+}
+
+/**
+ * One Chrome process, and the socket a caller connects to it through.
+ *
+ * Split out of {@link launchChrome} so a second caller can hold the process without holding its
+ * connection: a capture wants the whole thing, and a test run's pool wants the endpoint it can
+ * hand to the next file. The kill is the caller's, and it is idempotent.
+ */
+export interface ChromeServer {
+	/** The socket a client connects to; stable for the life of the process. */
+	readonly wsEndpoint: string;
+	/** The browser's own pid, for the process that has to end it. */
+	pid(): number | undefined;
+	/** The exit the process took on its own, or `undefined` while it is up or after `kill()`. */
+	exited(): BrowserExit | undefined;
+	/** Kill the process; a browser already gone is not an error. */
+	kill(): void;
+	/** Drop the server handle, after {@link kill}; resolves in milliseconds. */
+	close(): Promise<void>;
+}
+
+/**
+ * Spawn one headless Chrome and hand back its socket, without connecting to it.
+ *
+ * The process is the only witness to how the browser went: a connection error reads the same
+ * whether a starved machine killed it or we did, so a suite must not blame the machine for its
+ * own teardown. {@link ChromeServer.kill} raises the flag before it kills, so only an unasked
+ * exit lands in {@link ChromeServer.exited}.
+ */
+export async function launchChromeServer(executablePath: string, args: readonly string[] = []): Promise<ChromeServer> {
 	const launched = await chromium.launchServer({ executablePath, headless: true, args: [...args] });
-	const browser = await chromium.connect(launched.wsEndpoint());
-	// The process is the only witness to how the browser went: a connection error reads the same
-	// whether a starved machine killed it or we did, and a suite must not blame the machine for
-	// its own teardown. `close()` raises the flag before it kills, so only an unasked exit lands.
 	const child = launched.process();
 	let exit: BrowserExit | undefined;
 	let closing = false;
@@ -95,18 +133,17 @@ export async function launchChrome(executablePath: string, args: readonly string
 		if (!closing) exit = { code, signal };
 	});
 	return {
-		newPage: (options) => browser.newPage(options),
-		exited: () => exit,
+		wsEndpoint: launched.wsEndpoint(),
 		pid: () => child?.pid,
-		close: async () => {
+		exited: () => exit,
+		kill: () => {
 			closing = true;
 			child?.kill("SIGKILL");
-			// A browser that is already gone cannot be shut down politely, and a file whose Chrome
-			// died mid-way still owes a clean `afterAll`: a refusal here would report the death
-			// twice, the second time as an unhandled rejection nobody can act on.
-			await browser.close().catch(() => {});
-			await launched.close().catch(() => {});
 		},
+		// A browser that is already gone cannot be shut down politely, and a file whose Chrome died
+		// mid-way still owes a clean `afterAll`: a refusal here would report the death twice, the
+		// second time as an unhandled rejection nobody can act on.
+		close: () => launched.close().catch(() => undefined),
 	};
 }
 

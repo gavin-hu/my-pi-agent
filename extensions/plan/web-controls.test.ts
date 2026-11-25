@@ -61,7 +61,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 			}));
 			expect(badge).toEqual({ role: "img", label: "1 review comment", text: "1" });
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -82,7 +81,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 			expect(actions.length).toBe(3);
 			for (const height of actions) expect(height).toBeGreaterThanOrEqual(24);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -102,7 +100,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 			);
 			expect(gaps).toEqual([8, 8, 8]);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -133,7 +130,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 				{ role: "listitem", tabindex: "-1" },
 			]);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -152,7 +148,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 			);
 			expect(await focusedCard(page)).toContain("a committed note");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -169,7 +164,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 			expect(await page.$eval(".bf-comment", (node) => node.className)).toContain("bf-comment--resolved");
 			expect(await page.textContent(".bf-comment__actions .bf-btn")).toBe("Reopen");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -185,7 +179,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 		try {
 			expect(await page.$$eval(".bf-comment__actions", (nodes) => nodes.length)).toBe(0);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -204,7 +197,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 			await page.click(".bf-comment__row .bf-btn--primary");
 			expect(await focusedCard(page)).toContain("edited note");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -227,7 +219,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's controls", () => {
 			expect(await page.$$eval('.bf-comments[data-line="1"] .bf-comment', (nodes) => nodes.length)).toBe(0);
 			expect(await page.$$eval('#plan .bf-block[data-line="1"] .bf-block__add:focus', (nodes) => nodes.length)).toBe(1);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});

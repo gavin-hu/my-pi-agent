@@ -13,6 +13,7 @@ import type { Page } from "playwright-core";
 import { launchBrowser, type TestBrowser } from "../../../test/helpers/browser.ts";
 import {
 	CASE_MS,
+	reloadReview,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	type ReviewDom,
@@ -30,11 +31,11 @@ gated("the review page's threads", () => {
 
 	beforeAll(async () => {
 		browser = await launchBrowser(REVIEW_CHROME);
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-	});
+	}, 30_000);
 
 	/** The one launch, and the fixture-and-page ownership, the helper keeps for each suite. */
 	const withPage = (
@@ -157,7 +158,7 @@ gated("the review page's threads", () => {
 				expect(await page.locator(".rv-thread .bf-comment__body").textContent()).toBe("answering older");
 				expect(await page.locator(".rv-thread[data-parent]").count()).toBe(0);
 
-				await page.reload({ waitUntil: "networkidle" });
+				await reloadReview(page);
 				expect(await page.locator(".rv-thread").count()).toBe(1);
 				expect(await page.locator(".rv-thread[data-parent]").count()).toBe(0);
 			});

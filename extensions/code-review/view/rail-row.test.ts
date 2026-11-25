@@ -31,11 +31,11 @@ gated("the rail's row", () => {
 
 	beforeAll(async () => {
 		browser = await launchBrowser(REVIEW_CHROME);
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-	});
+	}, 30_000);
 
 	const withPage = (run: (page: Page) => Promise<void>, options = {}): Promise<void> =>
 		withReviewPage(browser, run, options);

@@ -510,6 +510,7 @@ export const SCRIPT_SUITES: readonly string[] = [
  */
 export const ROOT_SUITES: readonly string[] = [
 	"boundaries",
+	"browser-budget",
 	"browser-handle",
 	"config-docs",
 	"conventions",
