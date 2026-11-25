@@ -64,7 +64,9 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 				// `unnamedJoin` — and the join renames nothing, because a name the file already lists is the
 				// team's, not the user's.
 				const asked: JoinAsk = label === "" ? await unnamedJoin(session, ctx) : typedJoin(label);
-				const joined = await team.join(ctx, asked.input);
+				// The bus arms `on` when a join asks no `wake`, and keeps an armed record's mode otherwise, so
+				// the wake every `/team join` owes is asked once here, where no door can forget it.
+				const joined = await team.join(ctx, { ...asked.input, wake: true });
 				// The standing is the session's, not this command's: `/board status` reports the team
 				// whichever door put it there, and a typed label is the one door that always asks.
 				session.team.record(joined);
