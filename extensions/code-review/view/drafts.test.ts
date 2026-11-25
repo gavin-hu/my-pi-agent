@@ -13,6 +13,7 @@ import type { Page } from "playwright-core";
 import { launchBrowser, type TestBrowser } from "../../../test/helpers/browser.ts";
 import {
 	CASE_MS,
+	reloadReview,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	type ReviewDom,
@@ -30,11 +31,11 @@ gated("the review page's drafts", () => {
 
 	beforeAll(async () => {
 		browser = await launchBrowser(REVIEW_CHROME);
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-	});
+	}, 30_000);
 
 	/** The one launch, and the fixture-and-page ownership, the helper keeps for each suite. */
 	const withPage = (
@@ -49,7 +50,7 @@ gated("the review page's drafts", () => {
 			await withPage(async (page, fixture) => {
 				await startComment(page, "keep this note");
 				fixture.move();
-				await page.reload({ waitUntil: "networkidle" });
+				await reloadReview(page);
 
 				const area = page.locator(".rv-compose__area");
 				expect(await area.inputValue()).toBe("keep this note");
@@ -94,7 +95,7 @@ gated("the review page's drafts", () => {
 						.locator(".rv-compose__area")
 						.fill("note on the context line");
 
-					await page.reload({ waitUntil: "networkidle" });
+					await reloadReview(page);
 					await page.waitForFunction(
 						() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-compose").length === 2,
 						undefined,
@@ -158,7 +159,7 @@ gated("the review page's drafts", () => {
 				expect(await page.locator(".rv-compose__head").textContent()).toContain("reply on a.ts:3");
 				await page.locator(".rv-compose__area").fill("answering older");
 
-				await page.reload({ waitUntil: "networkidle" });
+				await reloadReview(page);
 				await page.waitForSelector(".rv-compose", { timeout: REVIEW_PAINT_MS });
 				// The record carries the parent: a reload restores a reply as a reply rather than
 				// demoting it to a comment, which is the failure a reader would never notice.
@@ -186,7 +187,7 @@ gated("the review page's drafts", () => {
 				async (page, fixture) => {
 					await startComment(page, "note typed on 19");
 					fixture.reshape({ start: 40 });
-					await page.reload({ waitUntil: "networkidle" });
+					await reloadReview(page);
 
 					await page.waitForSelector(".rv-compose", { timeout: REVIEW_PAINT_MS });
 					expect(await page.locator(".rv-compose__head").textContent()).toContain("a.ts:40");
@@ -223,7 +224,7 @@ gated("the review page's drafts", () => {
 					await page.locator("#rv-sel-comment").click();
 					await page.locator(".rv-compose__area").fill("note typed on b.ts");
 					fixture.reshape({ start: 40 });
-					await page.reload({ waitUntil: "networkidle" });
+					await reloadReview(page);
 
 					await page.waitForFunction(
 						() => (globalThis as unknown as ReviewDom).document.querySelector("#rv-orphans")?.hidden === false,
@@ -245,7 +246,7 @@ gated("the review page's drafts", () => {
 							timeout: REVIEW_PAINT_MS,
 						},
 					);
-					await page.reload({ waitUntil: "networkidle" });
+					await reloadReview(page);
 					expect(await page.locator(".rv-compose").count()).toBe(0);
 					expect(await page.locator("#rv-orphans").isVisible()).toBe(false);
 				},

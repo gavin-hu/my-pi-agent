@@ -88,7 +88,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 			expect(await page.$$eval("#plan .bf-block", (nodes) => nodes.length)).toBe(5);
 			expect(await page.textContent("#step-count")).toBe("2/4 ticked");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -130,7 +129,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 			expect(await page.textContent('#outline-list a[href="#s-5"] .review-nav__count')).toBe("1");
 			expect(await page.isVisible('#outline-list a[href="#s-5"] .review-nav__count')).toBe(true);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -149,7 +147,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 			await awaitStatus(page, "A change arrived; finish or discard your draft to see it.");
 			expect(await page.inputValue(".bf-composer textarea")).toBe("half a thought");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -168,7 +165,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 			await awaitStatus(page, "A change arrived; finish or discard your draft to see it.");
 			expect(await page.inputValue(".bf-comment textarea")).toBe("edited but not saved");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -188,7 +184,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 			expect(await page.textContent("#review-state")).toContain("unsaved");
 			expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(0);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -207,7 +202,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 			await page.waitForSelector(".bf-composer textarea", { timeout: REVIEW_PAINT_MS });
 			expect(await page.inputValue(".bf-composer textarea")).toBe("half a thought");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});

@@ -17,14 +17,13 @@ import type { Page } from "playwright-core";
 import { launchBrowser, type TestBrowser } from "../../../test/helpers/browser.ts";
 import {
 	CASE_MS,
-	mountReviewPage,
-	openReviewPage,
 	pushFrame,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	type ReviewDom,
 	type ReviewPageFixture,
 	startComment,
+	withReviewPage,
 } from "../../../test/helpers/review-browser.ts";
 
 const gated = REVIEW_CHROME === undefined ? describe.skip : describe;
@@ -53,22 +52,15 @@ gated("the review page's live frames", () => {
 
 	beforeAll(async () => {
 		browser = await launchBrowser(REVIEW_CHROME);
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-	});
+	}, 30_000);
 
-	/** One page with a stream it can be pushed to, and the close both own. */
+	/** The suite's one tab, with a stream it can be pushed to; the fixture is the case's. */
 	const withLivePage = async (run: (page: Page, fixture: ReviewPageFixture) => Promise<void>): Promise<void> => {
-		const fixture = await mountReviewPage();
-		const page = await openReviewPage(browser, fixture, { stream: true });
-		try {
-			await run(page, fixture);
-		} finally {
-			await page.close();
-			await fixture.close();
-		}
+		await withReviewPage(browser, run, {}, [], true);
 	};
 
 	test(

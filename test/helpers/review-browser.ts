@@ -18,7 +18,7 @@ import type { ReviewSnapshot } from "../../extensions/code-review/git/diff.ts";
 import type { ReviewCurrent } from "../../extensions/code-review/review/current.ts";
 import { createReviewStore } from "../../extensions/code-review/review/store.ts";
 import { createReviewHandler } from "../../extensions/code-review/transport/router.ts";
-import type { TestBrowser } from "./browser.ts";
+import { suiteTab, type TestBrowser } from "./browser.ts";
 import { testMountSource } from "./serve.ts";
 
 /** The browser this machine has; absent means a browser suite is skipped, naming `PI_CHROME`. */
@@ -220,19 +220,49 @@ export async function mountReviewPage(
 	};
 }
 
-/** Open the fixture's page and wait for its rail, which is drawn before any script runs. */
+/**
+ * The page's own first paint: the chrome and the diff the server rendered, in the document.
+ *
+ * The page is one script that reads the `#rv-data` island and restores drafts from
+ * `sessionStorage` before it returns, so `load` — which waits for that script — is already the
+ * readiness fact. `networkidle` added five hundred milliseconds of silence on top of it and
+ * nothing else: it is Playwright's idle floor, not the page's condition.
+ */
+async function drawn(page: Page): Promise<void> {
+	await page.waitForSelector("#rv-filter", { timeout: REVIEW_PAINT_MS });
+}
+
+/** Open the fixture's page in the suite's tab, and wait for its rail to be drawn. */
 export async function openReviewPage(
 	browser: TestBrowser,
 	fixture: ReviewPageFixture,
 	options: { stream?: boolean } = {},
 ): Promise<Page> {
-	const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+	const page = await suiteTab(browser);
+	// The explicit half of the reset the new origin gives: a fixture that ever reused a port must
+	// not hand a draft to the next case, and a blocked store is not this case's failure.
+	await page
+		.evaluate(() => {
+			const view = globalThis as unknown as {
+				sessionStorage?: { clear(): void };
+				localStorage?: { clear(): void };
+			};
+			view.sessionStorage?.clear();
+			view.localStorage?.clear();
+		})
+		.catch(() => undefined);
 	// Installed before the page's script runs, so the bundle that only a case opts into is the one
 	// it gets. Every other suite opens a page with no stream at all, exactly as before.
 	if (options.stream === true) await page.addInitScript(STREAM_STUB);
-	await page.goto(fixture.url, { waitUntil: "networkidle" });
-	await page.waitForSelector("#rv-filter", { timeout: REVIEW_PAINT_MS });
+	await page.goto(fixture.url, { waitUntil: "load" });
+	await drawn(page);
 	return page;
+}
+
+/** Reload the tab onto the page it already has, and wait for that page to be drawn again. */
+export async function reloadReview(page: Page): Promise<void> {
+	await page.reload({ waitUntil: "load" });
+	await drawn(page);
 }
 
 /**
@@ -240,9 +270,9 @@ export async function openReviewPage(
  * case.
  *
  * The alternative — a fixture whose handler carries a registry — would give every suite a real
- * socket, and `openReviewPage`'s `networkidle` wait cannot settle against an SSE connection. A stub
- * that never asks for a URL crosses neither: the client's own state machine is the subject here,
- * and the transport's route is `transport/stream.test.ts`'s to prove.
+ * socket from a page that is otherwise served from a string. A stub that never asks for a URL
+ * crosses neither: the client's own state machine is the subject here, and the transport's route
+ * is `transport/stream.test.ts`'s to prove.
  */
 const STREAM_STUB = `(() => {
   const streams = [];
@@ -292,10 +322,12 @@ export async function pushFrame(page: Page, frame: unknown): Promise<void> {
 export const CASE_MS = 30_000;
 
 /**
- * One fixture, one page, and the close both own.
+ * One fixture and the suite's tab: the document is replaced for the case, the fixture is not kept.
  *
  * Two suites drive this page — the reading (cursor, place, spill) and the chrome (filter, switch,
- * band, wrap) — so the launch and the ownership live here rather than in either of them.
+ * band, wrap) — so the launch and the ownership live here rather than in either of them. The tab
+ * outlives the case and `browser.close()` takes it; a case never closes it, because the next one
+ * in the file would pay a fresh context for it.
  */
 export async function withReviewPage(
 	browser: TestBrowser,
@@ -309,7 +341,6 @@ export async function withReviewPage(
 	try {
 		await run(page, fixture);
 	} finally {
-		await page.close();
 		await fixture.close();
 	}
 }

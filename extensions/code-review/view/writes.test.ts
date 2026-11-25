@@ -20,6 +20,7 @@ import { launchBrowser, type TestBrowser } from "../../../test/helpers/browser.t
 import { MAX_COMMENTS } from "../review/store.ts";
 import {
 	CASE_MS,
+	reloadReview,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	type ReviewDom,
@@ -37,11 +38,11 @@ gated("the review page's writes", () => {
 
 	beforeAll(async () => {
 		browser = await launchBrowser(REVIEW_CHROME);
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-	});
+	}, 30_000);
 
 	/** The one launch, and the fixture-and-page ownership, the helper keeps for each suite. */
 	const withPage = (
@@ -110,7 +111,7 @@ gated("the review page's writes", () => {
 					{ timeout: REVIEW_PAINT_MS },
 				);
 				expect(await page.locator(".rv-compose").count()).toBe(0);
-				await page.reload({ waitUntil: "networkidle" });
+				await reloadReview(page);
 				expect(await page.locator(".rv-compose").count()).toBe(0);
 				expect(await page.locator("#rv-send").textContent()).toBe("Send feedback 0");
 			});
@@ -216,7 +217,7 @@ gated("the review page's writes", () => {
 					);
 					expect(await page.locator("#rv-send-list .rv-dialog-path").textContent()).toBe("a.ts:17-19");
 
-					await page.reload({ waitUntil: "networkidle" });
+					await reloadReview(page);
 					expect(await page.locator(".rv-thread .bf-comment__quote").textContent()).toContain("const two = 2;");
 				},
 				{ start: 17 },

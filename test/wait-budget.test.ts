@@ -39,6 +39,7 @@ import { join, relative as relativePath } from "node:path";
 import { describe, expect, test } from "bun:test";
 import ts from "typescript";
 import { CASE_BUDGET_MS, REPORT_MARGIN_MS, SPAWN_WATCHDOG_MS } from "./helpers/budget.ts";
+import { BROWSER_SUITES } from "./helpers/browser-suites.ts";
 import { posixPath, walkFiles } from "./helpers/files.ts";
 import { waitFor } from "./helpers/process.ts";
 import { CONTENTION_HINT, type WaitTimeout, waitTimeoutMessage } from "./helpers/wait-site.ts";
@@ -89,21 +90,10 @@ function hookOffence(path: string, line: number, budget: number | undefined): st
  *
  * A scan for the launcher cannot be trusted to be complete — a suite may import
  * `openBoardBrowser` under another name, or reach Chromium through a helper of its own — so
- * this is an exact set, the way `ROOT_TEST_FILES` is: a new browser suite is added here and the
- * rule below covers it, and a path no longer a test, or no longer booting a browser, fails as stale.
+ * this is the one list, in `helpers/browser-suites.ts`, where the tier reads it too: a new browser
+ * suite is declared there and the rule below covers it, and a path no longer a test, or no longer
+ * booting a browser, fails as stale.
  */
-const BROWSER_SUITES = [
-	"extensions/board/view/behaviour.test.ts",
-	"extensions/board/view/filter-behaviour.test.ts",
-	"extensions/board/view/queue-bands.test.ts",
-	"extensions/board/view/queue-row-facts.test.ts",
-	"extensions/board/view/repaint.test.ts",
-	"extensions/plan/web-behaviour.test.ts",
-	"extensions/plan/web-live.test.ts",
-];
-
-/** The spellings a browser suite's boot is visible as, for the pin's own staleness check. */
-const BOOT_CALLS = ["chromium.launch", "openBoardBrowser", "launchReviewBrowser"];
 
 /** Every `beforeAll`/`afterAll` in the file that states no usable budget. */
 export function hookBudgetProblems(source: Source): string[] {
@@ -272,20 +262,10 @@ describe("wait budgets", () => {
 });
 
 describe("hook budgets", () => {
-	/** One pinned suite, read from the tree. */
+	/** One declared suite, read from the tree. */
 	function suite(path: string): Source {
 		return { path, text: readFileSync(join(repo, path), "utf-8") };
 	}
-
-	test("the pinned browser suites still boot a browser", () => {
-		// The pin is the rule's scope, so it has to stay true: a path that is no longer a test,
-		// or whose source no longer shows a boot, is one the rule would silently stop covering.
-		const files = testFiles();
-		const missing = BROWSER_SUITES.filter((path) => !files.includes(path));
-		expect(missing, "a pinned browser suite that is gone or renamed").toEqual([]);
-		const quiet = BROWSER_SUITES.filter((path) => !BOOT_CALLS.some((call) => suite(path).text.includes(call)));
-		expect(quiet, "a pinned browser suite that no longer shows its boot").toEqual([]);
-	});
 
 	test("every browser suite's hooks state a budget", () => {
 		for (const path of BROWSER_SUITES) {

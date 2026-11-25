@@ -144,6 +144,7 @@
     "format": "biome format --write .",
     "bench:render": "bun run scripts/render-bench.ts",
     "bench:load": "bun run scripts/load-bench.ts",
+    "bench:browser": "bun run scripts/browser-bench.ts",
     "render:tools": "bun run scripts/tools/index.ts",
     "capture:screens": "bun run scripts/screenshots.ts",
     "capture:board": "bun run scripts/shots/board.ts",

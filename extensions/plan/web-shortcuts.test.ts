@@ -81,7 +81,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's deliberate endings", 
 			await awaitStatus(page, /Saved/);
 			expect(await page.textContent("#review-state")).toContain("saved");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -106,7 +105,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's deliberate endings", 
 			);
 			expect(draft).toBeNull();
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -122,7 +120,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's deliberate endings", 
 			await page.click("#confirm-cancel");
 			expect(await page.$eval("#plan", (node) => node.isConnected)).toBe(true);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -153,7 +150,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's deliberate endings", 
 			expect(saves).toHaveLength(1);
 			expect(await page.$eval("#post", (node) => (node as unknown as { disabled: boolean }).disabled)).toBe(false);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -167,7 +163,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's deliberate endings", 
 			await awaitStatus(page, /Saved/);
 			expect(await page.textContent("#review-state")).toContain("saved");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -193,7 +188,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's deliberate endings", 
 			expect(await page.isVisible("#keys-dialog")).toBe(false);
 			await page.click("#approve-cancel");
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});
@@ -234,7 +228,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's deliberate endings", 
 			await page.keyboard.press("a");
 			expect(await page.isVisible("#approve-dialog")).toBe(true);
 		} finally {
-			await page.close();
 			await local.close();
 		}
 	});

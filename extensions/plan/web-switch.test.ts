@@ -69,7 +69,6 @@ async function withReview(overrides: Partial<typeof REVIEW_PAGE>, run: (page: Pa
 	try {
 		await run(page);
 	} finally {
-		await page.close();
 		await review.close();
 	}
 }

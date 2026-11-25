@@ -22,7 +22,7 @@ import { boardConfig } from "../../lib/workflow/config.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../lib/workflow/limits.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../lib/workflow/store.ts";
-import { guarded, launchBrowser } from "./browser.ts";
+import { guarded, launchBrowser, SUITE_VIEWPORT } from "./browser.ts";
 import { type PageDisplay, serveBoardPage } from "./board-page.ts";
 
 /** The browser this machine has; absent means a browser suite is skipped, naming `PI_CHROME`. */
@@ -50,7 +50,7 @@ export async function drawn(page: Page): Promise<void> {
 }
 
 /** The window every tab opens at: wide enough for the five lanes, tall enough for the board. */
-const VIEWPORT = { width: 1280, height: 900 } as const;
+const VIEWPORT = SUITE_VIEWPORT;
 
 /** What a suite tells the helper about its own board. */
 export interface BoardBrowserOptions {
@@ -88,8 +88,8 @@ export interface BoardBrowser {
 	/**
 	 * The one tab this suite reads, its document reloaded for every case.
 	 *
-	 * A tab is the expensive half of a boot — measured on a machine with Chrome, ~400 ms against
-	 * ~65 ms to reload one already open — so a suite buys one and reloads its document. That is
+	 * A tab is the expensive half of a boot — measured on a machine with Chrome, ~230 ms against
+	 * ~30 ms to reload one already open — so a suite buys one and reloads its document. That is
 	 * what a case needs anyway: a document that inherited nothing from the last, with no stream,
 	 * no repaint in flight, no filter, fold, tab, mark, or focus. The one thing Playwright keeps
 	 * across a reload — the viewport, because it belongs to the tab and not to the document — is

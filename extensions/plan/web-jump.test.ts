@@ -153,7 +153,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review's jump", () => {
 				{ timeout: REVIEW_PAINT_MS },
 			);
 		} finally {
-			await page.close();
 		}
 	});
 

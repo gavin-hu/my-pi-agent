@@ -19,11 +19,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "playwright-core";
 import { launchBrowser, type TestBrowser } from "../../../test/helpers/browser.ts";
 import {
-	mountReviewPage,
-	openReviewPage,
+	reloadReview,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	type ReviewPageFixture,
+	withReviewPage,
 } from "../../../test/helpers/review-browser.ts";
 
 /** A browser case pays a launch, a load, two interactions, and a resize. */
@@ -36,22 +36,15 @@ gated("the review page's comment faces", () => {
 
 	beforeAll(async () => {
 		browser = await launchBrowser(REVIEW_CHROME);
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-	});
+	}, 30_000);
 
-	/** One fixture, one page, and the close both own. */
+	/** One fixture and the suite's one tab: the document is replaced, the tab is kept. */
 	async function withPage(run: (page: Page, fixture: ReviewPageFixture) => Promise<void>): Promise<void> {
-		const fixture = await mountReviewPage();
-		const page = await openReviewPage(browser, fixture);
-		try {
-			await run(page, fixture);
-		} finally {
-			await page.close();
-			await fixture.close();
-		}
+		await withReviewPage(browser, run);
 	}
 
 	/** Open the composer on the added line, which is the surface a reader types prose into. */
@@ -136,7 +129,7 @@ gated("the review page's comment faces", () => {
 		async () => {
 			await withPage(async (page) => {
 				expect(await seedQuotedComment(page), "the page's own route took the comment").toBe(200);
-				await page.reload({ waitUntil: "networkidle" });
+				await reloadReview(page);
 				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
 
 				const prose = await faceOf(page, "body");

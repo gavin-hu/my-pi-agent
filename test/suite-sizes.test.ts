@@ -108,7 +108,7 @@ const LONG_SUITES: Record<string, number> = {
 	"test/shared-helpers.test.ts": 628,
 	"test/site-docs.test.ts": 829,
 	"test/theme.test.ts": 560,
-	"test/wait-budget.test.ts": 513,
+	"test/wait-budget.test.ts": 493,
 };
 
 /**
@@ -121,7 +121,7 @@ const LONG_SUITES: Record<string, number> = {
  * split lowers the ceiling, and nothing raises it again. `extensions/plan/commands.test.ts` came
  * down 48 that way when its runtime double moved to `test/helpers/plan-command.ts` (#862).
  */
-const LONG_SUITE_TOTAL = 47480;
+const LONG_SUITE_TOTAL = 47460;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 

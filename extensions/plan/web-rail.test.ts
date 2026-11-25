@@ -245,7 +245,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's geometry and colours", 
 			expect(rail.head.bottom - rail.finish.bottom, "the help ends above the seam").toBeGreaterThanOrEqual(12);
 			expect(rail.navTitle.top - rail.head.bottom, "the outline starts below the seam").toBeGreaterThanOrEqual(12);
 		} finally {
-			await page.close();
 			await review.close();
 		}
 	});
@@ -283,7 +282,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's geometry and colours", 
 			const ratio = contrastOf(hovered.colour, hovered.background);
 			expect(ratio, `a hovered outline link draws at ${ratio}:1, not the 4.27 it wore`).toBeGreaterThanOrEqual(4.5);
 		} finally {
-			await page.close();
 			await review.close();
 		}
 	});
@@ -302,7 +300,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's geometry and colours", 
 				// A reviewer's page has no step fact to draw, and the rail still leads with the count.
 				expect(islandOf(await page.content()).role).toBe(role);
 			} finally {
-				await page.close();
 				await review.close();
 			}
 		}

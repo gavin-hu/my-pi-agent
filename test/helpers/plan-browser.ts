@@ -15,7 +15,7 @@
 import { type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
 import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
-import { launchBrowser, type TestBrowser } from "./browser.ts";
+import { launchBrowser, suiteTab, type TestBrowser } from "./browser.ts";
 import type { PlanAnnotation } from "../../extensions/plan/feedback.ts";
 import type { ReviewPageData } from "../../extensions/plan/web-page.ts";
 import type { ReviewContext, SaveResult } from "../../extensions/plan/web-router.ts";
@@ -161,25 +161,22 @@ export async function launchReviewBrowser(): Promise<TestBrowser> {
 
 /** One tab on the served review, waited until its blocks have painted. */
 export async function openReview(browser: TestBrowser, url: string): Promise<Page> {
-	const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+	const page = await suiteTab(browser);
+	// A draft is this tab's, and a suite's fixtures share one origin: a case must open on an empty
+	// store, and a blocked one is not this case's failure.
+	await page
+		.evaluate(() => {
+			const view = globalThis as unknown as {
+				sessionStorage?: { clear(): void };
+				localStorage?: { clear(): void };
+			};
+			view.sessionStorage?.clear();
+			view.localStorage?.clear();
+		})
+		.catch(() => undefined);
 	await page.goto(url, { waitUntil: "load" });
 	await drawnReview(page);
 	return page;
-}
-
-/**
- * Take the browser's first navigation before any case does.
- *
- * The cold start — a fresh Chrome's first page, its first load — is what a case would otherwise
- * pay inside its own paint budget, and it is the one part of that budget the case cannot see.
- */
-export async function warmReviewBrowser(browser: TestBrowser): Promise<void> {
-	const page = await browser.newPage();
-	try {
-		await page.goto("about:blank", { waitUntil: "load" });
-	} finally {
-		await page.close();
-	}
 }
 
 /** What the page said when the gate gave up, named so a red does not have to be re-derived. */

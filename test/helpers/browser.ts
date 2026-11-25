@@ -1,24 +1,179 @@
 /**
- * A headless browser for a suite, closed by killing it.
+ * A headless browser for a suite: one per run, connected per file.
  *
  * The launch and its kill live in `scripts/capture/chrome.ts`, because a capture pays the same
  * four seconds for Chrome's own shutdown and has the same reason to skip it: a SIGKILL drops
  * the browser and its helper processes in ten milliseconds, with Playwright still removing the
  * profile. This is the test-facing half — a machine with no browser is a skip rather than a
  * throw, so the suites name `PI_CHROME` instead of reading a Playwright build error.
+ *
+ * A suite used to launch one browser per file: 285 ms of Chrome plus 145 ms of `playwright-core`
+ * import, forty times, for a run that is one process. Now the run keeps one, recorded in a temp
+ * file, and a file connects to it — measured at ~40 ms — and drops the connection when it is done.
+ * The process outlives the file that started it, which is the price of Bun's test process not
+ * running an exit handler (the fact `./lock.ts` records): the next run's first suite reaps it by
+ * pid liveness, the same way a stale lock is taken over. `PI_NO_BROWSER_POOL=1` restores the
+ * launch-and-kill behaviour for a repro that needs its own process.
  */
 
-import { type BrowserHandle, launchChrome } from "../../scripts/capture/chrome.ts";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { type Browser, type Page, chromium } from "playwright-core";
+import {
+	type BrowserExit,
+	type BrowserHandle,
+	type ChromeServer,
+	launchChrome,
+	launchChromeServer,
+} from "../../scripts/capture/chrome.ts";
+import { processAlive } from "./lock.ts";
 
 /** One browser a suite drives, and the close that does not wait on Chrome. */
 export type TestBrowser = BrowserHandle;
 
-/** Boot one headless browser from `executablePath`, or say why a suite cannot. */
+/** What a run leaves for the next one: whose browser it is, which process, and its socket. */
+interface PoolRecord {
+	ownerPid: number;
+	browserPid: number | undefined;
+	wsEndpoint: string;
+}
+
+/** The record's path: the machine's temp directory, so two checkouts share one browser. */
+const POOL_RECORD = join(tmpdir(), "my-pi-agent-browser.json");
+
+/** The record the pool wrote last, or nothing when there is none or it is not readable. */
+function readPoolRecord(): PoolRecord | undefined {
+	let text: string;
+	try {
+		text = readFileSync(POOL_RECORD, "utf-8");
+	} catch {
+		return undefined;
+	}
+	const value = ((): unknown => {
+		try {
+			return JSON.parse(text);
+		} catch {
+			return undefined;
+		}
+	})();
+	if (typeof value !== "object" || value === null) return undefined;
+	const { ownerPid, browserPid, wsEndpoint } = value as Partial<Record<keyof PoolRecord, unknown>>;
+	if (typeof ownerPid !== "number" || typeof wsEndpoint !== "string") return undefined;
+	return { ownerPid, browserPid: typeof browserPid === "number" ? browserPid : undefined, wsEndpoint };
+}
+
+/** End a browser no file can reach any more, and drop the record that named it. */
+function reap(record: PoolRecord): void {
+	if (record.browserPid !== undefined && processAlive(record.browserPid)) {
+		try {
+			process.kill(record.browserPid, "SIGKILL");
+		} catch {
+			// It went between the check and the kill, which is the answer we wanted.
+		}
+	}
+	rmSync(POOL_RECORD, { force: true });
+}
+
+/** The exit a pooled browser left, when this file did not spawn it and cannot name a code. */
+const UNKNOWN_DEATH: BrowserExit = { code: null, signal: null };
+
+/** Whether the recorded browser is still up, as far as a pid can say. */
+function browserAlive(record: PoolRecord): boolean {
+	return record.browserPid === undefined || processAlive(record.browserPid);
+}
+
+/**
+ * A connected handle: the process belongs to the run, the connection to this file.
+ *
+ * `close()` drops this file's contexts and its connection, never the process — that is what makes
+ * the next file's boot cheap, and what a `PI_NO_BROWSER_POOL=1` run opts out of.
+ */
+async function sharedHandle(record: PoolRecord, browser: Browser, server?: ChromeServer): Promise<BrowserHandle> {
+	let closed = false;
+	return {
+		newPage: (options) => browser.newPage(options),
+		close: async () => {
+			if (closed) return;
+			closed = true;
+			// A disconnect leaves the contexts behind in a browser that stays up, so a run of forty
+			// files would accumulate forty of them. Closing them here is this file's own cleanup.
+			for (const context of browser.contexts()) await context.close().catch(() => undefined);
+			await browser.close().catch(() => undefined);
+		},
+		exited: () => {
+			if (closed) return undefined;
+			const reported = server?.exited();
+			if (reported !== undefined) return reported;
+			return browserAlive(record) ? undefined : UNKNOWN_DEATH;
+		},
+		pid: () => record.browserPid,
+	};
+}
+
+/** Connect to the recorded browser, or nothing when it is gone. */
+async function connectTo(record: PoolRecord): Promise<Browser | undefined> {
+	if (!browserAlive(record)) return undefined;
+	try {
+		return await chromium.connect(record.wsEndpoint);
+	} catch {
+		return undefined;
+	}
+}
+
+/** The run's one browser: reconnect to it when it is up, boot it when it is not. */
+async function pooledBrowser(executablePath: string): Promise<BrowserHandle> {
+	const kept = readPoolRecord();
+	if (kept !== undefined) {
+		const shared = await connectTo(kept);
+		if (shared !== undefined) return sharedHandle(kept, shared);
+		reap(kept);
+	}
+	const server = await launchChromeServer(executablePath);
+	const browser = await chromium.connect(server.wsEndpoint);
+	const record: PoolRecord = { ownerPid: process.pid, browserPid: server.pid(), wsEndpoint: server.wsEndpoint };
+	writeFileSync(POOL_RECORD, `${JSON.stringify(record)}\n`);
+	// Best effort: Bun's test process may not run this, and the next run's reap is what actually
+	// bounds the process. It costs nothing when it does run.
+	process.on("exit", () => {
+		if (record.ownerPid === process.pid) server.kill();
+	});
+	return sharedHandle(record, browser, server);
+}
+
+/**
+ * The window a browser case opens at, and the tab it opens in.
+ *
+ * A tab is the expensive half of a boot — measured at ~230 ms against ~30 ms to load a document
+ * into one already open — and it costs a fresh context with it, so a suite buys one and each case
+ * replaces its document. The viewport belongs to the tab rather than to the document, so it is put
+ * back before every case: a case that shrank the window would otherwise draw the next one at that
+ * width. One owner for that rule, because the plan review and the code review each had a copy.
+ */
+export const SUITE_VIEWPORT = { width: 1280, height: 900 } as const;
+
+/** The tab each suite's browser keeps. One browser per run, so this is one per suite. */
+const tabs = new WeakMap<TestBrowser, Page>();
+
+/** The suite's tab at the suite's window: the one it already has, or a first one. */
+export async function suiteTab(browser: TestBrowser): Promise<Page> {
+	const kept = tabs.get(browser);
+	if (kept !== undefined && !kept.isClosed()) {
+		await kept.setViewportSize(SUITE_VIEWPORT);
+		return kept;
+	}
+	const page = await browser.newPage({ viewport: SUITE_VIEWPORT, reducedMotion: "reduce" });
+	tabs.set(browser, page);
+	return page;
+}
+
+/** Boot or join the run's browser from `executablePath`, or say why a suite cannot. */
 export async function launchBrowser(executablePath: string | undefined): Promise<TestBrowser> {
 	// A suite that forgot its skip says so, rather than launching a browser this package does
 	// not ship and reading a build error out of Playwright.
 	if (executablePath === undefined) throw new Error("no browser on this machine: PI_CHROME names one");
-	return launchChrome(executablePath);
+	if (process.env.PI_NO_BROWSER_POOL === "1") return launchChrome(executablePath);
+	return pooledBrowser(executablePath);
 }
 
 /**
