@@ -23,13 +23,22 @@ export const LAND_BRANCH = "main";
 /** The remote it writes. Fixed for the same reason, and pushed as a named ref, never bare. */
 export const LAND_REMOTE = "origin";
 
+/** The hotspot whose deletions are never legitimate: a bullet another card appended. */
+export const CHANGELOG_HOTSPOT = "CHANGELOG.md";
+
+/** The hotspot whose deletion a card may owe: the line a removed suite leaves behind. */
+export const SUITE_HOTSPOT = "test/suite-manifest.ts";
+
 /**
  * The files whose deletions mean a landing lost work rather than rewrote it.
  *
  * A card appends here from another branch, so a merge that removes a line has overwritten
- * somebody's newest record instead of carrying it — the one failure the numstat can catch.
+ * somebody's newest record instead of carrying it — the one failure the numstat can catch. The
+ * manifest is the one file the layout gate forces a deletion in: a suite's removal deletes its
+ * line, so a removed line is a rewrite only when the merge still carries the suite it named
+ * (`removedSuitesAbove`).
  */
-export const APPEND_HOTSPOTS: readonly string[] = ["CHANGELOG.md", "test/suite-manifest.ts"];
+export const APPEND_HOTSPOTS: readonly string[] = [CHANGELOG_HOTSPOT, SUITE_HOTSPOT];
 
 /** How long one git command may take before the seam gives up on it. */
 export const LAND_TIMEOUT_MS = 120_000;
@@ -262,12 +271,29 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 		};
 	}
 	const rows = parseNumstat(numstat.out);
-	const lost = rows.filter((row) => row.deleted > 0 && APPEND_HOTSPOTS.includes(row.path));
+	// A bullet has no legitimate deletion, so `CHANGELOG.md` keeps the absolute rule.
+	const lost = rows.filter((row) => row.deleted > 0 && row.path === CHANGELOG_HOTSPOT);
 	if (lost.length > 0) {
 		await undo();
 		return {
 			error: `the landing deletes lines in ${lost.map((row) => row.path).join(", ")}, which are appended and not rewritten: the merge was undone and nothing was pushed.`,
 		};
+	}
+	// The manifest's deletion is the one a suite's removal requires, so it is judged by the suite it
+	// names: gone from the merge is a removal, still there is a rewritten record.
+	if (rows.some((row) => row.deleted > 0 && row.path === SUITE_HOTSPOT)) {
+		const suites = await removedSuitesAbove(call, base, merge);
+		if (suites.kind === "failed") {
+			await undo();
+			return { error: `${suites.message}: the merge was undone and nothing was pushed.` };
+		}
+		if (suites.alive.length > 0) {
+			await undo();
+			const named = suites.alive.map((suite) => `"${suite.stem}" (${suite.path})`).join(", ");
+			return {
+				error: `the landing removes the suite line ${named}, which the merge still carries — a suite's removal is the deletion the layout gate requires, while a line whose suite survives is a rewritten record: the merge was undone and nothing was pushed.`,
+			};
+		}
 	}
 
 	const pushed = await call(["push", remote, `${branch}:${branch}`]);
@@ -279,6 +305,61 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	}
 
 	return { merge, subject, rows, pushed: `${remote} ${branch}` };
+}
+
+/** The suite a removed manifest line declared: its stem, and the file the merge still has for it. */
+interface RemovedSuite {
+	stem: string;
+	path: string;
+}
+
+/** The suite stems a manifest diff removed, in the order they went. */
+function removedSuiteStems(diff: string): string[] {
+	const stems: string[] = [];
+	for (const line of diff.split("\n")) {
+		if (!line.startsWith("-") || line.startsWith("---")) continue;
+		const quoted = /"([^"]+)"/.exec(line);
+		if (quoted?.[1] !== undefined) stems.push(quoted[1]);
+	}
+	return stems;
+}
+
+/**
+ * The suites a landing removed from the manifest that the merge still carries.
+ *
+ * A removed line is legitimate when the suite it named left the tree, because the layout gate
+ * requires both directions: a declared suite must exist, and an existing one must be declared. It
+ * is a rewrite when the merge still has the suite — the record another card appended, dropped.
+ *
+ * The match is by stem, because the group an entry sat in is not on its line and re-spelling
+ * `declaredSuiteFiles`' four owner shapes (`test/suite-manifest.ts`) inside `lib/` would be a second
+ * copy of a layout rule. The bias is therefore conservative: a stem two groups share, with one of
+ * them still in the merge, refuses the landing and names what it found. A blocked removal is a
+ * message; an allowed rewrite is lost data.
+ */
+async function removedSuitesAbove(
+	call: (args: string[]) => Promise<Call>,
+	base: string,
+	merge: string,
+): Promise<{ kind: "failed"; message: string } | { kind: "checked"; alive: RemovedSuite[] }> {
+	const diff = await call(["diff", "--unified=0", base, merge, "--", SUITE_HOTSPOT]);
+	if (!diff.ok) {
+		return { kind: "failed", message: `could not read the manifest's removed lines (${firstLine(diff.out)})` };
+	}
+	const stems = removedSuiteStems(diff.out);
+	if (stems.length === 0) return { kind: "checked", alive: [] };
+	const tree = await call(["ls-tree", "-r", "--name-only", merge]);
+	if (!tree.ok) return { kind: "failed", message: `could not read the merge's files (${firstLine(tree.out)})` };
+	const files = tree.out
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line !== "");
+	const alive: RemovedSuite[] = [];
+	for (const stem of stems) {
+		const path = files.find((file) => file === `${stem}.test.ts` || file.endsWith(`/${stem}.test.ts`));
+		if (path !== undefined) alive.push({ stem, path });
+	}
+	return { kind: "checked", alive };
 }
 
 /**

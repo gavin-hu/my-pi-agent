@@ -241,6 +241,47 @@ describe("landCard — every refusal, and what it leaves behind", () => {
 		expect(git.argv("push")).toEqual([]);
 	});
 
+	test("lands a suite's removal, whose line the manifest loses and whose file the merge is without", async () => {
+		// #903's shape: `footer/budget` leaves the tree, so its line leaves the manifest and
+		// `panel/settings-scope` takes the slot. The layout gate requires both directions, so the
+		// deletion is the suite's own removal rather than an overwritten record.
+		const { git, answer } = land(
+			cleanLanding({
+				"diff --numstat": {
+					stdout:
+						"5\t0\tCHANGELOG.md\n1\t1\ttest/suite-manifest.ts\n0\t14\textensions/bytefly/footer/budget.test.ts\n12\t0\textensions/bytefly/panel/settings-scope.test.ts\n",
+				},
+				"diff --unified=0": {
+					stdout: '@@ -46,7 +46,7 @@\n-\t\t"footer/budget",\n+\t\t"panel/settings-scope",\n',
+				},
+				"ls-tree -r": { stdout: "extensions/bytefly/panel/settings-scope.test.ts\nextensions/board/land.test.ts\n" },
+			}),
+		);
+		expect(await answer).toMatchObject({ merge: MERGE });
+		expect(git.argv("reset")).toEqual([]);
+		expect(git.argv("push")).toHaveLength(1);
+	});
+
+	test("undoes a removed suite line whose suite the merge still carries", async () => {
+		// The rewrite the hotspot exists for: a peer's record dropped while its subject lives. The
+		// refusal names the stem and the file it found, so the reader can see which side is wrong.
+		const { git, answer } = land(
+			cleanLanding({
+				"diff --numstat": { stdout: "5\t0\tCHANGELOG.md\n1\t1\ttest/suite-manifest.ts\n" },
+				"diff --unified=0": {
+					stdout: '@@ -46,7 +46,7 @@\n-\t\t"footer/budget",\n+\t\t"panel/settings-scope",\n',
+				},
+				"ls-tree -r": { stdout: "extensions/bytefly/footer/budget.test.ts\n" },
+			}),
+		);
+		const result = await answer;
+		if (!("error" in result)) throw new Error("expected the landing to be refused");
+		expect(result.error).toContain('"footer/budget" (extensions/bytefly/footer/budget.test.ts)');
+		expect(result.error).toContain("the merge was undone");
+		expect(git.argv("reset").at(0)).toEqual(["reset", "--keep", BASE]);
+		expect(git.argv("push")).toEqual([]);
+	});
+
 	test("undoes the merge when the push is refused, and says the remote moved", async () => {
 		const { git, answer } = land(
 			cleanLanding({ push: { code: 1, stderr: "! [rejected] main -> main (fetch first)" } }),
