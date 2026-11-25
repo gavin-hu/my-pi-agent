@@ -140,8 +140,10 @@ interface Ceiling {
  * of three fields) are rows too — they are just as redraw-heavy a call surface — and the case
  * below fails a registered tool that has an `action` and no row here, so a new verb-shaped tool
  * cannot arrive with nobody having measured it. A single-verb tool (`goal`, `todo`, `read_doc`,
- * `open_path`, `web_search`, `web_fetch`, `run_doctor`) is out of scope: it has no verb list to
- * choose wrong.
+ * `open_path`, `web_search`, `run_doctor`) is out of scope: it has no verb list to choose wrong —
+ * unless its surface carries a configured value the model must know before it calls, which is why
+ * `web_fetch` is a row: the body cap it publishes would otherwise grow unseen, and an unmeasured
+ * surface drifts back into a refusal the model cannot anticipate (#898).
  */
 const CEILINGS: readonly Ceiling[] = [
 	// 8,156 before the restating bullets were cut; 7,200 held until `review` took the one-line
@@ -172,6 +174,10 @@ const CEILINGS: readonly Ceiling[] = [
 	{ tool: "question", max: 1_639, guidelines: 380, longest: 144 },
 	{ tool: "send_wechat", max: 1_232, guidelines: 390, longest: 178 },
 	{ tool: "code_review", max: 1_143, guidelines: 293, longest: 102 },
+	// Measured at the commit that published the caps (#898): the row exists so the sentence naming the
+	// configured body cap cannot grow without a gate saying so. `longest` is the second guideline (90),
+	// not the surface's first impression of it.
+	{ tool: "web_fetch", max: 2_195, guidelines: 208, longest: 90 },
 ];
 
 describe("the always-on tool surfaces", () => {
