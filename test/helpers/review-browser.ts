@@ -36,12 +36,12 @@ export const REVIEW_MOUNT = "/review";
  * replaces the context rows with one removed and one added row, so a case can select across the
  * two sides of a change.
  */
-function fileRows(rel: string, start: number, lines = 0, paired = false): ReviewSnapshot["files"][number] {
+function fileRows(rel: string, start: number, lines = 0, paired = false, skew = 0): ReviewSnapshot["files"][number] {
 	const body: DiffLine[] = [];
 	if (paired) {
 		body.push(
 			{ kind: "del", text: "const gone = 0;", oldNo: start },
-			{ kind: "add", text: "const here = 1;", newNo: start },
+			{ kind: "add", text: "const here = 1;", newNo: start + skew },
 		);
 		return {
 			rel,
@@ -55,14 +55,19 @@ function fileRows(rel: string, start: number, lines = 0, paired = false): Review
 	}
 	if (lines > 0) {
 		for (let index = 0; index < lines; index++) {
-			body.push({ kind: "ctx", text: `const v${index} = ${index};`, oldNo: start + index, newNo: start + index });
+			body.push({
+				kind: "ctx",
+				text: `const v${index} = ${index};`,
+				oldNo: start + index,
+				newNo: start + index + skew,
+			});
 		}
-		body.push({ kind: "add", text: "const more = 0;", newNo: start + lines });
+		body.push({ kind: "add", text: "const more = 0;", newNo: start + lines + skew });
 	} else {
 		body.push(
-			{ kind: "ctx", text: "const one = 1;", oldNo: start, newNo: start },
-			{ kind: "ctx", text: "const two = 2;", oldNo: start + 1, newNo: start + 1 },
-			{ kind: "add", text: "const three = 3;", newNo: start + 2 },
+			{ kind: "ctx", text: "const one = 1;", oldNo: start, newNo: start + skew },
+			{ kind: "ctx", text: "const two = 2;", oldNo: start + 1, newNo: start + 1 + skew },
+			{ kind: "add", text: "const three = 3;", newNo: start + 2 + skew },
 		);
 	}
 	return {
@@ -72,7 +77,7 @@ function fileRows(rel: string, start: number, lines = 0, paired = false): Review
 		del: 0,
 		binary: false,
 		truncated: false,
-		lines: [{ kind: "hunk", text: `@@ -${start},2 +${start},3 @@` }, ...body],
+		lines: [{ kind: "hunk", text: `@@ -${start},2 +${start + skew},3 @@` }, ...body],
 	};
 }
 
@@ -88,6 +93,11 @@ export interface SnapshotOptions {
 	lines?: number;
 	/** How many files; overrides `second` when given. */
 	files?: number;
+	/**
+	 * How far the new numbering runs ahead of the old one, as an earlier hunk's insertion leaves it:
+	 * the old and new columns of one context row then name different numbers. Absent is zero.
+	 */
+	skew?: number;
 }
 
 /** One snapshot of `files` files, each with a hunk and its body. */
@@ -97,7 +107,7 @@ export function reviewSnapshot(fingerprint: string, options: SnapshotOptions = {
 	const files: ReviewSnapshot["files"] = [];
 	for (let index = 0; index < count; index++) {
 		const rel = options.files === undefined ? (index === 0 ? "a.ts" : "b.ts") : `f${index + 1}.ts`;
-		files.push(fileRows(rel, index === 0 ? start : 40 + (index - 1) * 40, options.lines ?? 0, options.paired === true));
+		files.push(fileRows(rel, index === 0 ? start : 40 + (index - 1) * 40, options.lines ?? 0, options.paired === true, options.skew ?? 0));
 	}
 	return {
 		scope: "base",
