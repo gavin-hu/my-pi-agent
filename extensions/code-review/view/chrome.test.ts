@@ -18,6 +18,7 @@ import {
 	REVIEW_PAINT_MS,
 	type ReviewDom,
 	type ReviewPageFixture,
+	type SeedComment,
 	type SnapshotOptions,
 	startComment,
 	withReviewPage,
@@ -41,7 +42,8 @@ gated("the review page's chrome", () => {
 	const withPage = (
 		run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
 		options: SnapshotOptions = {},
-	): Promise<void> => withReviewPage(browser, run, options);
+		seed: readonly SeedComment[] = [],
+	): Promise<void> => withReviewPage(browser, run, options, seed);
 
 	test(
 		"a filter that matches nothing leaves the diff readable and offers a clear",
@@ -63,6 +65,65 @@ gated("the review page's chrome", () => {
 				expect(await page.locator("#rv-rail-empty").isHidden()).toBe(true);
 				expect(await page.locator(".rv-rail").first().isVisible()).toBe(true);
 				expect(await page.locator("#rv-filter-note").isHidden()).toBe(true);
+			});
+		},
+		CASE_MS,
+	);
+
+	test(
+		"a focused page's Commented view says why the rail is empty, not that a filter matched nothing",
+		async () => {
+			await withPage(
+				async (page, fixture) => {
+					// One file of a two-file scope, and the comment is on the other one: the rail is empty for a
+					// reason no filter explains — which the page used to report as `No files match ""`.
+					await page.goto(`${fixture.url}?file=a.ts`, { waitUntil: "load" });
+					await page.waitForSelector("#rv-filter", { timeout: REVIEW_PAINT_MS });
+					expect(await page.locator("#rv-file-count").textContent()).toBe("1 of 2 files");
+
+					await page.locator("#rv-view-commented").click();
+					expect(await page.locator("#rv-file-count").textContent()).toBe("0 of 2 files");
+					expect(await page.locator("#rv-rail-empty-text").textContent()).toBe(
+						"No comments in this file — clear Commented to see it",
+					);
+					// The control the sentence names does what it says.
+					await page.locator("#rv-view-all").click();
+					expect(await page.locator(".rv-rail").first().isVisible()).toBe(true);
+				},
+				{ second: true },
+				[{ rel: "b.ts", line: 1, side: "new", body: "on the other file" }],
+			);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"an unmark names the state it leaves, which for a file with no comment is not commented",
+		async () => {
+			await withPage(async (page) => {
+				const mark = page.locator("[data-reviewed='a.ts']");
+				await mark.click();
+				await page.waitForFunction(
+					() =>
+						(globalThis as unknown as ReviewDom).document
+							.querySelector("#rv-toast")
+							?.textContent?.includes("Marked reviewed") === true,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await page.locator("#rv-toast").textContent()).toBe("Marked reviewed — a.ts");
+
+				await mark.click();
+				await page.waitForFunction(
+					() =>
+						(globalThis as unknown as ReviewDom).document
+							.querySelector("#rv-toast")
+							?.textContent?.includes("no comment") === true,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				// The page's own word for a file with no comment, rather than a state it never had.
+				expect(await page.locator("#rv-toast").textContent()).toBe("no comment — a.ts");
 			});
 		},
 		CASE_MS,
