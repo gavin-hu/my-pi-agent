@@ -222,11 +222,11 @@ describe("the run clause three surfaces print", () => {
 		expect(ranClause(undefined)).toBe("");
 	});
 
-	test("says which way the repository's size gate went, and says nothing when it was not recorded", () => {
-		// A gate that ran is one word; a skip names the files it looked for, because the reader cannot ask
-		// the card, and a sign written before the field existed reads exactly as it did (#481).
+	test("names a size gate that did not run, and stays quiet about one that did", () => {
+		// Only the skip is news: a repository that keeps the gates answers `ran` on every sign, and a
+		// constant segment would train the reader to skip the sentence that carries the difference (#481).
 		expect(ranClause({ cmd: VERIFY, exit: 0, at: NOW, sizeGates: { ran: true } })).toBe(
-			" · ran `bun run check` (exit 0) · size gates ran",
+			" · ran `bun run check` (exit 0)",
 		);
 		expect(
 			ranClause({ cmd: VERIFY, exit: 0, at: NOW, sizeGates: { skipped: "no test/module-sizes.test.ts in this repo" } }),

@@ -96,7 +96,8 @@ describe("a spot-check whose contract names a command", () => {
 		expect(reviewed.isError).toBeFalsy();
 		expect(run.ran).toEqual([SIZE_GATES, VERIFY]);
 		expect(reviewed.details.card?.review?.verified?.sizeGates).toEqual({ ran: true });
-		expect(resultText(reviewed)).toContain("size gates ran");
+		// No clause for it: the run line names the command, and only a gate that did not run is news.
+		expect(resultText(reviewed)).not.toContain("size gates");
 	});
 
 	test("a card whose contract names no command is refused the write, and nothing runs", async () => {
