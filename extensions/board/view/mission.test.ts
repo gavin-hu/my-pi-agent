@@ -215,44 +215,59 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CSS).toContain('.board-dot[data-state="absent"],.board-dot[data-state="unknown"]');
 	});
 
-	test("draws every ask under the band that owes the move, and folds a long one", () => {
+	test("draws every ask in one list, and folds a long one", () => {
 		// A mission is the board's own card, so it opens the record the way the board's face does.
 		expect(BOARD_CLIENT_JS).toContain("return board.cardNode(card);");
-		// The queue is filed by whose move it is, from the table the pill and the rank come from,
-		// and every file is drawn: a row nobody can see is a row nobody can act on.
-		expect(BOARD_CLIENT_JS).toContain("if (BANDS.of[entries[i].kind] === key) rows.push(entries[i]);");
-		// A band is folded, never cut: five rows, the count in the head, and one control that draws
-		// the rest. A fold is a row behind one press, which is what sixty unclaimed cards cost a
-		// reader who never asked for them — the three swimlanes under the queue.
-		expect(BOARD_CLIENT_JS).toContain(
-			"var shown = band.collapsed ? band.rows.slice(0, board.foldAt.queue) : band.rows;",
-		);
-		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("data-fold", foldKey(band.key));');
-		expect(BOARD_CLIENT_JS).toContain("board.toggleFold(foldKey(band.key));");
+		// Membership is a capability rule: the four moves nobody else can finish, and no band to file
+		// them under — the five kinds that owe an owner are the lanes' facts, not the seat's queue.
+		expect(BOARD_CLIENT_JS).not.toContain("var BANDS =");
+		expect(BOARD_CLIENT_JS).not.toContain("BANDS.of[");
+		for (const kind of ['"gone"', '"untold"', '"approval"', '"unwritten"']) {
+			expect(BOARD_CLIENT_JS).toContain(kind);
+		}
+		for (const gone of ['"blocked"', '"unplanned"', '"unassigned"']) {
+			expect(BOARD_CLIENT_JS).not.toContain(gone + ");");
+		}
+		// The one judgement the page makes for itself is gated on the holder's own state: silence is
+		// not enough while the bus can say the holder is inside a turn.
+		expect(BOARD_CLIENT_JS).toContain("round.unwritten.filter(function (card) { return !holderBusy(view, card); })");
+		expect(BOARD_CLIENT_JS).toContain("row.working === true");
+		// The list is folded, never cut: five rows, and one control that draws the rest.
+		expect(BOARD_CLIENT_JS).toContain("var shown = folded ? entries.slice(0, board.foldAt.queue) : entries;");
+		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("data-fold", ASKS);');
+		expect(BOARD_CLIENT_JS).toContain("board.toggleFold(ASKS);");
 		// A disclosure owes both halves: whether the rows are open, and which list it opens.
-		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("aria-expanded", String(!band.collapsed));');
-		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("aria-controls", rowsId(band.key));');
-		expect(BOARD_CLIENT_JS).toContain("list.id = rowsId(band.key);");
+		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("aria-expanded", String(!folded));');
+		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("aria-controls", ASKS_ID);');
+		expect(BOARD_CLIENT_JS).toContain("list.id = ASKS_ID;");
 		// The fold is the page's one map, and the signature knows it: a fold the frame missed would
 		// open without a repaint and close the same way.
-		expect(BOARD_CLIENT_JS).toContain(
-			'sig.push(bands[b].key + ":" + bands[b].rows.length + ":" + (bands[b].collapsed ? "folded" : "open")',
-		);
-		// The band's head is a lane head one level down, and it is counted: the pane's own head
-		// counts the whole queue, so the two numbers can be read against each other.
-		expect(BOARD_CLIENT_JS).toContain('var head = el("h4", "bf-lane__head");');
-		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", "bf-lane__count", String(band.rows.length)));');
+		expect(BOARD_CLIENT_JS).toContain('folded ? "folded" : "open"');
+		// No head under the column's: the caption counts the list, and the pill says which move.
+		expect(BOARD_CLIENT_JS).not.toContain('var head = el("h4", "bf-lane__head");');
 		// The rows are the kit's list, so the column has one way of holding rows together.
 		expect(BOARD_CLIENT_JS).toContain('var list = el("ol", N.laneList);');
 		// The reason is printed on every row rather than left to a hover, and the control that opens
 		// the card is described by that row's own sentence: no band head carries it, so no row
-		// points at one (the shared-sentence path is gone).
+		// points at one.
 		expect(BOARD_CLIENT_JS).toContain("meta.appendChild(document.createTextNode(entry.why));");
 		expect(BOARD_CLIENT_JS).toContain('title.setAttribute("aria-describedby", meta.id);');
 		expect(BOARD_CLIENT_JS).not.toContain('"team-said-");');
 		// The caption is a count alone: the tab strip is the way to the whole board, so the
 		// column carries no second door for a heading to be a control.
 		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");
+	});
+
+	test("counts the board's half from the lanes it draws, and keeps a big pool to one line", () => {
+		// One label over the lanes, and its number is their sum: a count a reader can check.
+		expect(BOARD_CLIENT_JS).toContain('"The board \\u00b7 " + active + " open"');
+		expect(BOARD_CLIENT_JS).toContain('var LANES = ["blocked", "execute", "plan", "backlog"];');
+		// Past the pool's limit the lane is a head, a count and a door: four arbitrary cards out of
+		// two hundred would be noise dressed as information.
+		expect(BOARD_CLIENT_JS).toContain("var POOL = 12;");
+		expect(BOARD_CLIENT_JS).toContain('lane.key === "backlog" && cards.length > POOL');
+		// An empty lane keeps its head and drops its sentence while another lane has cards.
+		expect(BOARD_CLIENT_JS).toContain("if (sayEmpty) section.appendChild(");
 	});
 
 	test("says an empty lane, an empty pane, and an empty board in words", () => {
@@ -306,12 +321,15 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).not.toContain("agent.label.toLowerCase()");
 	});
 
-	test("walks a queue row and a mission card with j/k, and enters them", () => {
-		// One selector for everything that opens a card, so the walk and the dialog's "n of m"
-		// agree about what a card on this page is.
-		expect(BOARD_CLIENT_JS).toContain('var nodes = document.querySelectorAll(".board-row, .board-queue__row");');
+	test("walks the cards with j/k, and leaves an ask row out of the walk", () => {
+		// One selector for everything the walk counts, so `j` and the dialog's "n of m" agree about
+		// what a card on this page is — and an ask row is not one: it is a line about a card, which
+		// the lanes already draw, so counting it made one card two stops.
+		expect(BOARD_CLIENT_JS).toContain('var nodes = document.querySelectorAll(".board-row");');
+		expect(BOARD_CLIENT_JS).not.toContain('querySelectorAll(".board-row, .board-queue__row")');
+		// What a click opens is still whichever of the two the reader hit, and both carry the title
+		// control the walk lands on.
 		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-row, .board-queue__row")');
-		// A queue row's control is its title, the same control a face and a mission card have.
 		expect(BOARD_CLIENT_JS).toContain('.querySelector(".bf-row__title")');
 	});
 

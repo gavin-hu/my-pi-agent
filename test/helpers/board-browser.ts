@@ -20,7 +20,7 @@ import { type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
 import type { BoardPeriods } from "../../extensions/board/view/client.ts";
 import { boardConfig } from "../../lib/workflow/config.ts";
-import { DEFAULT_WIP, MAX_WIP } from "../../lib/workflow/limits.ts";
+import { MAX_WIP } from "../../lib/workflow/limits.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../lib/workflow/store.ts";
 import { guarded, launchBrowser, SUITE_VIEWPORT } from "./browser.ts";
@@ -179,12 +179,12 @@ async function landed(page: Page): Promise<Page> {
 /** Boot one board and one browser, and hand back the tabs on it. */
 export async function openBoardBrowser(options: BoardBrowserOptions): Promise<BoardBrowser> {
 	const directory = mkdtempSync(join(tmpdir(), "pi-board-page-"));
-	// The lead is the one setting a browser suite states: it is the name the page signs as.
-	// The lead a suite states, and a cap out of the way: a page suite seeds many cards under one
-	// owner, and this fixture is about what the page draws, not about the one-card rule.
+	// The lead is the one setting a browser suite states: it is the name the page signs as. The
+	// caps are out of the way: a page suite seeds many cards under one owner and more than a lane
+	// holds, because this fixture is about what the page draws — the limits have their own suites.
 	const config = boardConfig({
 		...(options.lead === undefined ? {} : { lead: options.lead }),
-		wip: { ...DEFAULT_WIP, perOwner: MAX_WIP },
+		wip: { perOwner: MAX_WIP, plan: MAX_WIP, execute: MAX_WIP },
 	});
 	const store = createStore(directory, { config });
 	await store.ensure();

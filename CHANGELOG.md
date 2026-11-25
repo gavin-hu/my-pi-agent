@@ -62,10 +62,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`, `team`: the Team tab's middle column files only what the seat itself can finish — a contract to
+  approve, a notice that never landed, a card whose owner is gone, and a card nobody has written to while its
+  holder is idle — so its count no longer totals other people's work, and every open card is drawn once: the
+  bands, their head rows and the printed rank numbers are gone. `backlog` joins the column as the fourth
+  swimlane, its cards drawn while the pool is small and one line and a door past twelve, which is also what
+  lets the tab's filter find a pool card. The terminal's rollup keeps `unassigned` / `unplanned` / `unwritten`,
+  because it answers what the board holds rather than what the seat owes.
+
 - `board`: the page's two clocks are spliced numbers rather than template literals — the 1500 ms mark a moved card
   wears and the 1000 ms age tick — so a case drives a short pair instead of waiting the product's period out. The
   shipped page keeps its own values and asserts them, and only the suites that measure a ticker ask for the short
-  ones: the four mark cases in `repaint.test.ts` went 4088/3305/1804/1748 ms to 680/1300/805/815 ms on the same
+  ones: the four mark cases in `repaint.test.ts` went 1.7–4.1 s to 0.6–1.3 s on the same
   machine. The page also counts its ticks, which is what turned the last fixed sleep in the layer — a case asserting
   the agents column does not repaint as time passes — into a wait on the tick itself, so
   `test/wait-budget.test.ts`'s exception list is empty.

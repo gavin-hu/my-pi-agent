@@ -117,7 +117,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			undefined,
 			{ timeout: PAINT_MS },
 		);
-		expect(await page.title()).toBe("board · my-pi-agent · 3 open");
+		expect(await page.title()).toBe("board · my-pi-agent · 5 open");
 
 		// The mark is the one the header draws, as a `data:` URI the page's own CSP allows.
 		const icons = await page.$$eval('link[rel="icon"]', (nodes) =>
@@ -243,9 +243,9 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const page = await openPage();
 		const head = (lane: string) => `.bf-lane[data-lane="${lane}"] .bf-lane__head`;
 		expect(await page.getAttribute(head("backlog"), "aria-label")).toBe("Backlog, 2 cards");
-		// A pulled lane says the limit the pill prints as `0/3`.
-		expect(await page.textContent('.bf-lane[data-lane="plan"] .bf-lane__count')).toBe("0/3");
-		expect(await page.getAttribute(head("plan"), "aria-label")).toBe("Plan, 0 of 3");
+		// A pulled lane says the count it holds and the limit: two planned cards of three.
+		expect(await page.textContent('.bf-lane[data-lane="plan"] .bf-lane__count')).toBe("2/3");
+		expect(await page.getAttribute(head("plan"), "aria-label")).toBe("Plan, 2 of 3");
 
 		// A filtered lane names what it shows against the rows it holds, not the limit.
 		await page.fill("#board-filter", "invoice");
@@ -332,7 +332,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const added = await store.create({ title: "A card with five hints", paths: hints }, CORE, clock.now());
 		try {
 			const page = await openPage();
-			const card = `.bf-row[data-card="${added.id}"]`;
+			const card = `#board-lanes .bf-row[data-card="${added.id}"]`;
 			await page.waitForSelector(`${card} .board-row__paths`, { timeout: PAINT_MS });
 
 			// The marker trails the row as a count, and the hints past the third live in the dialog until a reader hovers it — one per line, as the
@@ -547,10 +547,10 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const path = `src/billing/reconciliation/legacy-adapter/compat/shim/${"x".repeat(90)}/index.ts`;
 		const added = await store.create({ title: "A card with a long hint", paths: [path] }, CORE, clock.now());
 		try {
-			const chip = page.locator(`.bf-row[data-card="${added.id}"] .board-row__paths .bf-tag`);
+			const chip = page.locator(`#board-lanes .bf-row[data-card="${added.id}"] .board-row__paths .bf-tag`);
 			await chip.waitFor({ timeout: PAINT_MS });
 			expect(await chip.getAttribute("title")).toBe(path);
-			const spills = await page.$$eval(".bf-row", (rows) =>
+			const spills = await page.$$eval("#board-lanes .bf-row", (rows) =>
 				Array.from(rows as ArrayLike<ElementLike>)
 					.filter((row) => row.scrollWidth > row.clientWidth + 1)
 					.map((row) => row.getAttribute("data-card") ?? "?"),
@@ -585,7 +585,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// The name is the header's fact, so the footer starts with the store: one owner per fact.
 		expect(await footer()).toContain(`store ${WHERE}`);
 		expect(await footer()).not.toContain(REPO);
-		expect(await footer()).toContain("10 cards");
+		expect(await footer()).toContain("12 cards");
 		expect(await footer()).not.toContain("could not be read");
 		// Nothing is refused, so the line has no second statement to make on hover.
 		expect(await page.getAttribute("#board-where", "title")).toBeNull();

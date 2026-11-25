@@ -25,7 +25,7 @@ export const BROWSER_FILE_BUDGET_S: Readonly<Record<string, number>> = {
 	"extensions/board/view/lane-heads.test.ts": 1.5,
 	"extensions/board/view/machines.test.ts": 1.5,
 	"extensions/board/view/plan-row-behaviour.test.ts": 1.9,
-	"extensions/board/view/queue-bands.test.ts": 4.1,
+	"extensions/board/view/queue.test.ts": 4.1,
 	"extensions/board/view/queue-row-facts.test.ts": 2.1,
 	"extensions/board/view/repaint.test.ts": 12.9,
 	"extensions/board/view/run-row-behaviour.test.ts": 1.7,

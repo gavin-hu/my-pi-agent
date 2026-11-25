@@ -32,7 +32,7 @@ export const BROWSER_SUITES: readonly string[] = [
 	"extensions/board/view/lane-heads.test.ts",
 	"extensions/board/view/machines.test.ts",
 	"extensions/board/view/plan-row-behaviour.test.ts",
-	"extensions/board/view/queue-bands.test.ts",
+	"extensions/board/view/queue.test.ts",
 	"extensions/board/view/queue-row-facts.test.ts",
 	"extensions/board/view/repaint.test.ts",
 	"extensions/board/view/run-row-behaviour.test.ts",

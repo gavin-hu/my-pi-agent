@@ -103,11 +103,9 @@ export const BOARD_CLASS = {
 	// Both "there is more" controls and the folded history row: one shape for one fact.
 	fold: "board-fold",
 
-	// Middle: the queue of asks, in bands, over three swimlanes.
+	// Middle: the seat's own asks, over the four lanes that hold open cards.
 	queue: "board-queue",
-	queueBand: "board-queue__band",
 	queueRow: "board-queue__row",
-	queueRank: "board-queue__rank",
 	queueRef: "board-queue__ref",
 	// The two blocks a row is: the title's line, and the facts' — the pill, the kind, the sentence,
 	// the owner and the age, under the title they belong to.
@@ -116,8 +114,8 @@ export const BOARD_CLASS = {
 	// The pill and the kind as one track: the row's scan key, and the column the reason starts after.
 	queueLabels: "board-queue__labels",
 	queueWhy: "board-queue__why",
-	// The label over the swimlanes, which count moving cards rather than asks.
-	queueMoving: "board-queue__moving",
+	// The label over the swimlanes, which count open cards rather than asks.
+	queueBoard: "board-team__board",
 	teamLanes: "board-team__lanes",
 	// A person's lines: the cards one session holds, one line each.
 
