@@ -35,8 +35,7 @@ review: my-pi-agent vs origin/main — 5 files
 review: http://127.0.0.1:4781/review/new
 ```
 
-Comment in the page and press **Send feedback**. The session reads one notice at
-its next turn:
+Press **Send feedback** in the page; the session reads one notice at its next turn:
 
 ```text
 [CODE REVIEW]
@@ -72,18 +71,19 @@ whose comment was deleted reads as one. The files are the shell's sidebar — a 
 **All** / **Commented**, one row per file — folding below 900px; `wrap` wraps at any
 width, and narrowing hides rows, never sections. The rail's head carries the facts and
 the progress; the footer the comparison. It follows its own stream: a write in one tab
-repaints the others, a frame under an open comment box waits for it, and the last tab
-leaving ends the page 1.5 s later so a reload fits. Nothing watches the tree: **comment** asks
-for the revision the page would render now, so a moved diff opens no box; the write still refuses.
+repaints the others, and a frame under an open composer is held. A frame under the
+send dialog re-reads the list it is about to send; an emptied dialog stays open
+saying there is nothing left to send rather than closing under the reader. The last tab
+leaving ends it 1.5 s later so a reload fits. Nothing watches the tree: **comment** asks
+the revision the page would render now, so a moved diff opens no box; the write refuses.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff: the
 rail shows that file and an **all files** link back, while the count and the progress
 still name the whole scope — `1 of 2 files` for a page drawing one of two — and the
-snapshot and its token stay the whole scope's. The head carries **view file**, which
-serves the whole file at `/review/file?scope=<s>&path=<rel>`: only a listed path, read
-under the reviewed checkout, drawn on the diff's gutter, with a way back. `n` and `p`
-step between the focused file's hunks; the whole review keeps `[` and `]`, and either
-lands the next hunk below the pinned head. A copied ref is `path:12-30`.
+snapshot and its token stay the whole scope's. The head's **view file** serves the
+whole file at `/review/file?scope=<s>&path=<rel>`: only a listed path, read under the
+reviewed checkout, on the diff's gutter, with a way back. `n` and `p` step its hunks;
+`[` and `]` step the whole review's, each landing below the pinned head.
 
 **What a comment anchors to.** A path, a side, and a line the comparison draws — a span's end and the rows
 it quotes — checked against the snapshot, refused once the tree moves; a send, a delete and a mark land

@@ -180,4 +180,96 @@ gated("the review page's chrome", () => {
 		},
 		CASE_MS,
 	);
+
+	/**
+	 * A save shows two layers at once: the bar re-opens under the cursor, and the toast says what
+	 * happened. They share the bottom of the page, so the toast must sit above the bar — measured,
+	 * because the bar's height follows its content — or it covers the control it just freed.
+	 */
+	test(
+		"a toast after a save sits above the selection bar, not on it",
+		async () => {
+			await withPage(async (page) => {
+				await startComment(page, "one note");
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+				const boxes = await page.evaluate(() => {
+					const doc = (globalThis as unknown as ReviewDom).document;
+					const bar = doc.querySelector("#rv-selbar");
+					const toast = doc.querySelector("#rv-toast");
+					if (bar === null || toast === null) return null;
+					const barBox = bar.getBoundingClientRect();
+					const toastBox = toast.getBoundingClientRect();
+					return {
+						open: [bar.getAttribute("data-open"), toast.getAttribute("data-open")],
+						bar: { top: barBox.top, bottom: barBox.bottom },
+						toast: { top: toastBox.top, bottom: toastBox.bottom },
+					};
+				});
+				expect(boxes).not.toBeNull();
+				if (boxes === null) return;
+				expect(boxes.open).toEqual(["true", "true"]);
+				expect(boxes.toast.bottom, "the toast ends above the bar").toBeLessThanOrEqual(boxes.bar.top);
+			});
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * The dialog is the kit's, so its opener is the kit's to return to. The page used to preset
+	 * `hidden` before `open()`, which made the kit skip its own bookkeeping; these four exits are
+	 * the paths a keyboard reader takes and none may leave focus in a hidden panel.
+	 */
+	test(
+		"the send dialog hands focus back on every exit",
+		async () => {
+			await withPage(async (page) => {
+				await startComment(page, "one note");
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+
+				const openDialog = async () => {
+					await page.locator("#rv-send").click();
+					await page.waitForFunction(
+						() => (globalThis as unknown as ReviewDom).document.getElementById("rv-send-dialog")?.hidden === false,
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
+				};
+				const active = async () =>
+					(await page.evaluate("document.activeElement && document.activeElement.id")) as string | null;
+
+				await openDialog();
+				expect(await active()).toBe("rv-send-confirm");
+				await page.keyboard.press("Escape");
+				await page.waitForFunction(
+					() => (globalThis as unknown as ReviewDom).document.getElementById("rv-send-dialog")?.hidden === true,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await active(), "Escape returns to the Send button").toBe("rv-send");
+				expect(await page.locator("#rv-selbar").getAttribute("data-open"), "one layer closes").toBe("true");
+
+				await openDialog();
+				await page.locator("#rv-send-close").click();
+				expect(await active()).toBe("rv-send");
+
+				await openDialog();
+				await page.locator("#rv-send-cancel").click();
+				expect(await active()).toBe("rv-send");
+
+				await openDialog();
+				await page.locator("#rv-send-confirm").click();
+				await page.waitForFunction(
+					() =>
+						(globalThis as unknown as ReviewDom).document.querySelector("#rv-toast")?.textContent?.includes("sent") ===
+						true,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await active(), "the diff takes focus once Send is disabled").toBe("rv-main");
+			});
+		},
+		CASE_MS,
+	);
 });

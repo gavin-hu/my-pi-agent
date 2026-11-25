@@ -472,41 +472,52 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
     }, Promise.resolve(true));
   }
 
+  /** The dialog's title and list, from the drafts the press would send: one writer for both. */
+  function paintSendList() {
+    var pending = drafts();
+    byId("rv-send-title").textContent =
+      pending.length === 0 ? "Nothing left to send" : "Send " + plural(pending.length, "comment") + " to the session";
+    var list = byId("rv-send-list");
+    list.replaceChildren();
+    pending.forEach(function (comment) {
+      var item = el("div", "rv-dialog-item");
+      item.appendChild(
+        el(
+          "p",
+          "rv-dialog-path",
+          pathRef(comment.rel, comment.line, comment.endLine, comment.side === "old" ? "old" : undefined),
+        ),
+      );
+      item.appendChild(el("p", "rv-dialog-line", comment.body));
+      list.appendChild(item);
+    });
+    byId("rv-send-confirm").disabled = pending.length === 0;
+    return pending.length;
+  }
+
   function openSend() {
     flushComposers().then(function (ok) {
       // A refused save leaves the dialog shut: its own toast said which line, and the text is
       // where the reviewer left it rather than queued for a send that would not carry it.
       if (!ok) return;
-      var pending = drafts();
-      if (pending.length === 0) return;
-      byId("rv-send-title").textContent = "Send " + plural(pending.length, "comment") + " to the session";
-      var list = byId("rv-send-list");
-      list.replaceChildren();
-      pending.forEach(function (comment) {
-        var item = el("div", "rv-dialog-item");
-        item.appendChild(
-          el(
-            "p",
-            "rv-dialog-path",
-            pathRef(comment.rel, comment.line, comment.endLine, comment.side === "old" ? "old" : undefined),
-          ),
-        );
-        item.appendChild(el("p", "rv-dialog-line", comment.body));
-        list.appendChild(item);
-      });
-      byId("rv-send-dialog").hidden = false;
+      if (paintSendList() === 0) return;
+      // The kit records the opener and restores it at close; setting hidden before open() made it
+      // a no-op, which is why every exit used to strand focus in the hidden panel.
       if (window.rvSend) window.rvSend.open();
       byId("rv-send-confirm").focus();
     });
   }
   function closeSend() {
-    byId("rv-send-dialog").hidden = true;
+    if (window.rvSend) window.rvSend.close();
   }
   function sendNow() {
     post("/api/send", {}, function () {
       closeSend();
       paintThreads();
       paintChrome();
+      // paintChrome disabled the Send button this dialog came from, and a disabled control cannot
+      // take focus; the diff is where the reader's next key acts.
+      byId("rv-main").focus();
       toast("Comments sent — the session reads them at its next turn");
     });
   }
