@@ -388,7 +388,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * brings `lib/child.ts` with it: the three are the split, and every one of them
  * is what the old single module already evaluated, spread differently.
  * `worktree`'s one raise is `lib/events.ts`: the channel `file-browse` follows moved
- * out of the publishing module, so both sides compile against one name. The thirteen entries
+ * out of the publishing module, so both sides compile against one name. The fourteen entries
  * that declare a string-enum parameter each pay one more for `lib/tool-schema.ts`, the type
  * Pi's typings dropped — `board` and `team` joined in #748, and built at load it cannot defer.
  * `lib/config.ts`'s JSON boundary became `lib/json.ts`. Fifteen entries that clamp a
@@ -448,7 +448,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	wechat: 32,
 	"file-read": 30,
 	rewind: 29,
-	memory: 29,
+	memory: 27,
 	question: 18,
 	serve: 12,
 	context: 8,
