@@ -62,6 +62,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `team`: `/team` closes with a count and a door, `2 of 4 sessions live — /team who lists them`, and its `… N more`
+  names the surface that draws the rest. The presence sentence is gone: it rendered the one `whoIsHere` grouping a
+  second time, naming a session under its state and again under `not listening`, and wrapped into a wall on a narrow
+  terminal. The rows are the surface, so **`/team list` is now `/team who`** — a reader who types the old word gets
+  the usage that names the new one — and it takes a label, `/team who billing-core`, to answer about one session,
+  an owner the bus has no record of included. `who` and `join` complete the project's `team.teammates`, and both
+  `/team help` and an unknown word print the words the command takes, where the warning used to be a sentence that
+  could not name both of the others.
+
 - test: the browser layer runs on one Chrome instead of forty, and a page waits on its own first paint rather than on
   Playwright's idle floor. A review suite keeps one tab per file and navigates it, so a case costs a document instead of a
   context; `reloadReview` waits on `load` plus that first paint, measured at 184–196 ms against 682–745 ms for
@@ -196,6 +205,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ### Fixed
+
+- `board`: `land` carries a card that deletes a suite again. The proof refused any line removed from
+  `test/suite-manifest.ts`, and removing a suite requires removing its declaration, so a card that deletes one
+  could never land. A suite the merge no longer has may leave the manifest, while one it still carries is refused
+  — naming the stem and the file it found — because that is a rewrite; `CHANGELOG.md` stays absolute, since a
+  bullet has no legitimate deletion.
+
+- `tools`: three caps that only a tool's own normalizer held are now in its parameter schema — `todo`'s item
+  `content` and `activeForm`, `goal`'s `objective`, and `session`'s `paths` list — each a read of the constant the
+  refusal already uses, so no number is written twice. A tool call past the limit now answers with Pi's schema
+  sentence instead of the tool's own `overLimit` line, while a codemode caller and a direct normalizer caller keep
+  the model-readable one, because no normalizer changed. `session`'s `paths` gains the `minItems` it was missing, so
+  an empty list is refused by the schema where `normalizePaths` used to be the first to say so, and the description's
+  `wake` clause paid the keyword's cost: `wake`'s own field states it, per burst and when it arrives.
 
 - `code-review`: a row that survives anchors to its new number, so the page marks the number its bar names instead of
   renaming the line under the pointer — the old column stays the old file's numbering, and its title spells both out. A

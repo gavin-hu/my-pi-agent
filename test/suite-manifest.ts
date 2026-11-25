@@ -64,6 +64,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"input",
 		"kind",
 		"land",
+		"land-hotspot",
 		"landed",
 		"landing",
 		"landing-squash",

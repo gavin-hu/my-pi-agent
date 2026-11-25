@@ -41,6 +41,7 @@ export interface SchemaNode {
 	patternProperties?: Record<string, SchemaNode>;
 	maxLength?: number;
 	maxItems?: number;
+	minItems?: number;
 	minProperties?: number;
 	maxProperties?: number;
 	maximum?: number;

@@ -25,6 +25,7 @@ const GoalStatusEnum = StringEnum(GOAL_MODEL_STATUSES, {
 
 export const GoalParams = Type.Object({
 	objective: Type.String({
+		maxLength: MAX_OBJECTIVE,
 		description: "The complete session goal, as a single line. Pass an empty string to clear the goal.",
 	}),
 	status: Type.Optional(GoalStatusEnum),

@@ -30,6 +30,7 @@ import {
 	MAX_LABEL,
 	MAX_PATHS,
 	MAX_REFERENCE,
+	MIN_PATHS,
 	normalizeAction,
 	normalizeLimit,
 	REFERENCE_PATTERN,
@@ -83,6 +84,7 @@ export const SessionParams = Type.Object({
 	),
 	paths: Type.Optional(
 		Type.Array(Type.String(), {
+			minItems: MIN_PATHS,
 			maxItems: MAX_PATHS,
 			description: "`claim`/`release`: required. Repo-relative.",
 		}),
@@ -118,7 +120,7 @@ type SessionArgs = Static<typeof SessionParams>;
 export const SESSION_DESCRIPTION =
 	"Coordinate parallel Pi sessions: `status` (sessions, unread, claims), " +
 	"`send` (a label/id, or `*` for an event), `inbox`/`read`, `claim`/`release` (paths), " +
-	"`join` (listening; `wake` raises a turn).";
+	"`join` (listening)";
 
 /** The one line in the system prompt's tools list, not a copy of the description. */
 export const SESSION_SNIPPET = "Coordinate parallel sessions: status, send, read, inbox, claim, release, join.";
