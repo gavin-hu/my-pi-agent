@@ -10,7 +10,7 @@
 import { failedResult, type ToolFailure } from "../../../lib/tool-result.ts";
 import type { PlanAction, RefusedPlanDetails } from "../types.ts";
 
-export function planRefusal<Action extends PlanAction>(
+export function planRefusal<Action extends PlanAction | "unknown">(
 	action: Action,
 	message: string,
 ): ToolFailure<RefusedPlanDetails> {

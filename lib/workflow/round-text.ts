@@ -133,16 +133,6 @@ function droppedHistory(cards: readonly Card[]): string {
 }
 
 /**
- * The same body, as the browser receives it: one wording for `1 card`, not two.
- *
- * `plural` is `lib/format.ts`'s — it is generic text, and the bus needs it too — but the splice is
- * this module's, because the page bundle is this module's. `round-text.test.ts` pins the two facts
- * that keep it safe: the source is what `pageSource` gives, and it spells none of `.replace`'s
- * replacement patterns.
- */
-export const PLURAL_JS = pageSource(plural);
-
-/**
  * Whether an owner is only history: the bus has no record of it, and it holds nothing.
  *
  * The Team tab and this text answer one question — which owners a board still has to show —

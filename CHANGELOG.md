@@ -206,6 +206,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`, `plan`: a field an action never reads is refused rather than dropped in silence — a `logs` call carrying
+  `path` now answers that `add` takes it, and `enter` with a `title` points at `write`. Each table lives beside its
+  tool's action list, `lib/stray-fields.ts` words the refusal, and a test holds every published field to an action
+  that reads it. Both guards load where they are used, so no entry pays a module at start. `plan` also refuses an
+  action it does not know, where it used to fall off the end of its switch and answer nothing.
+
 - `test`: `browser-handle`'s exit case owns the browser it kills, and the suite now makes the state that used to
   break it. A handle joined to the run's pooled browser carries no child process, so `exited()` could only answer
   `{ code: null, signal: null }` — which is why `signal: "SIGKILL"` was observable alone and read `null` on a machine
