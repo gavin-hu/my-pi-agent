@@ -8,10 +8,21 @@
  * content rather than a shortcut.
  */
 
-import { win32 } from "node:path";
+import { join, win32 } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { allowsAt } from "./helpers/comments.ts";
-import { SCANNED_DIRS, SOURCE_DIRS, sourceFiles, filesIn, repo, textOf } from "./helpers/scan.ts";
+import { GLYPH_SEQUENCES, GLYPH_SPECS, GLYPHS } from "../lib/tui/glyphs.ts";
+import {
+	extensionsDir,
+	libDir,
+	SCANNED_DIRS,
+	SOURCE_DIRS,
+	sourceFiles,
+	filesIn,
+	repo,
+	textOf,
+} from "./helpers/scan.ts";
+import { posixPath } from "./helpers/files.ts";
 
 /**
  * The two backslashes a separator escape is written with, and the one on either side that
@@ -99,6 +110,52 @@ const BANS: Ban[] = [
  * scripts are unshipped dev tooling, which is why they are not in `SCANNED_DIRS`
  * with the renderer and boundary scans, but they are still read as code.
  */
+/**
+ * A vocabulary glyph typed by hand where an import belongs. `lib/tui/glyphs.ts`
+ * says keep each literal there and import it, and twenty sites had re-typed one,
+ * so the rule was prose until this case existed.
+ *
+ * The glyphs the vocabulary declares `prose` (`→` between two versions) or
+ * `ascii` (`!`, `?`) are left out: no scan can tell either from a sentence.
+ */
+const GLYPH_CHARS: readonly string[] = [
+	...Object.entries(GLYPH_SPECS)
+		.filter(([, facts]) => facts.prose !== true && facts.ascii !== true)
+		.map(([name]) => GLYPHS[name as keyof typeof GLYPHS]),
+	...GLYPH_SEQUENCES.spinner.frames,
+];
+
+/** A comment may illustrate a glyph; it draws nothing. */
+const COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/;
+
+const GLYPH_BAN: Ban = {
+	name: "glyph",
+	matches: (line) => !COMMENT_LINE.test(line) && GLYPH_CHARS.some((char) => line.includes(char)),
+	reason: "import it from lib/tui/glyphs.ts",
+};
+
+/**
+ * Surfaces that draw a browser page or a CSS rule rather than a terminal cell. A
+ * mark inside `content:"\u25b8"` is a font glyph: it spends no column and agrees with
+ * no vocabulary, so the ban does not reach it.
+ */
+const WEB_SURFACE: readonly string[] = [
+	"lib/web/",
+	"extensions/board/view/",
+	"extensions/code-review/view/",
+	"extensions/file-browse/view/html",
+	"extensions/file-browse/view/styles",
+	"extensions/plan/web-",
+];
+
+/** One file's bans: the glyph case skips its own owner and the browser surfaces. */
+function bansFor(file: string): Ban[] {
+	// A path is data: a literal `lib/web/` prefix must meet a posix spelling on every host.
+	const relative = posixPath(file.slice(repo.length + 1));
+	const ownsLiterals = relative === "lib/tui/glyphs.ts" || WEB_SURFACE.some((prefix) => relative.startsWith(prefix));
+	return ownsLiterals ? SOURCE_BANS.filter((ban) => ban !== GLYPH_BAN) : SOURCE_BANS;
+}
+
 const SOURCE_BANS: Ban[] = [
 	{
 		name: "todo",
@@ -126,6 +183,7 @@ const SOURCE_BANS: Ban[] = [
 		reason: "delete it; git has the version that worked",
 	},
 	TYPED_SEPARATOR,
+	GLYPH_BAN,
 ];
 
 /**
@@ -162,10 +220,31 @@ describe("test conventions", () => {
 });
 
 describe("source conventions", () => {
+	test("the glyph case catches a re-typed literal, and not a comment or prose", () => {
+		// A gate that fires on nothing is the failure this case exists to refuse: the
+		// sweep below it would read green either way.
+		expect(GLYPH_BAN.matches(`text: "${GLYPHS.check} done"`)).toBe(true);
+		expect(GLYPH_BAN.matches(`const ok = "⬥";`)).toBe(true);
+		expect(GLYPH_BAN.matches(` * draws ${GLYPHS.check} when the row is green`)).toBe(false);
+		expect(GLYPH_BAN.matches(`  "v1 ${GLYPHS.arrow} v2"`)).toBe(false);
+	});
+
+	test("the glyph case skips the vocabulary's own literals and the browser surfaces, and nothing else", () => {
+		// The two exceptions stated by path rather than by hope: the owner spells every
+		// literal, and a browser mark spends no column. A terminal surface keeps the case,
+		// so the exclusion cannot widen into the sweep it replaced.
+		expect(bansFor(join(libDir, "tui", "glyphs.ts"))).not.toContain(GLYPH_BAN);
+		expect(bansFor(join(extensionsDir, "board", "view", "face.ts"))).not.toContain(GLYPH_BAN);
+		expect(bansFor(join(extensionsDir, "plan", "web-page.ts"))).not.toContain(GLYPH_BAN);
+		expect(bansFor(join(extensionsDir, "question", "view", "question-screen.ts"))).toContain(GLYPH_BAN);
+		expect(bansFor(join(extensionsDir, "file-browse", "view", "html.ts"))).not.toContain(GLYPH_BAN);
+		expect(bansFor(join(libDir, "workflow", "reason.ts"))).toContain(GLYPH_BAN);
+	});
+
 	test("source avoids the banned patterns", () => {
 		const offenders: string[] = [];
 		for (const dir of SOURCE_DIRS) {
-			for (const file of sourceFiles(dir)) offenders.push(...scanBans(file, SOURCE_BANS));
+			for (const file of sourceFiles(dir)) offenders.push(...scanBans(file, bansFor(file)));
 		}
 		expect(offenders).toEqual([]);
 	});

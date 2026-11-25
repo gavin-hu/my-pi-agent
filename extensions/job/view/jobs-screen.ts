@@ -21,6 +21,7 @@ import { DockListScreen, type DetailContents } from "../../../lib/tui/dock-scree
 import { paint } from "../../../lib/tui/tokens.ts";
 import { compareJobs, formatJobDetail, jobCounts, type JobCounts, jobRow, shortLabel } from "../format.ts";
 import type { JobRecord } from "../types.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 
 export interface JobListCallbacks {
 	/** This session's id: a record with another id belongs to a peer session. */
@@ -105,7 +106,7 @@ export class JobListComponent extends DockListScreen<JobRecord> {
 	protected listHints(): ScreenHint[] {
 		return [
 			"Esc close",
-			"↑/↓ or j/k select",
+			`${GLYPHS.update}/${GLYPHS.hintDown} or j/k select`,
 			{ text: "Enter or l logs", color: "accent" },
 			{ text: "d or K kill", color: "warn" },
 			{ text: "x clear finished", color: "warn" },
@@ -114,7 +115,7 @@ export class JobListComponent extends DockListScreen<JobRecord> {
 	}
 
 	protected detailHints(): ScreenHint[] {
-		return ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"];
+		return ["Esc back", `${GLYPHS.update}/${GLYPHS.hintDown} scroll`, "g/G ends", "PgUp/PgDn"];
 	}
 
 	protected detailFor(job: JobRecord): DetailContents {

@@ -9,6 +9,7 @@
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { formatDuration, formatTokens, sanitizeLine, shortenPath } from "../../lib/format.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { USAGE_COUNTERS, zeroUsage } from "../../lib/usage.ts";
 import type { BackgroundRun } from "./background.ts";
@@ -35,8 +36,8 @@ function contextPart(tokens: number | undefined): string {
 export function formatUsageStats(usage: Partial<UsageStats>, model?: string): string {
 	return [
 		turnPart(usage.turns),
-		tokenPart("↑", usage.input),
-		tokenPart("↓", usage.output),
+		tokenPart(GLYPHS.update, usage.input),
+		tokenPart(GLYPHS.hintDown, usage.output),
 		tokenPart("R", usage.cacheRead),
 		tokenPart("W", usage.cacheWrite),
 		contextPart(usage.contextTokens),

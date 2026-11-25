@@ -12,7 +12,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { eastAsianWidthType } from "get-east-asian-width";
-import { ARROW, GLYPHS, SEPARATORS } from "./glyphs.ts";
+import { ARROW, GLYPH_SPECS, GLYPH_SEQUENCES, GLYPHS, MODE_GLYPHS, SEPARATORS } from "./glyphs.ts";
 
 describe("GLYPHS", () => {
 	test("every glyph is exactly one visible column", () => {
@@ -31,6 +31,56 @@ describe("GLYPHS", () => {
 	test("glyphs are distinct, so chips stay distinguishable", () => {
 		const values = Object.values(GLYPHS);
 		expect(new Set(values).size).toBe(values.length);
+	});
+});
+
+describe("GLYPH_SPECS", () => {
+	/** The names the two tables share, and each record's literal. */
+	const specs = Object.entries(GLYPH_SPECS) as [keyof typeof GLYPHS, (typeof GLYPH_SPECS)[keyof typeof GLYPHS]][];
+
+	test("records every glyph and nothing else", () => {
+		expect(specs.map(([name]) => name as string).sort()).toEqual(Object.keys(GLYPHS).sort());
+	});
+
+	test("a record's width class is the class the character measures as", () => {
+		// The module's rule as data: a glyph added with a copied `neutral` fails here rather
+		// than in a CJK-width profile nobody ran. A wide or fullwidth class is refused by the
+		// glyph test above, so this one holds the two tables together.
+		for (const [name, facts] of specs) {
+			const measured = eastAsianWidthType(GLYPHS[name].codePointAt(0) ?? 0);
+			expect(facts.width as string, `${name}=${GLYPHS[name]}`).toBe(measured);
+		}
+	});
+
+	test("each glyph says one thing, and no two say the same", () => {
+		// A test on the literals cannot see a duplicate meaning: `⏵` and `▶` were distinct
+		// characters that both said "go". The record makes that collision a red case.
+		const said = specs.map(([, facts]) => facts.says);
+		expect(new Set(said).size).toBe(said.length);
+	});
+
+	test("every ink is one of the three classes", () => {
+		const inks = new Set(specs.map(([, facts]) => facts.ink));
+		expect([...inks].every((ink) => ink === "solid" || ink === "outline" || ink === "line")).toBe(true);
+	});
+
+	test("a sequence's frames are one column each, so a row does not jump", () => {
+		for (const [name, sequence] of Object.entries(GLYPH_SEQUENCES)) {
+			expect(sequence.frames.length, name).toBeGreaterThan(1);
+			for (const frame of sequence.frames) expect(visibleWidth(frame), `${name}=${frame}`).toBe(1);
+		}
+	});
+});
+
+describe("MODE_GLYPHS", () => {
+	test("draws one mode per glyph, and no mode re-types a literal", () => {
+		expect(Object.values(MODE_GLYPHS)).toEqual([GLYPHS.autoMode, GLYPHS.plan, GLYPHS.lead]);
+		expect(new Set(Object.values(MODE_GLYPHS)).size).toBe(3);
+	});
+
+	test("keeps the seat a solid mark, so it reads at a glance like the resting default", () => {
+		expect(GLYPH_SPECS.lead.ink).toBe("solid");
+		expect(GLYPH_SPECS.autoMode.ink).toBe("solid");
 	});
 });
 

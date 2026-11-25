@@ -20,6 +20,7 @@ import { DockListScreen, type DetailContents } from "../../../lib/tui/dock-scree
 import { paint } from "../../../lib/tui/tokens.ts";
 import { compareWatches, formatWatchDetail, shortLabel, watchRow } from "../format.ts";
 import type { WatchRecord } from "../types.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 
 export interface WatchListCallbacks {
 	/** Current matched lines for a watcher, or undefined when unknown. */
@@ -93,7 +94,7 @@ export class WatchListComponent extends DockListScreen<WatchRecord> {
 	protected listHints(): ScreenHint[] {
 		return [
 			"Esc close",
-			"↑/↓ or j/k select",
+			`${GLYPHS.update}/${GLYPHS.hintDown} or j/k select`,
 			{ text: "Enter or l matches", color: "accent" },
 			{ text: "x or K stop", color: "warn" },
 			{ text: "d clear stopped", color: "warn" },
@@ -102,7 +103,7 @@ export class WatchListComponent extends DockListScreen<WatchRecord> {
 	}
 
 	protected detailHints(): ScreenHint[] {
-		return ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"];
+		return ["Esc back", `${GLYPHS.update}/${GLYPHS.hintDown} scroll`, "g/G ends", "PgUp/PgDn"];
 	}
 
 	protected detailFor(watch: WatchRecord): DetailContents {

@@ -15,7 +15,7 @@ import { sanitizeLine } from "../../../lib/format.ts";
 import { ageText, messageMeta, messagePaths } from "../format.ts";
 import type { ScreenHint, ViewportRowsSource } from "../../../lib/tui/chrome.ts";
 import { type DetailContents, DockListScreen } from "../../../lib/tui/dock-screen.ts";
-import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { GLYPHS, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { keyValueRow } from "../../../lib/tui/rows.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { shortId } from "../protocol.ts";
@@ -250,13 +250,18 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 		const hints: ScreenHint[] = ["Esc", tab(this.nextScope())];
 		switch (this.scope) {
 			case "sessions":
-				hints.push(enter("open"), this.watchHint(), "↑/↓", "PgUp/PgDn");
+				hints.push(enter("open"), this.watchHint(), `${GLYPHS.update}/${GLYPHS.hintDown}`, "PgUp/PgDn");
 				break;
 			case "inbox":
-				hints.push(enter("read"), this.watchHint(), "↑/↓", "PgUp/PgDn");
+				hints.push(enter("read"), this.watchHint(), `${GLYPHS.update}/${GLYPHS.hintDown}`, "PgUp/PgDn");
 				break;
 			case "claims":
-				hints.push(enter("open"), { text: "x release", color: "warn" }, "↑/↓", "PgUp/PgDn");
+				hints.push(
+					enter("open"),
+					{ text: "x release", color: "warn" },
+					`${GLYPHS.update}/${GLYPHS.hintDown}`,
+					"PgUp/PgDn",
+				);
 				break;
 		}
 		return hints;
@@ -264,9 +269,14 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 
 	protected detailHints(row: BoardRow | undefined): ScreenHint[] {
 		if (row?.kind === "claim" && row.claim.owner === this.me()) {
-			return ["Esc back", { text: "x release", color: "warn" }, "↑/↓ scroll", "g/G ends"];
+			return [
+				"Esc back",
+				{ text: "x release", color: "warn" },
+				`${GLYPHS.update}/${GLYPHS.hintDown} scroll`,
+				"g/G ends",
+			];
 		}
-		return ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"];
+		return ["Esc back", `${GLYPHS.update}/${GLYPHS.hintDown} scroll`, "g/G ends", "PgUp/PgDn"];
 	}
 
 	protected detailFor(row: BoardRow): DetailContents {

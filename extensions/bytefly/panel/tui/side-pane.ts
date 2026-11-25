@@ -25,6 +25,7 @@ import { configPath } from "../settings-runtime.ts";
 import type { PanelRow, PanelSection } from "../types.ts";
 import { INDENT, savedLine } from "./frame.ts";
 import { helpRows } from "./keys.ts";
+import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
 
 /** Pi's personal settings file, named where a setting is stored there. */
 const PI_SETTINGS_FILE = "settings.json";
@@ -101,7 +102,7 @@ function blockRule(theme: Theme, width: number, label: string): string {
 	const text = ` ${label} `;
 	const room = Math.max(0, width - BODY_INDENT - text.length);
 	return clip(
-		`${" ".repeat(BODY_INDENT)}${paint(theme, "faint", `${"─".repeat(Math.min(2, room))}${text}${"─".repeat(Math.max(0, room - 2))}`)}`,
+		`${" ".repeat(BODY_INDENT)}${paint(theme, "faint", `${GLYPHS.ruleFill.repeat(Math.min(2, room))}${text}${GLYPHS.ruleFill.repeat(Math.max(0, room - 2))}`)}`,
 		width,
 	);
 }

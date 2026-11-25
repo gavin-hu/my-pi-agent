@@ -21,6 +21,7 @@ import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { progressSummary, todoRow } from "../format.ts";
 import type { Todo } from "../types.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 
 /** Items the `/todos` screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ITEMS = 12;
@@ -116,7 +117,12 @@ export class TodoListComponent implements Component {
 				this.scrollTop > 0 || end < this.todos.length
 					? formatRange(this.theme, w, { start: this.scrollTop, end, total: this.todos.length })
 					: undefined,
-			hint: screenHint(this.theme, w, ["Esc close", "↑/↓ or k/j scroll", "PgUp/PgDn", "g/G or Home/End"]),
+			hint: screenHint(this.theme, w, [
+				"Esc close",
+				`${GLYPHS.update}/${GLYPHS.hintDown} or k/j scroll`,
+				"PgUp/PgDn",
+				"g/G or Home/End",
+			]),
 		});
 	}
 }

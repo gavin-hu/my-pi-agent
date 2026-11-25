@@ -166,7 +166,7 @@ export class WorktreeListComponent extends DockListScreen<WorktreeRow> {
 	protected listHints(): ScreenHint[] {
 		return [
 			"Esc close",
-			"↑/↓ or j/k select",
+			`${GLYPHS.update}/${GLYPHS.hintDown} or j/k select`,
 			{ text: "Enter or l detail", color: "accent" },
 			{ text: "e enter", color: "accent" },
 			{ text: "x exit", color: "warn" },
@@ -175,7 +175,7 @@ export class WorktreeListComponent extends DockListScreen<WorktreeRow> {
 	}
 
 	protected detailHints(): ScreenHint[] {
-		return ["Esc back", "↑/↓ scroll", "g/G ends"];
+		return ["Esc back", `${GLYPHS.update}/${GLYPHS.hintDown} scroll`, "g/G ends"];
 	}
 
 	protected detailFor(row: WorktreeRow): DetailContents {

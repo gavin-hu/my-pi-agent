@@ -25,6 +25,7 @@ import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
 import { formatBudget, formatCompaction, formatDrift } from "../format.ts";
 import type { ContextBucket, ContextReport } from "../types.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 
 /** Fixed rows around the scrollable body: title, gauge, budget, blank, blank, footer, closing rule. */
 const CHROME_ROWS = 7;
@@ -254,7 +255,7 @@ export class ContextComponent implements Component {
 			[
 				{ text: "c compact", color: "accent" },
 				{ text: "r refresh", color: "faint" },
-				{ text: "↑↓ scroll", color: "faint" },
+				{ text: `${GLYPHS.update}${GLYPHS.hintDown} scroll`, color: "faint" },
 				{ text: "Esc close", color: "faint" },
 			],
 			BODY_INDENT,

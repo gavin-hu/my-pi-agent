@@ -350,7 +350,7 @@ export function exitText(details: ExitPlanModeDetails, expanded: boolean, theme:
 	const hint = planText !== "" && !expanded ? `${paint(theme, "faint", SEPARATORS.item)}${expandHint(theme)}` : "";
 	const lines: WidthLine[] = [{ text: `${heading}${summary}${hint}` }];
 	if (details.refined && details.refinement) {
-		lines.push({ text: paint(theme, "meta", `↳ ${sanitizePlanText(details.refinement)}`) });
+		lines.push({ text: paint(theme, "meta", `${GLYPHS.delegation} ${sanitizePlanText(details.refinement)}`) });
 	}
 	const shown = details.relativePath ?? details.planPath;
 	if (shown) lines.push({ text: paint(theme, "meta", shown), clip: "middle" });

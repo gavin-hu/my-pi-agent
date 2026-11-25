@@ -168,6 +168,7 @@ export function reasonFor(card: ReasonCard, ago: (at: number) => string): Reason
 	// between that and a signed one is the whole point of recording it: no helper, because this
 	// body is also the browser's.
 	const how = card.review?.byInstruction === undefined ? "" : " · closed by instruction";
+	// allow:glyph: this body is serialized for the page, where an import would not exist
 	return { kind: "done", text: "✓ done" + who + how };
 }
 

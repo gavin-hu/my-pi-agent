@@ -143,6 +143,30 @@ revert, a kill, a stop, a clear, a forget), and `bad` for one that ends the
 session. Keys that navigate, scroll, or select stay `faint`, so a colored key is
 one worth a second thought.
 
+## A glyph is a vocabulary
+
+Every glyph comes from [`glyphs.ts`](./glyphs.ts): `GLYPHS` owns the literal and
+`GLYPH_SPECS` the facts about it, one record per name — the `ink` class, the
+measured East-Asian `width`, and the one thing it `says`. Four rules, each held by
+`glyphs.test.ts` and `test/conventions.test.ts`:
+
+- **One column, and the class is recorded.** Never wide, fullwidth, or emoji;
+  `ambiguous` is allowed and costs a second column under a CJK-width profile, so
+  the record says which class it is instead of leaving it to the font.
+- **One meaning.** No two glyphs may say the same thing. `⏵` and `▶` were two
+  distinct characters that both read "go", which a distinctness test on the
+  literals cannot see and a unique `says` refuses.
+- **One ink per family.** A slot's glyphs share a weight: a filled mark beside a
+  hairline one reads as two vocabularies, not one.
+- **One shape may serve several jobs**, declared with `also` — `→` is a join and a
+  cue, `▸` a running job and a closed fold.
+
+A re-typed literal in shipped source fails `test/conventions.test.ts`. A browser
+surface is out of its reach: a mark inside `content:"▸"` is a font glyph with no
+column to spend. Where a line must spell one, it says why — `reasonFor`'s body is
+serialized for the page, where an import would not exist, so its glyph carries
+`allow:glyph`, and a fixture quoting a process's output is data rather than a chip.
+
 ## A hue identifies, a verdict judges
 
 `ok` / `warn` / `bad` say how something *is*, and a surface that shows them is

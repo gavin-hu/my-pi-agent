@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { LEAD_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
-import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { createLeadRuntime, LEAD_ALLOWED_TOOLS, LEAD_PHRASING } from "./runtime.ts";
@@ -93,7 +93,7 @@ describe("lead runtime — the tool set", () => {
 	test("publishes the seat's chip, and clears it on the way out", () => {
 		const { runtime, ctx, statusCalls } = setup();
 		runtime.enable(ctx);
-		expect(statusCalls).toContainEqual({ key: STATUS_KEYS.leadMode, text: "⏵ lead" });
+		expect(statusCalls).toContainEqual({ key: STATUS_KEYS.leadMode, text: `${GLYPHS.lead} lead` });
 		runtime.disable(ctx);
 		expect(statusCalls.at(-1)).toEqual({ key: STATUS_KEYS.leadMode, text: undefined });
 	});

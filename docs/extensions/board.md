@@ -77,7 +77,7 @@ empty lead lets only the person sign and serves no page. A session signs only wh
 it holds the card, and the `/board` words gate on that label. The sign says who heard it — quiet, not listening,
 or not told — and an untold one is sent again.
 
-**Lead mode.** Serving the page is the seat: `/board` turns the mode on in that session and the bar draws `⏵ lead`. While it holds the seat keeps a closed
+**Lead mode.** Serving the page is the seat: `/board` turns the mode on in that session and the bar draws `⬢ lead`. While it holds the seat keeps a closed
 allow-list — the readers `read`, `grep`, `find`, `ls`, `read_doc`, `run_doctor`; the board's verbs (`board`, `team`, `session`, `plan`, `todo`, `goal`,
 `question`, `subagent`); `web_search`, `web_fetch`, `bash` for read-only git — a retargeting `-C` or `cd` is refused with the by-revision forms to use instead (`git show <sha>:<path>`, `git log <branch>`) — and every other tool is refused by a sentence naming `/board stop`. A tool's
 own `readOnlyHint` does not admit it, so an MCP reader is refused while the seat is held. `subagent` stays read-only, `plan` keeps `write` and `steps`

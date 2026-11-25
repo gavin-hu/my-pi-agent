@@ -22,6 +22,7 @@ import { paint } from "../../../../lib/tui/tokens.ts";
 import type { PanelSection } from "../types.ts";
 import { hintLine, noticeLine } from "./frame.ts";
 import { editHints } from "./settings-view.ts";
+import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
 
 /** One action the screen binds. */
 export type PanelKeyId =
@@ -224,7 +225,7 @@ export function hintsFor(section: PanelSection, state: HintState): ScreenHint[] 
 	if (state.dirty) hints.push(hint("R reload", true));
 	hints.push(hint("s scope"));
 	if (state.projectOverride) hints.push(hint("x inherit"));
-	hints.push(hint("↑/↓ select"));
+	hints.push(hint(`${GLYPHS.update}/${GLYPHS.hintDown} select`));
 	return hints;
 }
 
@@ -267,7 +268,7 @@ interface HelpRow {
 
 /** Rows over the movement keys, which `lib/tui/cursor.ts` owns for every screen. */
 const MOVEMENT: readonly HelpRow[] = [
-	{ ids: [], label: "↑/↓ j/k", help: "Move to the next or previous row" },
+	{ ids: [], label: `${GLYPHS.update}/${GLYPHS.hintDown} j/k`, help: "Move to the next or previous row" },
 	{ ids: [], label: "g G", help: "Jump to the first or last row" },
 	{ ids: [], label: "[ ]", help: "Jump to the next or previous group" },
 ];
