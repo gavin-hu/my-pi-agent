@@ -28,6 +28,7 @@ import {
 	keysDialogScript,
 	THEME_TOGGLE_JS,
 } from "../../../lib/web/index.ts";
+import { PLURAL_JS } from "../../../lib/workflow/round-text.ts";
 import { REVIEW_COMMENTS_JS } from "./client-comments.ts";
 import { REVIEW_DRAFTS_JS } from "./client-drafts.ts";
 import { REVIEW_KEYS_JS } from "./client-keys.ts";
@@ -105,7 +106,9 @@ ${CLIENT_RUNTIME_JS}
     var cut = path.lastIndexOf("/");
     return cut < 0 ? { dir: "", name: path } : { dir: path.slice(0, cut), name: path.slice(cut + 1) };
   }
-  function plural(count, noun) { return count + " " + noun + (count === 1 ? "" : "s"); }
+  // The counted noun is lib/format.ts's body, spliced by the module that carries it to a page — board
+  // reads the same constant — so the page cannot count differently from the notice it sends.
+${PLURAL_JS}
   // A comment's reference is lib/format.ts's own body, spliced rather than copied, so the bar, the
   // send dialog and a thread label print what the notice and the comments tool print.
 ${PATH_REF_JS}

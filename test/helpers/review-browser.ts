@@ -38,22 +38,16 @@ export const REVIEW_MOUNT = "/review";
  */
 function fileRows(rel: string, start: number, lines = 0, paired = false, skew = 0): ReviewSnapshot["files"][number] {
 	const body: DiffLine[] = [];
+	let del = 0;
+	let hunk = `@@ -${start},2 +${start + skew},3 @@`;
 	if (paired) {
+		del = 1;
+		hunk = `@@ -${start} +${start} @@`;
 		body.push(
 			{ kind: "del", text: "const gone = 0;", oldNo: start },
 			{ kind: "add", text: "const here = 1;", newNo: start + skew },
 		);
-		return {
-			rel,
-			status: "M",
-			add: 1,
-			del: 1,
-			binary: false,
-			truncated: false,
-			lines: [{ kind: "hunk", text: `@@ -${start} +${start} @@` }, ...body],
-		};
-	}
-	if (lines > 0) {
+	} else if (lines > 0) {
 		for (let index = 0; index < lines; index++) {
 			body.push({
 				kind: "ctx",
@@ -74,10 +68,10 @@ function fileRows(rel: string, start: number, lines = 0, paired = false, skew = 
 		rel,
 		status: "M",
 		add: 1,
-		del: 0,
+		del,
 		binary: false,
 		truncated: false,
-		lines: [{ kind: "hunk", text: `@@ -${start},2 +${start + skew},3 @@` }, ...body],
+		lines: [{ kind: "hunk", text: hunk }, ...body],
 	};
 }
 
