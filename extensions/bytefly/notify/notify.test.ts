@@ -447,14 +447,14 @@ describe("registerNotify — watch matches", () => {
 describe("registerNotify — the handle", () => {
 	test("sends one notification with the configured title when enabled", async () => {
 		await scenario({ enabled: true, method: "osc777", title: "Build" }, async (h) => {
-			h.handle.notify("Session budget reached · ¥1.00 of ¥1.00");
-			expect(h.written).toEqual(["\x1b]777;notify;Build;Session budget reached · ¥1.00 of ¥1.00\x07"]);
+			h.handle.notify("2 background jobs finished · j1, j2");
+			expect(h.written).toEqual(["\x1b]777;notify;Build;2 background jobs finished · j1, j2\x07"]);
 		});
 	});
 
 	test("is inert while notifications are off", async () => {
 		await scenario({ enabled: false, method: "osc777" }, async (h) => {
-			h.handle.notify("Session budget reached");
+			h.handle.notify("2 background jobs finished");
 			expect(h.written).toEqual([]);
 		});
 	});

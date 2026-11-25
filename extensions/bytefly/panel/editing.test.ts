@@ -13,7 +13,7 @@ import { type SettingsSurface } from "./settings-runtime.ts";
 import { applyEditKey, type EditingState } from "./tui/editing.ts";
 
 describe("panel text editing", () => {
-	const state = (buffer: string, caret = buffer.length): EditingState => ({ id: "price.budget", buffer, caret });
+	const state = (buffer: string, caret = buffer.length): EditingState => ({ id: "team.lead", buffer, caret });
 
 	test("Esc and Ctrl+C cancel and Enter commits", () => {
 		expect(applyEditKey("\u001b", state("Pi"), 40)).toEqual({ kind: "cancel" });
@@ -25,12 +25,12 @@ describe("panel text editing", () => {
 		const middle = state("Pilot", 2);
 		expect(applyEditKey("\u007f", middle, 40)).toEqual({
 			kind: "update",
-			state: { id: "price.budget", buffer: "Plot", caret: 1 },
+			state: { id: "team.lead", buffer: "Plot", caret: 1 },
 			changed: true,
 		});
 		expect(applyEditKey("\u001b[3~", middle, 40)).toEqual({
 			kind: "update",
-			state: { id: "price.budget", buffer: "Piot", caret: 2 },
+			state: { id: "team.lead", buffer: "Piot", caret: 2 },
 			changed: true,
 		});
 	});
@@ -69,7 +69,7 @@ describe("panel text editing", () => {
 	test("Ctrl+U clears the buffer", () => {
 		expect(applyEditKey("\u0015", state("Pi"), 40)).toEqual({
 			kind: "update",
-			state: { id: "price.budget", buffer: "", caret: 0 },
+			state: { id: "team.lead", buffer: "", caret: 0 },
 			changed: true,
 		});
 	});
@@ -77,7 +77,7 @@ describe("panel text editing", () => {
 	test("inserts a printable character at the caret", () => {
 		expect(applyEditKey("x", state("Pi", 1), 40)).toEqual({
 			kind: "update",
-			state: { id: "price.budget", buffer: "Pxi", caret: 2 },
+			state: { id: "team.lead", buffer: "Pxi", caret: 2 },
 			changed: true,
 		});
 	});

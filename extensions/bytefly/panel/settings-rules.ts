@@ -3,8 +3,8 @@
  *
  * A rule lives beside the catalogue but not inside it, because the screen's list is sixteen
  * rows long and each row's arithmetic is one paragraph: the two together are what pushed the
- * catalogue past the module bar. Every limit here is the loader's own — the budget's clamp, the
- * WIP range, the team cap — so a value the screen accepts is a value the loader keeps, and
+ * catalogue past the module bar. Every limit here is the loader's own — the WIP range and the
+ * team's cap — so a value the screen accepts is a value the loader keeps, and
  * `test/settings-coverage.test.ts` holds the pair together.
  */
 
