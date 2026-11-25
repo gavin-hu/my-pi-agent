@@ -85,9 +85,9 @@ checkout, drawn on the diff's gutter, with a way back. `n` and `p` step between 
 focused file's hunks; the whole review keeps `[` and `]`. A reference copied from a
 selection is `path:12-30`.
 
-**What a comment anchors to.** A path, a side, and a line the comparison draws — a
-span's end and the rows it quotes — checked against the snapshot; a comment is refused
-once the tree moves, and a send, a delete and a mark name no line and land anyway.
+**What a comment anchors to.** A path, a side, and a line the comparison draws — a span's end and the rows
+it quotes — checked against the snapshot, refused once the tree moves; a send, a delete and a mark land
+anyway. A surviving row anchors to its marked new number; a deleted line's ref says `path:5 (old)`.
 
 ## Limits
 

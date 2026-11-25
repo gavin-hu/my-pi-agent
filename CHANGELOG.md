@@ -168,6 +168,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: a row that survives anchors to its new number, so the page marks the number its bar names instead of
+  renaming the line under the pointer — the old column stays the old file's numbering, and its title spells both out. A
+  ref now names the side it anchors: `path:17`, or `path:5 (old)` for a deleted line, in the bar, the send dialog, a
+  thread label, the notice and `code_review comments`, which read one body (`PATH_REF_JS`) rather than a copy.
+
 - `board`: the size gates a spot-check runs are judged by the tree it runs in. They are this repository's shape — two
   suites under `test/`, run with `bun` — so a sign in a repository that keeps neither file now skips them instead of
   refusing every card: `bun test` answers a filter that matches nothing with exit 1, which read as "red". The skip is

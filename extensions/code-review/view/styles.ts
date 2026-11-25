@@ -98,6 +98,9 @@ export const REVIEW_CSS = `
 .rv-diff .browse-diff-no:nth-of-type(1){left:0}
 .rv-diff .browse-diff-no:nth-of-type(2){left:46px}
 .rv-diff .browse-diff-no:hover{color:var(--text);background:var(--accent-soft)}
+/* The number the bar names is the one marked: a row that survives anchors to its new number, so a
+   click on the old column still selects the row and the ref names the column the comment will use. */
+.rv-diff .browse-diff-no[data-anchor="true"]{color:var(--accent);font-weight:var(--fw-semibold);background:var(--accent-soft)}
 .rv-diff .browse-diff-sign{position:absolute;top:0;left:92px;display:inline-block;width:16px;text-align:center;color:var(--muted);user-select:none}
 .rv-diff .bf-diff-line--add{background:var(--success-soft)}
 .rv-diff .bf-diff-line--add .browse-diff-sign{color:var(--success)}
@@ -138,10 +141,6 @@ export const REVIEW_CSS = `
 .rv-dialog-item:first-child{border-top:0;padding-top:0}
 .rv-dialog-path{margin:0 0 2px;font:var(--fs-xs)/1.5 var(--font-mono);color:var(--dim)}
 .rv-dialog-line{margin:0;font-size:var(--fs-sm);white-space:pre-wrap;overflow-wrap:anywhere}
-/* The page rules the diff's line as one row, which is more specific than the kit's narrow
-   wrap; below the fold a line wraps here too, because a path or a call is a fact the reader
-   came for and an overlay scrollbar is no way to reach it. This sits after the diff rules so
-   it wins at equal specificity. */
 /* The page rules the diff's line as one row, which is more specific than the kit's narrow
    wrap; below the fold a line wraps here too, because a path or a call is a fact the reader
    came for and an overlay scrollbar is no way to reach it. The attribute is the only owner of

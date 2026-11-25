@@ -179,15 +179,20 @@ export function clipText(text: string, limit: number): string {
 }
 
 /**
- * How a reference to lines reads: `path:12`, or `path:12-30` when it names a span.
+ * How a reference to lines reads: `path:12`, or `path:12-30` when it names a span, then ` (old)` or
+ * ` (new)` when the caller names the side the diff drew it on.
  *
  * A span is two numbers on one side of a diff, so one spelling has to serve the page's dialog, the
  * notice it sends and the tool that reads it back — a review that named its span three ways would be
- * three chances to disagree.
+ * three chances to disagree. It crosses into the page's bundle as {@link PATH_REF_JS}, so the bar,
+ * the dialog and a thread label read the body the notice and the tool print rather than a copy of it.
  */
-export function pathRef(rel: string, line: number, endLine?: number): string {
-	return `${rel}:${line}${endLine === undefined ? "" : `-${endLine}`}`;
+export function pathRef(rel: string, line: number, endLine?: number, side?: "new" | "old"): string {
+	return `${rel}:${line}${endLine === undefined ? "" : `-${endLine}`}${side === undefined ? "" : ` (${side})`}`;
 }
+
+/** {@link pathRef} as the review page's bundle receives it. */
+export const PATH_REF_JS = pageSource(pathRef);
 
 /**
  * A field a card cannot keep because it is too long: the length it arrived at, the cap, and what
