@@ -102,7 +102,6 @@ export function planFor(facts: Facts): Plan {
 	return { commands: [FORMAT, TYPES, tests("--changed=main", ...BROWSER_TIER), tests("test/", ...BROWSER_TIER)] };
 }
 
-/** One command as the gate prints it: `bun` for the running interpreter, then its arguments. */
 /**
  * One command as the gate prints it: `bun` for the running interpreter, then its arguments.
  *
