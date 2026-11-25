@@ -20,6 +20,7 @@ import {
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	type ReviewDom,
+	type ReviewPageFixture,
 	startComment,
 	withReviewPage,
 } from "../../../test/helpers/review-browser.ts";
@@ -37,7 +38,7 @@ gated("the rail's row", () => {
 		await browser?.close();
 	}, 30_000);
 
-	const withPage = (run: (page: Page) => Promise<void>, options = {}): Promise<void> =>
+	const withPage = (run: (page: Page, fixture: ReviewPageFixture) => Promise<void>, options = {}): Promise<void> =>
 		withReviewPage(browser, run, options);
 
 	/**
@@ -162,6 +163,41 @@ gated("the rail's row", () => {
 					expect(await page.locator("#rv-facts").textContent()).toBe(facts);
 				},
 				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * A focused page draws one file and still speaks for the scope.
+	 *
+	 * The filter is the client's own path to the count: typing hides the one row this render holds,
+	 * so a count of "0 of 1 files" is the drawn rows talking and "0 of 2 files" is the scope's. The
+	 * mark is the same question for the progress, which the server wrote from the whole review and
+	 * the client then repainted from the sections it could see.
+	 */
+	test(
+		"a focused page's count and progress name the whole scope",
+		async () => {
+			await withPage(
+				async (page, fixture) => {
+					await page.goto(`${fixture.url}?file=a.ts`, { waitUntil: "load" });
+					await page.waitForSelector("#rv-filter", { timeout: REVIEW_PAINT_MS });
+					await page.locator("#rv-filter").fill("zzz");
+					expect(await page.locator("#rv-file-count").textContent()).toBe("0 of 2 files");
+					await page.locator("#rv-filter").fill("");
+					expect(await page.locator("#rv-file-count").textContent()).toBe("1 of 2 files");
+					// A click takes the focus out of the filter, so the next key is the page's.
+					await page
+						.locator('.rv-file[data-path="a.ts"] .bf-diff-line--add .browse-diff-no')
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click();
+					await page.keyboard.press("m");
+					await page.waitForSelector('.rv-rail[data-state="reviewed"]', { timeout: REVIEW_PAINT_MS });
+					expect(await page.locator("#rv-progress").textContent()).toBe("1 of 2 reviewed");
+				},
+				{ second: true },
 			);
 		},
 		CASE_MS,

@@ -80,9 +80,7 @@ export const REVIEW_KEYS_JS = String.raw`  function setWrap(on) {
         anchor = anchor && anchor.path === path ? anchor : { path: path, row: cursor.row };
         cursor = { path: path, row: index };
         currentFile = path;
-        paintSelection(true);
-        var node = cursorRow();
-        scrollMainTo(node);
+        followCursor(path);
       } else {
         placeCursor(path, index, false);
       }
