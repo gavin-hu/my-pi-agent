@@ -266,7 +266,7 @@ describe("panel text projection", () => {
 	});
 
 	test("states the settings scope and count", () => {
-		expect(formatSettingsHeadline("project", 17)).toBe("bytefly: Settings · Project · 17 settings");
+		expect(formatSettingsHeadline("project", 16)).toBe("bytefly: Settings · Project · 16 settings");
 	});
 
 	test("renders a row without a report with no glyph and no summary", () => {
@@ -390,12 +390,13 @@ describe("panel text projection", () => {
 		const views = settingViews(settingsSnapshot(), "global");
 		const lines = formatSettingsListing("global", views).split("\n");
 
-		expect(lines[0]).toBe("bytefly: Settings · Global · 17 settings");
-		expect(lines).toHaveLength(18);
+		expect(lines[0]).toBe("bytefly: Settings · Global · 16 settings");
+		expect(lines).toHaveLength(17);
 		expect(lines.join("\n")).not.toContain("Notifications (");
 		for (const row of [
 			"Startup screen: Off",
 			"Theme: system",
+			"Currency: CNY (¥)",
 			"Desktop notifications: Off",
 			"When a turn ends: On",
 			"When the agent needs you: On",
@@ -408,8 +409,6 @@ describe("panel text projection", () => {
 			"Execute limit: 5",
 			"Lead: gavin",
 			"Teammates: gavin, tom, jack, mike, sam",
-			"Currency: CNY (¥)",
-			"Session budget: Off",
 		]) {
 			expect(lines.join("\n"), row).toContain(row);
 		}

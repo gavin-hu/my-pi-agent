@@ -240,19 +240,19 @@ describe("the focused row's block", () => {
 
 describe("the settings row", () => {
 	const snapshot = settingsSnapshot({ app: { quietStartup: true, theme: "bytefly-dark" } });
-	const views = ["byteflyUi", "theme", "notify.enabled", "price.budget"].map((id) =>
+	const views = ["byteflyUi", "theme", "notify.enabled", "board.wip.plan"].map((id) =>
 		settingView(snapshot, "global", id),
 	);
 
 	test("draws a checkbox for a boolean and no box for a text row", () => {
 		const boolean = settingRow(fakeTheme, 80, settingView(snapshot, "global", "byteflyUi"), false, undefined, 0);
-		const text = settingRow(fakeTheme, 80, settingView(snapshot, "global", "price.budget"), false, undefined, 0);
+		const text = settingRow(fakeTheme, 80, settingView(snapshot, "global", "board.wip.plan"), false, undefined, 0);
 
 		expect(boolean).toContain("◼");
 		expect(boolean).toContain("Startup screen");
 		expect(boolean).toContain("On");
-		expect(text).toContain("Session budget");
-		expect(text).toContain("Off");
+		expect(text).toContain("Plan limit");
+		expect(text).toContain("3");
 		expect(text).not.toContain("◻");
 	});
 
@@ -278,13 +278,13 @@ describe("the settings row", () => {
 		const line = settingRow(
 			fakeTheme,
 			40,
-			settingView(snapshot, "global", "price.budget"),
+			settingView(snapshot, "global", "board.wip.plan"),
 			true,
 			{ buffer: "123456789012345", caret: 15 },
 			12,
 		);
 
-		expect(line).toContain("Session budget");
+		expect(line).toContain("Plan limit");
 		expect(line).toContain("▏");
 		expect(visibleWidth(line)).toBeLessThanOrEqual(40);
 	});
@@ -299,7 +299,7 @@ describe("the settings block", () => {
 	const snapshot = settingsSnapshot({
 		app: { theme: "bytefly-dark" },
 		global: { notify: { enabled: true } },
-		project: documentFor(settingDescriptor("price.budget"), 5),
+		project: documentFor(settingDescriptor("board.wip.plan"), 4),
 	});
 
 	test("names the value, what it does, and where it is written", () => {
@@ -343,7 +343,7 @@ describe("the settings block", () => {
 	});
 
 	test("shows the focused row's section as stored, with its scope file", () => {
-		const view = settingView(snapshot, "project", "price.budget");
+		const view = settingView(snapshot, "project", "board.wip.plan");
 		const lines = sideRows({
 			theme: fakeTheme,
 			width: 50,
@@ -353,11 +353,11 @@ describe("the settings block", () => {
 			expanded: true,
 			dirty: false,
 			paths: { ...PATHS, scope: "project" },
-			json: { section: "price", document: { budget: 5 } },
+			json: { section: "board", document: { wip: { plan: 4 } } },
 		}).join("\n");
 
-		expect(lines).toContain("price");
-		expect(lines).toContain('"budget": 5');
+		expect(lines).toContain("board");
+		expect(lines).toContain('"plan": 4');
 	});
 
 	test("says when the section is not set in this scope", () => {

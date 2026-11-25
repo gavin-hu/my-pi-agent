@@ -298,9 +298,9 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(notifications.at(-1)).toContain("bytefly: Settings · Project · 17 settings");
+		expect(notifications.at(-1)).toContain("bytefly: Settings · Project · 16 settings");
 		expect(notifications.at(-1)).toContain("Startup screen: Off");
-		expect(notifications.at(-1)).toContain("Session budget: Off");
+		expect(notifications.at(-1)).toContain("Currency: CNY (¥)");
 		expect(notifications.at(-1)).toContain("Theme: system");
 	});
 
@@ -338,7 +338,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(rendered).toContain("Settings 17");
+		expect(rendered).toContain("Settings 16");
 		expect(rendered).toContain("Startup screen");
 	});
 

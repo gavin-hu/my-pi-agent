@@ -65,8 +65,9 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	const updates = createUpdateState();
 	const piUpdates = createUpdateState();
 	const header = registerHeader(pi, updates, piUpdates);
-	// Notify first, so the footer's budget guardrail can raise one OS notification
-	// through the same capability the triggers use instead of a second dispatch path.
+	// Notify first, so the footer's unpriced-models notice can raise one OS
+	// notification through the same capability the triggers use instead of a second
+	// dispatch path.
 	const notifications = registerNotify(pi, deps.notify);
 	registerFooter(pi, { notify: notifications.notify });
 	registerUserMessage(pi);

@@ -439,11 +439,11 @@ describe("unsetConfigValueAt", () => {
 
 	test("removes a nested leaf and keeps its parent object", () => {
 		const path = documentPath("pi-config-unset-");
-		writeConfigFile(path, { price: { currency: { code: "USD", decimals: 3 }, budget: 5 } });
+		writeConfigFile(path, { price: { currency: { code: "USD", decimals: 3 }, peak: {} } });
 
 		unsetConfigValueAt(path, "price", ["currency", "decimals"]);
 
-		expect(readJson(path)).toEqual({ price: { currency: { code: "USD" }, budget: 5 } });
+		expect(readJson(path)).toEqual({ price: { currency: { code: "USD" }, peak: {} } });
 	});
 
 	test("drops parents left empty, the section included, and keeps metadata", () => {

@@ -15,7 +15,7 @@ This page is the catalog and the setup instructions. Each feature's own page
 under [`docs/extensions/`](./docs/extensions/) carries the keys, the commands, and
 what you should see.
 
-![A terminal window running the Pi TUI: the bytefly header naming Pi and bytefly's versions, three key-hint rows, a nameplated message with its answer and an edit diff behind the rail, a notice that two background jobs finished, naming the test run that passed and the build that failed, the turn rule, the goal and todo rails, the input editor with a half-typed request between its two rules, and the two-line footer — the plan chip and the branch above, the context gauge, the priced cost against its $5 budget, and the model below](assets/screens/chrome.png)
+![A terminal window running the Pi TUI: the bytefly header naming Pi and bytefly's versions, three key-hint rows, a nameplated message with its answer and an edit diff behind the rail, a notice that two background jobs finished, naming the test run that passed and the build that failed, the turn rule, the goal and todo rails, the input editor with a half-typed request between its two rules, and the two-line footer — the plan chip and the branch above, the context gauge, the priced cost, and the model below](assets/screens/chrome.png)
 
 ## Contents
 
@@ -69,7 +69,7 @@ any other.
 
 Then, from inside Pi:
 
-- `/bytefly` opens the control center: the seventeen preferences a session changes,
+- `/bytefly` opens the control center: the sixteen preferences a session changes,
   every loaded extension and skill with its checkbox, and the doctor report that
   names anything missing at runtime.
 - `/plan <task>` starts a task in read-only planning mode.

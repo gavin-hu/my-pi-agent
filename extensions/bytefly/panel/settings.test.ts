@@ -1,7 +1,7 @@
 /**
- * The Settings catalogue: the seventeen curated rows, the view and origin each
- * one reports per scope, its cycling and stored-value mapping, and the theme
- * row's shortlist.
+ * The Settings catalogue: the sixteen curated rows, the view and origin each
+ * one reports per scope, its cycling and stored-value mapping, the rows only
+ * Global writes, and the theme row's shortlist.
  *
  * The writer behind the rows is `settings-runtime.test.ts`.
  */
@@ -9,6 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import pkg from "../../../package.json";
+import { MAX_WIP } from "../../../lib/workflow/limits.ts";
 import {
 	documentFor,
 	settingDescriptor,
@@ -24,6 +25,7 @@ describe("settings catalogue", () => {
 		expect(SETTING_ROWS.map((entry) => entry.id)).toEqual([
 			"byteflyUi",
 			"theme",
+			"price.currency.code",
 			"notify.enabled",
 			"notify.turnFinished",
 			"notify.needsInput",
@@ -37,20 +39,19 @@ describe("settings catalogue", () => {
 			"board.wip.perOwner",
 			"team.lead",
 			"team.teammates",
-			"price.currency.code",
-			"price.budget",
 		]);
-		expect(SETTING_ROWS.length).toBeLessThanOrEqual(17);
+		expect(SETTING_ROWS.length).toBeLessThanOrEqual(16);
 		expect(new Set(SETTING_ROWS.map((entry) => entry.id)).size).toBe(SETTING_ROWS.length);
 	});
 
-	test("groups the rows as what a session starts with, tells you, keeps, and costs", () => {
+	test("groups the rows as what a session is set up with, tells you, keeps, and holds for its team", () => {
 		expect(new Set(SETTING_ROWS.map((entry) => entry.group))).toEqual(
-			new Set(["Startup", "Notifications", "Session", "Board", "Team", "Price"]),
+			new Set(["Setup", "Notifications", "Session", "Board", "Team"]),
 		);
 		expect(SETTING_ROWS.map((entry) => entry.group)).toEqual([
-			"Startup",
-			"Startup",
+			"Setup",
+			"Setup",
+			"Setup",
 			"Notifications",
 			"Notifications",
 			"Notifications",
@@ -64,8 +65,6 @@ describe("settings catalogue", () => {
 			"Board",
 			"Team",
 			"Team",
-			"Price",
-			"Price",
 		]);
 	});
 
@@ -74,7 +73,7 @@ describe("settings catalogue", () => {
 
 		expect(settingViews(settingsSnapshot(), "global").map((entry) => entry.id)).toEqual(ids);
 		expect(settingViews(settingsSnapshot(), "project").map((entry) => entry.id)).toEqual(ids);
-		expect(ids).toHaveLength(17);
+		expect(ids).toHaveLength(16);
 	});
 
 	test("names every row and describes it", () => {
@@ -95,6 +94,7 @@ describe("settings catalogue", () => {
 		).toEqual([
 			["byteflyUi", "false", "Off", "default"],
 			["theme", "system", "system", "default"],
+			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["notify.enabled", "false", "Off", "default"],
 			["notify.turnFinished", "true", "On", "default"],
 			["notify.needsInput", "true", "On", "default"],
@@ -108,8 +108,6 @@ describe("settings catalogue", () => {
 			["board.wip.perOwner", "1", "1", "default"],
 			["team.lead", "gavin", "gavin", "default"],
 			["team.teammates", "gavin,tom,jack,mike,sam", "gavin, tom, jack, mike, sam", "default"],
-			["price.currency.code", "CNY", "CNY (¥)", "default"],
-			["price.budget", "0", "Off", "default"],
 		]);
 
 		expect(settingViews(settingsSnapshot(), "project").map((entry) => entry.origin)).toEqual(
@@ -206,16 +204,16 @@ describe("settings catalogue", () => {
 	});
 
 	test("keeps the current value when a text row is asked for its next one", () => {
-		expect(nextValue(settingDescriptor("price.budget"), "Pinned").value).toBe("Pinned");
+		expect(nextValue(settingDescriptor("board.wip.plan"), "Pinned").value).toBe("Pinned");
 	});
 
-	test("states the budget's rule with the loader's own bounds", () => {
-		const budget = settingDescriptor("price.budget");
-		for (const good of ["0", "5", "2.50", "0.0001", "9999999"]) {
-			expect(textError(budget, good), good).toBeUndefined();
+	test("states the WIP rule with the loader's own bounds", () => {
+		const plan = settingDescriptor("board.wip.plan");
+		for (const good of ["1", "3", String(MAX_WIP)]) {
+			expect(textError(plan, good), good).toBeUndefined();
 		}
-		for (const bad of ["", "-1", "5.", ".5", "5.00001", "10000001", "ten"]) {
-			expect(textError(budget, bad), bad).toBeDefined();
+		for (const bad of ["", "0", String(MAX_WIP + 1), "2.5", "ten", "-1"]) {
+			expect(textError(plan, bad), bad).toBeDefined();
 		}
 	});
 
@@ -252,7 +250,7 @@ describe("settings catalogue", () => {
 		expect(storedValue(settingDescriptor("byteflyUi"), "false")).toBe(false);
 		expect(storedValue(settingDescriptor("byteflyUi"), "true")).toBe(true);
 		expect(storedValue(settingDescriptor("notify.enabled"), "true")).toBe(true);
-		expect(storedValue(settingDescriptor("price.budget"), "3")).toBe(3);
+		expect(storedValue(settingDescriptor("board.wip.plan"), "3")).toBe(3);
 	});
 
 	test("declares a JSON type for every boolean row", () => {
@@ -269,36 +267,6 @@ describe("settings catalogue", () => {
 				expect(settingView(snap, "global", entry.id).value, `${entry.id}=${option.value}`).toBe(option.value);
 			}
 		}
-	});
-
-	test("reads a stored budget from the document", () => {
-		const snap = settingsSnapshot({ global: { price: { budget: 5 } } });
-		expect(settingView(snap, "global", "price.budget")).toMatchObject({
-			value: "5",
-			valueLabel: "¥5.00",
-			origin: "global",
-		});
-	});
-
-	test("shows the budget in the currency the session prices in, down to its precision", () => {
-		const usd = settingsSnapshot({ global: { price: { budget: 5, currency: { code: "USD" } } } });
-		expect(settingView(usd, "global", "price.budget").valueLabel).toBe("$5.000");
-
-		const precise = settingsSnapshot({ global: { price: { budget: 5, currency: { code: "USD", decimals: 2 } } } });
-		expect(settingView(precise, "global", "price.budget").valueLabel).toBe("$5.00");
-
-		const overridden = settingsSnapshot({
-			global: { price: { budget: 5 } },
-			project: { price: { budget: 2, currency: { code: "USD" } } },
-		});
-		expect(settingView(overridden, "project", "price.budget").valueLabel).toBe("$2.000");
-	});
-
-	test("reads `Off` for a budget that is unset or zero", () => {
-		expect(settingView(settingsSnapshot(), "global", "price.budget").valueLabel).toBe("Off");
-		expect(
-			settingView(settingsSnapshot({ global: { price: { budget: 0 } } }), "global", "price.budget").valueLabel,
-		).toBe("Off");
 	});
 
 	test("reads another extension's leaf as the file states it and labels a curated value", () => {

@@ -2,7 +2,7 @@
  * The Settings section's rows and the two words only it says.
  *
  * A row is a checkbox for a boolean, the label, and the value in a column of its
- * own — the column is what makes twelve values scannable, and it is measured from
+ * own — the column is what makes sixteen values scannable, and it is measured from
  * the labels actually on screen rather than from the longest label in the
  * catalogue, so a narrow terminal keeps the value instead of the padding.
  *

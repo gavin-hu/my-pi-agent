@@ -3,9 +3,9 @@
  *
  * A context double the footer installs over, the two lines its factory renders,
  * and the snapshot the renderer reads — so a footer test asserts on a frame
- * rather than on a real session. The register harness lives here too: the budget
- * guardrail's suite is the second suite to install a real footer, and a copy of
- * `withRegisteredFooter` in each is the body `test/shared-helpers.test.ts` fails.
+ * rather than on a real session. The register harness lives here too: a suite that
+ * installs a real footer to watch what it posts, where a copy of
+ * `withRegisteredFooter` in each suite is the body `test/shared-helpers.test.ts` fails.
  *
  * Value-only: every recorder is created per call.
  */
@@ -134,7 +134,6 @@ export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSna
 		context: { tokens: 124000, contextWindow: 200000, percent: 62 },
 		usage: usageOf({ input: 42000, output: 8000, cacheRead: 96000, cost: 0.31 }),
 		currency: { code: "USD", decimals: 2 },
-		budget: 0,
 		cacheHitRate: 87,
 		providerCount: 1,
 		delegation: { runs: 0, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 } },
@@ -229,5 +228,5 @@ export async function withRegisteredFooter(
 	}, "bytefly-footer-agent-");
 }
 
-/** `price` configured for dollars with the given budget. */
-export const usdBudget = (budget: number): Record<string, unknown> => ({ currency: { code: "USD" }, budget });
+/** `price` configured for dollars. */
+export const usdPrice = (): Record<string, unknown> => ({ currency: { code: "USD" } });
