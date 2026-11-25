@@ -315,10 +315,11 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
   function markReviewed(path, reviewed) {
     post("/api/reviewed", { rel: path, reviewed: reviewed }, function () {
       paintChrome();
-      // The toast names the state the action left, in the page's own words: a file with no comment is
-      // "no comment" — the chip's word — rather than "commented", which would claim a state it never had.
+      // The toast names the state the action left, read from the page rather than faked: post adopts the
+      // write's response before this callback runs, so stateOf(path) is the state the file is in now — and
+      // stateWord reads it the way the chip does ("no comment" for anything not marked reviewed).
       var count = commentsFor(path).length;
-      var left = reviewed ? "Marked reviewed" : count === 0 ? stateWord("commented") : "Back to commented";
+      var left = reviewed ? "Marked reviewed" : count === 0 ? stateWord(stateOf(path)) : "Back to commented";
       toast(left + " — " + path);
     });
   }
@@ -393,7 +394,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
       }
       keepDraft(composerSpan(open));
       if (openArea && opts.focus !== false) openArea.focus();
-      return open;
+      return;
     }
     var wrap = el("span", "rv-compose");
     wrap.setAttribute("data-draft-id", opts.id === undefined ? newDraftId(storedDrafts()) : opts.id);
@@ -440,7 +441,6 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
       if (event.key === "Escape") { event.stopPropagation(); cancelComposer(wrap); }
     });
-    return wrap;
   }
 
   // ── send ──────────────────────────────────────────────────────────────────
