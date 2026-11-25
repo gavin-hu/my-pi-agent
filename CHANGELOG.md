@@ -62,6 +62,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `team`: `/team` closes with a count and a door, `2 of 4 sessions live — /team who lists them`, and its `… N more`
+  names the surface that draws the rest. The presence sentence is gone: it rendered the one `whoIsHere` grouping a
+  second time, naming a session under its state and again under `not listening`, and wrapped into a wall on a narrow
+  terminal. The rows are the surface, so **`/team list` is now `/team who`** — a reader who types the old word gets
+  the usage that names the new one — and it takes a label, `/team who billing-core`, to answer about one session,
+  an owner the bus has no record of included. `who` and `join` complete the project's `team.teammates`, and both
+  `/team help` and an unknown word print the words the command takes, where the warning used to be a sentence that
+  could not name both of the others.
+
 - test: the browser layer runs on one Chrome instead of forty, and a page waits on its own first paint rather than on
   Playwright's idle floor. A review suite keeps one tab per file and navigates it, so a case costs a document instead of a
   context; `reloadReview` waits on `load` plus that first paint, measured at 184–196 ms against 682–745 ms for
