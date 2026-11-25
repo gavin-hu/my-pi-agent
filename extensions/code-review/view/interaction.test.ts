@@ -318,4 +318,57 @@ gated("the review page's reading", () => {
 		},
 		CASE_MS,
 	);
+
+	/**
+	 * A surviving row anchors to its new number, so the old column's number is never the ref — and the
+	 * page says so instead of renaming the line under the pointer: the number the bar prints is the
+	 * number marked, and the other column's title spells out both.
+	 */
+	test(
+		"a click on the old number selects the row and the bar names the new one, marked",
+		async () => {
+			await withPage(
+				async (page) => {
+					const numbers = page.locator(".bf-diff-line--ctx").first().locator(".browse-diff-no");
+					expect(await numbers.nth(0).textContent()).toBe("16");
+					expect(await numbers.nth(1).textContent()).toBe("17");
+					await numbers.nth(0).click();
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17");
+					const marked = page.locator('[data-anchor="true"]');
+					expect(await marked.count()).toBe(1);
+					expect(await marked.textContent()).toBe("17");
+					const title = await numbers.nth(0).getAttribute("title");
+					expect(title).toContain("old line 16");
+					expect(title).toContain("new line 17");
+					// A press on the new number moves the mark; it never leaves two on the page.
+					await numbers.nth(1).click();
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17");
+					expect(await page.locator('[data-anchor="true"]').count()).toBe(1);
+					expect(await numbers.nth(1).getAttribute("data-anchor")).toBe("true");
+				},
+				{ start: 16, skew: 1 },
+			);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"a removed row anchors to its old number, and the bar says so",
+		async () => {
+			await withPage(
+				async (page) => {
+					const numbers = page.locator(".bf-diff-line--del").first().locator(".browse-diff-no");
+					await numbers.nth(0).click();
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:17 (old)");
+					expect(await page.locator('[data-anchor="true"]').count()).toBe(1);
+					expect(await numbers.nth(0).getAttribute("data-anchor")).toBe("true");
+					// The row keeps one number, so there is no other column to explain.
+					expect(await numbers.nth(1).textContent()).toBe("");
+					expect(await numbers.nth(1).getAttribute("title")).toBeNull();
+				},
+				{ start: 17, paired: true },
+			);
+		},
+		CASE_MS,
+	);
 });
