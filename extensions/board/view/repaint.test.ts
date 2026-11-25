@@ -24,6 +24,7 @@ import {
 	BOARD_PAINT_MS as PAINT_MS,
 	type BoardBrowser,
 	openBoardBrowser,
+	SUITE_PERIODS,
 } from "../../../test/helpers/board-browser.ts";
 
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
@@ -104,7 +105,7 @@ async function marks(page: Page, ids: readonly string[]): Promise<void> {
 
 describe.skipIf(CHROME === undefined)("a frame", () => {
 	beforeAll(async () => {
-		board = await openBoardBrowser({ lead: LEAD.label, now: clock.now, seed: seedBoard });
+		board = await openBoardBrowser({ lead: LEAD.label, now: clock.now, seed: seedBoard, periods: SUITE_PERIODS });
 	}, 30_000);
 
 	afterAll(async () => {

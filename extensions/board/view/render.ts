@@ -36,6 +36,7 @@
  * `lib/`, and handed in as source.
  */
 export function renderJs(rules: {
+	changeMs: string;
 	plural: string;
 	tabTitle: string;
 	matches: string;
@@ -51,6 +52,7 @@ export function renderJs(rules: {
 	runtime: string;
 }): string {
 	return renderTemplate
+		.replace("__CHANGE_MS__", rules.changeMs)
 		.replace("__PLURAL__", rules.plural)
 		.replace("__SKIPPED__", rules.skipped)
 		.replace("__TAB_TITLE__", rules.tabTitle)
@@ -99,11 +101,7 @@ const renderTemplate = String.raw`(function () {
    */
   var FOLD_AT = { done: 6, roster: 3, lane: 24, queue: 5 };
 
-  /**
-   * How long a card that moved wears its mark, in milliseconds: one breath, not a state. A
-   * peer's write is news, and news that stays becomes a second set of colours on the board.
-   */
-  var CHANGE_MS = 1500;
+  var CHANGE_MS = __CHANGE_MS__;
 
   /** The same table, for the fragments painted after this one: team folds two lists. */
   board.foldAt = FOLD_AT;

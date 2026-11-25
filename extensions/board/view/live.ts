@@ -8,8 +8,8 @@
  * read; none of it is authoritative, and none of it is sent anywhere.
  */
 
-export function liveJs(rules: { picker: string }): string {
-	return liveTemplate.replace("__PICKER_MQ__", rules.picker);
+export function liveJs(rules: { picker: string; ageTick: string }): string {
+	return liveTemplate.replace("__PICKER_MQ__", rules.picker).replace("__AGE_TICK_MS__", rules.ageTick);
 }
 
 const liveTemplate = String.raw`(function () {
@@ -353,7 +353,11 @@ const liveTemplate = String.raw`(function () {
     window.setInterval(function () {
       if (board.lastFrame !== undefined) badge(streamState, board.lastFrame);
       board.refreshAges();
-    }, 1000);
+      // The page's own count of the times time moved. On a fixture page the ages it redraws read the
+      // browser's clock against stamps from the fixture's, so the redraw changes no text; this is what
+      // a case can wait for instead of sleeping, and it says exactly one thing: a tick happened.
+      board.ticks = (board.ticks || 0) + 1;
+    }, __AGE_TICK_MS__);
   }
 
   board.start = function () {
