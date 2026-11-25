@@ -431,7 +431,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// (`test/helpers/graph.ts`) over a reader that drops one specifier.
 	plan: 53, // 53 <= 53 (#803)
 	team: 54, // 54 <= 54 (#748)
-	job: 45,
+	job: 46, // lib/stray-fields.ts: this dispatch is synchronous, so the guard cannot defer (see #896)
 	"session-bus": 45,
 	subagent: 34,
 	"web-access": 41,

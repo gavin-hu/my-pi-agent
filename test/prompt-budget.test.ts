@@ -168,7 +168,9 @@ const CEILINGS: readonly Ceiling[] = [
 	{ tool: "job", max: 2_670, guidelines: 431, longest: 128 },
 	{ tool: "watch", max: 2_509, guidelines: 382, longest: 116 },
 	{ tool: "worktree", max: 2_017, guidelines: 534, longest: 177 },
-	{ tool: "memory", max: 1_889, guidelines: 474, longest: 108 },
+	// 1,889 -> 1,857 when `scope` stopped claiming it is used by four actions: `list` reads it too,
+	// and the sentence that named the four was longer than the one that names what the field does.
+	{ tool: "memory", max: 1_857, guidelines: 474, longest: 108 },
 	{ tool: "question", max: 1_639, guidelines: 380, longest: 144 },
 	{ tool: "send_wechat", max: 1_232, guidelines: 390, longest: 178 },
 	{ tool: "code_review", max: 1_143, guidelines: 293, longest: 102 },

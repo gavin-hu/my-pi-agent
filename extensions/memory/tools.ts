@@ -25,7 +25,7 @@ import {
 	normalizeScope,
 	type MemoryArgs,
 } from "./schema.ts";
-import { noteLabel, type MemoryDetails, type MemoryScope } from "./types.ts";
+import { ACTION_FIELDS, noteLabel, type MemoryDetails, type MemoryScope } from "./types.ts";
 
 export const TOOL_NAME = "memory";
 
@@ -101,6 +101,13 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 					{ action: "list", scope: "project", ...labelled(runtime), changed: false },
 					messageOf(error),
 				);
+			}
+			// Before the store is read or written: a field this action never reads would otherwise be
+			// dropped in silence, and the caller could not tell what was recorded from what was ignored.
+			const { strayField } = await import("../../lib/stray-fields.ts");
+			const stray = strayField(action, args, ACTION_FIELDS);
+			if (stray !== undefined) {
+				return memoryResult({ action, scope, ...labelled(runtime), changed: false }, stray);
 			}
 
 			try {

@@ -58,6 +58,28 @@ export function normalizeAction(raw: unknown): SessionAction | undefined {
 	return memberOf(ACTIONS, raw);
 }
 
+/**
+ * The fields each action reads.
+ *
+ * The parameters are one flat object, so every field is published to every action at once and
+ * only this table stops one reaching an action that would drop it. It lives here, beside the action
+ * list and its normalizer, so a new verb adds its row where it is declared. `lib/stray-fields.ts`
+ * words the refusal; `stray-field.test.ts` holds the other direction, so a published field cannot
+ * go unclaimed.
+ *
+ * `undefined` is not a stray — a field the caller left out was never passed — so a codemode
+ * caller's `key: undefined` is not refused for a field it never sent.
+ */
+export const ACTION_FIELDS: Record<SessionAction, readonly string[]> = {
+	status: [],
+	send: ["to", "text", "kind", "key", "replyTo", "about", "paths"],
+	inbox: ["limit"],
+	read: ["limit"],
+	claim: ["paths"],
+	release: ["paths", "holder"],
+	join: ["label", "wake", "listen"],
+};
+
 /** A message kind; `message` is the default, which is this protocol's fact rather than a lookup's. */
 export function normalizeKind(raw: unknown): MessageKind {
 	return memberOf(MESSAGE_KINDS, raw) ?? "message";
