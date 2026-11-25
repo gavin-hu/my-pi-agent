@@ -22,6 +22,8 @@ import {
 	MAX_OUTPUT_LINE,
 	outsideRepository,
 	pageSource,
+	pathRef,
+	PATH_REF_JS,
 	plural,
 	sanitize,
 	sanitizeLine,
@@ -141,6 +143,29 @@ describe("formatAge", () => {
 		expect(AGE_WORDS_JS).toBe(String(ageWords));
 		const browserWords = new Function(`return (${AGE_WORDS_JS});`)() as (age: string) => string;
 		for (const age of ["now", "1m", "2h", "1d"]) expect(browserWords(age)).toBe(ageWords(age));
+	});
+});
+
+describe("pathRef", () => {
+	test("names a line, a span, and the side only when the caller names it", () => {
+		expect(pathRef("a.ts", 4)).toBe("a.ts:4");
+		expect(pathRef("a.ts", 4, 9)).toBe("a.ts:4-9");
+		expect(pathRef("a.ts", 4, undefined, "old")).toBe("a.ts:4 (old)");
+		expect(pathRef("a.ts", 4, 9, "new")).toBe("a.ts:4-9 (new)");
+	});
+
+	test("crosses into the page's bundle as one body", () => {
+		// The bar, the send dialog and a thread label read this body: a page cannot spell a ref of its
+		// own and drift from the notice the session reads.
+		expect(PATH_REF_JS).toBe(String(pathRef));
+		const browserRef = new Function(`return (${PATH_REF_JS});`)() as (
+			rel: string,
+			line: number,
+			endLine?: number,
+			side?: "new" | "old",
+		) => string;
+		expect(browserRef("a.ts", 17, 19)).toBe("a.ts:17-19");
+		expect(browserRef("a.ts", 4, undefined, "old")).toBe("a.ts:4 (old)");
 	});
 });
 

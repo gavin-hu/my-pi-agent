@@ -21,7 +21,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
     if (comment.quote) card.appendChild(el("span", "bf-comment__quote", comment.quote));
     card.appendChild(el("span", "bf-comment__body", comment.body));
     var acts = el("span", "bf-comment__row");
-    var where = refOf(comment.rel, comment.line, comment.endLine);
+    var where = pathRef(comment.rel, comment.line, comment.endLine);
     // No reply on a reply: the store holds one level, so offering the verb would promise a 400 the
     // reviewer would only meet after typing. A reply's one action is to remove itself.
     if (!isReply) {
@@ -469,7 +469,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
       list.replaceChildren();
       pending.forEach(function (comment) {
         var item = el("div", "rv-dialog-item");
-        item.appendChild(el("p", "rv-dialog-path", refOf(comment.rel, comment.line, comment.endLine)));
+        item.appendChild(el("p", "rv-dialog-path", pathRef(comment.rel, comment.line, comment.endLine)));
         item.appendChild(el("p", "rv-dialog-line", comment.body));
         list.appendChild(item);
       });

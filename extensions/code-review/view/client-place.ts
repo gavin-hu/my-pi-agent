@@ -292,8 +292,8 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     // A selection that names no span — two sides of a removed-and-added pair — shows the cursor's own line, and
     // the title says why the range is not one: the press that comments refuses with the same words.
     var ref = picked.span
-      ? refOf(picked.span.path, picked.span.line, picked.span.endLine)
-      : refOf(cursor.path, at.line);
+      ? pathRef(picked.span.path, picked.span.line, picked.span.endLine)
+      : pathRef(cursor.path, at.line);
     byId("rv-selbar-ref").title = picked.refusal || "";
     byId("rv-selbar-ref").textContent = ref;
     byId("rv-selbar-ref").setAttribute("data-ref", ref);

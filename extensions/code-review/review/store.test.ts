@@ -139,8 +139,8 @@ describe("the review page", () => {
 		expect(written).toMatchObject({ line: 4, endLine: 9 });
 		expect(pathRef(written.rel, written.line, written.endLine)).toBe("a.ts:4-9");
 		expect(pathRef("a.ts", 4)).toBe("a.ts:4");
-		// The one literal this rule and the page's twin are held to: the browser's span case reads
-		// the same string off the send dialog, so a divergence in either spelling breaks a case.
+		// The literal a page prints too: the page splices this one body (`PATH_REF_JS`), so a divergence in
+		// the string shows up here and in the browser's span case together.
 		expect(pathRef("a.ts", 17, 19)).toBe("a.ts:17-19");
 	});
 
