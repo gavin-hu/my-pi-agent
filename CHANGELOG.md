@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: four things the page said that were not true now say what the state is. A focused page's
+  Commented view blamed a filter nobody typed — `No files match ""` — where the file simply has no comments, so it
+  names that and the control that shows the file again; an unmark told a file it was back to "commented" when it
+  never had a comment, and uses the page's own word instead; the problem page wore an empty-state family no sheet
+  draws, and wears the kit's `bf-empty*` as the empty scope always did; and the orphan list joined `rel` and line
+  by hand, so a comment on a deleted line lost its `(old)` — it now goes through the one `pathRef` the terminal
+  prints.
+
 - `code-review`: the page's toast clears the selection bar it used to cover, the send dialog hands focus back on every exit, and a live frame refreshes the list it is about to send — an emptied list stays open saying there is nothing left to send.
 
 - `code-review`: a `?file=` page counts and measures the whole scope it was opened on — `1 of 2 files`, `0 of 2 reviewed` — instead of the one file it draws, a shift-click writes the place a reload restores, and `]`/`[` land the next or previous hunk below the pinned head rather than on the hunk they just reached.

@@ -139,23 +139,27 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
         "Not on a line this page draws — the diff moved since " + (total === 1 ? "it was" : "they were") + " written";
     }
     unplaceableComments.forEach(function (comment) {
+      // The one ref body, as a thread and the dialog already build it: a comment on a deleted line keeps
+      // its "(old)", which hand-joining rel and line loses exactly where the reader copies it.
+      var ref = pathRef(comment.rel, comment.line, comment.endLine, comment.side === "old" ? "old" : undefined);
       list.appendChild(
         orphanItem(
-          comment.rel + ":" + comment.line,
+          ref,
           comment.body,
           "delete",
-          "Delete the comment on " + comment.rel + ":" + comment.line,
+          "Delete the comment on " + ref,
           function () { dropComment(comment.id); },
         ),
       );
     });
     unplaceableDrafts.forEach(function (draft) {
+      var ref = pathRef(draft.path, draft.line, undefined, draft.side === "old" ? "old" : undefined);
       list.appendChild(
         orphanItem(
-          draft.path + ":" + draft.line + " · unsent",
+          ref + " · unsent",
           draft.text,
           "discard",
-          "Discard the unsent comment on " + draft.path + ":" + draft.line,
+          "Discard the unsent comment on " + ref,
           function () { discardDraft(draft.id); },
         ),
       );
@@ -311,7 +315,11 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
   function markReviewed(path, reviewed) {
     post("/api/reviewed", { rel: path, reviewed: reviewed }, function () {
       paintChrome();
-      toast((reviewed ? "Marked reviewed — " : "Back to commented — ") + path);
+      // The toast names the state the action left, in the page's own words: a file with no comment is
+      // "no comment" — the chip's word — rather than "commented", which would claim a state it never had.
+      var count = commentsFor(path).length;
+      var left = reviewed ? "Marked reviewed" : count === 0 ? stateWord("commented") : "Back to commented";
+      toast(left + " — " + path);
     });
   }
 

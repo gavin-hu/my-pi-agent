@@ -346,10 +346,16 @@ describe("the review page", () => {
 		expect(html).toContain("Send feedback 1");
 	});
 
-	test("a problem page names the reason and offers the way back", () => {
+	test("a problem page names the reason and offers the way back, in the kit's empty block", () => {
 		const html = renderReviewProblem("/review", "No diff to review", 'no base branch found — set "base"');
 		expect(html).toContain("No diff to review");
 		expect(html).toContain("no base branch found");
 		expect(html).toContain('href="/review/new"');
+		// The kit's empty block, not a page-local family no sheet draws — the same block the empty scope
+		// above uses, and the names `test/web-classes.test.ts` reads against the kit and the page's sheet.
+		expect(html).toContain('class="bf-empty"');
+		expect(html).toContain('class="bf-empty__title"');
+		expect(html).toContain('class="bf-empty__sub"');
+		expect(html).not.toContain("rv-empty");
 	});
 });

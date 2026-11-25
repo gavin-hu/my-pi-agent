@@ -379,10 +379,10 @@ ${docHead({ title: tabTitle("review", title), css: pageSheet(REVIEW_CSS), base }
 <h1 class="sr-only">review — ${escapeHtml(title)}</h1>
 ${appHead({ product: "review", subject: { label: title, title }, facts: "" })}
 <main class="bf-app__main" id="rv-main">
-  <div class="rv-empty">
-    <p class="rv-empty__title">${escapeHtml(title)}</p>
-    <p class="rv-empty__sub">${escapeHtml(message)}</p>
-    <p class="rv-empty__sub"><a href="${escapeHtml(base)}/new">Back to the review</a></p>
+  <div class="bf-empty">
+    <p class="bf-empty__title">${escapeHtml(title)}</p>
+    <p class="bf-empty__sub">${escapeHtml(message)}</p>
+    <p class="bf-empty__sub"><a href="${escapeHtml(base)}/new">Back to the review</a></p>
   </div>
 </main>
 ${pageFooter({ facts: "review" })}
