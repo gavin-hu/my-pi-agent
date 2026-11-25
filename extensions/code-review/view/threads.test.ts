@@ -196,4 +196,21 @@ gated("the review page's threads", () => {
 		},
 		CASE_MS,
 	);
+
+	test(
+		"an orphaned comment on a deleted line is listed with the ref the terminal prints",
+		async () => {
+			await withPage(
+				async (page) => {
+					expect(await page.locator("#rv-orphans").isVisible()).toBe(true);
+					// The one ref body keeps the side: joining rel and line by hand loses "(old)", which is
+					// exactly the ref a reader copies out of this list.
+					expect(await page.locator(".rv-orphans__ref").textContent()).toBe("a.ts:3 (old)");
+				},
+				{ start: 17 },
+				[{ rel: "a.ts", line: 3, side: "old", body: "written on a deleted line" }],
+			);
+		},
+		CASE_MS,
+	);
 });

@@ -35,17 +35,8 @@ export const REVIEW_PAINT_MS = 10_000;
  */
 export const REVIEW_MOUNT_BASE = "/plan/probe";
 
-/**
- * The sliver of the DOM a predicate reads.
- *
- * This project's TypeScript has no DOM lib — the client is a string, so nothing here ever
- * compiled against one — and a predicate handed to Playwright is serialized into the page,
- * so it reaches the document through this shape by name.
- */
-export interface Doc {
-	querySelector(selector: string): { textContent: string | null } | null;
-	querySelectorAll(selector: string): { length: number };
-}
+/** The document's shape, declared once in `dom.ts` and re-exported so a plan suite imports one helper. */
+export type { Doc } from "./dom.ts";
 
 /** A frame the page's stream sends: the kind is what the refetch reads. */
 export type ReviewFrame = "plan" | "comment";
@@ -159,9 +150,21 @@ export async function launchReviewBrowser(): Promise<TestBrowser> {
 	return launchBrowser(REVIEW_CHROME);
 }
 
-/** One tab on the served review, waited until its blocks have painted. */
-export async function openReview(browser: TestBrowser, url: string): Promise<Page> {
+/**
+ * One tab on a served review, at a size when the case names one, waited until its blocks painted.
+ *
+ * The suite's tab, never a page of the suite's own: a boot is ~230 ms against ~30 ms to load into
+ * the tab a case already has, and six suites paid that per case until they came through here. The
+ * size is set before the navigation, so a case measures the layout it asked for rather than a
+ * default one it then resizes.
+ */
+export async function openPlanTab(
+	browser: TestBrowser,
+	url: string,
+	size?: { width: number; height: number },
+): Promise<Page> {
 	const page = await suiteTab(browser);
+	if (size !== undefined) await page.setViewportSize(size);
 	// A draft is this tab's, and a suite's fixtures share one origin: a case must open on an empty
 	// store, and a blocked one is not this case's failure.
 	await page
@@ -177,6 +180,11 @@ export async function openReview(browser: TestBrowser, url: string): Promise<Pag
 	await page.goto(url, { waitUntil: "load" });
 	await drawnReview(page);
 	return page;
+}
+
+/** One tab on the served review at the suite's default size. */
+export async function openReview(browser: TestBrowser, url: string): Promise<Page> {
+	return openPlanTab(browser, url);
 }
 
 /** What the page said when the gate gave up, named so a red does not have to be re-derived. */

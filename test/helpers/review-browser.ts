@@ -382,6 +382,11 @@ export async function startComment(page: Page, text: string): Promise<void> {
  * it cannot close over a helper. It cannot be a string either: the page answers with
  * `script-src 'self'`, and a string predicate is evaluated, which that policy refuses. Hence a
  * function per wait, and this shape for what it reads.
+ *
+ * Not `dom.ts`'s `Doc`, and deliberately: this is a view of `globalThis` — the document plus
+ * `location.hash` for the place and `getComputedStyle` for a rule a case proves — where a `Doc`
+ * is a view of the document alone. Folding the two would give every predicate a capability none
+ * of them reads (`Doc` has no `location`), so the two shapes stay two.
  */
 export interface ReviewDom {
 	document: {

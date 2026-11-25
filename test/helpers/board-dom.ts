@@ -9,28 +9,10 @@
  */
 
 import type { Page } from "playwright-core";
+import type { ElementLike } from "./dom.ts";
 
-/**
- * The sliver of the document a predicate reads, reached by name inside its own body.
- */
-export interface Doc {
-	querySelector(selector: string): ElementLike | null;
-	querySelectorAll(selector: string): ArrayLike<ElementLike>;
-	getElementById(id: string): ElementLike | null;
-	/** What the tab strip shows: the page's own name, once a frame has painted it. */
-	title: string;
-}
-
-export interface ElementLike {
-	textContent: string | null;
-	hidden: boolean;
-	/** The box a child can overflow: a card whose content spills has the larger scroll width. */
-	scrollWidth: number;
-	clientWidth: number;
-	getAttribute(name: string): string | null;
-	/** The last child of the meta's notes chip: the age the ticker rewrites. */
-	lastElementChild: ElementLike | null;
-}
+/** The document's shape, declared once in `dom.ts` and re-exported so a board suite imports one helper. */
+export type { Doc, ElementLike } from "./dom.ts";
 
 /** Whether an element the page hides with the `hidden` attribute is hidden. */
 export async function hidden(page: Page, selector: string): Promise<boolean> {

@@ -16,12 +16,12 @@
 
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import type { Page } from "playwright-core";
-import type { TestBrowser } from "../../test/helpers/browser.ts";
+import { suiteTab, type TestBrowser } from "../../test/helpers/browser.ts";
 import {
 	drawnReview,
 	launchReviewBrowser,
 	mountReview,
-	openReview,
+	openPlanTab,
 	REVIEW_CHROME,
 	REVIEW_PAINT_MS,
 	REVIEW_PAGE,
@@ -222,13 +222,13 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 	/** Jump to the end of the plan at one size, and read the one section the rail marks there. */
 	async function jumped(width: number, height: number): Promise<string> {
 		const local = await mountReview(longPlan());
-		const page = await openReview(browser, local.url);
+		const page = await openPlanTab(browser, local.url, { width, height });
 		try {
-			await page.setViewportSize({ width, height });
 			await drawnReview(page);
 			return await jumpToEnd(page);
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	}
@@ -236,16 +236,16 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 	/** Walk the plan at one size, then read the mark after the reader returns to the top. */
 	async function walked(width: number, height: number): Promise<string[]> {
 		const local = await mountReview(longPlan());
-		const page = await openReview(browser, local.url);
+		const page = await openPlanTab(browser, local.url, { width, height });
 		try {
-			await page.setViewportSize({ width, height });
 			await drawnReview(page);
 			const seen = await walkDown(page);
 			await page.$eval("#plan", (node) => (node as unknown as Paneish).scrollTo(0, 0));
 			await marks(page, SECTIONS[0] ?? "");
 			return seen;
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	}
@@ -289,7 +289,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 	test(
 		"names the state a page that never drew left behind",
 		async () => {
-			const page = await browser.newPage();
+			const page = await suiteTab(browser);
 			try {
 				await page.goto("about:blank", { waitUntil: "load" });
 				const message = await drawnReview(page, STALL_MS).then(
@@ -300,7 +300,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 				expect(message).toContain('readyState "complete"');
 				expect(message).toContain('0 "#plan .bf-block[id]"');
 			} finally {
-				await page.close();
+				// The tab is the suite's: the next case navigates it somewhere real.
 			}
 		},
 		CASE_MS,
@@ -320,7 +320,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 				served += 1;
 				return served === 1 ? { ...REVIEW_PAGE, blocks: [], outline: [] } : REVIEW_PAGE;
 			});
-			const page = await browser.newPage();
+			// The retry is what this case reads, so the tab is navigated raw: this opener must not
+			// wait for a paint the fixture's first response deliberately misses.
+			const page = await suiteTab(browser);
 			const warn = spyOn(console, "warn");
 			try {
 				await page.goto(local.url, { waitUntil: "load" });
@@ -331,7 +333,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the rail's current-section mark", 
 				expect(line).toContain(`under a ${STALL_MS}ms budget this case passed`);
 			} finally {
 				warn.mockRestore();
-				await page.close();
+				// The tab outlives this case's mount: park it before the server goes.
+				await page.goto("about:blank");
 				await local.close();
 			}
 		},

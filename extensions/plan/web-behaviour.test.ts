@@ -18,6 +18,7 @@ import { type TestBrowser } from "../../test/helpers/browser.ts";
 import {
 	type Doc,
 	mountReview,
+	openPlanTab,
 	openReview,
 	REVIEW_CHROME,
 	REVIEW_PAGE,
@@ -51,7 +52,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		expect(await page.$$eval("#plan .bf-block", (nodes) => nodes.length)).toBe(4);
 		// A heading block is an anchor, because a comment's `anchor` is its line.
 		expect(await page.$eval("#plan #s-3", (node) => node.textContent ?? "")).toContain("Rollout");
-		await page.close();
 	});
 
 	test("boots with no script error, and its keys and view control answer", async () => {
@@ -65,13 +65,12 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			annotations: [{ anchor: 1, comment: "needs a rollback step", author: "priya" }],
 		});
 		const errors: string[] = [];
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		page.on("pageerror", (error) => errors.push(String(error)));
 		page.on("console", (message) => {
 			if (message.type() === "error") errors.push(message.text());
 		});
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			expect(errors).toEqual([]);
 
@@ -97,7 +96,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			// the click gets the same clean-console assertion the boot did.
 			expect(errors).toEqual([]);
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -112,9 +112,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			blockMarks: true,
 			annotations: [{ anchor: 4, comment: "needs a rollback step", author: "priya" }],
 		});
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			await page.click('[data-view="changed"]');
 			expect(await page.$eval("#plan .bf-comments", (node) => node.hidden)).toBe(true);
@@ -131,7 +130,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			await page.keyboard.press("j");
 			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("3");
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -151,7 +151,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 				},
 			},
 		);
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		const post = async (text: string): Promise<void> => {
 			await page.click('#plan .bf-block[data-line="1"] .bf-block__add');
 			await page.fill(".bf-composer textarea", text);
@@ -167,7 +167,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			);
 		};
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			await page.click("#reviewer-name");
 			await page.fill("#name-input", "@alice");
@@ -188,7 +187,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 				{ anchor: 1, comment: "second note", author: "alice" },
 			]);
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -202,7 +202,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		await page.click('[data-view="comments"]');
 		expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(1);
 		expect(await page.textContent("#status")).toContain("Add or discard the comment you are writing.");
-		await page.close();
 	});
 
 	test("a settled review offers no comment control, and the key opens nothing", async () => {
@@ -221,16 +220,14 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		// `c` would otherwise open a composer for a note nothing could save.
 		await page.keyboard.press("c");
 		expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(0);
-		await page.close();
 	});
 
 	test("v cycles what the page shows, and refuses over a half-written comment", async () => {
 		const local = await mountReview({ ...REVIEW_PAGE, changed: [1], blockMarks: true });
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		const pressed = async (): Promise<string> =>
 			page.$eval('[data-view][aria-pressed="true"]', (node) => node.getAttribute("data-view") ?? "");
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			expect(await pressed()).toBe("all");
 			await page.keyboard.press("v");
@@ -258,7 +255,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			expect(await page.inputValue(".bf-composer textarea")).toBe("half a thought");
 			expect(await page.textContent("#status")).toContain("Add or discard the comment you are writing.");
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -276,11 +274,10 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 				{ anchor: 4, comment: "on the roll-out" },
 			],
 		});
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		const active = async (): Promise<string | null> =>
 			page.$eval("#plan .bf-block--active", (node) => node.getAttribute("data-line"));
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			await page.keyboard.press("v");
 			await page.keyboard.press("n");
@@ -293,7 +290,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			await page.keyboard.press("N");
 			expect(await active()).toBe("0");
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -306,9 +304,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 				{ anchor: 4, comment: "hers", author: "priya" },
 			],
 		});
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-comment", { timeout: REVIEW_PAINT_MS });
 			expect(await page.textContent("#comment-total")).toBe("2");
 			// Both notes carry an action: the owner settles either; the reviewer's gets Resolve alone.
@@ -324,7 +321,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			expect(await page.$eval(".bf-comment", (node) => node.className)).not.toContain("bf-comment--resolved");
 			expect(await page.textContent("#comment-total")).toBe("2");
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -345,7 +343,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		);
 		expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(0);
 		expect(await page.$eval("#plan", (node) => node.isConnected)).toBe(true);
-		await page.close();
 	});
 
 	test("shows a stored comment in its block's rail, and counts it", async () => {
@@ -359,7 +356,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		expect(await page.textContent("#comment-total")).toBe("1");
 		// Nothing was carried, so nothing claims to be.
 		expect(await page.$$eval(".bf-comment__moved", (nodes) => nodes.length)).toBe(0);
-		await page.close();
 	});
 
 	test("marks a comment a refinement carried off the text it was written on", async () => {
@@ -368,9 +364,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			annotations: [{ anchor: 1, comment: "needs a rollback step", author: "priya", moved: true }],
 		};
 		const local = await mountReview(carried);
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector(".bf-comment__moved", { timeout: REVIEW_PAINT_MS });
 			const chip = page.locator(".bf-comment__moved");
 			expect(await chip.textContent()).toBe("moved");
@@ -382,8 +377,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 				"bf-block--commented",
 			);
 			expect(await page.textContent("#plan .bf-comment__body")).toBe("needs a rollback step");
-			await page.close();
 		} finally {
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -412,6 +408,5 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		// One line: a wrapped label measures its two rows, which is over 30px here.
 		expect(panel.labelHeight).toBeLessThan(30);
 		expect(panel.overflow).toBeLessThanOrEqual(1);
-		await page.close();
 	});
 });
