@@ -167,6 +167,9 @@ export function plural(count: number, noun: string): string {
 	return count + " " + noun + (count === 1 ? "" : "s");
 }
 
+/** {@link plural} as a page's bundle receives it: one wording for `1 card`, not two. */
+export const PLURAL_JS = pageSource(plural);
+
 /**
  * A body bounded to `limit` characters, the ellipsis included, so the answer never exceeds what the
  * caller allowed — a cap is a cap, whether it is a 200-character preview or a 4,000-character
