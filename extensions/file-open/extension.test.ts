@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
 import fileOpen from "./index.ts";
-import { buildCommand, normalizeTarget, openTarget, resolveTarget, type LauncherChild } from "./open.ts";
+import { buildCommand, openTarget, resolveTarget, type LauncherChild } from "./open.ts";
 import type { OpenTargetOptions } from "./open.ts";
 import { TOOL_NAME } from "./schema.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -34,16 +34,6 @@ beforeEach(() => {
 });
 
 describe("target resolution", () => {
-	test("unwraps an @ mention, surrounding quotes, and whitespace", () => {
-		expect(normalizeTarget("  @src/app.ts  ")).toBe("src/app.ts");
-		expect(normalizeTarget('@"my file.txt"')).toBe("my file.txt");
-		expect(normalizeTarget("'dir name'")).toBe("dir name");
-	});
-
-	test("strips control characters before they reach the handler", () => {
-		expect(normalizeTarget("a\u001b[31mb")).toBe("a [31mb");
-	});
-
 	test("defaults an empty target to the working directory", () => {
 		expect(resolveTarget(import.meta.dir, "   ")).toBe(import.meta.dir);
 	});

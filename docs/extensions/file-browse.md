@@ -16,7 +16,7 @@ come from. Nothing on the page writes.
 
 | What you want | What to do |
 |---|---|
-| Open the page | `/browse` — at the working directory, or `/browse <path>` for a subdirectory |
+| Open the page | `/browse` — at the working directory, `/browse <path>` for a subdirectory, `/browse @<file>` to open that file |
 | Jump to a file | `Ctrl+K` (`Cmd+K`), then type part of the path |
 | Read Markdown as a page | click the file; the toolbar has a raw view |
 | Look at an image | click it — thumbnails are inline in the listing |
@@ -40,9 +40,9 @@ file, and the toolbar copies a path, the contents, or a line reference.
 
 ## Reference
 
-**Commands.** `/browse` starts at the working directory; `/browse <path>` starts
-at a subdirectory of it (a path outside is refused); `/browse status` prints the
-root and URL, or "not running"; `/browse stop` closes it.
+**Commands.** `/browse` starts at the working directory, `/browse <path>` at a subdirectory
+of it (a path outside is refused), and `/browse @<file>` on that file's page — the `@` and any
+quotes unwrapped. `/browse status` prints the root and URL; `/browse stop` closes it.
 
 **Routes.** Everything lives under `/files/`: the tree and a listing
 (`/files/browse/<rel>`), a file page (`/files/view/<rel>`, `?raw=1` for source),
@@ -88,7 +88,7 @@ moving — a worktree switch — reloads the page onto the new tree.
 - Files over `maxFileBytes` show a download card; images over `maxThumbBytes` get
   an icon; long listings and diffs are truncated with the cap named.
 - It is not a static-file server: the root is confined to the session's working
-  directory, and a subdirectory must resolve inside it.
+  directory, and a target must resolve inside it — bar `status` and `stop`, which are commands.
 - The quick-open index skips `.git` and `node_modules`: indexing them would spend its
   cap on dependencies. The palette says which folders it did not search, and the tree
   still browses them.

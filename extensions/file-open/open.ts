@@ -1,17 +1,18 @@
 /**
  * Resolving a target and launching the OS-native handler.
  *
- * `normalizeTarget` and `buildCommand` are pure, so the command each platform
- * runs is asserted without a process. `openTarget` takes an injectable spawn so
- * a test launches nothing. Opening is best-effort: the caller decides what to do
- * with a failure, which is reported through `onError` rather than thrown, since
- * the launcher reports a start failure and a non-zero exit asynchronously.
+ * `buildCommand` is pure, so the command each platform runs is asserted without a
+ * process; the `@` unwrapping it follows is `lib/path.ts`'s, shared with `/browse`.
+ * `openTarget` takes an injectable spawn so a test launches nothing. Opening is
+ * best-effort: the caller decides what to do with a failure, which is reported through
+ * `onError` rather than thrown, since the launcher reports a start failure and a nonzero
+ * exit asynchronously.
  */
 
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { launchDetached } from "../../lib/browser.ts";
-import { stripControlChars } from "../../lib/format.ts";
+import { normalizeTarget } from "../../lib/path.ts";
 
 /** Whether to open the target itself or reveal it in the file manager. */
 export type OpenMode = "open" | "reveal";
@@ -24,21 +25,6 @@ export interface NativeCommand {
 	 * `explorer` can exit non-zero after a successful open, so it opts out.
 	 */
 	exitMeansFailure: boolean;
-}
-
-/**
- * Strip Pi's `@` file-mention prefix and any surrounding quotes from a target.
- * The editor's `@` completion keeps the `@` in the text, so `/open @src/app.ts`
- * and `/open @"my file.txt"` must be unwrapped before resolving. Control
- * characters are removed first so a pasted path cannot smuggle an escape into
- * the process arguments or the notification.
- */
-export function normalizeTarget(raw: string): string {
-	let target = stripControlChars(raw).trim();
-	if (target.startsWith("@")) target = target.slice(1).trim();
-	const quoted = (target.startsWith('"') && target.endsWith('"')) || (target.startsWith("'") && target.endsWith("'"));
-	if (target.length >= 2 && quoted) target = target.slice(1, -1);
-	return target.trim();
 }
 
 /** Resolve a requested target against `cwd`, raising a readable error when it is absent. */

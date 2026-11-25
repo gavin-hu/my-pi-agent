@@ -1,5 +1,6 @@
 /**
- * The spelling rule in `path.ts`, on the shapes that break it.
+ * The spelling rule in `path.ts`, on the shapes that break it, and the target rule it
+ * shares with the two commands that resolve one a person typed.
  *
  * A path arrives with whichever separator built it: `node:path`'s `win32.sep` for git's
  * output on a Windows runner and for a value another machine wrote, `posix.sep` for what
@@ -11,7 +12,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { posix, win32 } from "node:path";
-import { encodePath, lastSegment, posixPath } from "./path.ts";
+import { encodePath, lastSegment, normalizeTarget, posixPath } from "./path.ts";
 
 /** `C:\Users\repo\lib\notice.ts`, built by `node:path`'s Windows `join`. */
 const WINDOWS_FILE = win32.join("C:", "Users", "repo", "lib", "notice.ts");
@@ -27,6 +28,23 @@ const UNC_FILE = win32.join(win32.sep + win32.sep + "server", "share", "dir", "f
 
 /** A leading UNC pair, spelled for a URL. */
 const UNC_POSIX = posix.sep + posix.sep + ["server", "share", "dir", "file.ts"].join(posix.sep);
+
+describe("normalizeTarget", () => {
+	test("unwraps an @ mention, surrounding quotes, and whitespace", () => {
+		expect(normalizeTarget("  @src/app.ts  ")).toBe("src/app.ts");
+		expect(normalizeTarget('@"my file.txt"')).toBe("my file.txt");
+		expect(normalizeTarget("'dir name'")).toBe("dir name");
+	});
+
+	test("strips control characters before they reach the handler", () => {
+		expect(normalizeTarget("a\u001b[31mb")).toBe("a [31mb");
+	});
+
+	test("leaves a bare name alone, so a caller may default the empty one", () => {
+		expect(normalizeTarget("src/app.ts")).toBe("src/app.ts");
+		expect(normalizeTarget("  ")).toBe("");
+	});
+});
 
 describe("posixPath", () => {
 	test("spells a Windows path the way this package prints one", () => {

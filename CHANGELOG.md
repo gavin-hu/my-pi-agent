@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `file-browse`: `/browse` takes the path the editor's `@` completion writes — the `@` and any surrounding
+  quotes are unwrapped — and takes a file as well as a folder: a file opens on its own `/files/view/<rel>` page
+  with the working directory still the tree beside it, so the path a person has in hand works at the command
+  that shows it. The unwrapping is `file-open`'s rule, moved to `lib/path.ts` so there is one of it.
+
 - `board`: `land` is the seat's own verb — fetch, the checkout's equality with the remote, the signed commit's ancestry,
   a `--no-ff` merge under the card's own derived subject, the numstat proof and a named-ref push, all as fixed argv. A
   failed proof or a refused push undoes the merge with `reset --keep`, never `--hard`, so a bad landing costs a local
