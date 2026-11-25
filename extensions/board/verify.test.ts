@@ -11,7 +11,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { realpathSync } from "node:fs";
+import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
 	agreed,
@@ -30,7 +30,7 @@ import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
-import { SIZE_GATES } from "../../lib/workflow/verify.ts";
+import { noSizeGatesSentence, SIZE_GATES, SIZE_GATE_FILES } from "../../lib/workflow/verify.ts";
 
 afterAll(flushFixture);
 
@@ -38,17 +38,17 @@ afterAll(flushFixture);
 const VERIFY = "bun run check";
 
 /**
- * A run whose size gates pass and whose card command answers `outcome`.
- *
- * The shared `runner` answers one outcome to every command, which after #858 would make the *gate*
- * the thing that failed and leave the card's own line untested: these cases are about the second run,
- * so the first one is held green here and only its call is recorded.
+ * What a bench records about the gate: its temp root keeps no `test/` directory, so the repository's
+ * size gates are skipped — named, because the sign owes that fact to whoever reads it later (#481).
  */
-function cardRun(outcome: Parameters<typeof runner>[0] = {}): ReturnType<typeof runner> {
-	const inner = runner(outcome);
-	const call = async (command: string, cwd: string) =>
-		command === SIZE_GATES ? { exit: 0, output: "", killed: false } : inner(command, cwd);
-	return Object.assign(call, { ran: inner.ran, cwds: inner.cwds });
+const NO_SIZE_GATES = noSizeGatesSentence([...SIZE_GATE_FILES]);
+
+/** A temp tree that does keep the gates: the two files, empty, are all the rule looks for. */
+function treeWithGates(): string {
+	const root = tempDir("pi-repo-gates-");
+	mkdirSync(join(root, "test"), { recursive: true });
+	for (const file of SIZE_GATE_FILES) writeFileSync(join(root, file), "");
+	return root;
 }
 
 /** A card in `execute` whose contract names `verify`, or one that names no command. */
@@ -69,12 +69,35 @@ describe("a spot-check whose contract names a command", () => {
 		await running(who, VERIFY);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		expect(reviewed.isError).toBeFalsy();
-		expect(run.ran).toEqual([SIZE_GATES, VERIFY]);
-		// The record is the run's — the command, its exit, its moment, and the tree it ran in —
-		// and the card is what the store ended up with.
+		// This bench keeps no `test/`, so the repository's own gate is skipped and only the card's
+		// line runs; the skip rides the record, which is the next assertion's business.
+		expect(run.ran).toEqual([VERIFY]);
+		// The record is the run's — the command, its exit, its moment, the tree it ran in, and what
+		// the gate answered — and the card is what the store ended up with.
 		const root = (await who.lead.board.runtime.store(who.lead.board.ctx.cwd)).root();
-		expect(reviewed.details.card?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: NOW, root });
+		expect(reviewed.details.card?.review?.verified).toEqual({
+			cmd: VERIFY,
+			exit: 0,
+			at: NOW,
+			root,
+			sizeGates: { skipped: NO_SIZE_GATES },
+		});
 		expect(reviewed.details.card?.review?.by).toBe(LEAD);
+	});
+
+	test("runs and records the gate a repository keeps, and says it did", async () => {
+		// The other half of #481: the repository that owns the gates must be signed exactly as before —
+		// the gate first, then the card's line — and the sign now says the gate ran rather than leaving
+		// a reader to infer it from a green record.
+		const run = runner();
+		const who = bench({ verify: run }, { cwd: treeWithGates() });
+		await running(who, VERIFY);
+		const reviewed = await who.lead.call({ action: "review", card: "1" });
+		expect(reviewed.isError).toBeFalsy();
+		expect(run.ran).toEqual([SIZE_GATES, VERIFY]);
+		expect(reviewed.details.card?.review?.verified?.sizeGates).toEqual({ ran: true });
+		// No clause for it: the run line names the command, and only a gate that did not run is news.
+		expect(resultText(reviewed)).not.toContain("size gates");
 	});
 
 	test("a card whose contract names no command is refused the write, and nothing runs", async () => {
@@ -94,7 +117,7 @@ describe("a spot-check whose contract names a command", () => {
 	});
 
 	test("a red command refuses the sign, naming the exit and what it printed", async () => {
-		const who = bench({ verify: cardRun({ exit: 1, output: "3 tests failed\n  see above" }) });
+		const who = bench({ verify: runner({ exit: 1, output: "3 tests failed\n  see above" }) });
 		await running(who, VERIFY);
 		const refused = await who.lead.call({ action: "review", card: "1" });
 		expect(refused.isError).toBe(true);
@@ -105,7 +128,7 @@ describe("a spot-check whose contract names a command", () => {
 	});
 
 	test("a run that outlives its bound is refused, naming the bound", async () => {
-		const who = bench({ verify: cardRun({ killed: true, exit: -1 }) });
+		const who = bench({ verify: runner({ killed: true, exit: -1 }) });
 		await running(who, VERIFY);
 		const refused = await who.lead.call({ action: "review", card: "1" });
 		expect(refused.isError).toBe(true);
@@ -144,9 +167,8 @@ describe("a spot-check whose contract names a command", () => {
 		const clock = { at: NOW };
 		const ran = runner();
 		const slow = async (command: string, cwd: string) => {
-			// The gates are not the clock this case spends: it is about the card's own line outliving
-			// the call, so the gate answers at once and only the second run moves time.
-			if (command === SIZE_GATES) return ran(command, cwd);
+			// The gate is not the clock this case spends: this bench keeps none, so the only run is the
+			// card's own line, and that one pushes the clock on.
 			const outcome = await ran(command, cwd);
 			clock.at += 5_000;
 			return outcome;
@@ -156,7 +178,7 @@ describe("a spot-check whose contract names a command", () => {
 		await running(who, VERIFY);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		expect(reviewed.isError).toBeFalsy();
-		expect(ran.ran).toEqual([SIZE_GATES, VERIFY]);
+		expect(ran.ran).toEqual([VERIFY]);
 		// Three moments, one fact: the sign, the record that its owner was told, and the field the
 		// `done` gate reads. A reading taken at the top of the call would put the first two five
 		// seconds behind the evidence they carry, and make `signStale` compare a stale half.
@@ -173,11 +195,13 @@ describe("a spot-check whose contract names a command", () => {
 		await running(who, VERIFY);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		const root = (await who.lead.board.runtime.store(who.lead.board.ctx.cwd)).root();
-		expect(run.cwds).toEqual([root, root]);
+		expect(run.cwds).toEqual([root]);
 		expect(reviewed.details.card?.review?.verified?.root).toBe(root);
 		// The bench has no git, so there is no commit: the tree is still the one it ran in.
 		expect(reviewed.details.card?.review?.verified?.sha).toBeUndefined();
 		expect(resultText(reviewed)).toContain(`ran \`${VERIFY}\` in ${root} (exit 0)`);
+		// The sign says which gate did not run, because nothing else on the card can say it (#481).
+		expect(resultText(reviewed)).toContain(`size gates: skipped (${NO_SIZE_GATES})`);
 	});
 
 	test("inside a worktree, the run, the commit, and the record are the worktree's", async () => {
@@ -190,10 +214,7 @@ describe("a spot-check whose contract names a command", () => {
 		const reviewed = await withEnv({ [ENV_ROOT]: worktree }, () => who.lead.call({ action: "review", card: "1" }));
 		// Compared as resolved paths: the temp root is a symlink on macOS, so the spelling the
 		// environment carries and the one git prints are not the same string.
-		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([
-			realpathSync.native(worktree),
-			realpathSync.native(worktree),
-		]);
+		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([realpathSync.native(worktree)]);
 		expect(reviewed.details.card?.review?.verified).toEqual({
 			cmd: VERIFY,
 			exit: 0,
@@ -201,6 +222,7 @@ describe("a spot-check whose contract names a command", () => {
 			root: worktree,
 			sha: WORKTREE_SHA,
 			branch: "worktree-gate",
+			sizeGates: { skipped: NO_SIZE_GATES },
 		});
 		// The worktree shares the checkout's git directory, and is not where that directory's parent is:
 		// the record says which tree it was by naming a branch, and claims no checkout at all.
@@ -215,10 +237,7 @@ describe("a spot-check whose contract names a command", () => {
 		const { who, run, main } = worktreeBench();
 		await running(who, VERIFY);
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
-		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([
-			realpathSync.native(main),
-			realpathSync.native(main),
-		]);
+		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([realpathSync.native(main)]);
 		expect(reviewed.details.card?.review?.verified).toEqual({
 			cmd: VERIFY,
 			exit: 0,
@@ -227,6 +246,7 @@ describe("a spot-check whose contract names a command", () => {
 			sha: CHECKOUT_SHA,
 			branch: "main",
 			checkout: true,
+			sizeGates: { skipped: NO_SIZE_GATES },
 		});
 	});
 });

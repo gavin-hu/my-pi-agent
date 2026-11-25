@@ -509,7 +509,10 @@ Rules:
   `module-sizes.test.ts`'s 600, a suite past `suite-sizes.test.ts`'s 400. A spot-check
   runs both gates before the card's own line, serially and in the same tree, and refuses
   the sign when either is red, naming the gate and its tail; the sign still records the
-  card's own command, so a changed `verify` cannot ride an old result. Naming the gate
+  card's own command, so a changed `verify` cannot ride an old result. A tree without
+  those two files keeps no size gates: the gates are skipped, and the sign records the
+  skip — the files are what is read, never the command's exit, so the repository that
+  owns the gates keeps its veto. Naming the gate
   tells the next reader which bar the work was near — leaving it out costs the
   explanation, never the run.
 - Helper files live only under `test/helpers/`.
