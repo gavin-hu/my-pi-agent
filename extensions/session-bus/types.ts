@@ -56,11 +56,20 @@ export interface SessionRecord {
 	 */
 	turnAt?: number;
 	/**
-	 * Whether this session is listening for mail, written on every join.
+	 * The watch this session asked for, in one word — the statement, written on every join.
+	 *
+	 * `off` is a door's `listen: false` and is never turned back on by another door; absent is a
+	 * record written before this field existed. A start adopts it, so a restart restores what the
+	 * user asked for instead of the mode the next join happens to spell.
+	 */
+	watch?: WatchMode;
+	/**
+	 * The same mode as the pair a peer reads, derived on every write.
 	 *
 	 * `armed: false` means the session is on the bus but no watch will wake it, which is the
 	 * honest answer for a peer deciding whether mail will reach it; absent is only a record
-	 * written before this field existed.
+	 * written before this field existed. It is a rendering of `watch`, not a second fact — the
+	 * readers outside this extension still take this shape (#868 moves one of them).
 	 */
 	watching?: { armed: boolean; wake: boolean };
 	/**
@@ -158,9 +167,17 @@ export interface SessionStatus {
 	 * Only the status read fills this: the board draws once a second and reads no file to do it.
 	 */
 	unreadable?: string[];
-	/** Present only when this session armed its inbox watch. */
+	/** Present when a join asked for a watch — this run or an earlier one; a restart restores it. */
 	watching?: { armed: boolean; wake: boolean };
 }
+
+/**
+ * The watch as a session holds it: one mode, not a pair.
+ *
+ * `off` is no watch at all, `on` reports mail at the next turn, and `wake` raises a turn while
+ * the session is idle. The pair a peer reads is `mail-watch.ts`'s rendering of this.
+ */
+export type WatchMode = "off" | "on" | "wake";
 
 /**
  * One id a drop was given and did not remove, and the reason it stayed.

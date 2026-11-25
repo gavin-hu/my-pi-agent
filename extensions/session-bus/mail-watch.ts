@@ -13,10 +13,15 @@
  *
  * Polling rather than `fs.watch`, like the `watch` extension's tail: one readdir on
  * this session's own directory stands in for a platform event API.
+ *
+ * The state is one mode — off, on, or wake — because the pair a peer reads is a rendering
+ * of it: `{armed, wake}` can spell "not armed, but waking", and a record that kept both
+ * could come back from disk disagreeing with itself. The mode is the fact; `state()` is how
+ * a reader sees it.
  */
 
 import type { RepeatTimer } from "../../lib/timer.ts";
-import type { BusMessage, InboxPeek } from "./types.ts";
+import type { BusMessage, InboxPeek, SessionRecord, WatchMode } from "./types.ts";
 
 export interface MailWatchOptions {
 	/**
@@ -38,15 +43,71 @@ export interface MailWatchOptions {
 	watchMs: number;
 }
 
-/** Whether the watch is on, and whether it raises a turn. */
+/** The pair a peer reads and a status line prints: a rendering of a {@link WatchMode}. */
 export interface WatchingState {
 	armed: boolean;
 	wake: boolean;
 }
 
+/** The pair a mode spells, for the readers that predate it. */
+export function watchPair(mode: WatchMode): WatchingState {
+	return { armed: mode !== "off", wake: mode === "wake" };
+}
+
+/** Whether a value is a mode: the three words are the whole set, so a hand edit can miss it. */
+function isWatchMode(value: unknown): value is WatchMode {
+	return value === "off" || value === "on" || value === "wake";
+}
+
+/**
+ * The mode a stored pair spells, for a record written before the mode existed.
+ *
+ * `{armed: false, wake: true}` is the pair the mode cannot express, and it reads as `off`: a
+ * watch that is not armed delivers nothing, whatever its wake flag says. This build wrote no
+ * such pair — `watch` always set both — so only a hand edit can produce one.
+ */
+export function watchModeOf(watching: WatchingState | undefined): WatchMode {
+	if (watching === undefined || !watching.armed) return "off";
+	return watching.wake ? "wake" : "on";
+}
+
+/**
+ * The mode a record carries: its own field, or the pair an older build wrote beside it.
+ *
+ * A record whose field and pair disagree is read twice, by two audiences: this session adopts
+ * the field, and a peer reads the pair. That is why writes derive one from the other. A field
+ * that is not a mode is treated as absent — the same read falls back to the pair — because one
+ * hand-edited word should cost the mode and not the session's record.
+ */
+export function storedWatchMode(record: Pick<SessionRecord, "watch" | "watching"> | undefined): WatchMode {
+	const stored = record?.watch;
+	if (isWatchMode(stored)) return stored;
+	return watchModeOf(record?.watching);
+}
+
+/**
+ * Write the mode a join settled on: the statement, then the pair a peer reads.
+ *
+ * The one writer of the record's watch is the door that asked the watch for a change, so the
+ * pair cannot drift from the mode; a start adopts the mode and writes nothing.
+ */
+export function recordWatch(target: Pick<SessionRecord, "watch" | "watching">, state: WatchingState): void {
+	const mode = watchModeOf(state);
+	target.watch = mode;
+	target.watching = watchPair(mode);
+}
+
 export interface MailWatch {
-	/** Arm or disarm this session's inbox watch. */
+	/** Arm, disarm, or re-mode this session's inbox watch, as a door of its own asked. */
 	watch(input: { wake?: boolean; stop?: boolean }): Promise<WatchingState>;
+	/**
+	 * Adopt the mode a record already carries, at start.
+	 *
+	 * Arms when the mode is not `off`, and stands down once a join in this run has decided. It
+	 * writes nothing: the record's mode is `watch`'s to write, so a start cannot persist a mode
+	 * nobody asked for in this run.
+	 */
+	restore(mode: WatchMode): Promise<void>;
 	/** The current state, for the status line. */
 	state(): WatchingState;
 	/**
@@ -72,8 +133,7 @@ export interface MailWatch {
 export function createMailWatch(options: MailWatchOptions): MailWatch {
 	const { peek, told, onTold, interval, watchMs } = options;
 
-	let armed = false;
-	let wake = false;
+	let mode: WatchMode = "off";
 	let stopTicker: (() => void) | undefined;
 	let pendingMail: BusMessage[] = [];
 	/** Files in the inbox at the last read, which is the depth a standing line reports. */
@@ -117,14 +177,22 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	 * answer is filtered by the told set as it stands after the read — `known` is what the store
 	 * was asked, not what it is still allowed to queue.
 	 */
+	/**
+	 * Whether the watch is reading for anything.
+	 *
+	 * Read through a call rather than narrowed inline: a `stop` can land during the peek, and the
+	 * mode the function started with is not the one it returns to.
+	 */
+	const armed = (): boolean => mode !== "off";
+
 	async function pollOnce(): Promise<void> {
-		if (!armed || polling) return;
+		if (!armed() || polling) return;
 		polling = true;
 		try {
 			const known = new Set(told());
 			for (const message of pendingMail) known.add(message.id);
 			const { mail, unread } = await peek(known);
-			if (!armed) return;
+			if (!armed()) return;
 			// Files, not unread: `read` marks told but keeps them, and a line that vanished on a
 			// peek would stop saying what `inbox` still has to consume.
 			inboxSize = unread.size;
@@ -141,7 +209,7 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 			const fresh = mail.filter((message) => !knownNow.has(message.id));
 			if (fresh.length === 0) return;
 			pendingMail = [...pendingMail, ...fresh];
-			if (wake) onWake?.();
+			if (mode === "wake") onWake?.();
 		} finally {
 			polling = false;
 		}
@@ -150,39 +218,50 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	function disarm(): void {
 		stopTicker?.();
 		stopTicker = undefined;
-		armed = false;
-		wake = false;
+		mode = "off";
 		pendingMail = [];
 		inboxSize = 0;
+	}
+
+	/** Arm from off: the first read, then the ticker behind it. */
+	async function arm(next: WatchMode): Promise<void> {
+		mode = next;
+		await pollOnce();
+		if (watchMs > 0) stopTicker = interval(watchMs, () => void pollOnce().catch(() => {}));
 	}
 
 	async function watch(input: { wake?: boolean; stop?: boolean }): Promise<WatchingState> {
 		if (input.stop) {
 			disarm();
-			return { armed: false, wake: false };
+			return watchPair(mode);
 		}
-		if (!armed) {
-			armed = true;
-			wake = input.wake === true;
-			await pollOnce();
-			if (watchMs > 0) stopTicker = interval(watchMs, () => void pollOnce().catch(() => {}));
-			return { armed, wake };
+		if (mode === "off") {
+			await arm(input.wake === true ? "wake" : "on");
+			return watchPair(mode);
 		}
 		// The mode is a setting, not an arm-time flag: an explicit `wake` changes it
 		// under a queued notice, and an omitted one keeps it, so bare `watch` never
 		// demotes an armed session.
-		if (input.wake !== undefined) wake = input.wake;
+		if (input.wake !== undefined) mode = input.wake ? "wake" : "on";
 		// Asking for wake over mail already queued is a request for that burst too;
 		// mid-turn it is suppressed here and retried once the run settles.
-		if (wake && pendingMail.length > 0) onWake?.();
-		return { armed, wake };
+		if (mode === "wake" && pendingMail.length > 0) onWake?.();
+		return watchPair(mode);
+	}
+
+	async function restore(next: WatchMode): Promise<void> {
+		// A join in this run has already decided: the record it wrote is newer than the one the
+		// start read, and adopting over it would undo the door that just spoke.
+		if (mode !== "off" || next === "off") return;
+		await arm(next);
 	}
 
 	return {
 		watch,
-		state: () => ({ armed, wake }),
+		restore,
+		state: () => watchPair(mode),
 		size: () => inboxSize,
-		wantsWake: () => armed && wake,
+		wantsWake: () => mode === "wake",
 		poll: pollOnce,
 		pending: () => [...pendingMail],
 		markReported,

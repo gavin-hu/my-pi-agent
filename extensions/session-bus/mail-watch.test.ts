@@ -13,10 +13,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { waitFor } from "../../test/helpers/process.ts";
-import { createMailWatch, type MailWatch } from "./mail-watch.ts";
+import { createMailWatch, type MailWatch, storedWatchMode, watchModeOf, watchPair } from "./mail-watch.ts";
 import { MAX_LIMIT } from "./protocol.ts";
 import { createBusStore, type BusStore } from "./store.ts";
-import type { BusMessage } from "./types.ts";
+import type { BusMessage, WatchMode } from "./types.ts";
 import { untoldOf } from "../../test/helpers/bus.ts";
 
 const dirs: string[] = [];
@@ -294,5 +294,89 @@ describe("the armed inbox watch", () => {
 		await target.watch.poll();
 		expect(target.watch.pending()).toEqual([]);
 		expect(target.wakes).toEqual([]);
+	});
+});
+
+describe("the mode a record carries", () => {
+	test("is one of three, and the pair a peer reads is its rendering", () => {
+		expect([watchPair("off"), watchPair("on"), watchPair("wake")]).toEqual([
+			{ armed: false, wake: false },
+			{ armed: true, wake: false },
+			{ armed: true, wake: true },
+		]);
+		expect(["off", "on", "wake"].map((mode) => watchModeOf(watchPair(mode as WatchMode)))).toEqual([
+			"off",
+			"on",
+			"wake",
+		]);
+	});
+
+	test("reads a legacy pair, and the pair that cannot be a mode reads as off", () => {
+		expect(watchModeOf(undefined)).toBe("off");
+		expect(watchModeOf({ armed: true, wake: false })).toBe("on");
+		expect(watchModeOf({ armed: true, wake: true })).toBe("wake");
+		// A watch that is not armed delivers nothing, whatever its wake flag says: this build
+		// never wrote such a pair, so only a hand edit can hold one.
+		expect(watchModeOf({ armed: false, wake: true })).toBe("off");
+	});
+
+	test("a record's own field is the mode, and the pair beside it is for a peer", () => {
+		expect(storedWatchMode({ watch: "wake", watching: { armed: true, wake: true } })).toBe("wake");
+		// The field is the statement; the pair is a view. A record that disagrees is adopted from
+		// the statement and read by a peer through the view.
+		expect(storedWatchMode({ watch: "off", watching: { armed: true, wake: true } })).toBe("off");
+		expect(storedWatchMode({ watching: { armed: true, wake: true } })).toBe("wake");
+		expect(storedWatchMode(undefined)).toBe("off");
+		// A field that is not a mode is not a reason to lose the record: the pair still answers,
+		// and with neither there is nothing to arm.
+		const edited = { watch: "listening", watching: { armed: true, wake: false } } as unknown as {
+			watch: WatchMode;
+			watching: { armed: boolean; wake: boolean };
+		};
+		expect(storedWatchMode(edited)).toBe("on");
+	});
+});
+
+describe("the mode a start restores", () => {
+	test("arms the mode the record carries", async () => {
+		const target = await fixture();
+		await target.watch.restore("wake");
+		expect(target.watch.state()).toEqual({ armed: true, wake: true });
+		expect(target.watch.wantsWake()).toBe(true);
+	});
+
+	test("arms an on record without wake, and polls for it", async () => {
+		const target = await fixture();
+		await target.watch.restore("on");
+		expect(target.watch.state()).toEqual({ armed: true, wake: false });
+		expect(target.watch.wantsWake()).toBe(false);
+		expect(target.peeks()).toBe(1);
+	});
+
+	test("does not arm a record that says off", async () => {
+		const target = await fixture();
+		await target.write(1_000);
+		await target.watch.restore("off");
+		expect(target.watch.state()).toEqual({ armed: false, wake: false });
+		expect(target.peeks()).toBe(0);
+		expect(target.watch.pending()).toEqual([]);
+	});
+
+	test("stands down once a join in this run has decided", async () => {
+		const target = await fixture();
+		// A door spoke before the start could adopt: the record it wrote is newer than the one
+		// the start read, so adopting over it would undo the door.
+		await target.watch.watch({ wake: false });
+		await target.watch.restore("wake");
+		expect(target.watch.state()).toEqual({ armed: true, wake: false });
+	});
+
+	test("a plain join after the restore keeps the wake the record asked for", async () => {
+		const target = await fixture();
+		await target.watch.restore("wake");
+		expect(await target.watch.watch({})).toEqual({ armed: true, wake: true });
+		// An explicit demotion is still a door's to make, and it survives as `on`.
+		expect(await target.watch.watch({ wake: false })).toEqual({ armed: true, wake: false });
+		expect(await target.watch.watch({})).toEqual({ armed: true, wake: false });
 	});
 });
