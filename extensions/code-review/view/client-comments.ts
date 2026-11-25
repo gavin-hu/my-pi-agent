@@ -358,9 +358,6 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
     if (!row) { toast("Select a line that is in the diff, then comment"); return; }
     var open = composerAt(path, line, side);
     if (open) {
-      // A record restored onto a line whose composer is already open adopts that box: one composer per
-      // line is what the page is, and a save has to delete the record this box belongs to.
-      if (opts.id !== undefined && !open.getAttribute("data-draft-id")) open.setAttribute("data-draft-id", opts.id);
       // One composer per line, and the line is what owns its text: pressing reply on a line whose
       // composer is already open answers with that text rather than starting a second — the text is
       // still a draft, so adopting the parent asserts nothing and the press is not ignored.

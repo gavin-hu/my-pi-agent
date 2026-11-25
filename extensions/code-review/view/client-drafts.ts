@@ -158,7 +158,16 @@ export const REVIEW_DRAFTS_JS = String.raw`  // ── drafts ──────
     Object.keys(all).forEach(function (id) {
       var kept = all[id];
       if (!kept || typeof kept.text !== "string" || kept.text === "") { delete all[id]; return; }
-      if (rowFor(kept.path, kept.line, kept.side)) {
+      var drawn = rowFor(kept.path, kept.line, kept.side);
+      var rows = drawn ? [] : numberedRows(sectionFor(kept.path));
+      // Where this record would land: its own line, or — when that line is gone from this render — its
+      // file's first drawn row, which is where a relocated draft opens so nothing moves silently.
+      var at = drawn ? { line: kept.line, side: kept.side } : rows.length > 0 ? rowAnchor(rows[0]) : null;
+      // Two records can want one line, and the box already there is the identity: it holds the text its
+      // reader is typing in, so this record goes rather than surviving beside it as a second record for
+      // one composer — which is a save that forgets the wrong one and a draft that comes back.
+      if (at !== null && composerAt(kept.path, at.line, at.side)) { delete all[id]; return; }
+      if (drawn) {
         var parent = kept.parent && (data.comments || []).some(function (comment) { return comment.id === kept.parent; })
           ? kept.parent
           : undefined;
@@ -175,11 +184,7 @@ export const REVIEW_DRAFTS_JS = String.raw`  // ── drafts ──────
         back.push(kept.path + ":" + kept.line);
         return;
       }
-      // The line is gone from this render. Its file may still be drawn, and then the text opens on
-      // the file's first drawn row saying which line it was typed on: nothing moves silently.
-      var rows = numberedRows(sectionFor(kept.path));
-      var at = rows.length > 0 ? rowAnchor(rows[0]) : null;
-      if (at) {
+      if (at !== null) {
         var was = kept.path + ":" + kept.line;
         // The record moves with the composer: the anchor is a field now, so the next load starts where
         // the draft lives instead of trying a line this diff no longer draws.

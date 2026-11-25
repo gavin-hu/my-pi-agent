@@ -20,7 +20,9 @@ import {
 	type ReviewPageFixture,
 	type SeedComment,
 	type SnapshotOptions,
+	seedDrafts,
 	startComment,
+	storedDrafts,
 	withReviewPage,
 } from "../../../test/helpers/review-browser.ts";
 
@@ -102,39 +104,86 @@ gated("the review page's drafts", () => {
 		async () => {
 			await withPage(async (page) => {
 				await startComment(page, "kept from before");
-				const legacy = await page.evaluate(() =>
-					JSON.parse(
-						(
-							globalThis as unknown as { sessionStorage: { getItem(key: string): string | null } }
-						).sessionStorage.getItem("rv-review-drafts") ?? "{}",
-					),
-				);
+				const legacy = await storedDrafts(page);
 				const [minted] = Object.keys(legacy);
 				const record = legacy[minted];
-				// The shape this page wrote before drafts had identities: keyed by the anchor, no id.
+				// The shape this page wrote before drafts had identities: keyed by the anchor, no id. A value that
+				// is not a record is dropped by the same pass, so the store holds one record afterwards.
 				const anchor = JSON.stringify([record.path, record.line, record.side]);
 				delete record.id;
-				await page.evaluate(
-					(entry) =>
-						(
-							globalThis as unknown as { sessionStorage: { setItem(key: string, value: string): void } }
-						).sessionStorage.setItem("rv-review-drafts", JSON.stringify(entry)),
-					{ [anchor]: record },
-				);
+				await seedDrafts(page, { [anchor]: record, "not-a-record": "junk" });
 				await reloadReview(page);
 
 				expect(await page.locator(".rv-compose__area").inputValue()).toBe("kept from before");
-				const kept = await page.evaluate(() =>
-					JSON.parse(
-						(
-							globalThis as unknown as { sessionStorage: { getItem(key: string): string | null } }
-						).sessionStorage.getItem("rv-review-drafts") ?? "{}",
-					),
-				);
+				const kept = await storedDrafts(page);
 				const keys = Object.keys(kept);
 				expect(keys).toHaveLength(1);
 				expect(kept[keys[0]].id).toBe(keys[0]);
 				expect(await page.locator(".rv-compose").getAttribute("data-draft-id")).toBe(keys[0]);
+			});
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * Two records can want one line: a drawn draft, and a relocated one whose file's first drawn row is
+	 * that same line. The box already there is the identity — it holds the text its reader is typing in —
+	 * so the incoming record goes rather than surviving beside it. Left as it was, the box kept A's id
+	 * while the restore wrote B's text into it, so the store held two records for one composer and the
+	 * save forgot the wrong one.
+	 */
+	test(
+		"a relocated draft landing on a line already being typed on leaves one record, not two",
+		async () => {
+			await withPage(async (page) => {
+				await startComment(page, "first note");
+				const seeded = await storedDrafts(page);
+				const [firstId] = Object.keys(seeded);
+				const real = seeded[firstId];
+				// The file's first drawn row, read by the page's own rule: the second gutter number wins, else
+				// the first. That is where a draft whose line is gone relocates to.
+				const rows = page.locator(`.bf-diff[data-path="${real.path}"] .bf-diff-line`);
+				let at: { side: string; line: number } | null = null;
+				for (let index = 0; index < (await rows.count()) && at === null; index += 1) {
+					const numbers = await rows.nth(index).locator(".browse-diff-no").allTextContents();
+					const next = numbers[1] === undefined ? Number.NaN : Number(numbers[1].trim());
+					const old = numbers[0] === undefined ? Number.NaN : Number(numbers[0].trim());
+					if (next) at = { side: "new", line: next };
+					else if (old) at = { side: "old", line: old };
+				}
+				expect(at).not.toBeNull();
+				if (at === null) return;
+				// A drawn at that row; B typed on a line this diff no longer draws, so its restore lands there.
+				const drawn = {
+					id: "d-drawn",
+					rev: real.rev,
+					path: real.path,
+					line: at.line,
+					side: at.side,
+					text: "first note",
+				};
+				const incoming = {
+					id: "d-incoming",
+					rev: real.rev,
+					path: real.path,
+					line: 999,
+					side: at.side,
+					text: "second note",
+				};
+				await seedDrafts(page, { [drawn.id]: drawn, [incoming.id]: incoming });
+				await reloadReview(page);
+
+				// One box, one record, and the box wears the id the save will delete.
+				expect(await page.locator(".rv-compose").count()).toBe(1);
+				expect(await page.locator(".rv-compose").getAttribute("data-draft-id")).toBe(drawn.id);
+				expect(Object.keys(await storedDrafts(page))).toEqual([drawn.id]);
+
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+				await reloadReview(page);
+
+				expect(await page.locator(".rv-compose").count()).toBe(0);
+				expect(await page.locator(".rv-thread .bf-comment__body").count()).toBe(1);
 			});
 		},
 		CASE_MS,
