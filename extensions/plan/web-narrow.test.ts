@@ -23,6 +23,7 @@ import type { Page } from "playwright-core";
 import {
 	launchReviewBrowser,
 	mountReview,
+	openPlanTab,
 	REVIEW_CHROME,
 	REVIEW_PAGE,
 	REVIEW_PAINT_MS,
@@ -134,10 +135,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("a fenced line at a narrow width", 
 		await mount?.close();
 	}, 30_000);
 
-	/** A tab on the served review, at one width, with its blocks painted. */
+	/** The suite's tab on the served review, at one width, with its blocks painted. */
 	async function open(width: number): Promise<Page> {
-		const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
-		await page.goto(mount.url, { waitUntil: "load" });
+		const page = await openPlanTab(browser, mount.url, { width, height: 900 });
 		await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 		return page;
 	}
@@ -150,7 +150,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("a fenced line at a narrow width", 
 			// The whole path is in the panel, so wrapping did not clip what it could not fit.
 			expect(drawn.textContent).toContain(LONG);
 		}
-		await page.close();
 	});
 
 	test("keeps the line whole at 1280, where there is room to scroll", async () => {
@@ -159,7 +158,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("a fenced line at a narrow width", 
 			await outgrows(page, at);
 			expect((await panel(page, at)).textContent).toContain(LONG);
 		}
-		await page.close();
 	});
 });
 
@@ -188,10 +186,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 		await mount?.close();
 	}, 30_000);
 
-	/** A tab on the served review at one width, with its blocks painted. */
+	/** The suite's tab on the served review at one width, with its blocks painted. */
 	async function open(width: number): Promise<Page> {
-		const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
-		await page.goto(mount.url, { waitUntil: "load" });
+		const page = await openPlanTab(browser, mount.url, { width, height: 900 });
 		await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 		return page;
 	}
@@ -250,7 +247,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 		// the pressed view and both counts live in the summary, and `web-band.test.ts` holds them.
 		expect(shape.viewInSection, "the fold owns the whole rail, the switch included").toBe(true);
 		expect(shape.noteInSection, "and the count it writes").toBe(true);
-		await page.close();
 	});
 
 	test("leaves the list open at 1280, where the rail is a column", async () => {
@@ -259,7 +255,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 		expect(shape.sectionsOpen, "a desk keeps the outline open").toBe(true);
 		// Beside, not above: the plan pane starts at the band's own top, not below it.
 		expect(shape.planTop, "the document sits beside the rail").toBeLessThan(200);
-		await page.close();
 	});
 
 	test("sets a comment field at 16px, so a phone does not zoom on focus", async () => {
@@ -273,7 +268,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 			return area ? Number.parseFloat(style(area).fontSize) : 0;
 		});
 		expect(size, "the kit inherits the 15px body size; the field names 16").toBe(16);
-		await page.close();
 	});
 
 	test("folds sharing and closing behind one control at 640, and shows them when it opens", async () => {
@@ -289,7 +283,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 		expect(openShape.shareTop, "the menu covers the document rather than the header's height").toBeGreaterThanOrEqual(
 			shut.rowTop,
 		);
-		await page.close();
 	});
 
 	test("keeps both actions in the row at 1280", async () => {
@@ -299,6 +292,5 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 		expect(shape.shareVisible, "the action is drawn without opening anything").toBe(true);
 		expect(shape.shareTop, "and it sits in the control row").toBeGreaterThanOrEqual(shape.rowTop);
 		expect(shape.shareTop).toBeLessThan(shape.rowBottom);
-		await page.close();
 	});
 });

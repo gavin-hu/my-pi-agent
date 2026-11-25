@@ -20,6 +20,7 @@ import type { TestBrowser } from "../../test/helpers/browser.ts";
 import {
 	launchReviewBrowser,
 	mountReview,
+	openPlanTab,
 	REVIEW_CHROME,
 	REVIEW_PAGE,
 	REVIEW_PAINT_MS,
@@ -104,10 +105,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's narrow band", () => {
 		await mount?.close();
 	}, 30_000);
 
-	/** A tab on the served review at one width, with its blocks painted. */
+	/** The suite's tab on the served review at one width, with its blocks painted. */
 	async function open(width: number, height = 900): Promise<Page> {
-		const page = await browser.newPage({ viewport: { width, height }, reducedMotion: "reduce" });
-		await page.goto(mount.url, { waitUntil: "load" });
+		const page = await openPlanTab(browser, mount.url, { width, height });
 		await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 		return page;
 	}
@@ -127,7 +127,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's narrow band", () => {
 			expect(shape.headVisible, "the head panel is not drawn behind a shut fold").toBe(false);
 			expect(shape.planTop - shape.headerBottom, "nothing but the row sits under the header").toBeLessThanOrEqual(46);
 			expect(shape.docTop, `the document starts above ${bound}, at ${shape.docTop}`).toBeLessThan(bound);
-			await page.close();
 		}
 	});
 
@@ -145,7 +144,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's narrow band", () => {
 		const after = await band(page);
 		expect(after.sectionsOpen).toBe(false);
 		expect(after.chips.view, "the row follows the view the reader pressed").toBe("Comments");
-		await page.close();
 	});
 
 	test("opens into one vertical section per row, touch-sized, inside the band's cap", async () => {
@@ -163,9 +161,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's narrow band", () => {
 				text: `Section ${index + 1}`,
 			})),
 		});
-		const page = await browser.newPage({ viewport: { width: 390, height: 700 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, tall.url, { width: 390, height: 700 });
 		try {
-			await page.goto(tall.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			await page.click("#review-sections > summary");
 			const shape = await band(page);
@@ -194,7 +191,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's narrow band", () => {
 				"the row stays at the band's top",
 			).toBeLessThanOrEqual(2);
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await tall.close();
 		}
 	});
@@ -210,6 +208,5 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's narrow band", () => {
 		expect(shape.headVisible, "the head panel is the rail's first block").toBe(true);
 		expect(shape.planTop, "the document sits beside the rail").toBeLessThan(200);
 		expect(shape.linkHeights[0], `a desk row keeps its rhythm, at ${shape.linkHeights[0]}`).toBeLessThan(30);
-		await page.close();
 	});
 });
