@@ -12,6 +12,16 @@ import { clampInteger, cleanString } from "../../../lib/json.ts";
 /** Hard ceiling on the returned slice, mirroring the tool parameter maximum. */
 export const MAX_OUTPUT_CHARS = 100_000;
 
+/**
+ * The installable range for `maxBodyChars`, and so the widest body the schema can accept.
+ *
+ * One pair of numbers, read by the clamp below and by `schema.ts`'s `body.maxLength`: the ceiling
+ * is what the schema can state, while the enforced cap is the project's own value, refused by
+ * `resolveRequest` with the number that applied.
+ */
+export const MIN_BODY_CHARS = 1_000;
+export const MAX_BODY_CHARS = 1_000_000;
+
 export interface WebFetchConfig {
 	/** Per-request timeout in milliseconds. */
 	timeoutMs: number;
@@ -71,7 +81,7 @@ export function normalizeFetchConfig(
 		acceptLanguage: cleanString(raw.acceptLanguage, base.acceptLanguage),
 		allowPrivateHosts: typeof raw.allowPrivateHosts === "boolean" ? raw.allowPrivateHosts : base.allowPrivateHosts,
 		maxRedirects: clampInteger(raw.maxRedirects, base.maxRedirects, 0, 10),
-		maxBodyChars: clampInteger(raw.maxBodyChars, base.maxBodyChars, 1_000, 1_000_000),
+		maxBodyChars: clampInteger(raw.maxBodyChars, base.maxBodyChars, MIN_BODY_CHARS, MAX_BODY_CHARS),
 		pdfEnabled: typeof raw.pdfEnabled === "boolean" ? raw.pdfEnabled : base.pdfEnabled,
 		cacheEnabled: typeof raw.cacheEnabled === "boolean" ? raw.cacheEnabled : base.cacheEnabled,
 		cacheTtlMs: clampInteger(raw.cacheTtlMs, base.cacheTtlMs, 0, 3_600_000),
