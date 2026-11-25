@@ -451,12 +451,20 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     var empty = byId("rv-rail-empty");
     if (empty) {
       var none = (data.comments || []).length === 0;
+      // A focused page draws one file of a larger scope, so the rail can be empty for a reason no filter
+      // explains: the comments exist, on files this page does not draw. Say that, and name the control that
+      // shows this file again, instead of blaming a filter the reader never typed.
+      var focused = state.total < data.files;
       var message =
         state.shown > 0 || state.total === 0
           ? ""
-          : state.only && none
-            ? "No comments on this review yet"
-            : 'No files match "' + state.text + '"';
+          : state.text !== ""
+            ? 'No files match "' + state.text + '"'
+            : state.only && none
+              ? "No comments on this review yet"
+              : state.only && focused
+                ? "No comments in this file — clear Commented to see it"
+                : "";
       empty.hidden = message === "";
       byId("rv-rail-empty-text").textContent = message;
     }
