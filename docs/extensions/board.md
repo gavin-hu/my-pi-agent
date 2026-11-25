@@ -61,7 +61,7 @@ rule, and one session holds one card in flight by default (`board.wip.perOwner`)
 the lead always, a peer only while its owner is quiet or gone. `move` into `execute` or `done` re-reads the plan and refuses a
 card whose plan is gone. An `execute` card claims the `paths` nobody else holds; `edit` claims added paths and releases removed
 ones, claiming first so a conflict releases nothing. A contract names a `verify` command — the card's own check, not the
-repository's gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs the module and suite size gates first, then the command, in the tree `root` names, refusing the sign when either gate is red.
+repository's gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs the module and suite size gates first, then the command, in the tree `root` names, refusing the sign when either gate is red; a tree that keeps neither gate file skips them, and the sign records the skip so a reader can tell "they held" from "they were not there".
 `done` refuses a sign with no result or one older than the card's state, and resolves the landing: an older tree, a tip
 declaring another card, or a squashed branch its subject names. A reviewed merge is its own landing
 only while it is the tip; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".

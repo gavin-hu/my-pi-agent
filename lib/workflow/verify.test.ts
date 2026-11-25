@@ -9,15 +9,20 @@
 
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { win32 } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, win32 } from "node:path";
 import { createChildSupervisor } from "../child.ts";
 import type { SpawnFn, SpawnedProcess } from "../spawn.ts";
 import type { Card } from "./card.ts";
+import type { Verification } from "./contract.ts";
 import {
 	defaultVerifyRun,
 	MAX_VERIFY_OUTPUT,
+	missingSizeGates,
 	outputLine,
 	SIZE_GATES,
+	SIZE_GATE_FILES,
 	treeOf,
 	VERIFY_TIMEOUT_MS,
 	verifiedCommand,
@@ -267,19 +272,22 @@ describe("the size gates before the card's line", () => {
 
 	const green = { exit: 0, output: "", killed: false };
 
+	/** The seam the cases below hold open: these repositories keep both files, so the gate runs. */
+	const gatesPresent = () => [];
+
 	test("runs the gates first, then the card's line, and records the card's line", async () => {
 		const { calls, run } = byCommand(() => green);
-		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now);
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now, undefined, gatesPresent);
 		// The order is the rule: a second process starts only after the first has settled (#804).
 		expect(calls).toEqual([SIZE_GATES, VERIFY]);
-		expect(answer).toEqual({ verified: { cmd: VERIFY, exit: 0, at: 900, root: CWD } });
+		expect(answer).toEqual({ verified: { cmd: VERIFY, exit: 0, at: 900, root: CWD, sizeGates: { ran: true } } });
 	});
 
 	test("refuses on a red gate, naming the gate and its tail, before the card's line runs", async () => {
 		const { calls, run } = byCommand((command) =>
 			command === SIZE_GATES ? { exit: 1, output: "suites over the bar\n  big.test.ts: 449", killed: false } : green,
 		);
-		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now);
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now, undefined, gatesPresent);
 		expect(calls).toEqual([SIZE_GATES]);
 		expect("error" in (answer ?? {})).toBe(true);
 		const refused = (answer as { error: string }).error;
@@ -293,7 +301,7 @@ describe("the size gates before the card's line", () => {
 
 	test("a gate that outlives the bound is a refusal, not a pass", async () => {
 		const { run } = byCommand(() => ({ exit: -1, output: "", killed: true }));
-		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now);
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now, undefined, gatesPresent);
 		expect((answer as { error: string }).error).toContain("did not finish within 10 minutes");
 	});
 
@@ -301,8 +309,45 @@ describe("the size gates before the card's line", () => {
 		const run = async () => {
 			throw new Error("spawn /bin/sh ENOENT");
 		};
-		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now);
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now, undefined, gatesPresent);
 		expect((answer as { error: string }).error).toContain("spawn /bin/sh ENOENT");
+	});
+
+	test("skips the gate a repository does not keep, and records the skip on the sign", async () => {
+		const { calls, run } = byCommand(() => green);
+		const absent = () => [...SIZE_GATE_FILES];
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now, undefined, absent);
+		// No gate process at all, and the card's own line still runs: a skip is not a refusal.
+		expect(calls).toEqual([VERIFY]);
+		expect(answer).toEqual({
+			verified: {
+				cmd: VERIFY,
+				exit: 0,
+				at: 900,
+				root: CWD,
+				sizeGates: { skipped: "no test/module-sizes.test.ts or test/suite-sizes.test.ts in this repo" },
+			},
+		});
+	});
+
+	test("names only the gate file that is missing", async () => {
+		const { run } = byCommand(() => green);
+		const answer = await verifySpotCheck(spotCard(VERIFY), CWD, run, now, undefined, () => [
+			"test/suite-sizes.test.ts",
+		]);
+		const verified = (answer as { verified: Verification }).verified;
+		expect(verified.sizeGates).toEqual({ skipped: "no test/suite-sizes.test.ts in this repo" });
+	});
+
+	test("reads the files themselves: a directory without them skips, this repository does not", () => {
+		const empty = mkdtempSync(join(tmpdir(), "pi-size-gates-"));
+		try {
+			expect(missingSizeGates(empty)).toEqual([...SIZE_GATE_FILES]);
+		} finally {
+			rmSync(empty, { recursive: true, force: true });
+		}
+		// The repository that owns the gates answers the same question with nothing missing.
+		expect(missingSizeGates(process.cwd())).toEqual([]);
 	});
 
 	test("runs nothing for a card whose contract names no command", async () => {

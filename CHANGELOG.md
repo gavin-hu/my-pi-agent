@@ -145,6 +145,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the size gates a spot-check runs are judged by the tree it runs in. They are this repository's shape — two
+  suites under `test/`, run with `bun` — so a sign in a repository that keeps neither file now skips them instead of
+  refusing every card: `bun test` answers a filter that matches nothing with exit 1, which read as "red". The skip is
+  recorded on the sign (`sizeGates: { skipped }`) and printed by the run clause on all three surfaces, so a green sign
+  says whether the gates held or were not there; a repository that keeps them is signed exactly as before, and a red gate
+  still refuses. Read from the files, never from the command's exit — the gate's own repository must keep its veto.
+
 - `team`: `/team join` asks the bus for `wake`. The command reached the bus through the bare join, which arms `on` when no
   `wake` is asked for and keeps an armed record's mode otherwise, so the door a person types could neither arm `wake` nor
   upgrade an `on` — while `assign`, `ask`, `offer` and a claim already asked through `joinTeam`, and the pages already said

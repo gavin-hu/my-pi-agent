@@ -222,6 +222,22 @@ describe("isContract and isSign", () => {
 		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, checkout: 1 } })).toBe(false);
 	});
 
+	test("a run's size gate is one of its two answers, and a record without one still reads", () => {
+		// #481: the gate is part of the evidence because a reader cannot ask a card whether it ran, so the
+		// field is read as strictly as the rest — `ran` is the fact and nothing else, a skip is a whole
+		// line, and a file that says both is not a shape any call produces.
+		const run = { cmd: "bun run check", exit: 0, at: 4, root: "/repo" };
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, sizeGates: { ran: true } } })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, sizeGates: { skipped: "no test/" } } })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, sizeGates: { ran: false } } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, sizeGates: { skipped: "" } } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, sizeGates: { skipped: 7 } } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, sizeGates: {} } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, sizeGates: { ran: true, skipped: "both" } } })).toBe(
+			false,
+		);
+	});
+
 	test("a sign by instruction is trusted only as the line a signer would have written", () => {
 		expect(isSign({ by: "you", at: 0, byInstruction: "closed on my instruction" })).toBe(true);
 		// A stored sign the write path would never produce: an empty reason, a wrapping one, and a

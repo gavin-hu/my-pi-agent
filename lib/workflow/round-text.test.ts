@@ -222,6 +222,17 @@ describe("the run clause three surfaces print", () => {
 		expect(ranClause(undefined)).toBe("");
 	});
 
+	test("says which way the repository's size gate went, and says nothing when it was not recorded", () => {
+		// A gate that ran is one word; a skip names the files it looked for, because the reader cannot ask
+		// the card, and a sign written before the field existed reads exactly as it did (#481).
+		expect(ranClause({ cmd: VERIFY, exit: 0, at: NOW, sizeGates: { ran: true } })).toBe(
+			" · ran `bun run check` (exit 0) · size gates ran",
+		);
+		expect(
+			ranClause({ cmd: VERIFY, exit: 0, at: NOW, sizeGates: { skipped: "no test/module-sizes.test.ts in this repo" } }),
+		).toBe(" · ran `bun run check` (exit 0) · size gates: skipped (no test/module-sizes.test.ts in this repo)");
+	});
+
 	test("is the same body the browser receives, safe to splice into a script", () => {
 		expect(RAN_CLAUSE_JS).toBe(String(ranClause));
 		const browserClause = new Function(`return (${RAN_CLAUSE_JS});`)() as typeof ranClause;
