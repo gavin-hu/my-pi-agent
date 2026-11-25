@@ -40,7 +40,6 @@ import { BOARD_CLASS } from "./names.ts";
 import { BOARD_EMPTY_JS } from "./empty.ts";
 import { dialogJs } from "./dialog.ts";
 import { BOARD_KEYS_JS } from "./keys.ts";
-import { liveJs } from "./live.ts";
 import { renderJs } from "./render.ts";
 import { rosterJs } from "./roster.ts";
 import { fleetJs } from "./fleet.ts";
@@ -48,6 +47,31 @@ import { activeJs } from "./active.ts";
 import { feedJs } from "./feed.ts";
 import { teamJs } from "./team.ts";
 import { PICKER_MQ } from "./styles.ts";
+import { liveJs } from "./live.ts";
+
+/**
+ * The page's two clocks, in milliseconds.
+ *
+ * They cross the string boundary as numbers rather than literals so a case can drive a short one:
+ * a suite that asserts a mark leaving, or an age moving, would otherwise wait the product's own
+ * period out for every assertion. {@link SHIPPED_PERIODS} is what the page ships with, and
+ * {@link BOARD_CLIENT_JS} is that page — a bundle built from any other pair is a fixture's.
+ */
+export interface BoardPeriods {
+	/** How long a moved card wears its mark. */
+	changeMs: number;
+	/** How often the page redraws the ages and the freshness badge. */
+	ageTickMs: number;
+}
+
+/** How long a moved card wears its mark, in milliseconds: one breath, not a state. */
+export const CHANGE_MS = 1500;
+
+/** How often the page redraws what time changes, in milliseconds: the ages and the freshness badge. */
+export const AGE_TICK_MS = 1000;
+
+/** The periods the shipped page runs on: news wears one breath, and the ages tick once a second. */
+export const SHIPPED_PERIODS: BoardPeriods = { changeMs: CHANGE_MS, ageTickMs: AGE_TICK_MS };
 
 /**
  * The whole client, in load order: paint, round, the card dialog, keys, wiring, start.
@@ -58,9 +82,11 @@ import { PICKER_MQ } from "./styles.ts";
  * the browser has no import graph, and a second copy of any of them is exactly what this
  * bundle is not allowed to hold.
  */
-export const BOARD_CLIENT_JS = `${CLIENT_BASE_JS}
+export function boardClientJs(periods: BoardPeriods = SHIPPED_PERIODS): string {
+	return `${CLIENT_BASE_JS}
 ${namesScript(BOARD_CLASS)}
 ${renderJs({
+	changeMs: String(periods.changeMs),
 	plural: PLURAL_JS,
 	tabTitle: TAB_TITLE_JS,
 	matches: MATCHES_QUERY_JS,
@@ -84,7 +110,7 @@ ${BOARD_CARD_JS}
 ${BOARD_EMPTY_JS}
 ${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS, shortenPath: SHORTEN_PATH_JS, ranClause: RAN_CLAUSE_JS })}
 ${BOARD_KEYS_JS}
-${liveJs({ picker: String(PICKER_MQ) })}
+${liveJs({ picker: String(PICKER_MQ), ageTick: String(periods.ageTickMs) })}
 ${THEME_TOGGLE_JS}
 ${dialogScript({ dialogId: "board-card-dialog", closeId: "card-dialog-close", globalName: "bfCard" })}
 ${keysDialogScript("keys-open")}
@@ -96,3 +122,7 @@ ${keysDialogScript("keys-open")}
   else board.start();
 })();
 `;
+}
+
+/** The shipped client: the page `/board` serves, on {@link SHIPPED_PERIODS}. */
+export const BOARD_CLIENT_JS = boardClientJs();

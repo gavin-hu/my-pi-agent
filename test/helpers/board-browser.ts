@@ -18,6 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
+import type { BoardPeriods } from "../../extensions/board/view/client.ts";
 import { boardConfig } from "../../lib/workflow/config.ts";
 import { MAX_WIP } from "../../lib/workflow/limits.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
@@ -30,6 +31,17 @@ export const BOARD_CHROME = findChrome();
 
 /** How long a page gets to show what its fixture holds. */
 export const BOARD_PAINT_MS = 10_000;
+
+/**
+ * The periods a fixture drives the page on: a mark that clears in half a second, and a tick ten
+ * times a second.
+ *
+ * The mark window has to outlast a store write, an SSE frame and a paint, or a case that waits for
+ * the mark to *arrive* races the timer that removes it — 500 ms keeps a frame's latency at roughly
+ * a third of the window. A suite that asserts what a reader sees on the shipped page leaves
+ * `periods` unset and gets the product's own 1500/1000.
+ */
+export const SUITE_PERIODS: BoardPeriods = { changeMs: 500, ageTickMs: 100 };
 
 /**
  * Wait until the page has painted twice: once for the change just made, once for the layout behind it.
@@ -46,6 +58,25 @@ export async function drawn(page: Page): Promise<void> {
 				const frame = (globalThis as unknown as { requestAnimationFrame(run: () => void): void }).requestAnimationFrame;
 				frame(() => frame(() => resolve()));
 			}),
+	);
+}
+
+/**
+ * Wait until the page has ticked: its own count of the times time moved is higher than it was.
+ *
+ * The tick redraws the ages from the browser's clock, and on a fixture page those stamps carry the
+ * fixture's clock — so the redraw changes no text and the only evidence is the count. That is still
+ * the product's own doing rather than a sleep asserting the machine was fast enough, which is what
+ * this replaces.
+ */
+async function ticked(page: Page): Promise<void> {
+	const ticks = (): Promise<number> =>
+		page.evaluate(() => (globalThis as unknown as { bfBoard?: { ticks?: number } }).bfBoard?.ticks ?? 0);
+	const before = await ticks();
+	await page.waitForFunction(
+		(was) => ((globalThis as unknown as { bfBoard?: { ticks?: number } }).bfBoard?.ticks ?? 0) > was,
+		before,
+		{ timeout: BOARD_PAINT_MS },
 	);
 }
 
@@ -77,6 +108,13 @@ export interface BoardBrowserOptions {
 	bus?: string;
 	/** This machine's host id, so a foreign record is drawn as being elsewhere. */
 	host?: string;
+	/**
+	 * The page's two clocks, in ms; omitted, the shipped pair.
+	 *
+	 * {@link SUITE_PERIODS} is the short pair for a suite that asserts a mark leaving or an age
+	 * moving, and a suite that asserts what a reader sees should leave it alone.
+	 */
+	periods?: BoardPeriods;
 }
 
 /** One board in one browser: the store behind it, and fresh tabs on it. */
@@ -85,6 +123,13 @@ export interface BoardBrowser {
 	store: BoardStore;
 	/** The store's directory, for a suite that writes a file beside the cards. */
 	directory: string;
+	/**
+	 * Wait until the page's clock has moved: the badge beside the stream state names a newer age.
+	 *
+	 * A case that asserts nothing *else* changed needs the page to have ticked, and this is that
+	 * evidence — the age tick's own effect, rather than a sleep asserting the machine was fast.
+	 */
+	ticked(page: Page): Promise<void>;
 	/**
 	 * The one tab this suite reads, its document reloaded for every case.
 	 *
@@ -151,6 +196,7 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 		...(options.roster === undefined ? {} : { roster: options.roster }),
 		...(options.bus === undefined ? {} : { bus: options.bus }),
 		...(options.host === undefined ? {} : { host: options.host }),
+		...(options.periods === undefined ? {} : { periods: options.periods }),
 	});
 	const browser = await launchBrowser(BOARD_CHROME);
 	const tab = async (url: string): Promise<Page> =>
@@ -165,6 +211,7 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 		store,
 		directory,
 		tab,
+		ticked,
 		reuse: async () =>
 			// A dead browser is met here first: this is the reload of a tab that outlives its case, so
 			// without the guard the death surfaces as this case's own timeout in a file nothing touched.
