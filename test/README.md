@@ -141,6 +141,12 @@ that used to own a fifth of that sweep is `extensions/plan/web-outline-live.test
 widens
 to that sweep by itself when the change is the runner's, when there is no branch to narrow against,
 or when `git` cannot say — `scripts/check.ts` decides and `scripts/check.test.ts` holds each answer.
+The ordinary plan carries the browser tier: it runs the smoke three — `code-review/view/interaction`,
+`plan/web-behaviour`, `board/view/queue`, one served page each — and ignores the layer's other 37 with
+an exact `--path-ignore-patterns` path apiece, while `check:all` and every widened answer run all
+forty. The tier is the runner's because `test/suite-sizes.test.ts` names three of those suites at
+their exact heights, so a `describe.skipIf` line per suite is refused. A suite added to the layer
+runs locally until someone names it smoke: **an addition costs time, never coverage.**
 The typecheck is incremental from `tsconfig.json` into `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s the
 first time and 3.2 s after that. CI checks out fresh, so every job still proves the cold result;
 `rm -f .pi/cache/tsconfig.tsbuildinfo` reproduces it here.
