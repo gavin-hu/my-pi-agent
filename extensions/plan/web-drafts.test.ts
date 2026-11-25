@@ -17,6 +17,7 @@ import { type TestBrowser } from "../../test/helpers/browser.ts";
 import {
 	type Doc,
 	mountReview,
+	openPlanTab,
 	openReview,
 	REVIEW_CHROME,
 	REVIEW_PAGE,
@@ -40,9 +41,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 		// the way back, so it restores the body the editor opened on rather than leaving the
 		// draft with a half-edited note.
 		const local = await mountReview({ ...REVIEW_PAGE, annotations: [{ anchor: 1, comment: "before" }] });
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector(".bf-comment", { timeout: REVIEW_PAINT_MS });
 			await page.click(".bf-comment__actions button:nth-of-type(2)");
 			await page.fill(".bf-comment textarea", "after");
@@ -50,7 +50,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 			expect(await page.textContent(".bf-comment__body")).toBe("before");
 			expect(await page.$$eval(".bf-comment textarea", (nodes) => nodes.length)).toBe(0);
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -59,9 +60,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 		// Resolve and Delete repaint the thread they sit in, which would take the composer with
 		// it: both refuse while the draft exists rather than resolving over a note nobody sent.
 		const local = await mountReview({ ...REVIEW_PAGE, annotations: [{ anchor: 1, comment: "mine" }] });
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector(".bf-comment", { timeout: REVIEW_PAINT_MS });
 			await page.click('#plan .bf-block[data-line="4"] .bf-block__add');
 			await page.fill(".bf-composer textarea", "half a thought");
@@ -73,7 +73,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 			expect(await page.$$eval(".bf-comment", (nodes) => nodes.length)).toBe(1);
 			expect(await page.inputValue(".bf-composer textarea")).toBe("half a thought");
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -82,9 +83,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 		// Edit replaces a card, so it is a repaint too; and the composer refuses over an edit, which
 		// is the same guard read from the other side once both fields count as a draft.
 		const local = await mountReview({ ...REVIEW_PAGE, annotations: [{ anchor: 1, comment: "mine" }] });
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector(".bf-comment", { timeout: REVIEW_PAINT_MS });
 			await page.click('#plan .bf-block[data-line="4"] .bf-block__add');
 			await page.fill(".bf-composer textarea", "half a thought");
@@ -102,7 +102,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 			expect(await page.inputValue(".bf-comment textarea")).toBe("edited");
 			expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(0);
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -111,9 +112,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 		// The old order asked only whether a composer was open, so Escape in an editor fell through
 		// to the review's close and took the edit with it. One Escape now restores the note.
 		const local = await mountReview({ ...REVIEW_PAGE, annotations: [{ anchor: 1, comment: "before" }] });
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector(".bf-comment", { timeout: REVIEW_PAINT_MS });
 			await page.click(".bf-comment__actions button:nth-of-type(2)");
 			await page.fill(".bf-comment textarea", "after");
@@ -127,7 +127,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 			expect(await page.$eval("#plan", (node) => node.isConnected)).toBe(true);
 			expect(await page.$eval("#save", (node) => (node as unknown as { disabled: boolean }).disabled)).toBe(false);
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -149,7 +150,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's comment drafts", () =
 			);
 			expect(await page.$eval(".bf-comment:focus", (node) => node.textContent)).toContain("a committed note");
 		} finally {
-			await page.close();
+			// The tab outlives this case's mount: park it before the server goes.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
