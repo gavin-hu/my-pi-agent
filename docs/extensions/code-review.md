@@ -93,8 +93,8 @@ anyway. A surviving row anchors to its marked new number; a deleted line's ref s
 
 - The review is the session's. Its comments live as long as the page does; an unsent
   draft stays in this tab, per line, and sending keeps both — notice and `code_review`.
-- One page per session. Changing scope is refused while a comment is on the page —
-  a `409` naming what would be lost.
+- One page per session. A scope change is refused while the page holds a draft or a
+  mark, by one rule for `/review`, the tool and the tabs; sent comments never hold it.
 - A focused page (`?file=`) hides the other files without forgetting them, and a
   moved diff can leave a comment or an unsent draft on a line no hunk shows: both
   still send, and the stranded one is listed above the diff, to delete or discard.

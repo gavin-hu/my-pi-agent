@@ -33,14 +33,8 @@ import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
 import type { StreamRegistry } from "../../../lib/web/streams.ts";
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { ReviewCurrent } from "../review/current.ts";
-import {
-	NO_PAGE,
-	SNAPSHOT_MOVED,
-	type Review,
-	type ReviewComment,
-	type ReviewStore,
-	type WriteOp,
-} from "../review/store.ts";
+import { scopeRefusal, scopeWork } from "../review/scope-work.ts";
+import { NO_PAGE, SNAPSHOT_MOVED, type ReviewComment, type ReviewStore, type WriteOp } from "../review/store.ts";
 import { parseScope, type ReviewScope } from "../scope.ts";
 import { REVIEW_CLIENT_JS } from "../view/client.ts";
 import { renderReviewFile } from "../view/file.ts";
@@ -146,31 +140,6 @@ export function anchorDrawn(files: ReviewSnapshot["files"], rel: string, side: "
 	const file = files.find((entry) => entry.rel === rel);
 	if (file === undefined) return false;
 	return file.lines.some((entry) => (side === "new" ? entry.newNo === line : entry.oldNo === line));
-}
-
-/** The work a scope change would discard: comments still in draft, and files marked reviewed. */
-export function scopeWork(review: Review): { drafts: number; marks: number } {
-	return {
-		drafts: review.comments.filter((comment) => comment.state === "draft").length,
-		marks: review.reviewed.length,
-	};
-}
-
-/** The sentence a scope change refuses with, naming only the work it would discard. */
-export function scopeRefusal(review: Review, label: string): string {
-	const { drafts, marks } = scopeWork(review);
-	const has = [
-		drafts > 0 ? `${drafts} draft comment${drafts === 1 ? "" : "s"}` : "",
-		marks > 0 ? `${marks} file${marks === 1 ? "" : "s"} marked reviewed` : "",
-	].filter((part) => part !== "");
-	const actions = [drafts > 0 ? "send the drafts" : "", marks > 0 ? "clear the marks" : ""].filter(
-		(part) => part !== "",
-	);
-	// Sent comments are the session's already — the notice and `code_review comments` carry
-	// them — so only what a page replacement would destroy is named here, and every action in
-	// the sentence is one the reviewer can take from the page.
-	const action = actions.join(" and ");
-	return `This review has ${has.join(" and ")} on ${label}. ${action.charAt(0).toUpperCase()}${action.slice(1)} before switching scope.`;
 }
 
 /** The handler for one mounted review page. */

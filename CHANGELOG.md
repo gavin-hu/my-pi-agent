@@ -10,6 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `code-review`: a `?file=` page counts and measures the whole scope it was opened on — `1 of 2 files`, `0 of 2 reviewed` — instead of the one file it draws, a shift-click writes the place a reload restores, and `]`/`[` land the next or previous hunk below the pinned head rather than on the hunk they just reached.
 
+- `code-review`: a scope change is one reversible rule. The page's tabs, `/review <scope>` and `code_review` all refuse it on the drafts and marks a replacement would destroy — never on sent comments, which the session keeps — with one sentence built in `review/scope-work.ts`, and a refusal from the command or the tool now names the address the page is still open at.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
@@ -278,6 +280,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the model-readable one, because no normalizer changed. `session`'s `paths` gains the `minItems` it was missing, so
   an empty list is refused by the schema where `normalizePaths` used to be the first to say so, and the description's
   `wake` clause paid the keyword's cost: `wake`'s own field states it, per burst and when it arrives.
+
+- `code-review`: an unsent draft is deleted by the id it carries, not by the line it was typed on. The record was
+  keyed by `[path, line, side]` while a reload could relocate the composer to another line, so a save forgot an
+  anchor nothing was stored under: the text came back after every save, and Send counted it, so pressing Send posted
+  the comment twice. Each record now carries a client-minted id — unique against the store it is written into rather
+  than against the clock — the composer wears it as `data-draft-id`, and the anchor, side, quote and reply became
+  fields a relocated draft carries to its new place. A record written before this change is migrated on first load,
+  so a reviewer mid-review keeps what they typed.
 
 - `code-review`: a row that survives anchors to its new number, so the page marks the number its bar names instead of
   renaming the line under the pointer — the old column stays the old file's numbering, and its title spells both out. A

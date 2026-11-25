@@ -1,6 +1,6 @@
 /**
- * The session's page: one per session, opened on demand, re-scoped only while no
- * comment is written, and closed without touching what was sent.
+ * The session's page: one per session, opened on demand, re-scoped only while the page
+ * holds nothing a replacement would destroy, and closed without touching what was sent.
  *
  * A real repository is the reader's input and a stub mount stands in for the
  * session's server, so a case reads the page's own state — and, for the scope
@@ -18,8 +18,9 @@ import { createFakePi } from "../../../test/helpers/fakes.ts";
 import { useEnv } from "../../../test/helpers/env.ts";
 import { TOOL_NAME } from "../schema.ts";
 import { registerReviewTool } from "../tools.ts";
-import { createReviewSession, scopeLocked } from "./session.ts";
-import { SNAPSHOT_MOVED } from "./store.ts";
+import { createReviewSession } from "./session.ts";
+import { scopeRefusal } from "./scope-work.ts";
+import { SNAPSHOT_MOVED, type Review } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -154,12 +155,36 @@ describe("opening the page", () => {
 		await session.close();
 	});
 
-	test("refuses a scope change once the review holds a comment, naming the count", async () => {
+	test("a sent comment does not hold a scope change", async () => {
 		const repo = await featureRepo();
 		const mounted = fakeMount();
 		const ctx = fakeCtx({ cwd: repo }).ctx;
 		const session = createReviewSession({ pi: host, ctx, open: () => {}, mount: mounted.mount });
 		await session.open({}, ctx);
+		const handler = mounted.state.specs[0].handler;
+		const page = reviewIsland(String((await ask(handler, "GET", "/new")).body ?? ""));
+		await ask(handler, "POST", "/api/comment", {
+			token: page.token,
+			rev: page.rev,
+			comment: { rel: "a.ts", line: 1, side: "new", body: "name the constant" },
+		});
+		const sent = await ask(handler, "POST", "/api/send", { token: page.token, rev: page.rev });
+		expect(sent.status).toBe(200);
+		// Sent comments are the session's already, so a switch destroys nothing they hold: the
+		// rule counts what a page replacement would lose, not what the page has written.
+		const opened = await session.open({ scope: "staged" }, ctx);
+		expect(opened.kind).toBe("open");
+		expect(mounted.state.specs).toHaveLength(2);
+		await session.close();
+	});
+
+	test("refuses a scope change while a draft would be lost, naming it and the page's address", async () => {
+		const repo = await featureRepo();
+		const mounted = fakeMount();
+		const ctx = fakeCtx({ cwd: repo }).ctx;
+		const session = createReviewSession({ pi: host, ctx, open: () => {}, mount: mounted.mount });
+		const first = await session.open({}, ctx);
+		if (first.kind !== "open") throw new Error("the page did not open");
 		const handler = mounted.state.specs[0].handler;
 		const page = reviewIsland(String((await ask(handler, "GET", "/new")).body ?? ""));
 		const written = await ask(handler, "POST", "/api/comment", {
@@ -169,8 +194,34 @@ describe("opening the page", () => {
 		});
 		expect(written.status).toBe(200);
 		const refused = await session.open({ scope: "staged" }, ctx);
-		expect(refused).toEqual({ kind: "refused", reason: scopeLocked(1, "main...HEAD") });
+		if (refused.kind !== "refused") throw new Error("the scope change was allowed");
+		expect(refused.reason).toContain("1 draft comment on main...HEAD");
+		expect(refused.reason).toContain("Send the drafts before switching scope");
+		// The page is still the reader's, so the refusal names where it still is.
+		expect(refused.reason).toContain(`still open at ${first.status.url}`);
 		expect(mounted.state.specs).toHaveLength(1);
+		await session.close();
+	});
+
+	test("refuses a scope change while a mark alone would be lost", async () => {
+		const repo = await featureRepo();
+		const mounted = fakeMount();
+		const ctx = fakeCtx({ cwd: repo }).ctx;
+		const session = createReviewSession({ pi: host, ctx, open: () => {}, mount: mounted.mount });
+		await session.open({}, ctx);
+		const handler = mounted.state.specs[0].handler;
+		const page = reviewIsland(String((await ask(handler, "GET", "/new")).body ?? ""));
+		const marked = await ask(handler, "POST", "/api/reviewed", {
+			token: page.token,
+			rev: page.rev,
+			rel: "a.ts",
+			reviewed: true,
+		});
+		expect(marked.status).toBe(200);
+		const refused = await session.open({ scope: "staged" }, ctx);
+		if (refused.kind !== "refused") throw new Error("the scope change was allowed");
+		expect(refused.reason).toContain("1 file marked reviewed");
+		expect(refused.reason).toContain("Clear the marks before switching scope");
 		await session.close();
 	});
 
@@ -218,11 +269,45 @@ describe("opening the page", () => {
 	});
 });
 
-describe("the refusal a locked scope prints", () => {
-	test("names the count and the comparison", () => {
-		expect(scopeLocked(1, "main...HEAD")).toBe(
-			"this review has 1 comment on main...HEAD — send them before switching scope",
+/** A review holding `drafts` draft comments and `marks` reviewed files, for the sentence cases. */
+function held(drafts: number, marks: number): Review {
+	return {
+		id: "r1",
+		scope: "base",
+		base: "main",
+		label: "main...HEAD",
+		rev: "rev-1",
+		createdAt: 1,
+		updatedAt: 1,
+		comments: Array.from({ length: drafts }, (_, index) => ({
+			id: `c${index}`,
+			rel: "a.ts",
+			line: index + 1,
+			side: "new" as const,
+			body: "note",
+			state: "draft" as const,
+			at: 1,
+		})),
+		reviewed: Array.from({ length: marks }, (_, index) => `f${index}.ts`),
+	};
+}
+
+describe("the sentence a scope change refuses with", () => {
+	test("names the drafts and the page action that clears them", () => {
+		expect(scopeRefusal(held(1, 0), "main...HEAD")).toBe(
+			"1 draft comment on main...HEAD. Send the drafts before switching scope.",
 		);
-		expect(scopeLocked(3, "worktree")).toContain("3 comments");
+	});
+
+	test("names the marks alone, so a marked page is not told about comments", () => {
+		expect(scopeRefusal(held(0, 2), "worktree")).toBe(
+			"2 files marked reviewed on worktree. Clear the marks before switching scope.",
+		);
+	});
+
+	test("names both when both would be lost", () => {
+		expect(scopeRefusal(held(2, 1), "main...HEAD")).toBe(
+			"2 draft comments and 1 file marked reviewed on main...HEAD. Send the drafts and clear the marks before switching scope.",
+		);
 	});
 });
