@@ -4,7 +4,7 @@ import type { OpenOutcome, ReviewSession, ReviewStatus } from "./review/session.
 import { registerReviewTool, statusLine } from "./tools.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { TOOL_NAME } from "./schema.ts";
+import { ACTION_FIELDS, ReviewParams, TOOL_NAME } from "./schema.ts";
 
 /** A review page the tool drives, recording what it was asked. */
 function fakeSession(options: { status?: Partial<ReviewStatus>; open?: OpenOutcome; sent?: ReviewComment[] } = {}) {
@@ -133,5 +133,36 @@ describe("statusLine", () => {
 	test("names the sent comments a closed page left behind", () => {
 		const line = statusLine({ scope: "base", label: "", files: 0, comments: 0, drafts: 0, sent: 3, reviewed: 0 });
 		expect(line).toContain("3 review comments have been sent");
+	});
+});
+
+describe("code_review tool: a stray field", () => {
+	test("refuses a field the action never reads, naming the action that takes it", async () => {
+		const { session, calls } = fakeSession();
+		const refused = await toolFor(session).execute(
+			"c1",
+			{ action: "status", scope: "base" },
+			undefined,
+			undefined,
+			fakeCtx().ctx,
+		);
+		expect(refused.isError).toBe(true);
+		expect(refused.content[0]?.text).toContain("status does not act on scope: `open` takes it");
+		expect(calls).toEqual([]);
+	});
+
+	test("refuses an action it does not know, instead of closing the page", async () => {
+		const { session, calls } = fakeSession();
+		const refused = await toolFor(session).execute("c1", { action: "explode" }, undefined, undefined, fakeCtx().ctx);
+		expect(refused.isError).toBe(true);
+		expect(refused.content[0]?.text).toContain("unknown action");
+		expect(calls).toEqual([]);
+	});
+
+	test("publishes no field that no action acts on, and invents none", () => {
+		const published = Object.keys(ReviewParams.properties).filter((field) => field !== "action");
+		const claimed = new Set(Object.values(ACTION_FIELDS).flat());
+		expect(published.filter((field) => !claimed.has(field))).toEqual([]);
+		expect([...claimed].filter((field) => !published.includes(field))).toEqual([]);
 	});
 });

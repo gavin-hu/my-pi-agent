@@ -311,3 +311,18 @@ describe("job format", () => {
 		expect(visibleWidth(text.slice("start → ".length))).toBeLessThanOrEqual(48);
 	});
 });
+
+describe("job tool: a stray field", () => {
+	test("refuses a field the action never reads, naming the action that takes it", async () => {
+		const { call } = await setup();
+		const refused = await call({ action: "list", command: "sleep 1" });
+		expect(refused.isError).toBe(true);
+		expect(refused.content[0]?.text).toContain("list does not act on command: `start` takes it");
+	});
+
+	test("does not refuse a field the caller left out", async () => {
+		const { call } = await setup();
+		const started = await call({ action: "start", command: "sleep 1", id: undefined });
+		expect(started.isError).toBeUndefined();
+	});
+});

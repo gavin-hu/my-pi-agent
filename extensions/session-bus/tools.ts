@@ -27,6 +27,7 @@ import {
 	formatTransfer,
 } from "./format.ts";
 import {
+	ACTION_FIELDS,
 	MAX_LABEL,
 	MAX_PATHS,
 	MAX_REFERENCE,
@@ -60,13 +61,13 @@ export const SessionParams = Type.Object({
 	to: Type.Optional(
 		Type.String({
 			maxLength: MAX_LABEL,
-			description: '`send`: required. Target label/id, or `*` for a broadcast — needs `kind: "event"`.',
+			description: "`send`: required. Target label/id, or `*` for a broadcast.",
 		}),
 	),
 	text: Type.Optional(Type.String({ maxLength: MAX_MESSAGE_TEXT, description: "`send`: required. Plain text." })),
 	kind: Type.Optional(
 		StringEnum(["message", "event", "ask", "handoff"] as const, {
-			description: "Kind; defaults to message.",
+			description: "Defaults to message.",
 		}),
 	),
 	key: Type.Optional(
@@ -86,7 +87,7 @@ export const SessionParams = Type.Object({
 		Type.Array(Type.String(), {
 			minItems: MIN_PATHS,
 			maxItems: MAX_PATHS,
-			description: "`claim`/`release`: required. Repo-relative.",
+			description: "`send`: the paths it concerns; `claim`/`release`: required. Repo-relative.",
 		}),
 	),
 	holder: Type.Optional(
@@ -179,6 +180,11 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 			const args = params as SessionArgs;
 			const action = normalizeAction(args.action);
 			if (!action) return errorResult("status", `unknown action "${String(args.action)}".`);
+			// Before the join and before any mailbox read: a refused call has touched nothing, and a
+			// field that reaches an action which never reads it would otherwise be dropped in silence.
+			const { strayField } = await import("../../lib/stray-fields.ts");
+			const stray = strayField(action, args, ACTION_FIELDS);
+			if (stray !== undefined) return errorResult(action, stray);
 			try {
 				await bus.start(ctx);
 				switch (action) {

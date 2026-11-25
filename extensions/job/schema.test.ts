@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_COMMAND, MAX_LABEL, MAX_STDIN, normalizeCall } from "./schema.ts";
+import { JOB_FIELDS, JobParams, MAX_COMMAND, MAX_LABEL, MAX_STDIN, normalizeCall } from "./schema.ts";
 import { asAction } from "../../test/helpers/fixtures/job.ts";
 import { overLimit } from "../../lib/format.ts";
 
@@ -115,5 +115,14 @@ describe("job schema", () => {
 		);
 		expect(asAction(normalizeCall({ action: "send", id: "j1", input: "y" }), "send").newline).toBeUndefined();
 		expect(asAction(normalizeCall({ action: "send", id: "j1", input: "y", eof: true }), "send").eof).toBe(true);
+	});
+});
+
+describe("job call: a stray field", () => {
+	test("publishes no field that no action acts on, and invents none", () => {
+		const published = Object.keys(JobParams.properties).filter((field) => field !== "action");
+		const claimed = new Set(Object.values(JOB_FIELDS).flat());
+		expect(published.filter((field) => !claimed.has(field))).toEqual([]);
+		expect([...claimed].filter((field) => !published.includes(field))).toEqual([]);
 	});
 });

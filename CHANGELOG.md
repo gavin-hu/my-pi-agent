@@ -206,6 +206,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`, `memory`, `code-review`, `job`: a field an action never reads is refused instead of dropped in
+  silence — a `status` call that also names `to` now answers that `send` is the action that takes it, and a `list`
+  with a `command` says `start` owns it. The table of what each action reads lives beside that tool's action list,
+  `lib/stray-fields.ts` words the refusal, and a test holds every published field to an action that reads it. A field
+  the caller left out is not a stray, so a codemod caller's `key: undefined` is not refused for a field it never
+  sent. Two descriptions that denied their own dispatch now say what they do: `memory`'s `scope` is read by `list` as
+  well as the four writes (the sentence shrank, so its surface ceiling fell 1,889 → 1,857), and `session`'s `paths`
+  names `send` as well as `claim`/`release`, paid for by `to` giving up the broadcast rule the description already
+  states. `code_review` also stops treating an action it does not know as `close`.
+
 - `board`: `land` carries a card that deletes a suite again. The proof refused any line removed from
   `test/suite-manifest.ts`, and removing a suite requires removing its declaration, so a card that deletes one
   could never land. A suite the merge no longer has may leave the manifest, while one it still carries is refused
