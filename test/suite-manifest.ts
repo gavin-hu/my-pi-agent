@@ -43,6 +43,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"panel/settings",
 		"panel/settings-runtime",
 		"panel/settings-root",
+		"panel/settings-scope",
 		"panel/skills",
 		"panel/update",
 		"panel/views",

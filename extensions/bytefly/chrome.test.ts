@@ -766,8 +766,8 @@ describe("noticeLines", () => {
 	});
 
 	test("paints the headline's title by the notice's own severity", () => {
-		const budget: NoticeDetails = { source: "bytefly", title: "Session budget reached", severity: "warn" };
-		expect(noticeLines(budget, coloringTheme, 80)[0]).toContain("[warning]Session budget reached");
+		const unpriced: NoticeDetails = { source: "bytefly", title: "No rate for 3 records", severity: "warn" };
+		expect(noticeLines(unpriced, coloringTheme, 80)[0]).toContain("[warning]No rate for 3 records");
 
 		const failed: NoticeDetails = { source: "job", title: "the build failed", severity: "bad" };
 		expect(noticeLines(failed, coloringTheme, 80)[0]).toContain("[error]the build failed");

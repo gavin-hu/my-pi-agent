@@ -139,7 +139,7 @@ describe("PanelComponent settings actions", () => {
 		expect(selectedLine(component)).toContain("Startup screen");
 
 		component.handleInput("G");
-		expect(selectedLine(component)).toContain("Session budget");
+		expect(selectedLine(component)).toContain("Teammates");
 	});
 });
 
@@ -197,11 +197,11 @@ describe("PanelComponent settings review", () => {
 
 		const project = component.render(80).join("\n");
 		expect(project).toContain("showing");
-		expect(project).toContain("of 17");
+		expect(project).toContain("of 16");
 
 		component.handleInput("s");
 		// Every scope lists the catalogue, so the count is the same on both layers.
-		expect(component.render(80).join("\n")).toContain("of 17");
+		expect(component.render(80).join("\n")).toContain("of 16");
 	});
 
 	test("ignores a click below the last body row", () => {
@@ -259,14 +259,14 @@ describe("PanelComponent settings review", () => {
 	});
 
 	test("keeps the label and the caret while editing a long value on a narrow terminal", () => {
-		const { component } = buildPanel({ items: [], section: "settings", globalDoc: { price: { budget: 0 } } });
+		const { component } = buildPanel({ items: [], section: "settings", globalDoc: { team: { lead: "gavin" } } });
 
-		focusPanel(component, "Session budget");
+		focusPanel(component, "Lead");
 		component.handleInput(" ");
 		component.handleInput("1234567890");
 
 		const line = component.render(30).find((candidate) => candidate.startsWith("❯")) ?? "";
-		expect(line).toContain("Session");
+		expect(line).toContain("Lead");
 		expect(line).toContain("▏");
 		expect(line).toContain("…");
 	});
@@ -302,22 +302,29 @@ describe("PanelComponent settings frame", () => {
 		const { component } = buildPanel({ items: [], section: "settings", rows: 40 });
 		const text = component.render(96).join("\n");
 
-		for (const gone of ["Notification title", "Probe timeout", "Rail glyph", "Base ref", "Snapshots kept"]) {
+		for (const gone of [
+			"Notification title",
+			"Probe timeout",
+			"Rail glyph",
+			"Base ref",
+			"Snapshots kept",
+			"Session budget",
+		]) {
 			expect(text, gone).not.toContain(gone);
 		}
 		expect(text).not.toContain("showing");
-		expect(text).toContain("Session budget");
+		expect(text).toContain("Teammates");
 	});
 
 	test("scrolls the list on a 24-row terminal, saying how much it shows", () => {
-		// Seventeen rows, six headings, and the Project note are taller than a 24-row
+		// Sixteen rows, five headings, and the Project note are taller than a 24-row
 		// terminal, which is the trade the catalogue's cap states: the screen keeps its
 		// frame and scrolls the list.
 		const { component } = buildPanel({ items: [], section: "settings", rows: 24 });
 		const lines = component.render(96);
 
 		expect(lines.length).toBeLessThanOrEqual(24);
-		expect(lines.join("\n")).toContain("showing 1–11 of 17");
+		expect(lines.join("\n")).toContain("showing 1–11 of 16");
 	});
 
 	test("fits the whole catalogue on a terminal tall enough for it", () => {
@@ -325,7 +332,7 @@ describe("PanelComponent settings frame", () => {
 		const lines = component.render(96);
 
 		expect(lines.join("\n")).not.toContain("showing");
-		expect(lines.join("\n")).toContain("Session budget");
+		expect(lines.join("\n")).toContain("Teammates");
 		expect(lines.length).toBeLessThanOrEqual(40);
 	});
 
@@ -375,25 +382,4 @@ describe("PanelComponent theme setting", () => {
 		expect(after).toContain("unsaved changes");
 	});
 
-	test("lists the Theme row in Project scope and marks it Global", () => {
-		const { component } = buildPanel({ items: [], section: "settings", themes: ["system", "bytefly-dark"] });
-
-		const text = component.render(80).join("\n");
-		expect(text).toContain("Theme");
-		expect(text).toContain("system · Global");
-
-		// At 40 columns the tag gives way, so both marked rows still answer with their value.
-		const narrow = component.render(40);
-		expect(narrow.find((line) => line.includes("Theme")) ?? "").toContain("system");
-		expect(narrow.find((line) => line.includes("Startup screen")) ?? "").toContain("Off");
-		expect(narrow.join("\n")).not.toContain("· Global");
-		expect(narrow.join("\n")).toContain("Change marked rows in Global scope.");
-		expect(narrow.every((line) => visibleWidth(line) <= 40)).toBe(true);
-
-		// Global scope is where the row can be changed, so the tag goes away there.
-		component.handleInput("s");
-		const global = component.render(80).join("\n");
-		expect(global).toContain("Theme");
-		expect(global).not.toContain("system · Global");
-	});
 });

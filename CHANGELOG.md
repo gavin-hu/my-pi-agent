@@ -175,6 +175,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `bytefly`: the session spend guardrail leaves whole — the `price.budget` key, its **Session budget** row, the footer's
+  `spent/limit` form, and the one warning and OS notification a crossing raised. A file that still states `price.budget`
+  is ignored, and a project that stated one now gets no warning at all: there is no ceiling left to cross, and nothing
+  replaces it. **Currency** is the third **Setup** row — read when the session starts, applied on reload — and a Global
+  setting now, so Project lists it to read and refuses the write; the **Price** heading goes with the row that named it.
+
 - `board`: `/board exit`, the second word that let a seated session drop the seat and keep the page. `stop` is the one
   word now: it ends the page and the seat together, so leaving the seat costs the live round, and `/board` takes both
   back in one keystroke; a session whose branch restored the seat stops it with no page left to close.

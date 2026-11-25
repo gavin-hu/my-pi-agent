@@ -123,15 +123,14 @@ this section existed into it.
 ## `price` — cost calculation
 
 The footer's cost total. Read once per footer install, so a change needs a
-reload. `/bytefly settings` edits `currency.code` and `budget`; choosing a currency
-also writes its default `currency.decimals`, which is a `bytefly.json` edit after
-that.
+reload. `/bytefly settings` edits `currency.code` in your personal file; choosing a
+currency also writes its default `currency.decimals`, which is a `bytefly.json` edit
+after that.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `currency.code` | string | `"CNY"` | `CNY`, `USD` | Pricing algorithm, and which built-in table `rates` starts from. Both apply `peak`; only `USD` falls back to Pi's recorded dollars for an unmatched model. |
 | `currency.decimals` | integer | `2` | `0`–`4` | Digits after the decimal point. |
-| `budget` | number | `0` | `0`–`10000000` | Spend that triggers one warning, in the selected currency; `0` turns the guardrail off. The ceiling holds the session's spend **and the child runs the ledger still holds** (its last 500) — the footer shows that one total against it (`$5.31/$5`), with `↳` drawing the child share so the session's own cost is the subtraction. The warning fires once per crossing, and a `/tree` that drops the spend below the ceiling arms it again. It warns; it never stops a turn. |
 | `rates` | object | DeepSeek's published rates in the selected currency | One entry per `provider/model`, up to 200 keys | Per-million-token prices; merged key by key across the global and project documents, and a key past the 200th is ignored. |
 | `peak.timezone` | string | `"Asia/Shanghai"` | An IANA zone | Zone the peak windows are stated in; an unknown zone drops the whole schedule. |
 | `peak.windows` | array | DeepSeek's weekday windows | Up to 16 entries | The peak windows. |
