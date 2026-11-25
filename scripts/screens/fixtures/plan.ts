@@ -34,7 +34,7 @@ export const PLAN_CONTENT = [
 	"The scroll row on a second review:",
 	"",
 	"```",
-	"▰▰▰▰▰▱▱▱▱▱ 52%  ≡ Steps · changed  lines 12–31 of 42",
+	"▰▰▰▰▰▱▱▱▱▱ 52%  ≡ Steps · changed  lines 12–31 of 42", // allow:glyph: a quoted plan document, not a chip
 	"```",
 	"",
 	"## Steps",

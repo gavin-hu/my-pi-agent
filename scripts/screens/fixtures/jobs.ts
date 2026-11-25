@@ -28,7 +28,7 @@ export const JOBS: JobRecord[] = [
 		stdin: false,
 		sessionId: "s1",
 		seen: false,
-		lastLine: "✓ extensions/todo/tui.test.ts",
+		lastLine: "✓ extensions/todo/tui.test.ts", // allow:glyph: a job's captured output, not a chip
 		statusPath: "/tmp/pi-jobs/j1.status",
 		startToken: "48213",
 	},

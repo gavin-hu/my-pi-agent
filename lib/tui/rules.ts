@@ -16,6 +16,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { usableWidth } from "./columns.ts";
+import { GLYPHS } from "./glyphs.ts";
 import { paint, type TuiRole } from "./tokens.ts";
 
 /** The glyph and colors a rule is drawn with. */
@@ -36,9 +37,10 @@ export interface CenteredRuleStyle extends RuleStyle {
 
 /**
  * The solid rule fill: the glyph a divider repeats. One constant names it, so
- * the header rule, a panel title, and the user-message nameplate cannot drift.
+ * the header rule, a panel title, and the user-message nameplate cannot drift —
+ * and it is the vocabulary's `ruleFill` record, so the fill has one literal.
  */
-export const RULE_GLYPH = "─";
+export const RULE_GLYPH = GLYPHS.ruleFill;
 
 /** A full-width divider in one color. */
 export function plainRule(theme: Theme, width: number, style: RuleStyle = {}): string {

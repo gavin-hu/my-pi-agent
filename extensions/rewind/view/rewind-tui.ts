@@ -13,7 +13,7 @@ import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEvent
 import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../../lib/tui/cursor.ts";
 import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
 import { clip } from "../../../lib/tui/columns.ts";
-import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { GLYPHS, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { emptyState, listRow } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
@@ -142,7 +142,7 @@ export class RewindListComponent implements Component {
 		return screenHint(this.theme, width, [
 			"Esc close",
 			{ text: "Enter choose", color: "accent" },
-			"↑/↓ or k/j select",
+			`${GLYPHS.update}/${GLYPHS.hintDown} or k/j select`,
 			"PgUp/PgDn",
 			"g/G or Home/End",
 		]);

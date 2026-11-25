@@ -38,6 +38,7 @@ import { mutationNotice, scopeLabel, type MemoryEntries } from "../format.ts";
 import { MAX_ENTRY_CHARS } from "../schema.ts";
 import { noteLabel } from "../types.ts";
 import type { MemoryScope } from "../types.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 
 /** Rows the screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
@@ -522,7 +523,11 @@ export class MemoryPickerComponent implements Component {
 			: this.notice !== undefined
 				? clip(`  ${paint(this.theme, "meta", this.notice)}`, w)
 				: this.mergeSource
-					? screenHint(this.theme, w, ["m merge into the focused note", "Esc cancel merge", "↑/↓"])
+					? screenHint(this.theme, w, [
+							"m merge into the focused note",
+							"Esc cancel merge",
+							`${GLYPHS.update}/${GLYPHS.hintDown}`,
+						])
 					: screenHint(this.theme, w, [
 							"Esc close",
 							{ text: "Enter/e edit", color: "accent" },
@@ -531,7 +536,7 @@ export class MemoryPickerComponent implements Component {
 							"m merge",
 							"p move",
 							"s/Tab scope",
-							"↑/↓",
+							`${GLYPHS.update}/${GLYPHS.hintDown}`,
 							"g/G",
 						]);
 

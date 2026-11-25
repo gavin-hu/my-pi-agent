@@ -57,6 +57,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`, `board`: the seat's chip is `⬢ lead`, a solid hexagon rather than the second right-pointing triangle it
+  shared with `▶ auto`. Two triangles in one slot differed by weight alone, and the slot draws one mode at a time, so a
+  reader had no comparison to make: the shape now differs and the colour still carries the verdict. It supersedes the
+  `⏵ lead` bullet below, which stays as written; the glyph is `lib/tui/glyphs.ts`'s `lead` record, so both surfaces that
+  draw the chip follow one literal.
+
+- `lib`: the glyph vocabulary records what a test can hold. `GLYPHS` keeps each literal and `GLYPH_SPECS` carries the
+  facts beside it — the `ink` class, the measured East-Asian `width`, and the one thing the glyph `says` — with a mapped
+  type making the two tables total, so a glyph without a record does not compile. `⏵` and `▶` were the case that prose
+  missed: two distinct characters saying the same thing, which a distinctness test on the literals cannot see and a
+  unique `says` refuses. A shape that carries two jobs declares the second with `also` (`▸` is a running job and a
+  closed fold; `◉` a served port and a live page), and the marks the package re-typed by hand have records of their own
+  now: the rule fill, the spinner's frames as one sequence, the fold, reload, edit, and the up/down hint pair.
+  `test/conventions.test.ts` holds the claim the module's docstring always made: a vocabulary glyph re-typed in
+  shipped source fails, with `allow:glyph` for a line that must spell one (a body serialized for the page, a
+  fixture quoting a process's output), and the browser surfaces out of reach because a mark in `content:"▸"` is a
+  font glyph with no column to spend.
+
 - `board`: the seat's tool set is one closed statement. The allow-list was the rule in prose and half the rule in
   behaviour, because the policy it built also passed any tool whose registration declared `readOnlyHint: true` — a hint
   the tool's own author writes about itself. A held seat now refuses that stranger, and admits `run_doctor` by name from

@@ -11,6 +11,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { formatTokens, sanitize, sanitizeLine } from "../../../../lib/format.ts";
 import { gaugeBar } from "../../../../lib/tui/gauge.ts";
+import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
 import { chip } from "../../../../lib/tui/rows.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
 import { budgetState } from "../budget.ts";
@@ -158,7 +159,7 @@ export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 }
 
 /**
- * The mode: `≡ plan` while planning, `⏵ lead` while a session holds the board's
+ * The mode: `≡ plan` while planning, `⬢ lead` while a session holds the board's
  * seat, `▶ auto` otherwise.
  *
  * A mode owns its flag, so the presence of a mode's status key is what the bar
@@ -318,8 +319,8 @@ export function tokensSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
 	const { input, output } = snapshot.usage;
 	if (input === 0 && output === 0) return null;
 	const parts: string[] = [];
-	if (input > 0) parts.push(`↑${formatTokens(input)}`);
-	if (output > 0) parts.push(`↓${formatTokens(output)}`);
+	if (input > 0) parts.push(`${GLYPHS.update}${formatTokens(input)}`);
+	if (output > 0) parts.push(`${GLYPHS.hintDown}${formatTokens(output)}`);
 	return {
 		id: "tokens",
 		weight: 4,

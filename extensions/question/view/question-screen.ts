@@ -201,7 +201,7 @@ export async function askViaTui(
 								prefix,
 								paint(theme, tone, `${i + 1}. `) +
 									box +
-									paint(theme, tone, `${OTHER_LABEL}${state.editing ? " ✎" : ""}`),
+									paint(theme, tone, `${OTHER_LABEL}${state.editing ? ` ${GLYPHS.edit}` : ""}`),
 							),
 						);
 						continue;
@@ -289,8 +289,13 @@ export async function askViaTui(
 					optionCount(question) === 0
 						? [{ text: "Enter to type an answer", color: "accent" }, "Esc cancel"]
 						: question.multiSelect
-							? ["↑/↓ move", "Space toggle", { text: "Enter confirm", color: "accent" }, "Esc cancel"]
-							: ["↑/↓ choose", { text: "Enter select", color: "accent" }, "Esc cancel"];
+							? [
+									`${GLYPHS.update}/${GLYPHS.hintDown} move`,
+									"Space toggle",
+									{ text: "Enter confirm", color: "accent" },
+									"Esc cancel",
+								]
+							: [`${GLYPHS.update}/${GLYPHS.hintDown} choose`, { text: "Enter select", color: "accent" }, "Esc cancel"];
 				if (isMulti) hints.unshift(`Tab/${GLYPHS.prev}${GLYPHS.next} navigate`);
 				tail.push(screenHint(theme, renderWidth, hints));
 				if (question.multiSelect) {

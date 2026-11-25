@@ -21,7 +21,7 @@ import { Container, Markdown, Spacer, Text, visibleWidth, type Component } from 
 import { formatDuration, sanitizeLine, shortenPath, stripControlChars } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { messageText, rejectionLine, reuseCallText, syncElapsedTimer, toolCallTitle } from "../../lib/tui/tool.ts";
-import { ARROW, expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { ARROW, expandHint, GLYPH_SEQUENCES, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { centeredRule } from "../../lib/tui/rules.ts";
 import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
@@ -79,8 +79,9 @@ const STATUS_GLYPH: Record<Exclude<ResultStatus, "running">, string> = {
 	success: GLYPHS.check,
 };
 
-/** Braille frames are narrow and uncoloured, so the running row never shifts. */
-const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+/** Braille frames are narrow and uncoloured, so the running row never shifts; the
+ * sequence is the vocabulary's, because a hand-typed copy of ten frames drifts. */
+const SPINNER_FRAMES = GLYPH_SEQUENCES.spinner.frames;
 
 /** The glyph for a status; the running glyph advances on the 1s repaint clock. */
 function statusGlyph(status: ResultStatus, now: number): string {
@@ -436,7 +437,7 @@ function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number)
 		const taskNote = taskText ? paint(theme, "faint", ` ${clip(sanitizeLine(taskText), 50)}`) : "";
 		// One line per task: the section rule already separates this task from the last, so a
 		// blank row above it would be a row the block cannot say anything with.
-		text += `\n${paint(theme, "meta", "─── ")}${paint(theme, "accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme, now)}`;
+		text += `\n${paint(theme, "meta", `${GLYPHS.ruleFill.repeat(3)} `)}${paint(theme, "accent", resultLabel(result, i))}${taskNote} ${statusIcon(status, theme, now)}`;
 		text += statusSuffix(result, status, theme, now);
 		text += `\n${collapsedBody(result, status, displayItems, theme)}`;
 	}

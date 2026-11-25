@@ -23,6 +23,7 @@ import { emptyState, listRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { PlanSummary } from "./plans.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 
 /** Rows the screen shows when the terminal height is unknown. */
 const DEFAULT_ROWS = 14;
@@ -265,7 +266,13 @@ export class PlanIndexComponent implements Component {
 		const hint =
 			this.notice !== undefined
 				? clip(`  ${paint(theme, "meta", this.notice)}`, w)
-				: screenHint(theme, w, ["Esc close", { text: "Enter read", color: "accent" }, "r reload", "↑/↓", "g/G"]);
+				: screenHint(theme, w, [
+						"Esc close",
+						{ text: "Enter read", color: "accent" },
+						"r reload",
+						`${GLYPHS.update}/${GLYPHS.hintDown}`,
+						"g/G",
+					]);
 
 		return dockListFrame({
 			theme,
