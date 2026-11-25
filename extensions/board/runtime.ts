@@ -220,7 +220,13 @@ export function createLeadRuntime(pi: ExtensionAPI): LeadRuntime {
 					return modeRefusal("lead", "running an empty shell command");
 				}
 				const decision = readOnlyGitCommand(command, LEAD_PHRASING);
-				if (!decision.ok) return `${decision.reason} ${modeRefusal("lead", "running another command")}`;
+				if (!decision.ok) {
+					// The guard's alternative, when it has one, sits between the reason and the
+					// hatch: `git -C` and `cd` name the forms that read the tree they were reaching
+					// for, and every other refusal has no hint to print.
+					const hint = decision.hint === undefined ? "" : ` ${decision.hint}`;
+					return `${decision.reason}${hint} ${modeRefusal("lead", "running another command")}`;
+				}
 				(input as { command: string }).command = decision.command;
 				return undefined;
 			}

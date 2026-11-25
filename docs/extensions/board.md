@@ -79,7 +79,7 @@ or not told — and an untold one is sent again.
 
 **Lead mode.** Serving the page is the seat: `/board` turns the mode on in that session and the bar draws `⏵ lead`. While it holds the seat keeps a closed
 allow-list — the readers `read`, `grep`, `find`, `ls`, `read_doc`, `run_doctor`; the board's verbs (`board`, `team`, `session`, `plan`, `todo`, `goal`,
-`question`, `subagent`); `web_search`, `web_fetch`, `bash` for read-only git — and every other tool is refused by a sentence naming `/board stop`. A tool's
+`question`, `subagent`); `web_search`, `web_fetch`, `bash` for read-only git — a retargeting `-C` or `cd` is refused with the by-revision forms to use instead (`git show <sha>:<path>`, `git log <branch>`) — and every other tool is refused by a sentence naming `/board stop`. A tool's
 own `readOnlyHint` does not admit it, so an MCP reader is refused while the seat is held. `subagent` stays read-only, `plan` keeps `write` and `steps`
 while `enter` refuses, and each turn carries one `[LEAD MODE]` line: the seat's unread mail, what is yours to sign, each parked card's decision,
 the pool's three ids and a count, who is listening. A seated session lands a reviewed card with `board land`, which refuses anyone else, so the seat stays on.

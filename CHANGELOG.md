@@ -152,6 +152,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the seat's `bash` judge reads git's options by position, so a subcommand's own `-c` is no longer refused as the
+  global one: `git grep -c TODO`, `git diff -c` and `git log -c` run while `git -c alias.x=!sh x`, `git --bare`,
+  `git --git-dir=…` and `git grep -O<pager>` stay refused — the last three by the global-slot check and grep's own case,
+  and a write shaped like `git branch -c a b` by that subcommand's flag allowlist. A `cd`, `-C`, `--git-dir` or
+  `--work-tree` refusal now names the forms that read the same tree without retargeting the repository —
+  `git show <sha>:<path>`, `git log <branch>`, `git diff <a> <b> -- <path>`, `git ls-tree <sha>` — as a mode-neutral hint
+  the seat prints between the reason and its hatch, so plan mode's sentences are unchanged.
+
 - `board`: `land` derives its merge subject from the card's title, and a title that opens `type(scope):` — `docs(board): …` —
   now has that prefix stripped as a bare `scope:` already was, so the subject names the surface once instead of twice. The fix
   is the pattern rather than a parameter: a caller who could pass a subject could write one nobody reviewed, and a landed

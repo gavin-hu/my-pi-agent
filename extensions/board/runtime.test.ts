@@ -260,6 +260,22 @@ describe("lead runtime — the gate", () => {
 		expect(await runtime.refusal("bash", { command: "  " })).toContain("/board stop");
 	});
 
+	test("names the by-revision forms between the reason and the hatch", async () => {
+		const { runtime, ctx } = setup();
+		runtime.enable(ctx);
+		const line = await runtime.refusal("bash", { command: "git -C /tmp/other status" });
+		expect(line).toContain('"git -C" is not a read-only subcommand.');
+		expect(line).toContain("`git show <sha>:<path>`");
+		// The hatch stays last: the alternative sits between the reason and the way out.
+		expect(line?.indexOf("`git show <sha>:<path>`")).toBeLessThan(line?.indexOf("/board stop") ?? -1);
+
+		// A subcommand's own `-c` runs now; the global one is still refused by position.
+		expect(await runtime.refusal("bash", { command: "git grep -c TODO" })).toBeUndefined();
+		const global = await runtime.refusal("bash", { command: "git -c alias.x=!sh x" });
+		expect(global).toContain("/board stop");
+		expect(global).not.toContain("`git show <sha>:<path>`");
+	});
+
 	test("forces a delegated child read-only, and refuses one that cannot be", async () => {
 		const pinned = setup();
 		pinned.runtime.enable(pinned.ctx);

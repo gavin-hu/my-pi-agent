@@ -45,6 +45,13 @@ describe("read-only git shell guard — allowed shapes", () => {
 		"git describe --tags",
 		"git blame src/a.ts",
 		"git grep TODO",
+		// A subcommand's own `-c` is not git's global one: grep counts, log and diff
+		// ask for a combined diff.
+		"git grep -c TODO",
+		"git diff -c",
+		"git log -c",
+		// `-O` after `log` is the order file; grep's pager form is refused by its own case.
+		"git log -O /tmp/order",
 		"git shortlog -sn",
 		"git ls-files",
 		"git ls-tree HEAD",
@@ -135,6 +142,11 @@ describe("read-only git shell guard — refused shapes", () => {
 		"git cat-file --filters --path=src/a.ts blob",
 		"git -c alias.x=!sh x",
 		"git --git-dir=/tmp/x status",
+		"git -O /tmp/pager status",
+		"git --bare status",
+		// After the subcommand `-c` is that subcommand's flag, so a write it spells is
+		// refused by the flag allowlist rather than the position.
+		"git branch -c a b",
 		// Dual-use subcommands must be in their listing form.
 		"git branch -D foo",
 		"git branch foo",
@@ -192,6 +204,57 @@ describe("read-only git shell guard — refused shapes", () => {
 
 	test("names the form a narrowed remote should use", () => {
 		expect(reason("git remote show origin")).toContain('"git remote -v"');
+	});
+});
+
+describe("read-only git shell guard — the alternative a refusal offers", () => {
+	const verdictOf = (command: string) => guard(command);
+	const hint = (command: string): string => {
+		const verdict = verdictOf(command);
+		return verdict.ok ? "" : (verdict.hint ?? "");
+	};
+	const reason = (command: string): string => {
+		const verdict = verdictOf(command);
+		return verdict.ok ? "" : verdict.reason;
+	};
+
+	test("names the by-revision forms for a tree it will not follow", () => {
+		// `cd` and the global retargeting options move the process or the repository, which
+		// is what the forced diff switches cannot survive; the forms read the same tree.
+		for (const command of [
+			"cd /tmp",
+			"cd /tmp && git status",
+			"git -C /tmp status",
+			"git --git-dir=/tmp/x status",
+			"git --work-tree /tmp status",
+		]) {
+			expect(hint(command), command).toContain("`git show <sha>:<path>`");
+			expect(hint(command), command).toContain("`git ls-tree <sha>`");
+		}
+	});
+
+	test("carries the hint from the segment that failed in a chain", () => {
+		const verdict = verdictOf("git status && git -C /tmp log");
+		expect(verdict.ok).toBe(false);
+		expect(reason("git status && git -C /tmp log")).toContain('"git -C"');
+		expect(hint("git status && git -C /tmp log")).toContain("`git log <branch>`");
+	});
+
+	test("offers nothing where the reason already names the door", () => {
+		for (const command of ["git branch -D foo", "ls", "git -c alias.x=!sh x", "git grep -Ocat TODO"]) {
+			expect(hint(command), command).toBe("");
+		}
+	});
+
+	test("refuses a copied ref by its flag, so the position cannot open a write", () => {
+		expect(reason("git branch -c a b")).toContain('flag "-c"');
+	});
+
+	test("keeps plan mode's reason untouched while the hint rides beside it", () => {
+		// Plan's door prints `${reason}` and nothing else, so the hint is additive: the one
+		// sentence it shipped is the one it still prints.
+		const verdict = verdictOf("git -C /tmp status");
+		expect(verdict.ok ? "" : verdict.reason).toBe('"git -C" is not a read-only subcommand.');
 	});
 });
 
