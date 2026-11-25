@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `code-review`: a `?file=` page counts and measures the whole scope it was opened on — `1 of 2 files`, `0 of 2 reviewed` — instead of the one file it draws, a shift-click writes the place a reload restores, and `]`/`[` land the next or previous hunk below the pinned head rather than on the hunk they just reached.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added

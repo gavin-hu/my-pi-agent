@@ -77,13 +77,13 @@ leaving ends the page 1.5 s later so a reload fits. Nothing watches the tree: **
 for the revision the page would render now, so a moved diff opens no box; the write still refuses.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff: the
-rail shows that file and an **all files** link back, and the comparison is still the
-whole scope, so nothing about the snapshot or its token changes. It is typed, not
-linked. The file's head carries **view file**, which serves the whole file at
-`/review/file?scope=<s>&path=<rel>`: only a listed path, read under the reviewed
-checkout, drawn on the diff's gutter, with a way back. `n` and `p` step between the
-focused file's hunks; the whole review keeps `[` and `]`. A reference copied from a
-selection is `path:12-30`.
+rail shows that file and an **all files** link back, while the count and the progress
+still name the whole scope — `1 of 2 files` for a page drawing one of two — and the
+snapshot and its token stay the whole scope's. The head carries **view file**, which
+serves the whole file at `/review/file?scope=<s>&path=<rel>`: only a listed path, read
+under the reviewed checkout, drawn on the diff's gutter, with a way back. `n` and `p`
+step between the focused file's hunks; the whole review keeps `[` and `]`, and either
+lands the next hunk below the pinned head. A copied ref is `path:12-30`.
 
 **What a comment anchors to.** A path, a side, and a line the comparison draws — a span's end and the rows
 it quotes — checked against the snapshot, refused once the tree moves; a send, a delete and a mark land

@@ -349,6 +349,17 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     else if (!anchor && cursor && cursor.path === path) anchor = { path: path, row: cursor.row };
     cursor = { path: path, row: row };
     currentFile = path;
+    followCursor(path);
+  }
+
+  /**
+   * Paint what the cursor now means and write the place.
+   *
+   * One tail for every cursor change: a caller that moves the cursor and paints it by hand — the
+   * shift-click in the keys module — would otherwise skip the hash, and a reload would land on
+   * the line the reader had before the click.
+   */
+  function followCursor(path) {
     paintSelection(true);
     scrollMainTo(cursorRow());
     scrollRailTo(path);
@@ -425,7 +436,7 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
   function paintProgress() {
     var progress = byId("rv-progress");
     if (!progress) return;
-    progress.textContent = reviewedSet().size + " of " + sections().length + " reviewed";
+    progress.textContent = reviewedSet().size + " of " + data.files + " reviewed";
   }
 
   /**
@@ -434,7 +445,9 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
    */
   function filtered() {
     var state = visibleState();
-    byId("rv-file-count").textContent = state.shown + " of " + state.total + " files";
+    // The count speaks for the scope, the note for the rail: a focused page draws one row of a
+    // two-file scope, and both numbers are then true of something the reader can see.
+    byId("rv-file-count").textContent = state.shown + " of " + data.files + " files";
     var empty = byId("rv-rail-empty");
     if (empty) {
       var none = (data.comments || []).length === 0;
@@ -470,10 +483,23 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     byId("rv-filter").focus();
   }
 
+  /**
+   * Step to the next or previous hunk, measuring the floor a jump lands on rather than a fixed
+   * offset: the hunk already at the pin is the one the reader has reached, so the pick is the
+   * first row strictly below that file's head — the same geometry scrollMainTo uses.
+   */
   function moveHunk(step) {
     var heads = nodeList(".bf-diff-line--hunk");
     if (heads.length === 0) return;
-    var at = heads.findIndex(function (head) { return head.getBoundingClientRect().top > 120; });
+    var main = byId("rv-main");
+    var top = main ? main.getBoundingClientRect().top : 0;
+    var at = -1;
+    heads.forEach(function (head, index) {
+      if (at >= 0) return;
+      var section = head.closest(".rv-file");
+      var fileHead = section ? section.querySelector(".rv-file__head") : null;
+      if (head.getBoundingClientRect().top > top + (fileHead ? fileHead.offsetHeight : 0)) at = index;
+    });
     if (at < 0) at = heads.length;
     var target = heads[Math.min(heads.length - 1, Math.max(0, at + (step > 0 ? 0 : -1)))];
     scrollMainTo(target);
