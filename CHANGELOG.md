@@ -12,8 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a `--no-ff` merge under the card's own derived subject, the numstat proof and a named-ref push, all as fixed argv. A
   failed proof or a refused push undoes the merge with `reset --keep`, never `--hard`, so a bad landing costs a local
   merge and never a pushed sha; a session that is not serving the page is refused, naming `/board`. It writes no
-  `landed` — the close stays `done` — and it exists because finishing a signed card used to need `/board exit` and a
-  human keystroke.
+  `landed` — the close stays `done` — and it exists because finishing a signed card used to need leaving the seat and
+  a human keystroke.
 
 - `session-bus`: `session release` takes `holder`, a live peer's label, and the seat moves that peer's claims to
   itself in one store call — so a stalled wave is re-dispatchable without a restart, and the peer's next claim meets a
@@ -62,7 +62,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the tool's own author writes about itself. A held seat now refuses that stranger, and admits `run_doctor` by name from
   `lib/tool-names.ts`, which the doctor's registration reads too; plan mode keeps the annotation door, being a read-only
   *tool* gate rather than a role admission. This withdraws a capability: an MCP reader the session could reach outside the
-  seat is refused while it holds the seat, and names `/board exit`.
+  seat is refused while it holds the seat, and names `/board stop`.
 
 - `board`: a spot-check runs the repository's size gates — `test/module-sizes.test.ts` and `test/suite-sizes.test.ts` — before
   the card's own `verify`, serially and in the same tree, and refuses the sign when either is red, naming the gate and what it
@@ -76,10 +76,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   clause and clip the two signatures only the seat can make. The line costs 140 characters more: its ceiling is 620, and
   the test that holds it says so as a decision rather than reading it back from the constant.
 
-- `lib`: a server-sent event frame is spelled once, beside the streams registry — `eventFrame(payload, event?)` — so the
-  registry's `broadcast`/`end`, a board page's attach frame and a browse page's two named frames cannot disagree
-  about the bytes. Every frame on the wire is unchanged: the payload is one line by contract, and a newline inside
-  it is a caller's bug rather than something the helper splits.
+- `lib`: the served pages' streams have one owner. `createStreams` moved into the kit, at `lib/web/streams.ts`, and
+  records a `key` with an optional `token` rather than a review's role, with the closed-tab grace **optional** — so a
+  page that wants a plain fan-out (a board's cards, a browse page's tree) shares one owner instead of writing a third
+  set of sinks; plan converts its roles at the call site and its page still ends when its owner's tab leaves. The
+  registry gained the two calls the adoption proved missing: `size()`, every open stream where `pageOpen()` counts only
+  the lifetime's pages, and an `end` that may carry no frame, which is a teardown rather than a page being told why it
+  is over. A server-sent event frame is spelled once beside it — `eventFrame(payload, event?)` — so `broadcast`/`end`,
+  a board page's attach frame and a browse page's two named frames cannot disagree about the bytes; every frame on the
+  wire is unchanged, the payload is one line by contract, and a newline inside it is a caller's bug rather than
+  something the helper splits.
 
 - `code-review`: an unsent comment belongs to its line rather than to the page — one record per anchor in this
   tab, so a second composer no longer overwrites the first, a reload brings back every draft whose line is
@@ -90,15 +96,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `board`: the page's frame fan-out is the kit's stream registry, and its own set of sinks is gone. Every
   attached tab is a stream in `createStreams({})` with no lifetime, so the page keeps no second counter beside
   the map — `watchers` and the three "is anyone reading" guards ask the registry — and its close ends those
-  streams and clears them in one place before giving the prefix back. The registry gained the two calls the
-  adoption proved missing: `size()`, every open stream where `pageOpen()` counts only the lifetime's pages,
-  and an `end` that may carry no frame, which is a teardown rather than a page being told why it is over.
-
-- `lib`: the served pages' stream registry moved into the kit. `createStreams` now lives in
-  `lib/web/streams.ts` and records a `key` with an optional `token` rather than a review's role, with
-  the closed-tab grace **optional** — so a page that wants a plain fan-out (a board's cards, a
-  browse page's tree) can share one owner instead of writing a third set of sinks. Plan converts its
-  roles at the call site and its page still ends when its owner's tab leaves.
+  streams and clears them in one place before giving the prefix back.
 
 - `code-review`: the review page's facts have one home each. The footer keeps only the comparison — the
   counts, the totals and the progress it also carried are gone from it — while the rail's head states the
@@ -113,19 +111,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `paths: []` on a card that writes no code, or the card leaving the lane. No behaviour changed: the gate was already
   honest, only its description was quiet.
 
-- `code-review`: a rail row spends its lines on the path. The state word — `no comment`, `marked reviewed`
-  — leaves the visible line for the row's `title`, where it costs no height, and the comment count keeps
-  the name's line; two rows more fit the rail at 1280px, one at 900 and one at 420, on a rail that is
-  capped and scrolls there. The left rule leaves the row and the file head with it: the paper and the
-  status badge already say the state, so one fact wears one mark rather than three.
-
-- `code-review`: the changed-file rail is the kit's collapsible sidebar, so the page wears the same
-  shell as the plan review and browse: a `<details>` that folds into a band above the diff below
-  900px, the file search as the kit's plain field (flush in the panel — the control row's variant
-  carried a `margin-left:auto` that indented it), **All** / **Commented** in place of the "only
-  commented" checkbox, and the header's actions at the control row's right end. The header's chips
-  are gone: the comparison, the counts and the progress were already the footer's one line, so the
-  facts zone keeps only the reload hint. The empty states are the kit's `.bf-empty` and `.bf-note`.
+- `code-review`: the changed-file rail is the kit's collapsible sidebar, and a row spends its lines on the path. The
+  state word — `no comment`, `marked reviewed` — leaves the visible line for the row's `title`, where it costs no
+  height, and the comment count keeps the name's line; two rows more fit the rail at 1280px, one at 900 and one at
+  420, on a rail that is capped and scrolls there. The left rule leaves the row and the file head with it: the paper
+  and the status badge already say the state, so one fact wears one mark rather than three. The rail folds into a band
+  above the diff below 900px, so the page wears the same shell as the plan review and browse; the file search is the
+  kit's plain field (flush in the panel — the control row's variant carried a `margin-left:auto` that indented it),
+  **All** / **Commented** replace the "only commented" checkbox, and the header's actions sit at the control row's
+  right end. The header's chips are gone — the comparison, the counts and the progress were already the footer's one
+  line — so the facts zone keeps only the reload hint, and the empty states are the kit's `.bf-empty` and `.bf-note`.
 
 - `bytefly`: the footer's `▶ auto` mode chip is muted, so a colour on that slot now means the mode holds something —
   `⏵ lead` keeps accent, because the seat is a place the session chose rather than a warning, and `≡ plan` keeps
@@ -136,9 +131,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `board`: `/board exit`, the second word that let a seated session drop the seat and keep the page. `stop` is the one
   word now: it ends the page and the seat together, so leaving the seat costs the live round, and `/board` takes both
-  back in one keystroke. It supersedes the `/board exit` hatch the two `Unreleased` bullets above still name — the seat's
-  allow-list refusal and the `land` note — which from here is spelled `/board stop`; a session whose branch restored the
-  seat stops it with no page left to close.
+  back in one keystroke; a session whose branch restored the seat stops it with no page left to close.
 
 - `file-browse`: the **changes** tag's link, a changed file's **changes** action, and `/files/diff`
   with its `?mode=`. The tag stays — a dot, the count and the `+`/`−` totals — as a plain chip, so
@@ -158,12 +151,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a team join does. A record the bus held disarmed is still re-armed by this door, as before; only the mode it lands on moved
   from `on` to `wake`.
 
-- `board`: a landing's merge scope is derived from the card rather than from the door that lands it. `landScope` read only
-  `extensions/<name>/` from the card's paths and fell back to `board`, so a card whose work lives in `lib/` landed under the
-  landing tool's own name — #868 shipped as `merge(board)` over a `session-bus:` title, and a bare `extensions/<name>` path
-  named nothing at all. The scope is now the one extension the paths name, else the title's own prefix (`session-bus:`,
-  `docs(board):`), else the first path's area (`lib`, `docs`, `test`), with `board` only for a card that names neither. The
-  shas already landed are history and are not rewritten.
+- `board`: a landing's merge subject and its scope are both derived from the card rather than from the door that lands
+  it. `landScope` read only `extensions/<name>/` from the card's paths and fell back to `board`, so a card whose work
+  lives in `lib/` landed under the landing tool's own name — #868 shipped as `merge(board)` over a `session-bus:` title,
+  and a bare `extensions/<name>` path named nothing at all. The scope is now the one extension the paths name, else the
+  title's own prefix (`session-bus:`, `docs(board):`), else the first path's area (`lib`, `docs`, `test`), with `board`
+  only for a card that names neither. A title that opens `type(scope):` has that prefix stripped as a bare `scope:`
+  already was, so the subject names the surface once instead of twice — the fix is the pattern rather than a parameter,
+  since a caller who could pass a subject could write one nobody reviewed. The shas already landed are history and are
+  not rewritten.
 
 - `team`: `/team join` can no longer answer "on the team, listening" over a watch it never checked. With the roster unreadable
   the door kept its standing and returned before the re-ask, so a session armed without wake stayed unreachable; under the name
@@ -186,11 +182,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `git show <sha>:<path>`, `git log <branch>`, `git diff <a> <b> -- <path>`, `git ls-tree <sha>` — as a mode-neutral hint
   the seat prints between the reason and its hatch, so plan mode's sentences are unchanged.
 
-- `board`: `land` derives its merge subject from the card's title, and a title that opens `type(scope):` — `docs(board): …` —
-  now has that prefix stripped as a bare `scope:` already was, so the subject names the surface once instead of twice. The fix
-  is the pattern rather than a parameter: a caller who could pass a subject could write one nobody reviewed, and a landed
-  subject is history.
-
 - `plan`: a refused entry now reads as a refusal at both doors that enter the mode. A branch holding the board's seat —
   with `board` not loaded to refuse the call before it arrives — used to get "You are now in plan mode" from the `plan`
   tool's `enter` and "Plan mode enabled" from `/plan <task>` over a mode that never came on, the task sent with writing
@@ -198,15 +189,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   derives a second copy of it: the tool returns that sentence as a `RefusedPlanDetails` refusal, and the command stops
   before `sendUserMessage`.
 
-- `board`: a session holding the seat can no longer claim a card, or open `execute` on one it holds. The claim took the
-  session's one wip slot and, on `execute`, the card's path claims — for work the seat structurally cannot do, since it
-  refuses `edit`. Both verdicts come from the state machine rather than the tool, so every door answers the same way, and
-  both name `/board exit`.
+- `board`: the seat's two card doors answer from the branch's `lead` mode rather than from the session's label. A
+  session serving the page under its own name used to be a peer at both: it could not take a live peer's card back or
+  open `execute` through its own approval, and the refusal named the lead at the lead — while a seated session could
+  claim a card, taking the session's one wip slot and, on `execute`, the card's path claims for work the seat
+  structurally cannot do, since it refuses `edit`. `who()` now answers the seat from the branch's `lead` mode, and one
+  predicate gates both halves from the state machine rather than the tool: a claim, or the `execute` it would open, is
+  refused naming `/board stop`, while taking a live peer's card back and opening `execute` through the seat's own
+  approval are allowed. A sign still reads the person and the lead's name, because a signature is the human judgement
+  and the seat narrows the tool set rather than granting one.
 
-- `board`: the lead's seat now ends when the page does, and the off-switch holds. `/board exit` stops the leash for the
-  next call whatever the branch still records, `/board stop` and an `attached` `/board` leave the seat, a `/tree` or
-  `/resume` reconciles the tool set and the chip instead of leaving a hidden `write` behind, and a resumed lead branch
-  arms nothing until a page is served in that session.
+- `board`: the lead's seat now ends when the page does, and the off-switch holds. `/board stop` ends it for the next
+  call whatever the branch still records, an `attached` `/board` leaves the seat, a `/tree` or `/resume` reconciles the
+  tool set and the chip instead of leaving a hidden `write` behind, and a resumed lead branch arms nothing until a page
+  is served in that session.
 
 - `board`: the sentence that names a card's holder prints the name the bus shows for that session id, falling back to the
   label the card's record kept and then to the id. A session renamed since it claimed a card left the record holding a
@@ -247,13 +243,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it names the root's `.pi` rather than any `.pi` segment: a worktree's own root *is*
   `.pi/worktrees/<name>`, so the wider form would exclude the whole checkout and check nothing.
 
-- `board`: the session holding the lead's **seat** can take a live peer's card back, and open `execute`
-  through its own approval. Both doors compared the session's label with `team.lead`, so a session
-  serving the page under its own name was a peer at both: the lead was refused with a sentence naming
-  the lead at the lead. `who()` now answers the seat from the branch's `lead` mode, and one predicate
-  gates the two doors — a sign still reads the person and the lead's name, because a signature is the
-  human judgement and the seat narrows the tool set rather than granting one.
-
 - `worktree`: **enter** no longer offers to add the managed directory to `.gitignore` when git declines
   to answer whether it is already ignored. A shell carrying `GIT_LITERAL_PATHSPECS` made `check-ignore`
   refuse the question before it read any rule, and that refusal was read as "not ignored" — so the offer
@@ -266,22 +255,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `[data-wrap="false"]`, and the button seeds its pressed state from the same breakpoint, so the
   switch is the one owner of the fact.
 
-- `question`: a tab header past 12 characters is refused by the tool's schema — UTF-16 units, so an
-  emoji costs two — where it used to be shortened silently; the same schema now names the rule that two
-  headers in one batch, or two options in one question, cannot share a name.
-
-- `send_wechat`: a call that names none of `text`, `image`, and `file` — or more than one — is refused
-  before the bridge is touched, because the tool's schema carries `minProperties`/`maxProperties`; the
-  runtime refusal stays for callers that bypass the schema.
-
-- `session`: the `action` description now says which reader keeps the mail (`inbox` consumes, `read`
-  keeps), and `board`'s `root` names the tree a spot-check runs in — a card's worktree or a checkout at
-  its commit, not a store path — so a call stops being shaped by a parenthesis.
-
-- `job`, `watch`, `plan`, `subagent`, `session`: each verb's required fields are stated in the field they
-  constrain rather than only in the paragraph above it, and three always-on surfaces now hold a measured
-  ceiling: `plan` at 5,575 characters (lower than yesterday, its description no longer repeating its own
-  `plan_path`), and the bound a tool may cost on every request is one table rather than one constant's copy.
+- `tools`: each cap a call must meet is stated in the schema, or in the field it constrains. `question` refuses a tab
+  header past 12 characters — UTF-16 units, so an emoji costs two — where it used to be shortened silently, and the
+  same schema names the rule that two headers in one batch, or two options in one question, cannot share a name;
+  `send_wechat` refuses a call naming none of `text`, `image` and `file` — or more than one — before the bridge is
+  touched, through `minProperties`/`maxProperties`, with the runtime refusal kept for a caller that bypasses the
+  schema; each verb's required fields are stated in the field they constrain rather than only in the paragraph above
+  it, and `session`'s `action` says which reader keeps the mail (`inbox` consumes, `read` keeps). `board`'s `root`
+  names the tree a spot-check runs in — a card's worktree or a checkout at its commit, not a store path — so a call
+  stops being shaped by a parenthesis, and three always-on surfaces hold a measured ceiling: `plan` at 5,575 characters
+  (lower than yesterday, its description no longer repeating its own `plan_path`), with the bound a tool may cost on
+  every request one table rather than one constant's copy.
 
 - `board`: a `done` whose spot-check commit was committed before the card entered `execute` is now
   refused for that — the order — with both ways out named (move the card to `execute` before landing,
