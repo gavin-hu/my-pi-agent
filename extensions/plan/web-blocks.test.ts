@@ -17,6 +17,7 @@ import {
 	REVIEW_CHROME,
 	REVIEW_PAGE,
 	REVIEW_PAINT_MS,
+	openPlanTab,
 } from "../../test/helpers/plan-browser.ts";
 
 let browser: TestBrowser;
@@ -94,9 +95,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's blocks", () => {
 		// browse page draws for the same Markdown — so the two pages render a checklist alike, and
 		// the box is the sheet's drawn control rather than a glyph the renderer picked.
 		const local = await mountReview(RUN);
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan li.task", { timeout: REVIEW_PAINT_MS });
 			const items = await page.$$eval("#plan ul li, #plan ol li", (nodes) =>
 				nodes.map((node) => {
@@ -131,7 +131,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's blocks", () => {
 			);
 			expect(numbers).toEqual([1, 2]);
 		} finally {
-			await page.close();
+			// The tab is the suite's, so it outlives this case's mount: park it before the server
+			// goes, or the page's stream polls a dead origin until the next case navigates.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
@@ -141,9 +143,8 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's blocks", () => {
 		// no item, which is what showed as a band of blank rows under a list and left the block's
 		// rail — the comment control, the badge, the change mark — beside nothing.
 		const local = await mountReview(RUN);
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await openPlanTab(browser, local.url, { width: 1280, height: 900 });
 		try {
-			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan li", { timeout: REVIEW_PAINT_MS });
 			const run = await page.evaluate(() => {
 				// The page's own globals, named rather than assumed: there is no DOM lib here.
@@ -177,7 +178,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's blocks", () => {
 			const after = run[run.length - 1];
 			expect(Math.round((after?.top ?? 0) - (items[3]?.bottom ?? 0))).toBe(0);
 		} finally {
-			await page.close();
+			// The tab is the suite's, so it outlives this case's mount: park it before the server
+			// goes, or the page's stream polls a dead origin until the next case navigates.
+			await page.goto("about:blank");
 			await local.close();
 		}
 	});
