@@ -152,6 +152,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a landing's merge scope is derived from the card rather than from the door that lands it. `landScope` read only
+  `extensions/<name>/` from the card's paths and fell back to `board`, so a card whose work lives in `lib/` landed under the
+  landing tool's own name — #868 shipped as `merge(board)` over a `session-bus:` title, and a bare `extensions/<name>` path
+  named nothing at all. The scope is now the one extension the paths name, else the title's own prefix (`session-bus:`,
+  `docs(board):`), else the first path's area (`lib`, `docs`, `test`), with `board` only for a card that names neither. The
+  shas already landed are history and are not rewritten.
+
 - `team`: `/team join` can no longer answer "on the team, listening" over a watch it never checked. With the roster unreadable
   the door kept its standing and returned before the re-ask, so a session armed without wake stayed unreachable; under the name
   being asked for it now spends the join, asking for wake, or repeats a disarmed join as disarmed. A standing under another name,
