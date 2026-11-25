@@ -147,6 +147,9 @@ describe("the page's GETs", () => {
 		expect(result.status).toBe(409);
 		expect(result.body).toContain("1 draft comment");
 		expect(result.body).toContain("1 file marked reviewed");
+		// The page must print the same sentence the session's refusal prints, actions and all: the
+		// two doors import one `scopeRefusal`, and this is the door no session case reaches.
+		expect(result.body).toContain("Send the drafts and clear the marks before switching scope");
 	});
 
 	test("lets a scope change through once nothing is left to lose", async () => {
