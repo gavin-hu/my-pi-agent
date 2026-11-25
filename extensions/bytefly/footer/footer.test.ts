@@ -1,8 +1,7 @@
 /**
  * The bytefly footer capability: price configuration and lookup, peak
  * scheduling, pricing, usage collection, the child-run ledger, the snapshot
- * reader, the two-line bar's segments and layout, and the install/restore lifecycle;
- * the budget guardrail's own cases live in `budget.test.ts`.
+ * reader, the two-line bar's segments and layout, and the install/restore lifecycle.
  *
  * The bar's tests assert fields, ordering, roles, and width bounds; the shared
  * gauge, chip, and frame contracts live in `lib/tui/`.
@@ -21,7 +20,7 @@ import { fakeTheme, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
 import {
 	fullSnapshot,
 	usageOf,
-	usdBudget,
+	usdPrice,
 	withRegisteredFooter,
 	writeConfig,
 } from "../../../test/helpers/fixtures/footer.ts";
@@ -1028,9 +1027,8 @@ describe("snapshot reader", () => {
 
 		const snapshot = read(millionTokens(), footerData);
 		// The count and the models ride along on the same read, so the unpriced notice
-		// never re-prices the session; the child roll-up rides along for the budget's
-		// ceiling, which holds both totals.
-		expect(read.peek()).toEqual({ usage: snapshot.usage, delegation: snapshot.delegation.usage });
+		// never re-prices the session.
+		expect(read.peek()).toEqual(snapshot.usage);
 		expect(snapshot.usage.unpriced).toBe(0);
 		expect(snapshot.usage.unpricedModels).toEqual([]);
 	});
@@ -1311,6 +1309,11 @@ describe("footer segments", () => {
 		expect(costSegment(fullSnapshot({ usage: usageOf() }), fakeTheme)).toBeNull();
 		expect(costSegment(fullSnapshot(), fakeTheme)?.forms).toEqual(["$0.31"]);
 		expect(costSegment(fullSnapshot({ currency: { code: "CNY", decimals: 2 } }), fakeTheme)?.forms).toEqual(["¥0.31"]);
+		// What the session spent is a reading, not a warning: only the unpriced count
+		// turns `warn`.
+		const theme = makeRecordingTheme() as any;
+		costSegment(fullSnapshot(), theme);
+		expect(theme.calls).toContainEqual(["muted", "$0.31"]);
 	});
 
 	test("marks the records the total leaves out, and appears when the total is only short", () => {
@@ -1326,33 +1329,6 @@ describe("footer segments", () => {
 			fakeTheme,
 		);
 		expect(silent?.forms).toEqual(["$0.00 · 1 unpriced", "1 unpriced"]);
-	});
-
-	test("shows the budget as a ceiling beside the spend, and turns warn at it", () => {
-		const under = costSegment(fullSnapshot({ budget: 5 }), fakeTheme);
-		expect(under?.forms).toEqual(["$0.31/$5"]);
-
-		const over = costSegment(fullSnapshot({ budget: 0.25 }), fakeTheme);
-		expect(over?.forms).toEqual(["$0.31/$0.25"]);
-		// The same condition the budget notice fires on, so the two cannot disagree.
-		const reached = makeRecordingTheme() as any;
-		costSegment(fullSnapshot({ budget: 0.25 }), reached);
-		expect(reached.calls).toContainEqual(["warning", "$0.31/$0.25"]);
-		const below = makeRecordingTheme() as any;
-		costSegment(fullSnapshot({ budget: 5 }), below);
-		expect(below.calls).toContainEqual(["muted", "$0.31/$5"]);
-		// The ceiling is the number the user typed: its cents stay, its trailing zeros go.
-		expect(costSegment(fullSnapshot({ budget: 7.5 }), fakeTheme)?.forms).toEqual(["$0.31/$7.5"]);
-
-		// A fresh session against a ceiling shows the allowance rather than nothing.
-		expect(costSegment(fullSnapshot({ usage: usageOf(), budget: 5 }), fakeTheme)?.forms).toEqual(["$0.00/$5"]);
-		// And the warning still leads the narrower forms.
-		const short = usageOf({ unpriced: 2, unpricedModels: [{ key: "a/b", records: 2 }] });
-		expect(costSegment(fullSnapshot({ usage: short, budget: 5 }), fakeTheme)?.forms).toEqual([
-			"$0.00/$5 · 2 unpriced",
-			"2 unpriced",
-			"$0.00/$5",
-		]);
 	});
 
 	test("rolls up the child runs beside the session cost", () => {
@@ -1673,7 +1649,7 @@ describe("the repaint key", () => {
 		const first = cache.keyed([100, fakeTheme, key(fullSnapshot())], build);
 		expect(cache.keyed([100, fakeTheme, key(fullSnapshot())], build)).toBe(first);
 		expect(built).toBe(1);
-		cache.keyed([100, fakeTheme, key(fullSnapshot({ budget: 5 }))], build);
+		cache.keyed([100, fakeTheme, key(fullSnapshot({ usage: usageOf({ cost: 0.32 }) }))], build);
 		expect(built).toBe(2);
 	});
 });
@@ -2038,7 +2014,7 @@ describe("registerFooter unpriced records", () => {
 		);
 
 		// USD adds Pi's recorded amount for any model, so nothing is unpriced.
-		await withRegisteredFooter(usdBudget(0), async (h) => {
+		await withRegisteredFooter(usdPrice(), async (h) => {
 			await h.start();
 			h.render();
 			await h.settle();

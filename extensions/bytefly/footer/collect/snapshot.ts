@@ -18,20 +18,8 @@ import type { DelegationLedger } from "../delegation.ts";
 import { createPricer } from "../price/price.ts";
 import type { ByteflyConfig } from "../price/types.ts";
 import { zeroUsage } from "../../../../lib/usage.ts";
-import type { ContextInfo, DelegationTotals, FooterData, PricedUsage, StatusSnapshot, UsageTotals } from "../types.ts";
+import type { ContextInfo, DelegationTotals, FooterData, PricedUsage, StatusSnapshot } from "../types.ts";
 import { usageRecords } from "./entries.ts";
-
-/**
- * The two totals the last frame priced: the session's own, and the child runs it delegated.
- *
- * One read answers both, so a caller that holds the spend against a ceiling cannot count
- * one and forget the other — and the pair is still separate, because `↳` is its own segment.
- */
-export interface PricedSpend {
-	usage: PricedUsage;
-	/** The child roll-up's usage, as `StatusSnapshot.delegation.usage` carries it. */
-	delegation: UsageTotals;
-}
 
 /**
  * Build a reader that memoizes both scans by branch leaf and model.
@@ -47,12 +35,11 @@ export interface SnapshotReader {
 	/**
 	 * The totals from the last read, or undefined before the first frame.
 	 *
-	 * The budget guardrail reads the numbers the footer already priced instead of
+	 * The unpriced notice reads the numbers the footer already priced instead of
 	 * walking the session a second time; if no frame has rendered yet there is
-	 * nothing stale to act on. The unpriced count rides along for the same reason,
-	 * and so does the child roll-up, which the guardrail's ceiling includes.
+	 * nothing stale to act on.
 	 */
-	peek(): PricedSpend | undefined;
+	peek(): PricedUsage | undefined;
 }
 
 export function createSnapshotReader(
@@ -67,7 +54,7 @@ export function createSnapshotReader(
 	let cacheHitRate: number | null = null;
 	let context: ContextInfo = { tokens: null, contextWindow: 0, percent: null };
 
-	let last: PricedSpend | undefined;
+	let last: PricedUsage | undefined;
 
 	const reader = ((ctx: ExtensionContext, footerData: FooterData): StatusSnapshot => {
 		const session = ctx.sessionManager;
@@ -92,7 +79,7 @@ export function createSnapshotReader(
 				percent: usageInfo?.percent ?? null,
 			};
 			key = nextKey;
-			last = { usage, delegation: delegationTotals.usage };
+			last = usage;
 		}
 
 		// The resolver is asked every frame and answers from a team and a label an install read:
@@ -113,7 +100,6 @@ export function createSnapshotReader(
 			context,
 			usage,
 			currency: config.currency,
-			budget: config.budget,
 			cacheHitRate,
 			providerCount: footerData.getAvailableProviderCount(),
 			delegation: delegationTotals,

@@ -20,25 +20,7 @@ export interface TextRule {
 }
 
 /**
- * A text rule for a money amount inside an inclusive range: a whole number or a
- * decimal with up to four places, matching the loader's clamp for `price.budget`.
- * `0` is a legitimate value (the guardrail is off), so it is not rejected.
- */
-export function amountRule(min: number, max: number): TextRule {
-	return {
-		maxLength: 16,
-		validate(raw) {
-			const text = raw.trim();
-			if (!/^\d+(?:\.\d{1,4})?$/.test(text)) return `Use an amount like 5 or 2.50, ${min} to ${max}.`;
-			const value = Number(text);
-			if (!Number.isFinite(value) || value < min || value > max) return `Out of range: ${min} to ${max}.`;
-			return undefined;
-		},
-	};
-}
-
-/**
- * A text rule for a whole number inside an inclusive range: the board's two WIP limits, at the
+ * A text rule for a whole number inside an inclusive range: the board's three WIP limits, at the
  * `1..MAX_WIP` the loader clamps to, so the screen cannot save a number the board would shorten.
  */
 export function countRule(min: number, max: number): TextRule {

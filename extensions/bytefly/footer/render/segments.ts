@@ -14,13 +14,11 @@ import { gaugeBar } from "../../../../lib/tui/gauge.ts";
 import { GLYPHS } from "../../../../lib/tui/glyphs.ts";
 import { chip } from "../../../../lib/tui/rows.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
-import { budgetState } from "../budget.ts";
 import { CONFIG } from "../config.ts";
 import {
 	contextRole,
 	formatCost,
 	formatCwd,
-	formatLimit,
 	formatPercent,
 	thinkingColor,
 	truncateLabel,
@@ -250,32 +248,21 @@ export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
  * work was unpriced rather than free. So the count is its own fact, and the price comes
  * first where there is one — the narrower forms drop the price before the warning.
  *
- * A configured budget turns the price into a position: `$0.31/$5`, drawn in `warn` once
- * the spend reaches the ceiling. That is the condition the budget notice fires on, read
- * from the same `budgetState`, so the bar cannot call a session over budget that the
- * notice has not, and the ceiling is visible from the first frame rather than only in
- * the one notice that names it.
- *
- * The figure is everything the session spent, its child runs included, because that is
- * what the ceiling holds: a session that delegated $5 behind a $5 ceiling reads
- * `$5.31/$5`. `↳` still draws the child share beside it, so the session's own cost is
- * the subtraction, and neither segment double-counts on its own.
+ * The figure is everything the session spent, its child runs included, so the bar's one
+ * total is the same number `↳` breaks down: the session's own cost is the subtraction.
  */
 export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { cost, unpriced } = snapshot.usage;
 	const children = snapshot.delegation.usage.cost;
 	const total = cost + children;
-	const budget = snapshot.budget;
-	if (total === 0 && unpriced === 0 && budget <= 0) return null;
-	const price = formatCost(total, snapshot.currency);
-	const spend = budget > 0 ? `${price}/${formatLimit(budget, snapshot.currency)}` : price;
-	const spendText = paint(theme, budgetState(budget, total, children).exceeded ? "warn" : "meta", spend);
+	if (total === 0 && unpriced === 0) return null;
+	const price = paint(theme, "meta", formatCost(total, snapshot.currency));
 	const leftOut = unpriced === 1 ? "1 unpriced" : `${unpriced} unpriced`;
-	// A zero total with no ceiling says nothing a reader can use, so the price form
-	// appears only once there is a spend or a budget to hold it against.
-	const priced = total === 0 && budget <= 0 ? [] : [spendText];
+	// A zero total says nothing a reader can use, so the price form appears only once
+	// there is a spend to show it beside.
+	const priced = total === 0 ? [] : [price];
 	const forms = [
-		`${spendText}${faint(theme, CONFIG.separators.item)}${paint(theme, "warn", leftOut)}`,
+		`${price}${faint(theme, CONFIG.separators.item)}${paint(theme, "warn", leftOut)}`,
 		paint(theme, "warn", leftOut),
 		...priced,
 	];
@@ -284,7 +271,7 @@ export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | n
 		weight: 2,
 		droppable: true,
 		separator: faint(theme, CONFIG.separators.item),
-		forms: unpriced === 0 ? [spendText] : forms,
+		forms: unpriced === 0 ? [price] : forms,
 	};
 }
 

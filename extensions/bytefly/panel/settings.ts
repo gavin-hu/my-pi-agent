@@ -29,16 +29,13 @@ import { configSection, configValueAt } from "../../../lib/config.ts";
 import { normalizeWipConfig } from "../../../lib/workflow/config.ts";
 import { DEFAULT_BOARD_CONFIG, DEFAULT_TEAM_CONFIG, normalizeTeamConfig } from "../../../lib/workflow/config.ts";
 import { MAX_LABEL } from "../../../lib/session-label.ts";
-import { amountRule, countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
+import { countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
-	CURRENCY_SYMBOLS,
 	DEFAULT_BYTEFLY_CONFIG,
 	DEFAULT_CURRENCY,
-	MAX_BUDGET,
-	MAX_DECIMALS,
 	normalizeByteflyConfig,
 } from "../footer/price/config.ts";
 import type { CurrencyCode } from "../footer/price/types.ts";
@@ -360,19 +357,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 				: [{ section: "price", path: ["currency", "decimals"], value: currency.decimals }];
 		},
 	},
-	{
-		id: "price.budget",
-		group: "Price",
-		label: "Session budget",
-		description: "Where the footer's `spent/limit` warns: one notice and one notification at the limit; 0 is off.",
-		source: "bytefly",
-		kind: "text",
-		fallback: "0",
-		json: "number",
-		options: [],
-		text: amountRule(0, MAX_BUDGET),
-		config: { section: "price", path: ["budget"] },
-	},
 ];
 
 /** The one refusal for a Project write while the project is untrusted. */
@@ -381,9 +365,9 @@ export const UNTRUSTED_SETTINGS_NOTE = "Project is not trusted; settings can onl
 /**
  * Why a text row cannot store `raw`, or `undefined` when it can.
  *
- * The limits are the loaders' own (the budget is clamped to `MAX_BUDGET`) so the
- * editor cannot save a value the next read shortens. A row that is not text is
- * refused here rather than in the caller, so a programmatic `setValue` gets the
+ * The limits are the loaders' own (the board's WIP range, the team's cap and label
+ * length) so the editor cannot save a value the next read shortens. A row that is not
+ * text is refused here rather than in the caller, so a programmatic `setValue` gets the
  * same reason the screen would show.
  */
 export function textError(row: SettingDescriptor, raw: string): string | undefined {
@@ -399,31 +383,6 @@ export function textError(row: SettingDescriptor, raw: string): string | undefin
 function themeOptions(themes: readonly string[]): readonly SettingOption[] {
 	const names = ["system", ...new Set(themes.filter((name) => name !== "" && name !== "system"))];
 	return names.map((name) => ({ value: name, label: name }));
-}
-
-/** The currency and precision a session prices in, through the price reader. */
-function currencyOf(snapshot: SettingsSnapshot, scope: WriteScope): { code: CurrencyCode; decimals: number } {
-	const reader = SECTION_READERS.price;
-	const globalRaw = configSection(snapshot.global, "price");
-	const projectRaw = scope === "project" ? configSection(snapshot.project, "price") : undefined;
-	const code = reader?.(globalRaw, projectRaw, ["currency", "code"]);
-	const decimals = reader?.(globalRaw, projectRaw, ["currency", "decimals"]);
-	return {
-		code: typeof code === "string" && code in CURRENCY_SYMBOLS ? (code as CurrencyCode) : DEFAULT_CURRENCY.code,
-		decimals: typeof decimals === "number" ? Math.min(decimals, MAX_DECIMALS) : DEFAULT_CURRENCY.decimals,
-	};
-}
-
-/**
- * The budget's display value: `Off` for zero, otherwise the amount in the currency
- * the session prices in. A reader thinks in `¥5`, not in `5`, and in `Off` rather
- * than in `0`.
- */
-function budgetLabel(raw: string, snapshot: SettingsSnapshot, scope: WriteScope): string {
-	const amount = Number(raw);
-	if (!Number.isFinite(amount) || amount <= 0) return "Off";
-	const { code, decimals } = currencyOf(snapshot, scope);
-	return `${CURRENCY_SYMBOLS[code]}${amount.toFixed(decimals)}`;
 }
 
 /** The display label for `raw`, or the raw value when it is a valid custom one. */
@@ -539,8 +498,7 @@ export function settingViews(snapshot: SettingsSnapshot, scope: WriteScope): Set
 		const options = row.id === "theme" ? themeOptions(snapshot.themes) : row.options;
 		const { value, origin } = row.source === "app" ? appValue(snapshot, row) : byteflyValue(snapshot, row, scope);
 		const view = { ...row, options, value, readOnly: row.source === "app" && scope !== "global" };
-		const valueLabel = row.id === "price.budget" ? budgetLabel(value, snapshot, scope) : labelFor(view, value);
-		return { ...view, valueLabel, origin };
+		return { ...view, valueLabel: labelFor(view, value), origin };
 	});
 }
 
