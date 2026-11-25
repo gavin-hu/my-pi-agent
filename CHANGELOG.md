@@ -152,6 +152,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `team`: `/team join` asks the bus for `wake`. The command reached the bus through the bare join, which arms `on` when no
+  `wake` is asked for and keeps an armed record's mode otherwise, so the door a person types could neither arm `wake` nor
+  upgrade an `on` — while `assign`, `ask`, `offer` and a claim already asked through `joinTeam`, and the pages already said
+  a team join does. A record the bus held disarmed is still re-armed by this door, as before; only the mode it lands on moved
+  from `on` to `wake`.
+
 - `board`: a landing's merge scope is derived from the card rather than from the door that lands it. `landScope` read only
   `extensions/<name>/` from the card's paths and fell back to `board`, so a card whose work lives in `lib/` landed under the
   landing tool's own name — #868 shipped as `merge(board)` over a `session-bus:` title, and a bare `extensions/<name>` path

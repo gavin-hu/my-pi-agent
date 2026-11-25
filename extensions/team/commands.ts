@@ -63,8 +63,10 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 				// `/team join` is for. With no label the team names the session when it can — see
 				// `unnamedJoin` — and the join renames nothing, because a name the file already lists is the
 				// team's, not the user's.
-				const asked: JoinAsk = label === "" ? await unnamedJoin(session, ctx) : { input: { label, name: true } };
-				const joined = await team.join(ctx, asked.input);
+				const asked: JoinAsk = label === "" ? await unnamedJoin(session, ctx) : typedJoin(label);
+				// The bus arms `on` when a join asks no `wake`, and keeps an armed record's mode otherwise, so
+				// the wake every `/team join` owes is asked once here, where no door can forget it.
+				const joined = await team.join(ctx, { ...asked.input, wake: true });
 				// The standing is the session's, not this command's: `/board status` reports the team
 				// whichever door put it there, and a typed label is the one door that always asks.
 				session.team.record(joined);
@@ -96,11 +98,21 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 	});
 }
 
-/** What a bare `/team join` asks the bus for, and the project name it took when it took one. */
+/** What a `/team join` asks the bus for, and the project name a bare one took when it took one. */
 interface JoinAsk {
 	input: TeamJoinInput;
 	/** The `team.teammates` name this join picked; absent when it kept a name or drew one. */
 	picked?: string;
+}
+
+/**
+ * What a typed `/team join` asks for: the label it was given, and the rename that label is.
+ *
+ * The one naming action, so nothing here rests on the project's list: the join lands on what the
+ * person typed, and `name` is what makes the footer say it too.
+ */
+function typedJoin(label: string): JoinAsk {
+	return { input: { label, name: true } };
 }
 
 /**

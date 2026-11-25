@@ -36,14 +36,16 @@ function fakeTeam(
 ) {
 	const labels: Array<string | undefined> = [];
 	const naming: Array<boolean | undefined> = [];
+	const wakes: Array<boolean | undefined> = [];
 	const team: TeamJoin = {
 		join: async (_ctx, input) => {
 			labels.push(input?.label);
 			naming.push(input?.name);
+			wakes.push(input?.wake);
 			return answer(input?.label);
 		},
 	};
-	return { team, labels, naming };
+	return { team, labels, naming, wakes };
 }
 
 /** The registered command over a fresh host, so a case runs it by its own words. */
@@ -105,6 +107,18 @@ describe("/team join", () => {
 		// The name goes on the repository's list — the one the board reads — and nowhere else.
 		expect(projectTeam(checkout)).toEqual(["api-lead", "lily"]);
 		expect(projectTeam(session)).toBeUndefined();
+	});
+
+	test("asks for wake at both doors, so mail starts an idle session's turn", async () => {
+		const board = boardHarness({ now: NOW, project: false, track: temps.track });
+		const { team, wakes } = fakeTeam();
+		const command = joinCommand(board, team);
+		await command.handler("join billing-core", fakeCtx({ cwd: board.cwd, sessionId: "s-lead" }).ctx);
+		await command.handler("join", fakeCtx({ cwd: board.cwd, sessionId: "s-lead" }).ctx);
+		// The two asks this command builds, one per door. A record the bus already held disarmed is not
+		// covered here — the fake has no mode, and this door asks `wake` whatever the record says, while
+		// `joinTeam` is the door that replays a `listen: false`.
+		expect(wakes).toEqual([true, true]);
 	});
 
 	test("joins under the label it was given, and says the bar cannot draw a custom name", async () => {
