@@ -27,7 +27,9 @@ import { MAX_LABEL as JOB_LABEL, MAX_COMMAND, MAX_STDIN } from "../extensions/jo
 import { MAX_WAIT_MS } from "../extensions/job/waiters.ts";
 import { MAX_LABEL as WATCH_LABEL, MAX_EXCLUDE, MAX_PATTERN, MAX_SOURCE } from "../extensions/watch/schema.ts";
 import { MAX_LABEL } from "../lib/session-label.ts";
-import { MAX_PATHS as MAX_SESSION_PATHS } from "../extensions/session-bus/protocol.ts";
+import { MAX_PATHS as MAX_SESSION_PATHS, MIN_PATHS } from "../extensions/session-bus/protocol.ts";
+import { MAX_CONTENT } from "../lib/todo-state.ts";
+import { MAX_OBJECTIVE } from "../extensions/goal/schema.ts";
 import { MAX_MESSAGE_TEXT } from "../lib/session-tool.ts";
 import { REGISTERED } from "./helpers/registry.ts";
 import { registeredTools, type SchemaNode } from "./helpers/registered.ts";
@@ -53,7 +55,7 @@ function nodes(node: SchemaNode, at = "", out: Walked[] = []): Walked[] {
 interface Carried {
 	tool: string;
 	at: string;
-	bound: "maxLength" | "maxItems" | "minProperties" | "maxProperties";
+	bound: "maxLength" | "maxItems" | "minItems" | "minProperties" | "maxProperties";
 	value: number;
 }
 
@@ -84,9 +86,14 @@ const CARRIED: readonly Carried[] = [
 	{ tool: "board", at: "paths", bound: "maxItems", value: MAX_PATHS },
 	{ tool: "board", at: "paths[items]", bound: "maxLength", value: MAX_PATH },
 	{ tool: "board", at: "dependsOn", bound: "maxItems", value: MAX_DEPENDS },
+	// One item's text on either half of a todo, and the objective the goal tool refuses past.
+	{ tool: "todo", at: "todos[items].content", bound: "maxLength", value: MAX_CONTENT },
+	{ tool: "todo", at: "todos[items].activeForm", bound: "maxLength", value: MAX_CONTENT },
+	{ tool: "goal", at: "objective", bound: "maxLength", value: MAX_OBJECTIVE },
 	{ tool: "team", at: "to", bound: "maxLength", value: MAX_LABEL },
 	{ tool: "team", at: "note", bound: "maxLength", value: MAX_MESSAGE_TEXT },
 	{ tool: "team", at: "question", bound: "maxLength", value: MAX_MESSAGE_TEXT },
+	{ tool: "session", at: "paths", bound: "minItems", value: MIN_PATHS },
 	{ tool: "session", at: "paths", bound: "maxItems", value: MAX_SESSION_PATHS },
 	{ tool: "session", at: "text", bound: "maxLength", value: MAX_MESSAGE_TEXT },
 	{ tool: "session", at: "to", bound: "maxLength", value: MAX_LABEL },

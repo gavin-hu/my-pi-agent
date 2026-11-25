@@ -191,6 +191,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `tools`: three caps that only a tool's own normalizer held are now in its parameter schema — `todo`'s item
+  `content` and `activeForm`, `goal`'s `objective`, and `session`'s `paths` list — each a read of the constant the
+  refusal already uses, so no number is written twice. A tool call past the limit now answers with Pi's schema
+  sentence instead of the tool's own `overLimit` line, while a codemode caller and a direct normalizer caller keep
+  the model-readable one, because no normalizer changed. `session`'s `paths` gains the `minItems` it was missing, so
+  an empty list is refused by the schema where `normalizePaths` used to be the first to say so, and the description's
+  `wake` clause paid the keyword's cost: `wake`'s own field states it, per burst and when it arrives.
+
 - `code-review`: a row that survives anchors to its new number, so the page marks the number its bar names instead of
   renaming the line under the pointer — the old column stays the old file's numbering, and its title spells both out. A
   ref now names the side it anchors: `path:17`, or `path:5 (old)` for a deleted line, in the bar, the send dialog, a
