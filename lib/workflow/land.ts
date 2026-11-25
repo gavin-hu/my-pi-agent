@@ -23,13 +23,22 @@ export const LAND_BRANCH = "main";
 /** The remote it writes. Fixed for the same reason, and pushed as a named ref, never bare. */
 export const LAND_REMOTE = "origin";
 
+/** The hotspot whose deletions are never legitimate: a bullet another card appended. */
+export const CHANGELOG_HOTSPOT = "CHANGELOG.md";
+
+/** The hotspot whose deletion a card may owe: the line a removed suite leaves behind. */
+export const SUITE_HOTSPOT = "test/suite-manifest.ts";
+
 /**
  * The files whose deletions mean a landing lost work rather than rewrote it.
  *
  * A card appends here from another branch, so a merge that removes a line has overwritten
- * somebody's newest record instead of carrying it — the one failure the numstat can catch.
+ * somebody's newest record instead of carrying it — the one failure the numstat can catch. The
+ * manifest is the one file the layout gate forces a deletion in: a suite's removal deletes its
+ * line, so a removed line is a rewrite only when the merge still carries the suite it named
+ * (`removedSuitesAbove`).
  */
-export const APPEND_HOTSPOTS: readonly string[] = ["CHANGELOG.md", "test/suite-manifest.ts"];
+export const APPEND_HOTSPOTS: readonly string[] = [CHANGELOG_HOTSPOT, SUITE_HOTSPOT];
 
 /** How long one git command may take before the seam gives up on it. */
 export const LAND_TIMEOUT_MS = 120_000;
@@ -262,12 +271,29 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 		};
 	}
 	const rows = parseNumstat(numstat.out);
-	const lost = rows.filter((row) => row.deleted > 0 && APPEND_HOTSPOTS.includes(row.path));
+	// A bullet has no legitimate deletion, so `CHANGELOG.md` keeps the absolute rule.
+	const lost = rows.filter((row) => row.deleted > 0 && row.path === CHANGELOG_HOTSPOT);
 	if (lost.length > 0) {
 		await undo();
 		return {
 			error: `the landing deletes lines in ${lost.map((row) => row.path).join(", ")}, which are appended and not rewritten: the merge was undone and nothing was pushed.`,
 		};
+	}
+	// The manifest's deletion is the one a suite's removal requires, so it is judged by the suite it
+	// names: gone from the merge is a removal, still there is a rewritten record.
+	if (rows.some((row) => row.deleted > 0 && row.path === SUITE_HOTSPOT)) {
+		const suites = await removedSuitesAbove(call, base, merge);
+		if (suites.kind === "failed") {
+			await undo();
+			return { error: `${suites.message}: the merge was undone and nothing was pushed.` };
+		}
+		if (suites.alive.length > 0) {
+			await undo();
+			const named = suites.alive.map((suite) => `"${suite.stem}" (${suite.path})`).join(", ");
+			return {
+				error: `the landing removes the suite line ${named}, which the merge still carries — a suite's removal is the deletion the layout gate requires, while a line whose suite survives is a rewritten record: the merge was undone and nothing was pushed.`,
+			};
+		}
 	}
 
 	const pushed = await call(["push", remote, `${branch}:${branch}`]);
@@ -279,6 +305,68 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	}
 
 	return { merge, subject, rows, pushed: `${remote} ${branch}` };
+}
+
+/** The suite a removed declaration left behind: its stem, and the file the merge still has for it. */
+interface RemovedSuite {
+	stem: string;
+	path: string;
+}
+
+/**
+ * The stems a manifest declares: every quoted string but a quoted group key.
+ *
+ * A key is `"web-access":` and a stem is `"fetch/schema",`; an unquoted key (`wechat:`) contributes
+ * nothing. Read from the file rather than from a diff line, because a group may be wrapped on one
+ * line: a line's first quoted string is then the key, so a reflow would read as the removal of
+ * `"web-access"` and a suite dropped from that line would read as nothing at all.
+ */
+function declaredStems(text: string): Set<string> {
+	const stems = new Set<string>();
+	for (const quoted of text.matchAll(/"([^"]+)"(\s*:)?/g)) {
+		if (quoted[2] !== undefined) continue;
+		if ((quoted[1] ?? "") !== "") stems.add(quoted[1] ?? "");
+	}
+	return stems;
+}
+
+/**
+ * The suites a landing stopped declaring that the merge still carries.
+ *
+ * A removed declaration is legitimate when the suite it named left the tree, because the layout gate
+ * requires both directions: a declared suite must exist, and an existing one must be declared. It is
+ * a rewrite when the merge still has the suite — the record another card appended, dropped.
+ *
+ * The match is by stem, because the group an entry sat in is not on its line and re-spelling
+ * `declaredSuiteFiles`' four owner shapes (`test/suite-manifest.ts`) inside `lib/` would be a second
+ * copy of a layout rule. The bias is therefore conservative: a stem two groups share, with one of
+ * them still in the merge, refuses the landing and names what it found. A blocked removal is a
+ * message; an allowed rewrite is lost data.
+ */
+async function removedSuitesAbove(
+	call: (args: string[]) => Promise<Call>,
+	base: string,
+	merge: string,
+): Promise<{ kind: "failed"; message: string } | { kind: "checked"; alive: RemovedSuite[] }> {
+	const before = await call(["show", `${base}:${SUITE_HOTSPOT}`]);
+	if (!before.ok) return { kind: "failed", message: `could not read the base manifest (${firstLine(before.out)})` };
+	const after = await call(["show", `${merge}:${SUITE_HOTSPOT}`]);
+	if (!after.ok) return { kind: "failed", message: `could not read the merge's manifest (${firstLine(after.out)})` };
+	const kept = declaredStems(after.out);
+	const removed = [...declaredStems(before.out)].filter((stem) => !kept.has(stem));
+	if (removed.length === 0) return { kind: "checked", alive: [] };
+	const tree = await call(["ls-tree", "-r", "--name-only", merge]);
+	if (!tree.ok) return { kind: "failed", message: `could not read the merge's files (${firstLine(tree.out)})` };
+	const files = tree.out
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line !== "");
+	const alive: RemovedSuite[] = [];
+	for (const stem of removed) {
+		const path = files.find((file) => file === `${stem}.test.ts` || file.endsWith(`/${stem}.test.ts`));
+		if (path !== undefined) alive.push({ stem, path });
+	}
+	return { kind: "checked", alive };
 }
 
 /**
