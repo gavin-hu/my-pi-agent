@@ -259,6 +259,28 @@ export async function openReviewPage(
 	return page;
 }
 
+/** The two ways a case touches the page's drafts: read them, and seed an older shape of one. */
+export async function storedDrafts(page: Page): Promise<Record<string, Record<string, unknown>>> {
+	return page.evaluate(() =>
+		JSON.parse(
+			// `client.ts`'s `DRAFT_KEY`: the store is this tab's, and a case is the only other reader.
+			(globalThis as unknown as { sessionStorage: { getItem(key: string): string | null } }).sessionStorage.getItem(
+				"rv-review-drafts",
+			) ?? "{}",
+		),
+	);
+}
+
+export async function seedDrafts(page: Page, records: unknown): Promise<void> {
+	await page.evaluate(
+		(entry) =>
+			(
+				globalThis as unknown as { sessionStorage: { setItem(key: string, value: string): void } }
+			).sessionStorage.setItem("rv-review-drafts", JSON.stringify(entry)),
+		records,
+	);
+}
+
 /** Reload the tab onto the page it already has, and wait for that page to be drawn again. */
 export async function reloadReview(page: Page): Promise<void> {
 	await page.reload({ waitUntil: "load" });
