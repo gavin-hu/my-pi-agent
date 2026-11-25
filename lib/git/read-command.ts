@@ -23,9 +23,12 @@
  *      that escapes whitespace, a quote, another backslash, or a metacharacter
  *      is still refused (see `lib/shell.ts`);
  *   2. each segment must start with `git` and name a read-only subcommand;
- *   3. options that can execute an external program or write a file are
- *      rejected, and dual-use subcommands (`branch`, `tag`, `remote`, `config`,
- *      `stash`, `worktree`, `reflog`) must be in their read-only form.
+ *   3. a global option that is not a read-only subcommand is rejected — which is what
+ *      refuses `-c`, `-O`, `--bare` and every retargeting form, since they are refused by
+ *      position and not by name; past the subcommand only the options that can execute an
+ *      external program or write a file are rejected, and dual-use subcommands (`branch`,
+ *      `tag`, `remote`, `config`, `stash`, `worktree`, `reflog`) must be in their read-only
+ *      form.
  *
  * This is a guard rail, not a sandbox. A few exotic read invocations are
  * refused on purpose rather than risking a bypass. It writes nothing of its own:
@@ -43,10 +46,17 @@
 import { hasShellEscape } from "../../lib/shell.ts";
 
 /** Verdict from one read-only git check, before the command is rewritten. */
-type GitCheck = { ok: true } | { ok: false; reason: string };
+type GitCheck = { ok: true } | { ok: false; reason: string; hint?: string };
 
-/** What the guard answers: the command to run, or why the caller may not. */
-export type GitCommandVerdict = { ok: true; command: string } | { ok: false; reason: string };
+/**
+ * What the guard answers: the command to run, or why the caller may not.
+ *
+ * `hint` is an alternative the reason names none of — a refusal that told the caller what
+ * not to do and nothing about what to do instead. It is mode-neutral and git-only, so a
+ * caller may print it or ignore it: plan mode ignores it, and the seat prints it between
+ * the reason and its own hatch.
+ */
+export type GitCommandVerdict = { ok: true; command: string } | { ok: false; reason: string; hint?: string };
 
 /**
  * How a refusal names the mode it is judging for, so the grammar stays neutral.
@@ -115,7 +125,19 @@ const DANGEROUS_PREFIXES = [
 	"--output",
 ];
 
-const DANGEROUS_EXACT = new Set(["-c", "-O", "--bare", "--ext-diff", "--textconv", "--filters"]);
+/**
+ * Options refused wherever they appear: they retarget the repository, run a program, or
+ * write a file.
+ *
+ * The denylist is judged by POSITION, which is why `-c`, `-O` and `--bare` are absent: they
+ * are dangerous only in git's global slot, before the subcommand, and the read-only
+ * subcommand check is what refuses them there. After it they are the subcommand's own flag —
+ * `git grep -c` counts, `git log -c` asks for a combined diff, `git log -O<file>` reads an
+ * order file — and where one is a write, as `git branch -c` copies a ref, that subcommand's
+ * flag allowlist in {@link checkRest} is what refuses it. `git grep -O<pager>` is refused by
+ * grep's own case for the same reason.
+ */
+const DANGEROUS_EXACT = new Set(["--ext-diff", "--textconv", "--filters"]);
 
 function isDangerousOption(token: string): boolean {
 	if (DANGEROUS_EXACT.has(token)) return true;
@@ -400,6 +422,22 @@ function checkRest(subcommand: string, rest: string[], phrasing: ModePhrasing): 
 }
 
 /**
+ * The forms that read a tree without moving the process or retargeting the repository.
+ *
+ * Offered by a refusal that used to name no alternative — `cd` and a global `-C`,
+ * `--git-dir` or `--work-tree` — so the seat stops retrying against the same wall. The
+ * sentence is mode-neutral: both modes print the reason, and only the seat prints this.
+ */
+const TREE_FORMS =
+	"`git show <sha>:<path>`, `git log <branch>`, `git diff <a> <b> -- <path>` and `git ls-tree <sha>` read a tree without retargeting the repository.";
+
+/** Whether a refused global option named a tree the by-revision forms could reach instead. */
+function retargetsTree(token: string): boolean {
+	if (token === "-C" || token === "--git-dir" || token === "--work-tree") return true;
+	return token.startsWith("--git-dir=") || token.startsWith("--work-tree=");
+}
+
+/**
  * Whether `command` is a single read-only git invocation, or a reason it is not.
  * Pure and side-effect free. Chaining is not handled here; see
  * {@link checkReadOnlyGit}.
@@ -414,6 +452,7 @@ function checkSingleGitCommand(command: string, phrasing: ModePhrasing): GitChec
 		return {
 			ok: false,
 			reason: `"cd" does not run ${phrasing.whileDoing}; the working directory is already the project root.`,
+			hint: TREE_FORMS,
 		};
 	}
 	if (argv[0] !== "git") {
@@ -426,14 +465,19 @@ function checkSingleGitCommand(command: string, phrasing: ModePhrasing): GitChec
 	if (argv[1] === undefined) {
 		return { ok: false, reason: "name a read-only git subcommand." };
 	}
-	if (isDangerousOption(argv[1])) {
-		return { ok: false, reason: `"git ${argv[1]}" is not a read-only subcommand.` };
-	}
+	// One judgement for the global slot: what is not a read-only subcommand is refused, and
+	// `-c`, `-O`, `--bare` and the retargeting options are all refused here because none of
+	// them names one. The forms that move the process or the repository — `-C`, `--git-dir`,
+	// `--work-tree` — are the ones given the alternatives their reason named none of.
 	if (!READ_ONLY_SUBCOMMANDS.has(argv[1])) {
-		return { ok: false, reason: `"git ${argv[1]}" is not a read-only subcommand.` };
+		return {
+			ok: false,
+			reason: `"git ${argv[1]}" is not a read-only subcommand.`,
+			...(retargetsTree(argv[1]) ? { hint: TREE_FORMS } : {}),
+		};
 	}
 
-	for (const token of argv.slice(1)) {
+	for (const token of argv.slice(2)) {
 		if (isDangerousOption(token)) {
 			return { ok: false, reason: `"${token}" is not allowed ${phrasing.whileDoing}.` };
 		}
