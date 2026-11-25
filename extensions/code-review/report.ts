@@ -15,7 +15,8 @@ import { burstText, type NoticeItem, noticeMessage, type NoticeMessage } from ".
 export interface ReviewSend {
 	/** The review the comments belong to. */
 	id: string;
-	comments: ReadonlyArray<{ rel: string; line: number; endLine?: number; body: string }>;
+	/** `side` is absent on a record written before it existed, which reads as the new side. */
+	comments: ReadonlyArray<{ rel: string; line: number; endLine?: number; side?: "new" | "old"; body: string }>;
 	/** When the send was written. */
 	at: number;
 }
@@ -28,6 +29,17 @@ export const NOTICE_ROW_CHARS = 120;
 /** The marker the model reads first. */
 export const REVIEW_MARKER = "[CODE REVIEW]";
 
+/**
+ * A comment's ref as the notice names it: the side only when it is the old one.
+ *
+ * The page anchors to the new side unless the line was deleted, so ` (new)` on every row is a word a
+ * reader stops seeing while ` (old)` is the fact that no such line exists any more. The tool prints
+ * both, from the same `pathRef`.
+ */
+function noticeRef(comment: ReviewSend["comments"][number]): string {
+	return sanitizeLine(pathRef(comment.rel, comment.line, comment.endLine, comment.side === "old" ? "old" : undefined));
+}
+
 /** The notice one burst of sends becomes. */
 export function reviewNotice(sends: readonly ReviewSend[]): NoticeMessage {
 	const comments = sends.flatMap((send) => send.comments);
@@ -36,15 +48,12 @@ export function reviewNotice(sends: readonly ReviewSend[]): NoticeMessage {
 	const content = burstText({
 		marker: REVIEW_MARKER,
 		headline: `${plural(comments.length, "review comment")} sent`,
-		lines: rows.map(
-			(comment) =>
-				`${sanitizeLine(pathRef(comment.rel, comment.line, comment.endLine))} — ${clipText(sanitizeLine(comment.body), NOTICE_ROW_CHARS)}`,
-		),
+		lines: rows.map((comment) => `${noticeRef(comment)} — ${clipText(sanitizeLine(comment.body), NOTICE_ROW_CHARS)}`),
 		...(rest > 0 ? { more: `… ${rest} more` } : {}),
 		hint: 'Run `code_review` action "comments" for all of them.',
 	});
 	const items: NoticeItem[] = rows.map((comment) => ({
-		label: sanitizeLine(pathRef(comment.rel, comment.line, comment.endLine)),
+		label: noticeRef(comment),
 		detail: clipText(sanitizeLine(comment.body), NOTICE_ROW_CHARS),
 	}));
 	return noticeMessage({

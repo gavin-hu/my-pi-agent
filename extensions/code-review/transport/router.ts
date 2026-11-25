@@ -52,6 +52,16 @@ export const CLIENT_JS_PATH = "/client.js";
 /** Where the page follows this review: one stream, one page, the same token its writes carry. */
 export const EVENTS_PATH = "/events";
 
+/**
+ * The page's current fingerprint, as a read.
+ *
+ * A tab asks when the reviewer presses comment, so a moved tree is discovered before the typing
+ * rather than by the refused save after it. It answers the one value `store.write` compares and
+ * nothing else — no files, no lines — and it sits outside `/api/`, whose POST-only 405 is the
+ * write door's own contract rather than something a read gets to widen.
+ */
+export const REV_PATH = "/rev";
+
 /** The page's refusal when a scope names no review to show. */
 const NO_REVIEW = "that review is not open on this session — run /review";
 
@@ -349,6 +359,26 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 					return () => streams.remove(sink);
 				},
 			};
+		}
+		if (pathname === REV_PATH) {
+			if (method !== "GET") {
+				return {
+					result: {
+						...jsonError(405, "Use GET to read this review's revision."),
+						headers: { ...jsonHeaders(), Allow: "GET" },
+					},
+				};
+			}
+			// The token first, so a caller without one learns nothing about the tree — and no page
+			// answers the same way `/events` does, because it is the same page.
+			const held = store.current();
+			if (held === undefined) return { result: jsonError(403, NO_PAGE) };
+			if (!tokenMatches(held.token, search.get("token") ?? "")) {
+				return { result: jsonError(403, "Invalid or missing token.") };
+			}
+			const outcome = await current.snapshotOf(held);
+			if (outcome.kind === "failed") return { result: jsonError(409, outcome.message) };
+			return { result: jsonResponse(200, { rev: outcome.snapshot.fingerprint }) };
 		}
 		if (pathname.startsWith("/api/")) {
 			if (method !== "POST") {

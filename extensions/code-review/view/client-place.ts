@@ -49,9 +49,12 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
    * What the selection names, as the span a comment stores — or the sentence saying why it names
    * none. One side only: a rectangle across a removed and an added row names two different anchors,
    * and the page refuses rather than comment on a subset of what the reviewer highlighted.
+   *
+   * Takes the anchor paintSelection already read, so one paint derives it once; its other caller
+   * (commentOnSelection) reads it here.
    */
-  function selectionSpan() {
-    var at = rowAnchor(cursorRow());
+  function selectionSpan(at) {
+    at = at || rowAnchor(cursorRow());
     if (!cursor || !at) return { refusal: "Select a line that is in the diff, then comment" };
     var single = { path: cursor.path, line: at.line, side: at.side };
     if (!anchor || anchor.path !== cursor.path || anchor.row === cursor.row) return { span: single };
@@ -104,6 +107,38 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
       if (found.length) return { path: files[index], row: 0, rows: found };
     }
     return null;
+  }
+
+  /**
+   * Mark the gutter span the bar's ref names, so the number in the bar is the number on the row.
+   *
+   * A surviving row carries two numbers and anchors to the new one, so a click on the old column
+   * would otherwise show a ref matching no number under the pointer. The other column then says what
+   * it is and what a press on it names; the mark and those titles move with every pick.
+   */
+  var anchorNumber = null;
+  var anchorRow = null;
+  function markAnchor(row, at) {
+    if (anchorNumber) anchorNumber.removeAttribute("data-anchor");
+    if (anchorRow) {
+      var was = anchorRow.querySelectorAll(".browse-diff-no");
+      for (var index = 0; index < was.length; index++) was[index].removeAttribute("title");
+    }
+    anchorNumber = null;
+    anchorRow = null;
+    if (!row || !at) return;
+    var numbers = row.querySelectorAll(".browse-diff-no");
+    var wanted = numbers[at.side === "old" ? 0 : 1];
+    if (!wanted || wanted.textContent.trim() === "") return;
+    wanted.setAttribute("data-anchor", "true");
+    anchorNumber = wanted;
+    anchorRow = row;
+    var other = numbers[at.side === "old" ? 1 : 0];
+    var otherNumber = other ? other.textContent.trim() : "";
+    // Only where the two numberings differ: on a hunk that moves nothing the old number says nothing.
+    if (otherNumber !== "" && otherNumber !== String(at.line)) {
+      other.title = "old line " + otherNumber + " — this line survives, so the comment names new line " + at.line;
+    }
   }
 
   /** Paint the cursor (and its range), the rail's current file, and the bar's ref. */
@@ -285,15 +320,17 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     var row = cursorRow();
     var at = rowAnchor(row);
     if (!cursor || !at) {
+      markAnchor(null, null);
       bar.setAttribute("data-open", "false");
       return;
     }
-    var picked = selectionSpan();
+    markAnchor(row, at);
+    var picked = selectionSpan(at);
     // A selection that names no span — two sides of a removed-and-added pair — shows the cursor's own line, and
     // the title says why the range is not one: the press that comments refuses with the same words.
     var ref = picked.span
-      ? refOf(picked.span.path, picked.span.line, picked.span.endLine)
-      : refOf(cursor.path, at.line);
+      ? pathRef(picked.span.path, picked.span.line, picked.span.endLine, picked.span.side === "old" ? "old" : undefined)
+      : pathRef(cursor.path, at.line, undefined, at.side === "old" ? "old" : undefined);
     byId("rv-selbar-ref").title = picked.refusal || "";
     byId("rv-selbar-ref").textContent = ref;
     byId("rv-selbar-ref").setAttribute("data-ref", ref);

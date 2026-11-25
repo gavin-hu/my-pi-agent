@@ -66,6 +66,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   triangle and `≡ plan`'s bars, where the seat's hexagon read as one more polygon. The `⬢ lead` bullet below stays as written; the ink and
   the measured width class are still the `lead` record's, so `lib/tui/glyphs.test.ts` holds the literal to one column.
 
+- `code-review`: a moved diff says so before the reviewer types. Pressing **comment** asks the session
+  for the revision the page would render now — `GET /review/rev`, behind the page's own token, answering the one
+  value a write compares — and a page whose diff moved opens no box: the header's reload chip appears and nothing
+  is typed, where before the tab accepted line picks and refused every Save with `SNAPSHOT_MOVED` after the typing.
+  The check runs on the press alone, so nothing polls the diff; a refused or unreachable answer opens the box as
+  it always did, because the write's 409 stays the guarantee and this is the courtesy in front of it. The reveal
+  has one owner now (`revealReload()`), so the pushed frame, a refused write and the pre-check cannot drift; the
+  drafts a reload restores still come back without a request, since text that returned is not a press.
+
 - `bytefly`, `board`: the seat's chip is `⬢ lead`, a solid hexagon rather than the second right-pointing triangle it
   shared with `▶ auto`. Two triangles in one slot differed by weight alone, and the slot draws one mode at a time, so a
   reader had no comparison to make: the shape now differs and the colour still carries the verdict. It supersedes the
@@ -171,6 +180,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ### Fixed
+
+- `code-review`: a row that survives anchors to its new number, so the page marks the number its bar names instead of
+  renaming the line under the pointer — the old column stays the old file's numbering, and its title spells both out. A
+  ref now names the side it anchors: `path:17`, or `path:5 (old)` for a deleted line, in the bar, the send dialog, a
+  thread label, the notice and `code_review comments`, which read one body (`PATH_REF_JS`) rather than a copy.
+
+- `board`: the size gates a spot-check runs are judged by the tree it runs in. They are this repository's shape — two
+  suites under `test/`, run with `bun` — so a sign in a repository that keeps neither file now skips them instead of
+  refusing every card: `bun test` answers a filter that matches nothing with exit 1, which read as "red". The skip is
+  recorded on the sign (`sizeGates: { skipped }`) and printed by the run clause on all three surfaces, so a green sign
+  says whether the gates held or were not there; a repository that keeps them is signed exactly as before, and a red gate
+  still refuses. Read from the files, never from the command's exit — the gate's own repository must keep its veto.
 
 - `team`: `/team join` asks the bus for `wake`. The command reached the bus through the bare join, which arms `on` when no
   `wake` is asked for and keeps an armed record's mode otherwise, so the door a person types could neither arm `wake` nor

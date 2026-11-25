@@ -186,6 +186,10 @@ export const HISTORY_LINE_JS = pageSource(historyLine);
  * enter to reproduce a red. A record written before the tree was named has neither, and reads
  * exactly as it did.
  *
+ * The repository's size gate rides at the end **only when it was skipped** (#481): a gate that did not
+ * run is a fact the sign owes its reader, while `ran` is the answer in every repository that keeps the
+ * gates — a constant segment trains a reader to skip the one that carries news.
+ *
  * Its source crosses as `RAN_CLAUSE_JS`, so a spliced body may spell none of `.replace`'s
  * replacement patterns.
  */
@@ -194,7 +198,11 @@ export function ranClause(run: Verification | undefined): string {
 	const where = run.checkout === true ? " in the checkout" : run.root === undefined ? "" : " in " + run.root;
 	const tree = run.branch === undefined ? run.sha : run.branch + (run.sha === undefined ? "" : " @ " + run.sha);
 	const facts = "exit " + run.exit + (tree === undefined ? "" : ", " + tree);
-	return " · ran `" + run.cmd + "`" + where + " (" + facts + ")";
+	const gates =
+		run.sizeGates === undefined || !("skipped" in run.sizeGates)
+			? ""
+			: " · size gates: skipped (" + run.sizeGates.skipped + ")";
+	return " · ran `" + run.cmd + "`" + where + " (" + facts + ")" + gates;
 }
 
 /** The same body, as the browser receives it: one wording for what ran, on both surfaces. */
