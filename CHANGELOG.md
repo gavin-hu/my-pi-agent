@@ -62,6 +62,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`, `board`: the mode slot's third silhouette is a planted flag, `⚑`, in the chip's `⚑ lead` — asymmetric against `▶ auto`'s
+  triangle and `≡ plan`'s bars, where the seat's hexagon read as one more polygon. The `⬢ lead` bullet below stays as written; the ink and
+  the measured width class are still the `lead` record's, so `lib/tui/glyphs.test.ts` holds the literal to one column.
+
 - `code-review`: a moved diff says so before the reviewer types. Pressing **comment** asks the session
   for the revision the page would render now — `GET /review/rev`, behind the page's own token, answering the one
   value a write compares — and a page whose diff moved opens no box: the header's reload chip appears and nothing
