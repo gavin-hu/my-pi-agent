@@ -238,13 +238,15 @@ writes, and whether it can be deleted:
 | `worktrees/` | managed checkouts, each on its own branch | [`worktree`](./extensions/worktree.md) | not while one is live; it prunes its own |
 | `agents/` | project agents, read-only | you | no |
 | `cache/` | the typecheck's build info and the gate's lock | `bun run check` | yes — the next run rewrites it |
+| `tmp/` | scratch a one-off probe or script writes | you | yes — it is scratch |
 
 An extension that needs state adds a directory named for its concept and creates it on first
 use, so a listing of `.pi` is a manifest of who wrote what; `bytefly.json` is the only root-level
 file this package adds, and it does not grow. A project decides for itself which of these it
 shares, in its own `.pi/.gitignore` — the documents above are the ones to keep out of a commit.
-Nothing hand-authored belongs in it: a one-off probe script belongs to the checkout it probes, or
-to a temporary directory.
+Nothing hand-authored belongs in it: a one-off probe script belongs in `tmp/`, which
+`.pi/.gitignore` ignores; one that imports nothing from this checkout belongs in a system
+temporary directory.
 
 ## Related docs
 
