@@ -32,7 +32,6 @@ control center where extensions, skills, and settings are switched.
 | See what is missing | `/bytefly doctor` |
 | Check for a newer package | `/bytefly update` |
 | Turn OS notifications on | `/bytefly settings` → Notifications |
-| Stop a session costing more than you want | the `price.budget` key |
 
 ## Try it
 
@@ -97,13 +96,14 @@ session is sent: [security](../security.md) says what leaves the machine.
 
 ## Settings
 
-The screen is the catalogue: the seventeen descriptors in screen order. Those are the
-preferences a session changes: seventeen preferences under six headings — Startup,
-Notifications, Session, Board, Team, Price — plus the fifteen `bytefly.json` rows it
-can write. All seventeen are listed in either scope: the two app rows, **Startup
-screen** and **Theme**, write Pi's `settings.json`, so Project draws them disabled and
-tagged `· Global`. The list is capped at seventeen rows so the screen fits a 30-row
-terminal, and the scope line reads `bytefly: Settings · Project · 17 settings`.
+The screen is the catalogue: the sixteen descriptors in screen order. Those are the
+preferences a session changes: sixteen preferences across five headings — Setup,
+Notifications, Session, Board, Team — plus the fourteen `bytefly.json` rows it
+can write. All sixteen are listed in either scope: the three personal-file rows,
+**Startup screen** and **Theme** in Pi's `settings.json`, **Currency** in the
+personal `bytefly.json`, are read when the session starts and land on reload, so
+Project draws them disabled and tagged `· Global`. The list is capped at sixteen rows so the screen fits a 30-row
+terminal, and the scope line reads `bytefly: Settings · Project · 16 settings`.
 
 To switch the extension off, toggle `bytefly` in `/bytefly`: Pi's own header,
 footer, and tool blocks take over, and every other extension keeps working.

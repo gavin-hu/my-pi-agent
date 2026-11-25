@@ -4,12 +4,12 @@
 
 import { Type, type Static } from "typebox";
 import { StringEnum } from "../../../lib/tool-schema.ts";
-import { MAX_OUTPUT_CHARS, type WebFetchConfig } from "./config.ts";
+import { MAX_BODY_CHARS, MAX_OUTPUT_CHARS, type WebFetchConfig } from "./config.ts";
 import type { FindMode } from "./find.ts";
 import type { FetchRequest } from "./types.ts";
 import { overLimit } from "../../../lib/format.ts";
 
-const MAX_URL_LENGTH = 2048;
+export const MAX_URL_LENGTH = 2048;
 export const MIN_CHARS = 200;
 
 const FIND_MODES = ["insensitive", "exact", "fuzzy"] as const;
@@ -18,8 +18,8 @@ const DEFAULT_MAX_MATCHES = 8;
 const MAX_FIND_TERMS = 10;
 
 const HTTP_METHODS = ["GET", "POST"] as const;
-const MAX_HEADERS = 20;
-const MAX_HEADER_VALUE = 4096;
+export const MAX_HEADERS = 20;
+export const MAX_HEADER_VALUE = 4096;
 /** Headers that control the transport; letting the model set them would break framing or SSRF checks. */
 const BLOCKED_HEADERS = new Set([
 	"host",
@@ -47,14 +47,23 @@ export const WebFetchParams = Type.Object({
 		}),
 	),
 	headers: Type.Optional(
-		Type.Record(Type.String(), Type.String(), {
-			description: "Extra request headers (for example an API token). Transport headers are refused.",
-		}),
+		// An empty object with `additionalProperties` rather than `Type.Record`, so `test/tool-caps.test.ts`
+		// reaches the value's own bound as `headers[value]` instead of through a pattern key.
+		Type.Object(
+			{},
+			{
+				additionalProperties: Type.String({ maxLength: MAX_HEADER_VALUE }),
+				maxProperties: MAX_HEADERS,
+				description: "Extra request headers (for example an API token). Transport headers are refused.",
+			},
+		),
 	),
 	body: Type.Optional(
 		Type.String({
-			maxLength: 1_000_000,
-			description: "Request body for a POST; set Content-Type via `headers`.",
+			maxLength: MAX_BODY_CHARS,
+			description:
+				"Request body for a POST; set Content-Type via `headers`. A project's `fetch.maxBodyChars` caps it — " +
+				"100 000 by default, settable from 1 000 to 1 000 000 — and a longer body is refused.",
 		}),
 	),
 	startIndex: Type.Optional(
@@ -123,7 +132,13 @@ function normalizeFind(raw: unknown): string[] {
 		.slice(0, MAX_FIND_TERMS);
 }
 
-/** Normalize custom headers: reject transport/control headers and CRLF, cap count and size. */
+/**
+ * Normalize custom headers: reject transport/control headers and CRLF, cap count and size.
+ *
+ * The schema publishes {@link MAX_HEADERS} and {@link MAX_HEADER_VALUE}, so Pi refuses both before
+ * `execute`; the checks stay because `resolveRequest` also serves a caller that bypasses the schema,
+ * and one constant then governs both ends of each cap.
+ */
 function normalizeHeaders(raw: unknown): Record<string, string> {
 	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
 	const entries = Object.entries(raw as Record<string, unknown>);

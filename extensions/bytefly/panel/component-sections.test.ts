@@ -37,7 +37,7 @@ describe("PanelComponent sections", () => {
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.other}Skills`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain(`${ROLE_SGR.other} 17`);
+		expect(text).toContain(`${ROLE_SGR.other} 16`);
 		expect(text).toContain("Startup screen");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("When a watcher matches");
@@ -55,7 +55,7 @@ describe("PanelComponent sections", () => {
 		expect(component.render(80).join("\n")).toContain("No skills found.");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Startup (2)");
+		expect(component.render(80).join("\n")).toContain("Setup (3)");
 
 		component.handleInput("\u001b[D");
 		expect(component.render(80).join("\n")).toContain("No skills found.");
@@ -68,13 +68,13 @@ describe("PanelComponent sections", () => {
 		const { component } = buildPanel({ items: [enabledItem("alpha")], reports: [] });
 
 		component.handleInput("\u001b[D");
-		expect(component.render(80).join("\n")).toContain("Startup (2)");
+		expect(component.render(80).join("\n")).toContain("Setup (3)");
 
 		component.handleInput("\u001b[D");
 		expect(component.render(80).join("\n")).toContain("No skills found.");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Startup (2)");
+		expect(component.render(80).join("\n")).toContain("Setup (3)");
 
 		component.handleInput("\u001b[C");
 		expect(component.render(80).join("\n")).toContain("alpha");
@@ -112,7 +112,7 @@ describe("PanelComponent sections", () => {
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
 		expect(refused).toContain("writes Global");
-		expect(refused).toContain("Settings 17");
+		expect(refused).toContain("Settings 16");
 		expect(refused).not.toContain("Esc close");
 
 		component.handleInput("j");
@@ -248,6 +248,7 @@ describe("PanelComponent sections", () => {
 
 		const text = component.render(120).join("\n");
 		expect(text).toContain("Startup screen");
-		expect(text).toContain(`Global · ${join("/agent", "settings.json")}`);
+		// A row only Global writes names its scope and its file, whatever the screen shows.
+		expect(text).toContain(`Global only · ${join("/agent", "settings.json")}`);
 	});
 });

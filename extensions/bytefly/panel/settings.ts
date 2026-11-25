@@ -9,7 +9,7 @@
  * The catalogue is the shortlist a session changes, not the whole document: every
  * row is one a workflow differs on, and each states its own rule so a value the
  * screen accepts is a value the loader keeps. The catalogue order is the screen's
- * order, and it is capped — seventeen rows and their six headings want a 30-row
+ * order, and it is capped — sixteen rows and their five headings want a 30-row
  * terminal, and a shorter one scrolls the list rather than the frame
  * (`settings.test.ts` holds the ceiling); a new row has to displace one. Everything else stays
  * `bytefly.json` — a list (`doctor.skip`), a table (`price.rates`), a schedule
@@ -29,16 +29,13 @@ import { configSection, configValueAt } from "../../../lib/config.ts";
 import { normalizeWipConfig } from "../../../lib/workflow/config.ts";
 import { DEFAULT_BOARD_CONFIG, DEFAULT_TEAM_CONFIG, normalizeTeamConfig } from "../../../lib/workflow/config.ts";
 import { MAX_LABEL } from "../../../lib/session-label.ts";
-import { amountRule, countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
+import { countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
-	CURRENCY_SYMBOLS,
 	DEFAULT_BYTEFLY_CONFIG,
 	DEFAULT_CURRENCY,
-	MAX_BUDGET,
-	MAX_DECIMALS,
 	normalizeByteflyConfig,
 } from "../footer/price/config.ts";
 import type { CurrencyCode } from "../footer/price/types.ts";
@@ -57,11 +54,10 @@ type SettingOrigin = "default" | "global" | "project" | "inherited";
 
 /**
  * The heading a row sits under. The screen draws one heading per group, so sixteen
- * rows read as six short lists: what a session starts with, what it tells you
- * about, what it keeps, what its board holds, who signs for the team, and what it
- * costs.
+ * rows read as five short lists: what a session is set up with, what it tells you
+ * about, what it keeps, what its board holds, and who signs for the team.
  */
-export type SettingGroup = "Startup" | "Notifications" | "Session" | "Board" | "Team" | "Price";
+export type SettingGroup = "Setup" | "Notifications" | "Session" | "Board" | "Team";
 
 /** One curated value a row can take. */
 interface SettingOption {
@@ -106,6 +102,15 @@ export interface SettingDescriptor {
 	/** For `bytefly` rows: the section and leaf path this row edits. */
 	config?: SettingConfig;
 	/**
+	 * A personal-file choice: Global is the only scope that writes it.
+	 *
+	 * `source` says which file holds the row; this says the screen offers one place to
+	 * write it. A set-once-per-machine value read from a file the reader is not editing
+	 * is one they cannot verify from here, so Project lists it to read and the runtime
+	 * refuses the write.
+	 */
+	globalOnly?: true;
+	/**
 	 * Extra leaves written with this row's own, for a value that implies another.
 	 * Kept on the row so the writer stays generic and the rule is stated once.
 	 */
@@ -120,8 +125,9 @@ export interface SettingView extends SettingDescriptor {
 	valueLabel: string;
 	origin: SettingOrigin;
 	/**
-	 * This scope cannot write the row: an app row is Pi's personal file only. Project
-	 * states it, refuses the write, and draws it as a row to read rather than churn.
+	 * This scope cannot write the row: it is `globalOnly` and the scope is Project.
+	 * Project states the value, refuses the write, and draws the row to read rather
+	 * than churn.
 	 */
 	readOnly: boolean;
 }
@@ -143,17 +149,17 @@ const ON_OFF: readonly SettingOption[] = [
 /**
  * The catalogue, in screen order.
  *
- * Every scope lists all seventeen rows: the screen is the catalogue, and hiding a
- * row from a scope is how a reader loses the way to reach it. The two app rows
- * keep Pi's personal file whatever the write scope, so `settings-runtime.ts`
- * refuses a Project write to them and the screen draws them disabled instead. The
- * list is capped, and the cap with its reason is stated where the screen's height
- * is.
+ * Every scope lists all sixteen rows: the screen is the catalogue, and hiding a
+ * row from a scope is how a reader loses the way to reach it. The three rows under
+ * Setup are personal-file choices — the two app rows in Pi's `settings.json`, and
+ * Currency in `bytefly.json` — so `settings-runtime.ts` refuses a Project write to
+ * them and the screen draws them disabled instead. The list is capped, and the cap
+ * with its reason is stated where the screen's height is.
  */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
 		id: "byteflyUi",
-		group: "Startup",
+		group: "Setup",
 		label: "Startup screen",
 		description:
 			"Show bytefly's header in place of Pi's own, so a session opens on the versions, the help keys, and the update marker.",
@@ -162,18 +168,44 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		fallback: "false",
 		json: "boolean",
 		options: ON_OFF,
+		globalOnly: true,
 	},
 	{
 		id: "theme",
-		group: "Startup",
+		group: "Setup",
 		label: "Theme",
 		description:
 			"The palette every bytefly surface is drawn with; `system` follows Pi's own colors. Takes effect after reload.",
 		source: "app",
 		kind: "enum",
 		fallback: "system",
+		globalOnly: true,
 		// The host supplies this package's theme names in the snapshot; the static list stays empty.
 		options: [],
+	},
+	{
+		id: "price.currency.code",
+		group: "Setup",
+		label: "Currency",
+		description:
+			"The currency the footer prices a session in, at that currency's published rates. Written to your personal `bytefly.json`.",
+		source: "bytefly",
+		kind: "enum",
+		fallback: DEFAULT_CURRENCY.code,
+		globalOnly: true,
+		options: [
+			{ value: "CNY", label: "CNY (¥)" },
+			{ value: "USD", label: "USD ($)" },
+		],
+		config: { section: "price", path: ["currency", "code"] },
+		// Choosing a currency also sets its default precision, so the screen and the
+		// footer agree; the precision stays overridable in `bytefly.json` afterwards.
+		also: (raw) => {
+			const currency = CURRENCY_DEFAULTS[raw as CurrencyCode];
+			return currency === undefined
+				? []
+				: [{ section: "price", path: ["currency", "decimals"], value: currency.decimals }];
+		},
 	},
 	{
 		id: "notify.enabled",
@@ -338,41 +370,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		text: teammatesRule(),
 		config: { section: "team", path: ["teammates"] },
 	},
-	{
-		id: "price.currency.code",
-		group: "Price",
-		label: "Currency",
-		description: "The currency the footer prices a session in, at that currency's published rates.",
-		source: "bytefly",
-		kind: "enum",
-		fallback: DEFAULT_CURRENCY.code,
-		options: [
-			{ value: "CNY", label: "CNY (¥)" },
-			{ value: "USD", label: "USD ($)" },
-		],
-		config: { section: "price", path: ["currency", "code"] },
-		// Choosing a currency also sets its default precision, so the screen and the
-		// footer agree; the precision stays overridable in `bytefly.json` afterwards.
-		also: (raw) => {
-			const currency = CURRENCY_DEFAULTS[raw as CurrencyCode];
-			return currency === undefined
-				? []
-				: [{ section: "price", path: ["currency", "decimals"], value: currency.decimals }];
-		},
-	},
-	{
-		id: "price.budget",
-		group: "Price",
-		label: "Session budget",
-		description: "Where the footer's `spent/limit` warns: one notice and one notification at the limit; 0 is off.",
-		source: "bytefly",
-		kind: "text",
-		fallback: "0",
-		json: "number",
-		options: [],
-		text: amountRule(0, MAX_BUDGET),
-		config: { section: "price", path: ["budget"] },
-	},
 ];
 
 /** The one refusal for a Project write while the project is untrusted. */
@@ -381,9 +378,9 @@ export const UNTRUSTED_SETTINGS_NOTE = "Project is not trusted; settings can onl
 /**
  * Why a text row cannot store `raw`, or `undefined` when it can.
  *
- * The limits are the loaders' own (the budget is clamped to `MAX_BUDGET`) so the
- * editor cannot save a value the next read shortens. A row that is not text is
- * refused here rather than in the caller, so a programmatic `setValue` gets the
+ * The limits are the loaders' own (the board's WIP range, the team's cap and label
+ * length) so the editor cannot save a value the next read shortens. A row that is not
+ * text is refused here rather than in the caller, so a programmatic `setValue` gets the
  * same reason the screen would show.
  */
 export function textError(row: SettingDescriptor, raw: string): string | undefined {
@@ -399,31 +396,6 @@ export function textError(row: SettingDescriptor, raw: string): string | undefin
 function themeOptions(themes: readonly string[]): readonly SettingOption[] {
 	const names = ["system", ...new Set(themes.filter((name) => name !== "" && name !== "system"))];
 	return names.map((name) => ({ value: name, label: name }));
-}
-
-/** The currency and precision a session prices in, through the price reader. */
-function currencyOf(snapshot: SettingsSnapshot, scope: WriteScope): { code: CurrencyCode; decimals: number } {
-	const reader = SECTION_READERS.price;
-	const globalRaw = configSection(snapshot.global, "price");
-	const projectRaw = scope === "project" ? configSection(snapshot.project, "price") : undefined;
-	const code = reader?.(globalRaw, projectRaw, ["currency", "code"]);
-	const decimals = reader?.(globalRaw, projectRaw, ["currency", "decimals"]);
-	return {
-		code: typeof code === "string" && code in CURRENCY_SYMBOLS ? (code as CurrencyCode) : DEFAULT_CURRENCY.code,
-		decimals: typeof decimals === "number" ? Math.min(decimals, MAX_DECIMALS) : DEFAULT_CURRENCY.decimals,
-	};
-}
-
-/**
- * The budget's display value: `Off` for zero, otherwise the amount in the currency
- * the session prices in. A reader thinks in `¥5`, not in `5`, and in `Off` rather
- * than in `0`.
- */
-function budgetLabel(raw: string, snapshot: SettingsSnapshot, scope: WriteScope): string {
-	const amount = Number(raw);
-	if (!Number.isFinite(amount) || amount <= 0) return "Off";
-	const { code, decimals } = currencyOf(snapshot, scope);
-	return `${CURRENCY_SYMBOLS[code]}${amount.toFixed(decimals)}`;
 }
 
 /** The display label for `raw`, or the raw value when it is a valid custom one. */
@@ -538,9 +510,8 @@ export function settingViews(snapshot: SettingsSnapshot, scope: WriteScope): Set
 	return SETTING_ROWS.map((row) => {
 		const options = row.id === "theme" ? themeOptions(snapshot.themes) : row.options;
 		const { value, origin } = row.source === "app" ? appValue(snapshot, row) : byteflyValue(snapshot, row, scope);
-		const view = { ...row, options, value, readOnly: row.source === "app" && scope !== "global" };
-		const valueLabel = row.id === "price.budget" ? budgetLabel(value, snapshot, scope) : labelFor(view, value);
-		return { ...view, valueLabel, origin };
+		const view = { ...row, options, value, readOnly: row.globalOnly === true && scope !== "global" };
+		return { ...view, valueLabel: labelFor(view, value), origin };
 	});
 }
 

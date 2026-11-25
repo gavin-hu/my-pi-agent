@@ -137,7 +137,7 @@ describe("settings runtime", () => {
 		// would otherwise paint the theme the personal file never took.
 		expect(globalStore.global().theme).toBeUndefined();
 
-		expect(await runtime.setValue("global", "price.budget", "2.50")).toBe(true);
+		expect(await runtime.setValue("global", "board.wip.plan", "2")).toBe(true);
 
 		expect(globalStore.calls.setTheme).toEqual(["dark"]);
 		expect(runtimeValue(runtime, "global", "theme")).toBe("system");
@@ -190,15 +190,15 @@ describe("settings runtime", () => {
 		expect(runtimeValue(runtime, "project", "notify.enabled")).toBe("false");
 	});
 
-	test("stores the budget as a number and refuses a value its rule rejects", async () => {
+	test("stores the board's limit as a number and refuses a value its rule rejects", async () => {
 		const { runtime, globalPath, notices } = bootRuntime();
 
-		expect(await runtime.setValue("global", "price.budget", "2.50")).toBe(true);
-		expect(JSON.parse(readText(globalPath))).toEqual({ price: { budget: 2.5 } });
+		expect(await runtime.setValue("global", "board.wip.plan", "2")).toBe(true);
+		expect(JSON.parse(readText(globalPath))).toEqual({ board: { wip: { plan: 2 } } });
 
-		expect(await runtime.setValue("global", "price.budget", "10000001")).toBe(false);
+		expect(await runtime.setValue("global", "board.wip.plan", "21")).toBe(false);
 		expect(notices.at(-1)).toContain("Out of range");
-		expect(JSON.parse(readText(globalPath))).toEqual({ price: { budget: 2.5 } });
+		expect(JSON.parse(readText(globalPath))).toEqual({ board: { wip: { plan: 2 } } });
 	});
 
 	test("cycles the currency algorithm and its companion precision in one write", async () => {
@@ -245,15 +245,15 @@ describe("settings runtime", () => {
 	});
 
 	test("writes a nested project override without touching the global document", async () => {
-		const { runtime, globalPath, projectPath } = bootRuntime({ globalDoc: { price: { currency: { code: "CNY" } } } });
+		const { runtime, globalPath, projectPath } = bootRuntime({ globalDoc: { board: { wip: { plan: 3 } } } });
 
-		expect(runtimeValue(runtime, "project", "price.currency.code")).toBe("CNY");
+		expect(runtimeValue(runtime, "project", "board.wip.plan")).toBe("3");
 
-		await runtime.change("project", "price.currency.code");
+		expect(await runtime.setValue("project", "board.wip.plan", "4")).toBe(true);
 
-		expect(JSON.parse(readText(globalPath))).toEqual({ price: { currency: { code: "CNY" } } });
-		expect(JSON.parse(readText(projectPath))).toEqual({ price: { currency: { code: "USD", decimals: 3 } } });
-		expect(runtimeValue(runtime, "project", "price.currency.code")).toBe("USD");
+		expect(JSON.parse(readText(globalPath))).toEqual({ board: { wip: { plan: 3 } } });
+		expect(JSON.parse(readText(projectPath))).toEqual({ board: { wip: { plan: 4 } } });
+		expect(runtimeValue(runtime, "project", "board.wip.plan")).toBe("4");
 	});
 
 	test("refuses a project write when the project is untrusted", async () => {
@@ -281,26 +281,24 @@ describe("settings runtime", () => {
 	});
 
 	test("stores a typed value at its leaf and marks the screen dirty", async () => {
-		const { runtime, globalPath } = bootRuntime({
-			globalDoc: { notify: { enabled: true }, price: { budget: 0 } },
-		});
+		const { runtime, globalPath } = bootRuntime({ globalDoc: { board: { wip: { execute: 4 } } } });
 
-		expect(await runtime.setValue("global", "price.budget", "5")).toBe(true);
+		expect(await runtime.setValue("global", "board.wip.plan", "5")).toBe(true);
 
-		expect(JSON.parse(readText(globalPath))).toEqual({ notify: { enabled: true }, price: { budget: 5 } });
-		expect(runtimeValue(runtime, "global", "price.budget")).toBe("5");
+		expect(JSON.parse(readText(globalPath))).toEqual({ board: { wip: { execute: 4, plan: 5 } } });
+		expect(runtimeValue(runtime, "global", "board.wip.plan")).toBe("5");
 		expect(runtime.isDirty()).toBe(true);
 	});
 
 	test("refuses a text value its rule rejects and writes nothing", async () => {
-		const { runtime, notices, globalPath } = bootRuntime({ globalDoc: { price: { budget: 3 } } });
+		const { runtime, notices, globalPath } = bootRuntime({ globalDoc: { board: { wip: { plan: 3 } } } });
 
-		expect(await runtime.setValue("global", "price.budget", "10000001")).toBe(false);
+		expect(await runtime.setValue("global", "board.wip.plan", "21")).toBe(false);
 
 		expect(notices.at(-1)).toContain("Out of range");
-		expect(JSON.parse(readText(globalPath))).toEqual({ price: { budget: 3 } });
+		expect(JSON.parse(readText(globalPath))).toEqual({ board: { wip: { plan: 3 } } });
 		expect(runtime.isDirty()).toBe(false);
-		expect(runtimeValue(runtime, "global", "price.budget")).toBe("3");
+		expect(runtimeValue(runtime, "global", "board.wip.plan")).toBe("3");
 	});
 
 	test("refuses a row that is not a text row", async () => {
@@ -310,12 +308,12 @@ describe("settings runtime", () => {
 	});
 
 	test("setValue refuses in Project scope for the same reason change does", async () => {
-		const { runtime, notices, globalPath } = bootRuntime({ trusted: false, globalDoc: { price: { budget: 3 } } });
+		const { runtime, notices, globalPath } = bootRuntime({ trusted: false });
 
-		expect(await runtime.setValue("project", "price.budget", "4")).toBe(false);
+		expect(await runtime.setValue("project", "board.wip.plan", "4")).toBe(false);
 
 		expect(notices.at(-1)).toBe(UNTRUSTED_SETTINGS_NOTE);
-		expect(JSON.parse(readText(globalPath))).toEqual({ price: { budget: 3 } });
+		expect(exists(globalPath)).toBe(false);
 		expect(runtime.isDirty()).toBe(false);
 	});
 

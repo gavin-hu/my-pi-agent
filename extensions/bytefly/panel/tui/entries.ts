@@ -4,7 +4,7 @@
  *
  * Every section groups. A resource list groups by source — where an extension came
  * from is something its row cannot say — and Settings groups by what the
- * preference does, so twelve rows read as four short lists instead of one long
+ * preference does, so sixteen rows read as five short lists instead of one long
  * one. Both are built from a model or a set of views, so the component only has to
  * keep one cursor per section.
  *
