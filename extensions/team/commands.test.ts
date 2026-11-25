@@ -329,30 +329,31 @@ describe("whoText", () => {
 	});
 });
 
+/** The command mounted over a harness, with the notifications it writes. */
+function mount(options: Parameters<typeof boardHarness>[0] = {}) {
+	const board = boardHarness({ now: NOW, track: temps.track, ...options });
+	const fake = createFakePi();
+	registerCommands(fake.pi, board.runtime);
+	const command = fake.commands.get(TEAM_COMMAND);
+	if (!command) throw new Error("the team command was not registered");
+	const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+	return { fake, command, ctx, notifications };
+}
+
 describe("the command", () => {
 	test("is registered under its own name, and prints the board it reads", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime);
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
+		const { command, ctx, notifications } = mount();
 		// The round's own line, from `lib/workflow/round-text.ts`: `team`'s lead guideline says the same
 		// sentence, so the two surfaces that name the round cannot describe it differently.
 		expect(command.description).toContain(LEAD_ROUND);
 		// An empty board through the real store, so the command's three reads (cards, bus,
 		// clock) are the shipped ones.
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 		await command.handler("", ctx);
 		expect(notifications.at(-1)).toBe("team: nothing to report — the board is empty");
 	});
 
-	test("prints the listing, which says so when this repository has no bus", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime);
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+	test("prints the rows, which say so when this repository has no bus", async () => {
+		const { command, ctx, notifications } = mount();
 		await command.handler("who", ctx);
 		// The word reads the same store and roster the round does, through the shipped readers: a
 		// harness with no bus directory is the fact the word must state rather than a failure.
@@ -362,12 +363,7 @@ describe("the command", () => {
 
 describe("its words", () => {
 	test("warns about a word it does not know, and prints the words it does", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime);
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+		const { command, ctx, notifications } = mount();
 		await command.handler("leave", ctx);
 		// The warning carries the block rather than a sentence of its own, so the words a reader is
 		// offered are the words the description above it names.
@@ -375,27 +371,17 @@ describe("its words", () => {
 	});
 
 	test("prints the same block when it is asked for it", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime);
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+		const { command, ctx, notifications } = mount();
 		await command.handler("help", ctx);
 		expect(notifications.at(-1)).toBe(TEAM_USAGE);
 	});
 
 	test("completes the words, and the team's names after the two that take a label", async () => {
-		const board = boardHarness({ now: NOW, teammates: ["billing-core", "ops-core"], track: temps.track });
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime);
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
+		const { fake, command, ctx } = mount({ teammates: ["billing-core", "ops-core"] });
 		// The words are static, so they complete before a session has started; a label is read from the
 		// repository, and a completion with no root to read has nothing to offer.
 		expect(await command.getArgumentCompletions?.("j")).toEqual([{ value: "join ", label: "join" }]);
 		expect(await command.getArgumentCompletions?.("join ")).toBeNull();
-		const { ctx } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 		await emit(fake.pi, "session_start", {}, ctx);
 		expect(await command.getArgumentCompletions?.("w")).toEqual([{ value: "who ", label: "who" }]);
 		expect(await command.getArgumentCompletions?.("h")).toEqual([{ value: "help", label: "help" }]);
