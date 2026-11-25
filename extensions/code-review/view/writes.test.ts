@@ -258,6 +258,26 @@ gated("the review page's writes", () => {
 		CASE_MS,
 	);
 
+	test(
+		"a shift-click writes the place, so a reload lands on the line it clicked",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.keyboard.press("j");
+					await page
+						.locator('.rv-file[data-path="a.ts"] .bf-diff-line--add .browse-diff-no')
+						.filter({ hasText: /^\d+$/ })
+						.first()
+						.click({ modifiers: ["Shift"] });
+					await reloadReview(page);
+					expect(await page.locator("#rv-selbar-ref").textContent()).toBe("a.ts:19");
+				},
+				{ start: 17 },
+			);
+		},
+		CASE_MS,
+	);
+
 	/** A selection stays inside one file: a shift-click in another starts a fresh single line there. */
 	test(
 		"a shift-click in another file starts a new selection, not a span across files",

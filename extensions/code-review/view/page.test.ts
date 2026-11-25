@@ -312,6 +312,9 @@ describe("the review page", () => {
 		const focused = reviewData({ ...input(), file: "docs/serve.md" });
 		expect(focused.rev).toBe(full.rev);
 		expect(focused.rev).toBe("abc123");
+		// The focus is a view, so the scope's size rides along: a page drawing one file still has to
+		// say "1 of 2 files", and the client's count comes from here rather than from the rail.
+		expect(focused.files).toBe(2);
 	});
 
 	test("each file's head offers the review's own whole-file view, and nothing from another page", () => {

@@ -271,13 +271,20 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 		};
 	}
 	const rows = parseNumstat(numstat.out);
-	// A bullet has no legitimate deletion, so `CHANGELOG.md` keeps the absolute rule.
-	const lost = rows.filter((row) => row.deleted > 0 && row.path === CHANGELOG_HOTSPOT);
-	if (lost.length > 0) {
-		await undo();
-		return {
-			error: `the landing deletes lines in ${lost.map((row) => row.path).join(", ")}, which are appended and not rewritten: the merge was undone and nothing was pushed.`,
-		};
+	// A bullet has no legitimate deletion; a foot reference moves when a version is cut, and the cut
+	// adds one beside it. `changelogPointers` is the read that tells the two apart.
+	if (rows.some((row) => row.deleted > 0 && row.path === CHANGELOG_HOTSPOT)) {
+		const pointers = await changelogPointers(call, base, merge);
+		if (pointers.kind === "failed") {
+			await undo();
+			return { error: `${pointers.message}: the merge was undone and nothing was pushed.` };
+		}
+		if (!pointers.rewritten) {
+			await undo();
+			return {
+				error: `the landing deletes lines in ${CHANGELOG_HOTSPOT}, which are appended and not rewritten: the merge was undone and nothing was pushed.`,
+			};
+		}
 	}
 	// The manifest's deletion is the one a suite's removal requires, so it is judged by the suite it
 	// names: gone from the merge is a removal, still there is a rewritten record.
@@ -367,6 +374,46 @@ async function removedSuitesAbove(
 		if (path !== undefined) alive.push({ stem, path });
 	}
 	return { kind: "checked", alive };
+}
+
+/**
+ * The changelog's foot reference: `[Unreleased]: https://…` or `[0.31.0]: https://…`.
+ *
+ * A pointer, not a record. Cutting a version rewrites `[Unreleased]` to the new tag and adds the new
+ * version's line beneath it, so a landing that removes one of these has not overwritten a peer's
+ * bullet — it has done what every release does.
+ */
+const FOOT_REFERENCE = /^\[[^\]]+\]:\s+https?:\/\//;
+
+/**
+ * Whether a landing rewrote the changelog's foot references rather than its records.
+ *
+ * **Every** removed line must be a reference and at least one must arrive with it: "every" is what
+ * keeps a bullet beside a rewritten reference refused, and the addition is what a cut always makes.
+ * The lines come from `git diff -U0`, because the numstat counts a bullet and a pointer the same.
+ */
+async function changelogPointers(
+	call: (args: string[]) => Promise<Call>,
+	base: string,
+	merge: string,
+): Promise<{ kind: "failed"; message: string } | { kind: "checked"; rewritten: boolean }> {
+	const diff = await call(["diff", "--unified=0", base, merge, "--", CHANGELOG_HOTSPOT]);
+	if (!diff.ok) {
+		return { kind: "failed", message: `could not read the changelog's removed lines (${firstLine(diff.out)})` };
+	}
+	const removed: string[] = [];
+	let added = false;
+	for (const line of diff.out.split("\n")) {
+		// The file header only: a removed line whose text begins with `--` would render as `--- …`.
+		if (line.startsWith("--- a/") || line.startsWith("+++ b/") || line.startsWith("\\")) continue;
+		if (line.startsWith("-")) {
+			removed.push(line.slice(1).trim());
+		} else if (line.startsWith("+") && FOOT_REFERENCE.test(line.slice(1).trim())) {
+			added = true;
+		}
+	}
+	const rewritten = removed.length > 0 && removed.every((line) => FOOT_REFERENCE.test(line)) && added;
+	return { kind: "checked", rewritten };
 }
 
 /**

@@ -47,6 +47,11 @@ export interface ReviewData {
 	label: string;
 	comments: ReviewComment[];
 	reviewed: string[];
+	/**
+	 * How many files the scope holds — not how many this page draws. A focused page renders one
+	 * file and still speaks for the whole scope, so the count cannot come from the rail's rows.
+	 */
+	files: number;
 	limits: { comments: number; body: number; quote: number };
 	/** The width the rail folds at, which is also where the page wraps unless the reader said no. */
 	narrow: number;
@@ -237,6 +242,7 @@ export function reviewData(input: ReviewPageInput): ReviewData {
 		label: input.snapshot.label,
 		comments: input.review?.comments ?? [],
 		reviewed: input.review?.reviewed ?? [],
+		files: input.snapshot.files.length,
 		limits: { comments: MAX_COMMENTS, body: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
 		narrow: REVIEW_NARROW_PX,
 		comparison: comparisonLine(input.snapshot),

@@ -137,44 +137,66 @@ gated("the review page's reading", () => {
 	);
 
 	test(
-		"the file head pins, and a hunk jump lands below it at 1280 and 390",
+		"the file head pins, and each hunk jump lands below it and advances at 1280 and 390",
 		async () => {
 			await withPage(
 				async (page) => {
 					const read = () =>
 						page.evaluate(`(function () {
-							var main = document.getElementById("rv-main").getBoundingClientRect();
+							var main = document.getElementById("rv-main");
+							var box = main.getBoundingClientRect();
 							var head = document.querySelector(".rv-file__head").getBoundingClientRect();
-							var hunk = document.querySelector(".bf-diff-line--hunk").getBoundingClientRect();
+							var below = Array.prototype.filter.call(document.querySelectorAll(".bf-diff-line--hunk"), function (hunk) {
+								return hunk.getBoundingClientRect().top >= box.top;
+							})[0];
 							return {
-								mainTop: Math.round(main.top),
+								mainTop: Math.round(box.top),
 								headTop: Math.round(head.top),
 								headBottom: Math.round(head.bottom),
-								hunkTop: Math.round(hunk.top)
+								scroll: Math.round(main.scrollTop),
+								landed: below ? below.textContent.trim() : ""
 							};
-						})()`) as Promise<{ mainTop: number; headTop: number; headBottom: number; hunkTop: number }>;
+						})()`) as Promise<Record<"mainTop" | "headTop" | "headBottom" | "scroll", number> & { landed: string }>;
 					const assertJump = async () => {
 						await page.keyboard.press("]");
-						// The jump is a scroll this page made, so wait for the geometry the assertion reads
-						// rather than for the machine to have got there.
 						await page.waitForFunction(
 							() => {
 								const doc = (globalThis as unknown as ReviewDom).document;
+								const box = doc.getElementById("rv-main")?.getBoundingClientRect();
 								const head = doc.querySelector(".rv-file__head")?.getBoundingClientRect();
-								const hunk = doc.querySelector(".bf-diff-line--hunk")?.getBoundingClientRect();
-								return head !== undefined && hunk !== undefined && hunk.top >= head.bottom - 1;
+								const below = Array.from(doc.querySelectorAll(".bf-diff-line--hunk")).filter(
+									(hunk) => box !== undefined && hunk.getBoundingClientRect().top >= box.top,
+								)[0];
+								if (below === undefined || head === undefined) return false;
+								return below.getBoundingClientRect().top >= head.bottom - 1;
 							},
 							undefined,
 							{ timeout: REVIEW_PAINT_MS },
 						);
-						const rects = await read();
-						expect(rects.hunkTop).toBeGreaterThanOrEqual(rects.headBottom - 1);
+					};
+
+					/** The press after a landing must get past it: a fixed offset would pick the same hunk. */
+					const assertAdvance = async () => {
+						const before = await read();
+						await page.keyboard.press("]");
+						await page.waitForFunction(
+							(was) => {
+								const doc = (globalThis as unknown as ReviewDom).document;
+								const box = doc.getElementById("rv-main")?.getBoundingClientRect();
+								const below = Array.from(doc.querySelectorAll(".bf-diff-line--hunk")).filter(
+									(hunk) => box !== undefined && hunk.getBoundingClientRect().top >= box.top,
+								)[0];
+								return below !== undefined && (below.textContent ?? "").trim() !== was;
+							},
+							before.landed,
+							{ timeout: REVIEW_PAINT_MS },
+						);
+						expect((await read()).scroll, "the jump moves the diff to the next hunk").toBeGreaterThan(before.scroll);
 					};
 
 					await page.evaluate('document.getElementById("rv-main").scrollTop = 700');
-					// Pinning is the scroll's own effect at the scrollport's top, which is what the
-					// assertion below reads: the box moved, and the head stayed on it. The scroll is
-					// the page's own height, so it lands short of the 700 asked for and clamped.
+					// Pinning is the scroll's own effect: the box moved and the head stayed on it. The scroll
+					// is the page's own height, so it lands short of the 700 asked for and clamped.
 					await page.waitForFunction(
 						() => {
 							const doc = (globalThis as unknown as ReviewDom).document;
@@ -191,10 +213,10 @@ gated("the review page's reading", () => {
 						1,
 					);
 					await assertJump();
+					await assertAdvance();
 
 					await page.setViewportSize({ width: 390, height: 844 });
-					// A narrower head is taller and the jump is measured against it: wait for the page's
-					// own re-measure at the new width, which is the fact the next jump depends on.
+					// A narrower head is taller: wait for the page's own re-measure before the next jump.
 					await page.waitForFunction(
 						() => {
 							const doc = (globalThis as unknown as ReviewDom).document;
@@ -206,9 +228,9 @@ gated("the review page's reading", () => {
 						undefined,
 						{ timeout: REVIEW_PAINT_MS },
 					);
-					await assertJump();
+					await assertAdvance();
 				},
-				{ start: 17, lines: 60 },
+				{ start: 17, lines: 60, files: 4 },
 			);
 		},
 		CASE_MS,

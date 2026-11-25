@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `code-review`: a `?file=` page counts and measures the whole scope it was opened on — `1 of 2 files`, `0 of 2 reviewed` — instead of the one file it draws, a shift-click writes the place a reload restores, and `]`/`[` land the next or previous hunk below the pinned head rather than on the hunk they just reached.
+
+## [0.31.0] - 2026-11-25
+
 ### Added
 
 - `file-browse`: `/browse` takes the path the editor's `@` completion writes — the `@` and any surrounding
@@ -221,6 +227,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a constant in the extension that claims it, and `test/layering.test.ts` holds the rule.
 
 ### Fixed
+
+- `board`: `land` carries a release prep. Every release rewrites the changelog's `[Unreleased]` foot reference and
+  adds the new version's line below it, and the proof read that pointer as an appended record — so 0.31.0's own prep
+  could not land. A `CHANGELOG.md` line the landing deletes is now legitimate when **every** deleted line there is a
+  reference and the landing adds one; a bullet, a heading, a lone reference and a bullet beside a rewritten reference
+  are refused exactly as before, with the sentence they always printed.
 
 - `watch`, `plan`: a field an action never reads is refused rather than dropped in silence — a `logs` call carrying
   `path` now answers that `add` takes it, and `enter` with a `title` points at `write`. Each table lives beside its
@@ -8907,7 +8919,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.27.0...v0.28.0
