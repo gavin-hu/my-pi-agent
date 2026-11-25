@@ -72,7 +72,12 @@ export default function codeReview(pi: ExtensionAPI, deps: CodeReviewDeps = {}):
 				onSent: (comments, id) => {
 					sends.push({
 						id,
-						comments: comments.map((comment) => ({ rel: comment.rel, line: comment.line, side: comment.side, body: comment.body })),
+						comments: comments.map((comment) => ({
+							rel: comment.rel,
+							line: comment.line,
+							side: comment.side,
+							body: comment.body,
+						})),
 						at: Date.now(),
 					});
 				},

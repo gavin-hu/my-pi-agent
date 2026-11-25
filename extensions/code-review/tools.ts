@@ -102,8 +102,7 @@ export function registerReviewTool(pi: Pick<ExtensionAPI, "registerTool">, ensur
 						? "No review comments have been sent."
 						: `Review comments sent (${sent.length}):\n${sent
 								.map(
-									(comment) =>
-										`${pathRef(comment.rel, comment.line, comment.endLine, comment.side)} — ${comment.body}`,
+									(comment) => `${pathRef(comment.rel, comment.line, comment.endLine, comment.side)} — ${comment.body}`,
 								)
 								.join("\n")}`;
 				const status = await session.status();

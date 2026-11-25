@@ -48,10 +48,7 @@ export function reviewNotice(sends: readonly ReviewSend[]): NoticeMessage {
 	const content = burstText({
 		marker: REVIEW_MARKER,
 		headline: `${plural(comments.length, "review comment")} sent`,
-		lines: rows.map(
-			(comment) =>
-				`${noticeRef(comment)} — ${clipText(sanitizeLine(comment.body), NOTICE_ROW_CHARS)}`,
-		),
+		lines: rows.map((comment) => `${noticeRef(comment)} — ${clipText(sanitizeLine(comment.body), NOTICE_ROW_CHARS)}`),
 		...(rest > 0 ? { more: `… ${rest} more` } : {}),
 		hint: 'Run `code_review` action "comments" for all of them.',
 	});

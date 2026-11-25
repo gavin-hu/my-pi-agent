@@ -107,7 +107,15 @@ export function reviewSnapshot(fingerprint: string, options: SnapshotOptions = {
 	const files: ReviewSnapshot["files"] = [];
 	for (let index = 0; index < count; index++) {
 		const rel = options.files === undefined ? (index === 0 ? "a.ts" : "b.ts") : `f${index + 1}.ts`;
-		files.push(fileRows(rel, index === 0 ? start : 40 + (index - 1) * 40, options.lines ?? 0, options.paired === true, options.skew ?? 0));
+		files.push(
+			fileRows(
+				rel,
+				index === 0 ? start : 40 + (index - 1) * 40,
+				options.lines ?? 0,
+				options.paired === true,
+				options.skew ?? 0,
+			),
+		);
 	}
 	return {
 		scope: "base",
