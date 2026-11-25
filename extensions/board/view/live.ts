@@ -353,9 +353,9 @@ const liveTemplate = String.raw`(function () {
     window.setInterval(function () {
       if (board.lastFrame !== undefined) badge(streamState, board.lastFrame);
       board.refreshAges();
-      // The page's own count of the times time moved. On a fixture page the ages it redraws read the
-      // browser's clock against stamps from the fixture's, so the redraw changes no text; this is what
-      // a case can wait for instead of sleeping, and it says exactly one thing: a tick happened.
+      // A tick counter the suite reads, not product state: browser tests wait on it to know that time
+      // passed, because the ages this tick redraws read the browser's clock against stamps carrying the
+      // fixture's and so come out identical. Nothing on the page reads it back.
       board.ticks = (board.ticks || 0) + 1;
     }, __AGE_TICK_MS__);
   }
