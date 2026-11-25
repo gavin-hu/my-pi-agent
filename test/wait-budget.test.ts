@@ -182,7 +182,7 @@ export function budgetProblems(source: Source): string[] {
  */
 const FIXED_SLEEP_EXCEPTIONS = [
 	{
-		at: "extensions/board/view/behaviour.test.ts:701",
+		at: "extensions/board/view/behaviour.test.ts:700",
 		why: "the case asserts the agents column does not repaint as time passes — an absence of change, which no condition can wait for",
 	},
 ];
