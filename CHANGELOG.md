@@ -212,6 +212,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that reads it. Both guards load where they are used, so no entry pays a module at start. `plan` also refuses an
   action it does not know, where it used to fall off the end of its switch and answer nothing.
 
+- `test`: `browser-handle`'s exit case owns the browser it kills, and the suite now makes the state that used to
+  break it. A handle joined to the run's pooled browser carries no child process, so `exited()` could only answer
+  `{ code: null, signal: null }` — which is why `signal: "SIGKILL"` was observable alone and read `null` on a machine
+  with another session's browser live, reddening a sweep every card pays for. The file gives the pool a record of its
+  own (`PI_BROWSER_POOL_FILE`), boots one browser through it before the cases and kills it after, and pins the joined
+  handle's blindness in a case of its own, so the reason is executable rather than remembered. The second kill case
+  owns its browser too: a warm kill used to take down the browser a concurrent suite was using.
+
 - `session-bus`, `memory`, `code-review`, `job`: a field an action never reads is refused instead of dropped in
   silence — a `status` call that also names `to` now answers that `send` is the action that takes it, and a `list`
   with a `command` says `start` owns it. The table of what each action reads lives beside that tool's action list,
