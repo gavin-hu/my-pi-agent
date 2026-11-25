@@ -168,6 +168,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: a row that survives anchors to its new number, so the page marks the number its bar names instead of
+  renaming the line under the pointer — the old column stays the old file's numbering, and its title spells both out. A
+  ref now names the side it anchors: `path:17`, or `path:5 (old)` for a deleted line, in the bar, the send dialog, a
+  thread label, the notice and `code_review comments`, which read one body (`PATH_REF_JS`) rather than a copy.
+
 - `team`: `/team join` asks the bus for `wake`. The command reached the bus through the bare join, which arms `on` when no
   `wake` is asked for and keeps an armed record's mode otherwise, so the door a person types could neither arm `wake` nor
   upgrade an `on` — while `assign`, `ask`, `offer` and a claim already asked through `joinTeam`, and the pages already said
