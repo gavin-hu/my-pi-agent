@@ -152,6 +152,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `team`: `/team join` can no longer answer "on the team, listening" over a watch it never checked. With the roster unreadable
+  the door kept its standing and returned before the re-ask, so a session armed without wake stayed unreachable; under the name
+  being asked for it now spends the join, asking for wake, or repeats a disarmed join as disarmed. A standing under another name,
+  and a host that reports no session id, are still kept — the first is the one a guess could rename. The roster answer also
+  settles whose record it is, by machine, pid and start token, so another machine's pid and a reused one are never read as this
+  process's own.
+
 - `session-bus`: the watch a session asked for now lives in its record, and a restart restores it. `watching: { armed, wake }`
   was written on every join and never read back, so a fresh runtime armed from its own silence and a session set to `wake`
   came back as `on` with nothing said — silent, because the seat's round and the team line read `armed` only. The record carries

@@ -14,12 +14,18 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { ID, LABEL, NOW, joinHarness, joinedStanding, liveRecord } from "../../test/helpers/join-fixture.ts";
 import { writeBusRecord, removeBusRecord } from "../../test/helpers/bus.ts";
-import { SESSION_TTL_MS } from "../session-roster.ts";
+import { SESSION_TTL_MS, type RosterSession } from "../session-roster.ts";
+import { startTokenOf } from "../spawn.ts";
 import { NO_BUS_ERROR } from "../session-tool.ts";
 import { joinFailureLine, joinTeam, standingOf, teamStatus } from "./join.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
+
+/** One live record as the roster seam hands it back, with the facts a case varies. */
+function liveRow(extra: Partial<RosterSession>): RosterSession {
+	return { id: ID, label: LABEL, mode: "tui", lastSeen: NOW, mail: 0, ...extra };
+}
 
 describe("joinTeam", () => {
 	test("asks when this session has not asked yet, under the label the card was written as", async () => {
@@ -108,15 +114,40 @@ describe("joinTeam", () => {
 		expect(asked).toEqual([]);
 	});
 
-	test("keeps the standing, and the card, when the roster cannot be read", async () => {
+	test("spends the join when the roster cannot be read under the name asked for", async () => {
+		// The door exists to make this session reachable, and a standing cannot promise the watch:
+		// armed without wake is the state this join upgrades, and an unreadable roster is the one
+		// case where asking cannot rename anything — the label is the one already asked for.
 		const { session, team, ctx, asked } = joinHarness(temps, {
-			record: joinedStanding(),
+			record: joinedStanding({ armed: true, wake: false }),
 			roster: async () => {
 				throw new Error("no agent directory");
 			},
 		});
-		// The join runs after a card was written, so a bus that will not say is a sentence and
-		// not a way to undo the claim it came after.
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
+	});
+
+	test("repeats a disarmed standing as disarmed when the roster cannot be read", async () => {
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			record: joinedStanding({ armed: false, wake: false }),
+			roster: async () => {
+				throw new Error("no agent directory");
+			},
+		});
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL, listen: false }]);
+	});
+
+	test("keeps a standing under another name when the roster cannot be read, so a guess cannot rename", async () => {
+		// The rename risk the old early return guarded against is real, and it is the only half of
+		// it that survives: a join spent here would rename a session the bus may still hold.
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			record: { ok: true, label: "core-claims", watching: { armed: true, wake: true } },
+			roster: async () => {
+				throw new Error("no agent directory");
+			},
+		});
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([]);
 	});
@@ -169,6 +200,56 @@ describe("joinTeam", () => {
 	test("a reason the roster cannot place is reported with no advice grafted onto it", async () => {
 		const { session, team, ctx } = joinHarness(temps, { refuses: "the request was lost" });
 		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ error: "the request was lost" });
+	});
+	test("holds the record this process wrote, so the door asks nothing", async () => {
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			roster: async () => [liveRow({ pid: process.pid, watching: { armed: true, wake: true } })],
+		});
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([]);
+	});
+
+	test("asks when the record names another live process", async () => {
+		// `process.ppid` is alive for the length of the run, so the ask is the identity rule rather
+		// than a record the read called gone.
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			roster: async () => [liveRow({ pid: process.ppid, watching: { armed: true, wake: true } })],
+		});
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
+	});
+
+	test("asks when the pid is this process's but its start token is another process's", async () => {
+		// A pid the machine reused belongs to another process now, and a live record never reaches
+		// the read's own token check: this is the case that has to ask.
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			roster: async () => [liveRow({ pid: process.pid, startToken: "0", watching: { armed: true, wake: true } })],
+		});
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
+	});
+
+	test("holds the record whose start token is this process's", async () => {
+		const token = startTokenOf(process.pid);
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			roster: async () => [
+				liveRow({
+					pid: process.pid,
+					...(token === undefined ? {} : { startToken: token }),
+					watching: { armed: true, wake: true },
+				}),
+			],
+		});
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([]);
+	});
+
+	test("asks for a record from another machine, whose pid names a local process by coincidence", async () => {
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			roster: async () => [liveRow({ pid: process.pid, foreign: true, watching: { armed: true, wake: true } })],
+		});
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 });
 

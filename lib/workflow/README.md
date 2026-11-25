@@ -388,8 +388,13 @@ record under the name being asked for: a standing stays true after the bus stops
 prunes the record, or `/resume` takes the seat over, so a claim that trusted it would write
 a card under a name peers no longer resolve, while a page opening on a session the bus holds
 as a teammate renames it to the seat. The record decides and the standing only fills in when
-the roster cannot be read — a session joined through `/session join` never asked a board door,
-and it is still on the team — and the record has to be this process's own: two panes opened on
+the roster cannot be read, and then only where a guess could not rename: a standing under
+another name, or a host that reports no session id. Under the name being asked for an
+unreadable roster spends the join, because a session joined through `/session join` never
+asked a board door, and a standing cannot promise the watch this door exists to check. The
+record also has to be this process's own, which the roster answer settles where the record is
+read — by machine, then pid, then start token, since another machine's pid names a local
+process by coincidence and a reused pid belongs to another process now: two panes opened on
 one session id write one record each, and the other pane's watch is not this one's, so a door
 here asks and arms its own. The ask repeats the watch the record names, so a rename keeps a
 `join({listen: false})` and a wake the session had, and a failed join never undoes the card it

@@ -39,6 +39,7 @@ import { messageOf } from "../errors.ts";
 import { sameLabel, sessionIdOf } from "../session-label.ts";
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
 import { type JoinResult, NO_BUS_ERROR, type TeamJoin, type TeamJoinInput, type Watching } from "../session-tool.ts";
+import { startTokenOf } from "../spawn.ts";
 import type { BoardSession } from "./session.ts";
 
 /**
@@ -75,12 +76,10 @@ export function standingOf(result: JoinResult | undefined): TeamState | undefine
 	return { label: result.label, listening: result.watching.armed };
 }
 
-/** What one live record says: the name it holds, its watch, and the process that wrote it. */
+/** What one live record says: the name it holds and the watch the bus last wrote for it. */
 interface Held {
 	label: string;
 	watching?: Watching;
-	/** The process that owns the record; absent is a record older than the field, or one no process holds. */
-	pid?: number;
 }
 
 /**
@@ -89,9 +88,15 @@ interface Held {
  * `absent` and `unknown` are different facts — a bus that has not recorded this session is
  * a join to spend, while a roster that cannot be read is no evidence either way — and they
  * are kept apart for the same reason `lib/session-roster.ts` says a missing directory is not
- * an error: a guess either way would be a write under a name nothing backs.
+ * an error: a guess either way would be a write under a name nothing backs. `unknown` says
+ * which fact it is, because the two are owed different answers: a host with no session id
+ * has no record to look for at all, while a roster that would not read is a record this
+ * door could still be held to.
  */
-type RosterAnswer = { kind: "held"; held: Held } | { kind: "absent" } | { kind: "unknown" };
+type RosterAnswer =
+	| { kind: "held"; held: Held; here: boolean }
+	| { kind: "absent" }
+	| { kind: "unknown"; why: "no-session-id" | "unreadable" };
 
 /** A state from a live record, with the standing filling in a listening fact it cannot say. */
 function stateOfHeld(held: Held, known: TeamState | undefined): TeamState {
@@ -100,15 +105,22 @@ function stateOfHeld(held: Held, known: TeamState | undefined): TeamState {
 }
 
 /**
- * Whether the record is this process's own, which is the half a label cannot tell.
+ * Whether a live record is this process's own, which is the half a label cannot tell.
  *
  * A second pane opened on the same session id writes its own record, so a peer is reachable
  * and the label is right, but the watch is the other pane's: asking here is what arms this
- * pane's mail, the way the page did before a join learned to ask once. A record that names no
- * process is judged by its name alone, since there is nothing else to compare.
+ * pane's mail, the way the page did before a join learned to ask once. Three facts decide it.
+ * Another machine's pid names a local process by coincidence, so a foreign record is never
+ * this one. A record naming no process is judged by its name alone, since there is nothing
+ * else to compare. And a record naming this pid is ours only while its start token still
+ * matches: a pid the machine reused belongs to another process now, and the read settles that
+ * only once a record is quiet, so a live one has to be asked here.
  */
-function heldHere(held: Held): boolean {
-	return held.pid === undefined || held.pid === process.pid;
+function ownRecord(record: Pick<RosterSession, "pid" | "startToken" | "foreign">): boolean {
+	if (record.foreign === true) return false;
+	if (record.pid === undefined) return true;
+	if (record.pid !== process.pid) return false;
+	return record.startToken === undefined || record.startToken === startTokenOf(record.pid);
 }
 
 /**
@@ -138,7 +150,7 @@ export async function joinTeam(
 ): Promise<TeamState> {
 	const standing = session.team.last();
 	const answer = await rosterAnswer(session, ctx);
-	if (answer.kind === "held" && heldHere(answer.held) && sameLabel(answer.held.label, label)) {
+	if (answer.kind === "held" && answer.here && sameLabel(answer.held.label, label)) {
 		// A record that answers for its own watch is one fact: armed-and-waking needs no request, and
 		// `armed: false` is the user's `listen: false`, which a team door never turns back on. A
 		// record that says nothing is not a third answer but no answer yet — the boot write lands
@@ -148,9 +160,14 @@ export async function joinTeam(
 		if (watch !== undefined && (watch.armed !== true || watch.wake))
 			return stateOfHeld(answer.held, standingOf(standing));
 	}
-	// No word from the bus keeps a standing that landed: the record may be there and unreadable,
-	// and a join spent on a guess would rename a session the bus still holds.
-	if (answer.kind === "unknown" && standing?.ok === true) return standingOf(standing);
+	// No word from the bus keeps a standing that landed, with one exception. A host with no session
+	// id has no record to look for at all, and a standing under another name is the one a guess
+	// could rename — both keep what landed. A roster that would not read, under the very name being
+	// asked for, is the case this door must still spend: it cannot rename anything, and the standing
+	// cannot promise the watch this join exists to check.
+	if (answer.kind === "unknown" && standing?.ok === true) {
+		if (answer.why === "no-session-id" || !sameLabel(standing.label, label)) return standingOf(standing);
+	}
 	const joined = await ask(
 		team,
 		ctx,
@@ -268,21 +285,21 @@ export function joinFailureLine(state: TeamState): string | undefined {
  */
 async function rosterAnswer(session: JoinSession, ctx: ExtensionContext): Promise<RosterAnswer> {
 	const id = sessionIdOf(ctx);
-	if (id === undefined) return { kind: "unknown" };
+	if (id === undefined) return { kind: "unknown", why: "no-session-id" };
 	let roster: RosterSession[] | undefined;
 	try {
 		roster = await session.roster(ctx.cwd);
 	} catch {
-		return { kind: "unknown" };
+		return { kind: "unknown", why: "unreadable" };
 	}
 	const record = roster?.find((entry) => entry.id === id);
 	if (record === undefined || rosterStateOf(record, session.now()) !== "live") return { kind: "absent" };
 	return {
 		kind: "held",
+		here: ownRecord(record),
 		held: {
 			label: record.label,
 			...(record.watching === undefined ? {} : { watching: record.watching }),
-			...(record.pid === undefined ? {} : { pid: record.pid }),
 		},
 	};
 }
