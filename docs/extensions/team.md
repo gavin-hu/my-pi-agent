@@ -29,8 +29,9 @@ one row each however many inboxes it reached; a card's chip counts its own inbox
 | Take a card yourself | `board claim 5` |
 | Ask a peer a question | `team ask to billing-core question "what is left on #4?"` |
 | See the round | `/team` in the terminal, or the board's Team tab |
-| See who is here, and what each holds | `/team list` — one row per session, `- none` for an empty group |
+| See who is here, and what each holds | `/team who` — one row per session, `- none` for an empty group; `/team who billing-core` for one |
 | Join the team | `/team join billing-core` names yourself, or `/team join` for a name `team.teammates` lists |
+| Read the words it takes | `/team help` |
 
 ## Try it
 
@@ -74,8 +75,11 @@ answers to cannot be handed a card. A rename is one row: a card is named by the 
 A handoff the bus could not name records the owner `unresolved`: mail reaches the label, but only the lead moves
 the card. A quiet owner's card is reclaimable; one held by a session with no record is not — a live session
 that never joined looks the same. A message to a quiet or not-listening peer says so: written is not heard.
-`/team list` prints that answer as rows — `live (n)`, `quiet (n)`, `not on the bus (n)`, `gone (n)`, one per
-session, nothing elided, `· not listening` on the row it flags, one grouping with the round's own paragraph.
+`/team who` prints that answer as rows — `live (n)`, `quiet (n)`, `not on the bus (n)`, `gone (n)`, one per
+session, nothing elided, `· not listening` on the row it flags, one grouping with the round's own count.
+`/team who <label>` asks the same grouping about one session and answers with its row and state, an owner the
+bus has no record of included. The round itself closes with that count and the word: `2 of 4 sessions live —
+/team who lists them`, and `… 4 more — /board draws the whole round` when its cap leaves the rollup over.
 
 **Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own name — `/team
 join <label>`, or a bare one for the first free `team.teammates` name, the id-derived `team-agent-` name when

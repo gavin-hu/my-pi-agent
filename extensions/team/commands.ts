@@ -7,9 +7,9 @@
  * reads the cards and the bus's records and writes nothing: acting on the round is
  * `team`'s tool (`assign`, `offer`, `ask`) or `board`'s own verbs.
  *
- * `/team list` is the presence line on its own: one row per session and nothing elided, which is
- * the shape of the question a paragraph answers badly. Both print one grouping — `whoIsHere` —
- * so the round's last line and the listing cannot disagree about who is here.
+ * `/team who` prints that grouping as rows — one per session, nothing elided — and a label narrows
+ * it to the one session a lead asked about. Both read one grouping, `whoIsHere`, so the round's
+ * closing count and the listing cannot disagree about who is here.
  *
  * `/team join` lives here too, and stays in this module: the entry's registration budget counts the
  * modules it loads, so a door of its own would cost a start for one command's words.
@@ -30,30 +30,71 @@ import { formatJoined, formatNotJoined, joinNote } from "./format.ts";
 /** The command's name, which is also the word a user types. */
 export const TEAM_COMMAND = "team";
 
-/** The words the command accepts besides the round itself. */
-export const TEAM_WORDS = ["join", "list"] as const;
+/**
+ * The words the command accepts besides the round itself.
+ *
+ * `who` and `join` take a label, so the completer continues past either word; `help` prints
+ * {@link TEAM_USAGE} instead of reading the board.
+ */
+export const TEAM_WORDS = ["who", "join", "help"] as const;
+
+/** The words that take a label, so a completion continues into one and the usage says so. */
+const LABEL_WORDS = new Set<string>(["who", "join"]);
+
+/**
+ * What the command does, in the words a reader needs after a typo.
+ *
+ * One block, printed by `help` and after an unknown word: the warning used to be a sentence of its
+ * own, and a sentence that named both other words drifted from the description above it.
+ */
+export const TEAM_USAGE = [
+	"team: the lead's round over the board's cards.",
+	"  /team                  the round: who holds what, and what needs a decision",
+	"  /team who [<label>]    who is here, one row per session; one session when a label is named",
+	"  /team join [<label>]   join the team as <label>; a bare join keeps this session's name",
+	"  /team help             these words",
+].join("\n");
 
 /**
  * How many of the round's own lines print before it says how many it left out.
  *
- * The work a dead owner left behind and the presence line print on top of it: those are the
- * reason a lead reads the round, and cutting them to hold a number would be the wrong trade.
- * The elision counts the rollup alone, so "… N more" is a count a reader can act on. The
- * presence line is the one part of the round a reader can ask for whole: that is `/team list`.
+ * The work a dead owner left behind and the closing count print on top of it: those are the reason
+ * a lead reads the round, and cutting them to hold a number would be the wrong trade. The elision
+ * counts the rollup alone, so "… N more" is a count a reader can act on, and it names the surface
+ * that draws the rest. The count is the part of the round a reader can ask for whole: `/team who`.
  */
 export const MAX_ROUND_LINES = 10;
 
 export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: { team?: TeamJoin } = {}): void {
 	const team = deps.team ?? createTeamJoin(pi);
+	// The completer is given no command context, and `ExtensionAPI` carries no cwd, so the root it
+	// reads is the one Pi hands the session here: a resumed session's cwd lives in its header rather
+	// than in the process, so `process.cwd()` would name the wrong repository for a moved checkout.
+	let root: string | undefined;
+	pi.on("session_start", (_event, ctx) => {
+		root = ctx.cwd;
+	});
 	pi.registerCommand(TEAM_COMMAND, {
 		// The line and the guideline are the same sentence: `/team` is where a lead reads the round, and
 		// `lib/workflow/round-text.ts` owns what it is called.
-		description: `${LEAD_ROUND} \`/team list\` names who is here; \`/team join [<label>]\` joins the team`,
-		getArgumentCompletions: (prefix: string) => {
-			const text = prefix.trimStart();
-			if (text.includes(" ")) return null;
-			const items = TEAM_WORDS.filter((word) => word.startsWith(text));
-			return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
+		description: `${LEAD_ROUND} \`/team who [<label>]\` names who is here; \`/team join [<label>]\` joins the team`,
+		getArgumentCompletions: async (prefix: string) => {
+			const [word = "", ...rest] = prefix.trimStart().split(/\s+/);
+			if (rest.length > 1) return null;
+			if (rest.length === 0) {
+				const items = TEAM_WORDS.filter((candidate) => candidate.startsWith(word));
+				return items.length > 0
+					? items.map((value) => ({ value: LABEL_WORDS.has(value) ? `${value} ` : value, label: value }))
+					: null;
+			}
+			// A label is the argument both words take, and the names a bare join draws from are the ones
+			// worth offering: `team.teammates` is that list. The store is memoized by root, so a keystroke
+			// opens it once per session; a completion that cannot name a root offers nothing.
+			if (!LABEL_WORDS.has(word) || root === undefined) return null;
+			const typed = labelKey(rest[0] ?? "");
+			const store = await session.store(root);
+			const names = store.config().teammates.filter((candidate) => labelKey(candidate).startsWith(typed));
+			return names.length > 0 ? names.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			const [word = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
@@ -80,11 +121,12 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 				);
 				return;
 			}
-			if (word !== "" && word !== "list") {
-				ctx.ui.notify(
-					`team: "${word}" is not a word this command knows — try /team, /team list, or /team join [<label>]`,
-					"warning",
-				);
+			if (word === "help") {
+				ctx.ui.notify(TEAM_USAGE, "info");
+				return;
+			}
+			if (word !== "" && word !== "who") {
+				ctx.ui.notify(`team: "${word}" is not a word this command knows\n${TEAM_USAGE}`, "warning");
 				return;
 			}
 			// One read serves both words: the round needs the cards and the roster, and so does the
@@ -93,7 +135,10 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			const store = await session.store(ctx.cwd);
 			const [cards, roster] = await Promise.all([store.list(), session.roster(ctx.cwd)]);
 			const now = session.now();
-			ctx.ui.notify(word === "list" ? listText(cards, now, roster) : roundText(cards, now, roster), "info");
+			ctx.ui.notify(
+				word === "who" ? whoText(cards, now, roster, rest.join(" ").trim()) : roundText(cards, now, roster),
+				"info",
+			);
 		},
 	});
 }
@@ -165,10 +210,12 @@ export function joinedLine(result: JoinResult, note?: string): string {
 }
 
 /**
- * The round as the lines a lead reads: the rollup, then who is live.
+ * The round as the lines a lead reads: the rollup, then a count of who is live.
  *
- * Capped, because a notify is a message and not a screen: past its limit the round says
- * how many lines it left out instead of pushing the rest of the session up the screen.
+ * Capped, because a notify is a message and not a screen: past its limit the round says how many
+ * lines it left out and which surface draws the rest, instead of pushing the session up the screen.
+ * The tail is a count and a door, not the paragraph that named every session twice: the rows are
+ * `/team who`'s.
  */
 export function roundText(cards: readonly Card[], now: number, roster?: readonly RosterSession[]): string {
 	if (cards.length === 0) return "team: nothing to report — the board is empty";
@@ -180,35 +227,58 @@ export function roundText(cards: readonly Card[], now: number, roster?: readonly
 	// The cap covers the rollup: what a dead owner left, and who is here at all, follow it whole.
 	const lines = formatRound(named, round, roster).split("\n");
 	const shown = lines.slice(0, MAX_ROUND_LINES);
-	if (lines.length > MAX_ROUND_LINES) shown.push(`… ${plural(lines.length - MAX_ROUND_LINES, "line")} more`);
+	if (lines.length > MAX_ROUND_LINES) {
+		shown.push(`… ${plural(lines.length - MAX_ROUND_LINES, "line")} more — /board draws the whole round`);
+	}
 	for (const line of stalledLines(named, roster, now)) shown.push(line);
-	// The presence line is the tail a reader can ask for whole as `/team list`, so the two build it
-	// from one grouping: `presenceGroups` is the only place this module asks `rosterStateOf`.
+	// The tail is the count a reader can ask for whole as `/team who`, so both read one grouping:
+	// `presenceGroups` is the only place this module asks `rosterStateOf`.
 	const who =
-		roster === undefined || roster.length === 0 ? undefined : presenceLine(presenceGroups(round, roster, now));
+		roster === undefined || roster.length === 0
+			? undefined
+			: presenceTail(presenceGroups(round, roster, now), roster.length);
 	if (who !== undefined) shown.push(who);
 	return shown.join("\n");
 }
 
 /**
- * `/team list`: the same grouping, one row per session, uncapped.
+ * The four states, in the order they print, with the word each one heads.
  *
- * `/team` is a notify, so its presence line is one paragraph and the round's cap decides what a
- * reader sees. This answers the question a paragraph answers badly — who is here, and what each is
- * holding — so no line is elided and every state prints, `- none` included: a group a reader has to
- * infer from its absence is the one that gets forgotten.
+ * `who` heads its sections with these words and `who <label>` answers with the one its row belongs
+ * to, so the word a reader meets in a listing and in a single answer cannot drift apart.
  */
-export function listText(cards: readonly Card[], now: number, roster?: readonly RosterSession[]): string {
+const SECTIONS: ReadonlyArray<{ state: keyof WhoIsHere; head: string }> = [
+	{ state: "live", head: "live" },
+	{ state: "quiet", head: "quiet" },
+	{ state: "absent", head: "not on the bus" },
+	{ state: "gone", head: "gone" },
+];
+
+/**
+ * `/team who [<label>]`: the same grouping as rows, uncapped and one session per row.
+ *
+ * `/team` is a notify whose cap decides what a reader sees, and a paragraph that names a session
+ * under its state and again under `not listening` is the shape that answers this badly. Rows answer
+ * it — who is here, and what each is holding — so no line is elided and every state prints,
+ * `- none` included: a group a reader has to infer from its absence is the one that gets forgotten.
+ * A label asks the same grouping about one session, an owner the bus has no record of included.
+ */
+export function whoText(cards: readonly Card[], now: number, roster?: readonly RosterSession[], label = ""): string {
 	// A bus directory that does not exist is a fact, not an empty board: nobody has joined, so there
 	// is nobody to list, and a word that printed nothing would look broken.
 	if (roster === undefined) return "team: no session bus on this repository — nobody has joined";
 	const here = whoIsHere(cards, now, roster);
+	if (label !== "") {
+		const asked = labelKey(label);
+		for (const { state, head } of SECTIONS) {
+			const row = here[state].find((candidate) => labelKey(candidate.label) === asked);
+			if (row !== undefined) return `team: ${row.line} · ${head}${row.silent ? " · not listening" : ""}`;
+		}
+		return `team: no session or owner named "${label}" — /team who lists who is here`;
+	}
 	return [
 		`team: ${plural(roster.length, "session")} on the bus`,
-		...section("live", here.live),
-		...section("quiet", here.quiet),
-		...section("not on the bus", here.absent),
-		...section("gone", here.gone),
+		...SECTIONS.flatMap(({ state, head }) => section(head, here[state])),
 	].join("\n");
 }
 
@@ -272,7 +342,7 @@ export interface WhoIsHere {
  *
  * The owner groups are where the board already decided which label a card belongs to, so a
  * session's holding is the one its rollup line counted. `rosterStateOf` is asked here and nowhere
- * else in this module, so the paragraph and the listing cannot read one record two ways.
+ * else in this module, so the tail and the listing cannot read one record two ways.
  */
 function presenceGroups(round: RoundSummary, roster: readonly RosterSession[], now: number): WhoIsHere {
 	const held = new Map(round.owners.map((group) => [labelKey(group.label), group.cards] as const));
@@ -298,7 +368,7 @@ function presenceGroups(round: RoundSummary, roster: readonly RosterSession[], n
 }
 
 /**
- * The same grouping, from the cards alone: the door `/team list` and this module's suite read.
+ * The same grouping, from the cards alone: the door `/team who` and this module's suite read.
  *
  * One body with {@link presenceGroups}, so a case that compares the two surfaces against it is
  * comparing both to the grouping they actually print rather than to a restatement of its names.
@@ -309,33 +379,14 @@ export function whoIsHere(cards: readonly Card[], now: number, roster: readonly 
 }
 
 /**
- * The sentence `/team` appends: `live: a — #2 execute · not listening: b · quiet: c — idle ·
- * gone: d — #4 plan`, or nothing when nobody is here.
+ * The line `/team` closes with: `2 of 4 sessions live — /team who lists them`.
  *
- * Every state group names the session with what it is holding, from
- * `lib/workflow/round-text.ts`'s one phrase, so a line that says who is around also says what
- * they are doing: a session holding nothing reads `idle`, and one holding cards names the
- * first and counts the rest. `not listening:` is the exception, and it is a flag rather than
- * a state: it names a peer already listed under `live:`, so repeating its holding there
- * would print one session twice.
- *
- * Four facts, and the middle one is the one a lead can act on: a live session that is
- * not listening reads mail at its next turn rather than being woken for it. It is only
- * named when its record says so — a session that never wrote the field is not accused of
- * ignoring anything. `gone` is the loudest and comes last, because it is the one a lead
- * answers by reclaiming rather than by waiting. `not on the bus` is the fifth and a different
- * kind: an owner the board names, the bus has no record of, and that holds cards — the row the
- * page draws as `absent`. A session that never joined looks the same, so it states the fact
- * and offers no verb.
+ * A count and a door rather than a sentence per state. The old paragraph repeated a session under
+ * its state and again under `not listening:` and wrapped into a wall on any narrow terminal, and
+ * the part of it a lead acted on — `board reclaim …` for a dead owner's cards — already prints
+ * above this line. What is left is the one number a lead cannot read elsewhere: how much of the
+ * bus is live, which is who a card can be handed to now.
  */
-function presenceLine(here: WhoIsHere): string | undefined {
-	const silent = here.live.filter((row) => row.silent).map((row) => row.label);
-	const parts = [
-		here.live.length > 0 ? `live: ${here.live.map((row) => row.line).join(", ")}` : "",
-		silent.length > 0 ? `not listening: ${silent.join(", ")}` : "",
-		here.quiet.length > 0 ? `quiet: ${here.quiet.map((row) => row.line).join(", ")}` : "",
-		here.absent.length > 0 ? `not on the bus: ${here.absent.map((row) => row.line).join(", ")}` : "",
-		here.gone.length > 0 ? `gone: ${here.gone.map((row) => row.line).join(", ")}` : "",
-	];
-	return parts.filter((part) => part !== "").join(" · ");
+function presenceTail(here: WhoIsHere, total: number): string {
+	return `${here.live.length} of ${plural(total, "session")} live — /team who lists them`;
 }

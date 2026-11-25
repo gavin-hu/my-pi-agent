@@ -9,18 +9,19 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import {
-	listText,
 	MAX_ROUND_LINES,
 	type PresenceRow,
 	registerCommands,
 	roundText,
 	TEAM_COMMAND,
+	TEAM_USAGE,
 	whoIsHere,
+	whoText,
 } from "./commands.ts";
 import { LEAD_ROUND } from "../../lib/workflow/round-text.ts";
 
@@ -74,17 +75,16 @@ describe("roundText", () => {
 		];
 		const roster = [mate("billing-lead", NOW), dead("billing-core"), mate("ops-helper", NOW - 20 * 60_000)];
 		const lines = roundText(cards, NOW, roster).split("\n");
-		// The instruction comes before the presence line: who died is the quieter fact.
+		// The instruction comes before the tail: who died is the quieter fact.
 		expect(lines).toContain("board reclaim #1, #2 — billing-core is not running");
-		expect(lines.at(-1)).toBe(
-			"live: billing-lead — idle · quiet: ops-helper — #4 execute · gone: billing-core — #1 execute +1",
-		);
+		// The tail counts what it can point at, rather than naming every session a second time.
+		expect(lines.at(-1)).toBe("1 of 3 sessions live — /team who lists them");
 		// A card finished by a dead owner is history, not work to reclaim.
 		const reclaim = lines.find((line) => line.startsWith("board reclaim "));
 		expect(reclaim).not.toContain("#3");
 	});
 
-	test("prints the rollup, then who is live and who has gone quiet", () => {
+	test("prints the rollup, then the count of who is live", () => {
 		const cards = [
 			card("1"),
 			card("2", { lane: "execute", owner: { label: "billing-core" } }),
@@ -101,7 +101,7 @@ describe("roundText", () => {
 			"unassigned (1): #1 backlog",
 			"unreviewed (1): #2 execute",
 			"blocked (1): #3 blocked — gateway",
-			"live: billing-lead — idle · quiet: ops-helper — idle · not on the bus: billing-core — #2 execute +1",
+			"1 of 2 sessions live — /team who lists them",
 		]);
 	});
 
@@ -111,9 +111,9 @@ describe("roundText", () => {
 		const cards = [card("1", { lane: "execute", owner: { id: "s-core", label: "team-agent-score" } })];
 		const lines = roundText(cards, NOW, [{ ...mate("billing-core", NOW), id: "s-core" }]).split("\n");
 		expect(lines).toContain("billing-core (1): #1 execute");
-		// One owner, and no second one for the name the card kept — not even in the presence line.
+		// One owner, and no second one for the name the card kept — not even in the tail's count.
 		expect(lines.some((line) => line.includes("team-agent-score"))).toBe(false);
-		expect(lines.at(-1)).toBe("live: billing-core — #1 execute");
+		expect(lines.at(-1)).toBe("1 of 1 session live — /team who lists them");
 	});
 
 	test("names a quiet owner's cards, and leaves an owner with no record to the fact line", () => {
@@ -126,38 +126,13 @@ describe("roundText", () => {
 		// record of is not: a live session that never joined looks exactly the same.
 		expect(lines).toContain("board reclaim #1 — ops-helper has gone quiet");
 		expect(lines.some((line) => line.startsWith("board reclaim ") && line.includes("nobody-home"))).toBe(false);
-		expect(lines.at(-1)).toContain("not on the bus: nobody-home — #2 plan");
-	});
-
-	test("names a live peer that is not listening, and only when its record says so", () => {
-		const cards = [card("1")];
-		const roster = [
-			{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 },
-			{
-				id: "s-core",
-				label: "billing-core",
-				mode: "tui",
-				lastSeen: NOW,
-				mail: 0,
-				watching: { armed: false, wake: false },
-			},
-			{
-				id: "s-old",
-				label: "ops-helper",
-				mode: "tui",
-				lastSeen: NOW - 20 * 60_000,
-				mail: 0,
-				watching: { armed: false, wake: false },
-			},
-		];
-		expect(roundText(cards, NOW, roster).split("\n").at(-1)).toBe(
-			"live: billing-lead — idle, billing-core — idle · not listening: billing-core · quiet: ops-helper — idle",
-		);
+		// No live session, and the owner with no record is not one: the count says so before the rows do.
+		expect(lines.at(-1)).toBe("0 of 1 session live — /team who lists them");
 	});
 
 	test("says nothing about who is here when the bus has recorded nobody", () => {
-		expect(roundText([card("1")], NOW)).not.toContain("live:");
-		expect(roundText([card("1")], NOW, [])).not.toContain("live:");
+		expect(roundText([card("1")], NOW)).not.toContain("/team who");
+		expect(roundText([card("1")], NOW, [])).not.toContain("/team who");
 	});
 
 	test("folds the owners a bus has no record of, so the queue keeps its lines", () => {
@@ -185,9 +160,10 @@ describe("roundText", () => {
 		// The cap holds the rollup, and the two lines that say what to do about dead work ride on top:
 		// the count in "… N more" is the rollup's overflow alone, so a reader can act on it.
 		expect(lines).toHaveLength(MAX_ROUND_LINES + 3);
-		expect(lines[MAX_ROUND_LINES]).toMatch(/^… \d+ lines more$/);
+		// The overflow names the surface that draws the rest: a count with no door was a dead end.
+		expect(lines[MAX_ROUND_LINES]).toMatch(/^… \d+ lines more — \/board draws the whole round$/);
 		expect(lines[MAX_ROUND_LINES + 1]).toBe("board reclaim #21 — ops-helper is not running");
-		expect(lines.at(-1)).toContain("gone: ops-helper");
+		expect(lines.at(-1)).toBe("0 of 1 session live — /team who lists them");
 	});
 
 	test("caps a long round and says how many lines it left out", () => {
@@ -196,13 +172,13 @@ describe("roundText", () => {
 		);
 		const lines = roundText(cards, NOW).split("\n");
 		expect(lines).toHaveLength(MAX_ROUND_LINES + 1);
-		expect(lines.at(-1)).toMatch(/^… \d+ lines more$/);
+		expect(lines.at(-1)).toMatch(/^… \d+ lines more — \/board draws the whole round$/);
 	});
 });
 
-describe("listText", () => {
+describe("whoText", () => {
 	test("is one sentence when the repository has no bus at all", () => {
-		expect(listText([card("1")], NOW)).toBe("team: no session bus on this repository — nobody has joined");
+		expect(whoText([card("1")], NOW)).toBe("team: no session bus on this repository — nobody has joined");
 	});
 
 	test("prints a row per session, grouped, with a zero group drawn rather than left out", () => {
@@ -214,7 +190,7 @@ describe("listText", () => {
 			card("5"),
 		];
 		const roster = [mate("billing-lead", NOW), dead("billing-core"), mate("ops-core", NOW - 20 * 60_000)];
-		expect(listText(cards, NOW, roster).split("\n")).toEqual([
+		expect(whoText(cards, NOW, roster).split("\n")).toEqual([
 			"team: 3 sessions on the bus",
 			"live (1)",
 			"- billing-lead — idle",
@@ -228,7 +204,7 @@ describe("listText", () => {
 	});
 
 	test("draws an empty group, so a missing state is not read as a clean team", () => {
-		expect(listText([], NOW, [mate("billing-lead", NOW)]).split("\n")).toEqual([
+		expect(whoText([], NOW, [mate("billing-lead", NOW)]).split("\n")).toEqual([
 			"team: 1 session on the bus",
 			"live (1)",
 			"- billing-lead — idle",
@@ -252,11 +228,22 @@ describe("listText", () => {
 				mail: 0,
 				watching: { armed: false, wake: false },
 			},
+			{
+				id: "s-old",
+				label: "ops-helper",
+				mode: "tui",
+				lastSeen: NOW - 20 * 60_000,
+				mail: 0,
+				watching: { armed: false, wake: false },
+			},
 		];
 		const cards = [card("1", { lane: "execute", owner: { label: "billing-core" } })];
-		const listing = listText(cards, NOW, roster);
+		const listing = whoText(cards, NOW, roster);
 		expect(rowsOf(listing, "live")).toEqual(["- billing-lead — idle", "- billing-core — #1 execute · not listening"]);
-		// The paragraph names a silent peer twice by design — under `live:` and under `not listening:` — but
+		// A quiet record that is disarmed is not flagged: the flag marks a live peer whose mail waits for
+		// its next turn, and a session that has gone quiet is already the louder fact about it.
+		expect(rowsOf(listing, "quiet")).toEqual(["- ops-helper — idle"]);
+		// A paragraph named a silent peer twice by design — under `live:` and under `not listening:` — but
 		// one row per session cannot: the flag rides the row that already names it.
 		expect(listing.split("\n").filter((line) => line.includes("billing-core"))).toHaveLength(1);
 	});
@@ -265,19 +252,19 @@ describe("listText", () => {
 		// The group that regresses the first time somebody simplifies the read to the roster alone:
 		// these owners come from `round.owners`, a session holding cards the bus has never heard of.
 		const cards = [card("2", { lane: "plan", owner: { label: "nobody-home" } })];
-		const listing = listText(cards, NOW, [mate("billing-lead", NOW)]);
+		const listing = whoText(cards, NOW, [mate("billing-lead", NOW)]);
 		expect(rowsOf(listing, "not on the bus")).toEqual(["- nobody-home — #2 plan"]);
 	});
 
 	test("elides nothing, however long the team", () => {
 		const roster = Array.from({ length: 30 }, (_, index) => mate(`session-${index}`, NOW));
-		const listing = listText([], NOW, roster);
+		const listing = whoText([], NOW, roster);
 		expect(rowsOf(listing, "live")).toHaveLength(30);
 		// The word exists because `/team`'s notify cannot say this: no cap, and no "… N more".
 		expect(listing.split("\n").some((line) => line.endsWith("more"))).toBe(false);
 	});
 
-	test("reads the grouping the round's paragraph reads, so the two cannot disagree", () => {
+	test("reads the grouping the round's tail counts, so the two cannot disagree", () => {
 		// The assertion is against the grouping itself — `whoIsHere` — not a restatement of its group
 		// names: a change to one surface that stops reading it fails the other's rows here.
 		const cards = [
@@ -301,15 +288,44 @@ describe("listText", () => {
 			dead("billing-core"),
 		];
 		const here = whoIsHere(cards, NOW, roster);
-		const listing = listText(cards, NOW, roster);
+		const listing = whoText(cards, NOW, roster);
 		expect(rowsOf(listing, "live")).toEqual(rowLines(here.live));
 		expect(rowsOf(listing, "quiet")).toEqual(rowLines(here.quiet));
 		expect(rowsOf(listing, "not on the bus")).toEqual(rowLines(here.absent));
 		expect(rowsOf(listing, "gone")).toEqual(rowLines(here.gone));
-		const paragraph = roundText(cards, NOW, roster).split("\n").at(-1) ?? "";
-		for (const row of [...here.live, ...here.quiet, ...here.absent, ...here.gone]) {
-			expect(paragraph).toContain(row.line);
-		}
+		// The round no longer names a session at all: it counts the live ones and points at these rows.
+		expect(roundText(cards, NOW, roster).split("\n").at(-1)).toBe("2 of 4 sessions live — /team who lists them");
+	});
+
+	test("answers about one session when a label is named, an owner with no record included", () => {
+		const cards = [card("4", { lane: "execute", owner: { label: "nobody-home" } })];
+		const roster = [mate("billing-lead", NOW), dead("billing-core")];
+		expect(whoText(cards, NOW, roster, "billing-lead")).toBe("team: billing-lead — idle · live");
+		expect(whoText(cards, NOW, roster, "billing-core")).toBe("team: billing-core — idle · gone");
+		// The owner the board names and the bus has no record of is still a session a lead asks about.
+		expect(whoText(cards, NOW, roster, "nobody-home")).toBe("team: nobody-home — #4 execute · not on the bus");
+		// The label is compared the way the board compares it, so a typed case still finds the record.
+		expect(whoText(cards, NOW, roster, "Billing-Lead")).toBe("team: billing-lead — idle · live");
+	});
+
+	test("carries the not-listening flag into a single answer", () => {
+		const roster = [
+			{
+				id: "s-core",
+				label: "billing-core",
+				mode: "tui",
+				lastSeen: NOW,
+				mail: 0,
+				watching: { armed: false, wake: false },
+			},
+		];
+		expect(whoText([], NOW, roster, "billing-core")).toBe("team: billing-core — idle · live · not listening");
+	});
+
+	test("says so when the label names nobody, and points at the listing", () => {
+		expect(whoText([], NOW, [mate("billing-lead", NOW)], "ghost")).toBe(
+			'team: no session or owner named "ghost" — /team who lists who is here',
+		);
 	});
 });
 
@@ -329,6 +345,7 @@ describe("the command", () => {
 		await command.handler("", ctx);
 		expect(notifications.at(-1)).toBe("team: nothing to report — the board is empty");
 	});
+
 	test("prints the listing, which says so when this repository has no bus", async () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
 		const fake = createFakePi();
@@ -336,7 +353,7 @@ describe("the command", () => {
 		const command = fake.commands.get(TEAM_COMMAND);
 		if (!command) throw new Error("the team command was not registered");
 		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
-		await command.handler("list", ctx);
+		await command.handler("who", ctx);
 		// The word reads the same store and roster the round does, through the shipped readers: a
 		// harness with no bus directory is the fact the word must state rather than a failure.
 		expect(notifications.at(-1)).toBe("team: no session bus on this repository — nobody has joined");
@@ -344,7 +361,7 @@ describe("the command", () => {
 });
 
 describe("its words", () => {
-	test("warns about a word it does not know, and says which it does", async () => {
+	test("warns about a word it does not know, and prints the words it does", async () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
 		const fake = createFakePi();
 		registerCommands(fake.pi, board.runtime);
@@ -352,18 +369,45 @@ describe("its words", () => {
 		if (!command) throw new Error("the team command was not registered");
 		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 		await command.handler("leave", ctx);
-		expect(notifications.at(-1)).toContain("try /team, /team list, or /team join [<label>]");
+		// The warning carries the block rather than a sentence of its own, so the words a reader is
+		// offered are the words the description above it names.
+		expect(notifications.at(-1)).toBe(`team: "leave" is not a word this command knows\n${TEAM_USAGE}`);
 	});
 
-	test("completes join and list, and stops once an argument starts", () => {
+	test("prints the same block when it is asked for it", async () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
 		const fake = createFakePi();
 		registerCommands(fake.pi, board.runtime);
 		const command = fake.commands.get(TEAM_COMMAND);
 		if (!command) throw new Error("the team command was not registered");
-		expect(command.getArgumentCompletions?.("j")).toEqual([{ value: "join", label: "join" }]);
-		expect(command.getArgumentCompletions?.("l")).toEqual([{ value: "list", label: "list" }]);
-		expect(command.getArgumentCompletions?.("join ")).toBeNull();
-		expect(command.getArgumentCompletions?.("x")).toBeNull();
+		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+		await command.handler("help", ctx);
+		expect(notifications.at(-1)).toBe(TEAM_USAGE);
+	});
+
+	test("completes the words, and the team's names after the two that take a label", async () => {
+		const board = boardHarness({ now: NOW, teammates: ["billing-core", "ops-core"], track: temps.track });
+		const fake = createFakePi();
+		registerCommands(fake.pi, board.runtime);
+		const command = fake.commands.get(TEAM_COMMAND);
+		if (!command) throw new Error("the team command was not registered");
+		// The words are static, so they complete before a session has started; a label is read from the
+		// repository, and a completion with no root to read has nothing to offer.
+		expect(await command.getArgumentCompletions?.("j")).toEqual([{ value: "join ", label: "join" }]);
+		expect(await command.getArgumentCompletions?.("join ")).toBeNull();
+		const { ctx } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+		await emit(fake.pi, "session_start", {}, ctx);
+		expect(await command.getArgumentCompletions?.("w")).toEqual([{ value: "who ", label: "who" }]);
+		expect(await command.getArgumentCompletions?.("h")).toEqual([{ value: "help", label: "help" }]);
+		expect(await command.getArgumentCompletions?.("x")).toBeNull();
+		// The labels are the project's team: the list a bare join draws a name from, so a completion is a
+		// name the join will take.
+		expect(await command.getArgumentCompletions?.("join ")).toEqual([
+			{ value: "billing-core", label: "billing-core" },
+			{ value: "ops-core", label: "ops-core" },
+		]);
+		expect(await command.getArgumentCompletions?.("join o")).toEqual([{ value: "ops-core", label: "ops-core" }]);
+		// `help` takes no argument, so a completion after it stops rather than offering names.
+		expect(await command.getArgumentCompletions?.("help ")).toBeNull();
 	});
 });
