@@ -9,7 +9,7 @@
 
 import { Type, type Static } from "typebox";
 import { StringEnum } from "../../lib/tool-schema.ts";
-import { MAX_TODOS, TODO_STATUSES } from "../../lib/todo-state.ts";
+import { MAX_CONTENT, MAX_TODOS, TODO_STATUSES } from "../../lib/todo-state.ts";
 
 /**
  * One item in the tool's input and output schemas.
@@ -19,10 +19,11 @@ import { MAX_TODOS, TODO_STATUSES } from "../../lib/todo-state.ts";
  * both and owns the semantic rules the schema cannot express.
  */
 export const TodoItem = Type.Object({
-	content: Type.String({ description: "Imperative description of the task" }),
+	content: Type.String({ maxLength: MAX_CONTENT, description: "Imperative description of the task" }),
 	status: StringEnum(TODO_STATUSES),
 	activeForm: Type.Optional(
 		Type.String({
+			maxLength: MAX_CONTENT,
 			description:
 				'Present-continuous label drawn in place of the content while in progress, e.g. "Running tests". Optional: without one the row shows its content.',
 		}),

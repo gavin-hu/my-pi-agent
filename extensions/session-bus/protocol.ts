@@ -29,8 +29,10 @@ export const COMMAND_NAME = "sessions";
  * `lib/session-tool.ts`'s `MAX_MESSAGE_TEXT`, because the callers that clip to it live there.
  *
  * `MAX_PATHS` is exported because the tool's schema publishes it: the host refuses a longer list
- * before `execute`, while the request path a command takes still reads it here.
+ * before `execute`, while the request path a command takes still reads it here. `MIN_PATHS` is the
+ * same read for the other end: `normalizePaths` refuses an empty list, and the schema states it.
  */
+export const MIN_PATHS = 1;
 export const MAX_PATHS = 20;
 const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
@@ -182,7 +184,7 @@ export function normalizeLimit(raw: unknown): number {
  * wording, and one module that owns both.
  */
 export function normalizePaths(repoRoot: string, cwd: string, raw: unknown): { paths: string[] } | { error: string } {
-	if (!Array.isArray(raw) || raw.length === 0) return { error: "paths must contain at least one path." };
+	if (!Array.isArray(raw) || raw.length < MIN_PATHS) return { error: "paths must contain at least one path." };
 	if (raw.length > MAX_PATHS) return { error: tooManyPaths(MAX_PATHS) };
 	const paths: string[] = [];
 	for (const entry of raw) {
