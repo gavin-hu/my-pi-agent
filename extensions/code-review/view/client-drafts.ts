@@ -1,6 +1,9 @@
 /**
- * The review page's drafts: one record per anchor, the text a composer holds, and what comes back
+ * The review page's drafts: one record per draft, the text a composer holds, and what comes back
  * after a reload.
+ *
+ * A record is keyed by an id the page mints, because the anchor is a *field*: a line moves when the
+ * diff does, and a draft named by where it was cannot be deleted by the composer it became.
  *
  * A fragment of the same IIFE `client.ts` ships — `REVIEW_DRAFTS_JS` is interpolated before the
  * comments fragment — because what a draft *is* (its span, its record, where it comes back) is one
@@ -8,11 +11,13 @@
  * and the row lookup the closure holds, so a call across fragments reaches a hoisted declaration.
  */
 export const REVIEW_DRAFTS_JS = String.raw`  // ── drafts ────────────────────────────────────────────────────────────────
-  // One record per anchor, keyed [path, line, side]: a composer per line is what the page is, so a
-  // second one must not overwrite the first, and a reload brings back every draft whose line is
-  // still drawn. The record's rev says which diff it was typed on — provenance for the "was
-  // a.ts:3" note a moved one carries, never a write's gate: every write sends the page's rev, so
-  // a save lands exactly when the line it names is drawn.
+  // One record per draft, keyed by an id this page mints: a composer per line is what the page is,
+  // so a second one must not overwrite the first, and a reload brings back every draft whose line is
+  // still drawn. The anchor, the reply it answers and the lines it covers are fields — a moved draft
+  // carries them to its new place rather than being named by where it used to be. The record's rev
+  // says which diff it was typed on — provenance for the "was a.ts:3" note a moved one carries, never
+  // a write's gate: every write sends the page's rev, so a save lands exactly when the line it names
+  // is drawn.
   function storedDrafts() {
     try {
       var raw = sessionStorage.getItem(DRAFT_KEY);
@@ -26,13 +31,29 @@ export const REVIEW_DRAFTS_JS = String.raw`  // ── drafts ──────
       else sessionStorage.setItem(DRAFT_KEY, JSON.stringify(all));
     } catch (error) { /* a full or blocked store is not a reason to lose the page */ }
   }
-  function draftKey(path, line, side) { return JSON.stringify([path, line, side]); }
+  /**
+   * A draft's identity, unique against the store it is written into rather than against the clock.
+   *
+   * The clock and the random suffix make a collision unlikely; the loop against the store makes it
+   * impossible for the drafts this page is holding, which is the whole set a reload can confuse — a
+   * collision brings one reviewer's text back under another draft's name.
+   */
+  function newDraftId(all) {
+    var minted = 0;
+    var id;
+    do {
+      minted += 1;
+      id = "d" + Date.now().toString(36) + "-" + minted.toString(36) + "-" + Math.random().toString(36).slice(2, 7);
+    } while (all && all[id]);
+    return id;
+  }
   function keepDraft(span) {
     var all = storedDrafts();
-    var key = draftKey(span.path, span.line, span.side);
-    if (span.text === "") delete all[key];
+    var id = span.id || newDraftId(all);
+    if (span.text === "") delete all[id];
     else {
-      all[key] = {
+      all[id] = {
+        id: id,
         rev: rev,
         path: span.path,
         line: span.line,
@@ -55,6 +76,7 @@ export const REVIEW_DRAFTS_JS = String.raw`  // ── drafts ──────
     var area = wrap.querySelector(".rv-compose__area");
     var endLine = Number(wrap.getAttribute("data-end-line"));
     return {
+      id: wrap.getAttribute("data-draft-id"),
       path: wrap.getAttribute("data-path"),
       line: Number(wrap.getAttribute("data-line")),
       side: wrap.getAttribute("data-side"),
@@ -64,9 +86,9 @@ export const REVIEW_DRAFTS_JS = String.raw`  // ── drafts ──────
       text: area ? area.value : "",
     };
   }
-  function forgetDraft(path, line, side) {
+  function forgetDraft(id) {
     var all = storedDrafts();
-    delete all[draftKey(path, line, side)];
+    delete all[id];
     writeDrafts(all);
   }
   /** Save the text of the composer the keystroke landed in — not of whichever composer is first. */
@@ -103,24 +125,45 @@ export const REVIEW_DRAFTS_JS = String.raw`  // ── drafts ──────
   /** Throw away one composer and its record; the others are not this one's business. */
   function cancelComposer(wrap) {
     if (!wrap) return;
-    forgetDraft(wrap.getAttribute("data-path"), Number(wrap.getAttribute("data-line")), wrap.getAttribute("data-side"));
+    forgetDraft(wrap.getAttribute("data-draft-id"));
     closeComposer(wrap);
     paintSend();
   }
+  /**
+   * Every record onto the id it is deleted by, once, on first load.
+   *
+   * A record written before drafts had identities is keyed by its anchor. Migrating it is what makes
+   * this change safe for a reviewer who is mid-review: their text comes back where it was standing,
+   * and from then on it is deletable by the composer it became.
+   */
+  function migrateDrafts(all) {
+    Object.keys(all).forEach(function (key) {
+      var kept = all[key];
+      if (!kept || typeof kept !== "object") { delete all[key]; return; }
+      if (kept.id === key) return;
+      var id = kept.id && all[kept.id] === undefined ? kept.id : newDraftId(all);
+      kept.id = id;
+      delete all[key];
+      all[id] = kept;
+    });
+  }
+
   /** Every draft comes back where it can: at its line, on a drawn line with the old one named, or listed. */
   function restoreDrafts() {
     var all = storedDrafts();
+    migrateDrafts(all);
     var back = [];
     var moved = [];
     unplaceableDrafts = [];
-    Object.keys(all).forEach(function (key) {
-      var kept = all[key];
-      if (!kept || typeof kept.text !== "string" || kept.text === "") { delete all[key]; return; }
+    Object.keys(all).forEach(function (id) {
+      var kept = all[id];
+      if (!kept || typeof kept.text !== "string" || kept.text === "") { delete all[id]; return; }
       if (rowFor(kept.path, kept.line, kept.side)) {
         var parent = kept.parent && (data.comments || []).some(function (comment) { return comment.id === kept.parent; })
           ? kept.parent
           : undefined;
         composer(kept.path, kept.line, kept.side, {
+          id: id,
           seed: kept.text,
           moved: kept.rev !== rev,
           focus: false,
@@ -137,12 +180,17 @@ export const REVIEW_DRAFTS_JS = String.raw`  // ── drafts ──────
       var rows = numberedRows(sectionFor(kept.path));
       var at = rows.length > 0 ? rowAnchor(rows[0]) : null;
       if (at) {
-        composer(kept.path, at.line, at.side, { seed: kept.text, moved: true, was: kept.path + ":" + kept.line, focus: false });
-        moved.push(kept.path + ":" + kept.line);
+        var was = kept.path + ":" + kept.line;
+        // The record moves with the composer: the anchor is a field now, so the next load starts where
+        // the draft lives instead of trying a line this diff no longer draws.
+        kept.line = at.line;
+        kept.side = at.side;
+        composer(kept.path, at.line, at.side, { id: id, seed: kept.text, moved: true, was: was, focus: false });
+        moved.push(was);
         return;
       }
       // Neither is drawn: it is listed above the diff and stays stored until its reviewer lets it go.
-      unplaceableDrafts.push({ key: key, path: kept.path, line: kept.line, side: kept.side, text: kept.text });
+      unplaceableDrafts.push({ id: id, path: kept.path, line: kept.line, side: kept.side, text: kept.text });
     });
     writeDrafts(all);
     var said = [];

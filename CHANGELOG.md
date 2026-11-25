@@ -267,6 +267,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   an empty list is refused by the schema where `normalizePaths` used to be the first to say so, and the description's
   `wake` clause paid the keyword's cost: `wake`'s own field states it, per burst and when it arrives.
 
+- `code-review`: an unsent draft is deleted by the id it carries, not by the line it was typed on. The record was
+  keyed by `[path, line, side]` while a reload could relocate the composer to another line, so a save forgot an
+  anchor nothing was stored under: the text came back after every save, and Send counted it, so pressing Send posted
+  the comment twice. Each record now carries a client-minted id — unique against the store it is written into rather
+  than against the clock — the composer wears it as `data-draft-id`, and the anchor, side, quote and reply became
+  fields a relocated draft carries to its new place. A record written before this change is migrated on first load,
+  so a reviewer mid-review keeps what they typed.
+
 - `code-review`: a row that survives anchors to its new number, so the page marks the number its bar names instead of
   renaming the line under the pointer — the old column stays the old file's numbering, and its title spells both out. A
   ref now names the side it anchors: `path:17`, or `path:5 (old)` for a deleted line, in the bar, the send dialog, a

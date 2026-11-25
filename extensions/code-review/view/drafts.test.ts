@@ -65,6 +65,82 @@ gated("the review page's drafts", () => {
 	);
 
 	/**
+	 * A draft the page has moved is deleted by the identity it carries, not by the line it was typed
+	 * on: the save used to forget the *new* anchor while the record kept the old one, so the text came
+	 * back after every save and Send would post it a second time.
+	 */
+	test(
+		"a draft relanded on a moved diff is gone once it is saved, and stays gone",
+		async () => {
+			await withPage(async (page, fixture) => {
+				await startComment(page, "keep this note");
+				// The line the draft was typed on leaves the diff, so the page relands it on the file's
+				// first drawn row — the relocation whose stale key resurrected it.
+				fixture.reshape({ start: 40 });
+				await reloadReview(page);
+				await page.waitForSelector(".rv-compose__area", { timeout: REVIEW_PAINT_MS });
+				expect(await page.locator(".rv-compose__area").inputValue()).toBe("keep this note");
+
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+				await reloadReview(page);
+
+				expect(await page.locator(".rv-compose").count()).toBe(0);
+				expect(await page.locator(".rv-thread .bf-comment__body").count()).toBe(1);
+			});
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * The stored shape changed, so a reviewer mid-review must not lose what they typed: a record keyed
+	 * by its anchor, carrying no id, comes back on first load and is one id-keyed record after — the
+	 * id the composer now wears, which is what a save deletes.
+	 */
+	test(
+		"an anchor-keyed record from before identities comes back as one id-keyed record",
+		async () => {
+			await withPage(async (page) => {
+				await startComment(page, "kept from before");
+				const legacy = await page.evaluate(() =>
+					JSON.parse(
+						(
+							globalThis as unknown as { sessionStorage: { getItem(key: string): string | null } }
+						).sessionStorage.getItem("rv-review-drafts") ?? "{}",
+					),
+				);
+				const [minted] = Object.keys(legacy);
+				const record = legacy[minted];
+				// The shape this page wrote before drafts had identities: keyed by the anchor, no id.
+				const anchor = JSON.stringify([record.path, record.line, record.side]);
+				delete record.id;
+				await page.evaluate(
+					(entry) =>
+						(
+							globalThis as unknown as { sessionStorage: { setItem(key: string, value: string): void } }
+						).sessionStorage.setItem("rv-review-drafts", JSON.stringify(entry)),
+					{ [anchor]: record },
+				);
+				await reloadReview(page);
+
+				expect(await page.locator(".rv-compose__area").inputValue()).toBe("kept from before");
+				const kept = await page.evaluate(() =>
+					JSON.parse(
+						(
+							globalThis as unknown as { sessionStorage: { getItem(key: string): string | null } }
+						).sessionStorage.getItem("rv-review-drafts") ?? "{}",
+					),
+				);
+				const keys = Object.keys(kept);
+				expect(keys).toHaveLength(1);
+				expect(kept[keys[0]].id).toBe(keys[0]);
+				expect(await page.locator(".rv-compose").getAttribute("data-draft-id")).toBe(keys[0]);
+			});
+		},
+		CASE_MS,
+	);
+
+	/**
 	 * One composer per line: opening a second must not take the first, a reload brings back both
 	 * with their own text, and a save closes the composer it belongs to and no other.
 	 */

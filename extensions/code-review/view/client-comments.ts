@@ -156,17 +156,17 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
           draft.text,
           "discard",
           "Discard the unsent comment on " + draft.path + ":" + draft.line,
-          function () { discardDraft(draft.key); },
+          function () { discardDraft(draft.id); },
         ),
       );
     });
   }
 
   /** Let one unplaceable draft go: it is the reviewer's text, so only they can decide that. */
-  function discardDraft(key) {
-    unplaceableDrafts = unplaceableDrafts.filter(function (draft) { return draft.key !== key; });
+  function discardDraft(id) {
+    unplaceableDrafts = unplaceableDrafts.filter(function (draft) { return draft.id !== id; });
     var all = storedDrafts();
-    delete all[key];
+    delete all[id];
     writeDrafts(all);
     paintOrphans();
     toast("Unsent comment discarded");
@@ -291,7 +291,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
     if (span.quote !== undefined) comment.quote = span.quote;
     if (span.parent !== undefined) comment.parent = span.parent;
     return post("/api/comment", { comment: comment }, function () {
-      forgetDraft(span.path, span.line, span.side);
+      forgetDraft(span.id);
       closeComposer(wrap);
       focusCursor();
       paintThreads();
@@ -358,6 +358,9 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
     if (!row) { toast("Select a line that is in the diff, then comment"); return; }
     var open = composerAt(path, line, side);
     if (open) {
+      // A record restored onto a line whose composer is already open adopts that box: one composer per
+      // line is what the page is, and a save has to delete the record this box belongs to.
+      if (opts.id !== undefined && !open.getAttribute("data-draft-id")) open.setAttribute("data-draft-id", opts.id);
       // One composer per line, and the line is what owns its text: pressing reply on a line whose
       // composer is already open answers with that text rather than starting a second — the text is
       // still a draft, so adopting the parent asserts nothing and the press is not ignored.
@@ -385,9 +388,10 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
       }
       keepDraft(composerSpan(open));
       if (openArea && opts.focus !== false) openArea.focus();
-      return;
+      return open;
     }
     var wrap = el("span", "rv-compose");
+    wrap.setAttribute("data-draft-id", opts.id === undefined ? newDraftId(storedDrafts()) : opts.id);
     wrap.setAttribute("data-path", path);
     wrap.setAttribute("data-line", String(line));
     wrap.setAttribute("data-side", side);
@@ -431,6 +435,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); submit(); }
       if (event.key === "Escape") { event.stopPropagation(); cancelComposer(wrap); }
     });
+    return wrap;
   }
 
   // ── send ──────────────────────────────────────────────────────────────────
@@ -460,7 +465,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
             },
           },
           function () {
-            forgetDraft(entry.path, entry.line, entry.side);
+            forgetDraft(entry.id);
             closeComposer(entry.wrap);
             paintThreads();
             paintSend();
