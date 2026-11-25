@@ -73,8 +73,8 @@ whose comment was deleted reads as one. The files are the shell's sidebar — a 
 width, and narrowing hides rows, never sections. The rail's head carries the facts and
 the progress; the footer the comparison. It follows its own stream: a write in one tab
 repaints the others, a frame under an open comment box waits for it, and the last tab
-leaving ends the page 1.5 s later so a reload fits. Nothing watches the tree — the
-next write discovers a moved diff.
+leaving ends the page 1.5 s later so a reload fits. Nothing watches the tree: **comment** asks
+for the revision the page would render now, so a moved diff opens no box; the write still refuses.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff: the
 rail shows that file and an **all files** link back, and the comparison is still the

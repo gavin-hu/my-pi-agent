@@ -29,7 +29,7 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
       reply.type = "button";
       reply.setAttribute("aria-label", "Reply to the comment on " + where + ' — "' + excerpt(comment.body) + '"');
       reply.addEventListener("click", function () {
-        composer(comment.rel, comment.line, comment.side, { parent: comment.id, parentText: comment.body });
+        pressComposer(comment.rel, comment.line, comment.side, { parent: comment.id, parentText: comment.body });
       });
       acts.appendChild(reply);
     }
@@ -274,12 +274,8 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
         // A refused write changed nothing, so every control goes back to the state the page was
         // rendered with: a checkbox the reviewer just toggled is the one that would otherwise lie.
         paintChrome();
-        if (answer.status === 409) {
-          // The tree moved under this page: the kit's reload chip is the way out, and the
-          // draft survives the reload.
-          var hint = byId("reload-hint");
-          if (hint) hint.hidden = false;
-        }
+        // The tree moved under this page: the chip is the way out, and the draft survives the reload.
+        if (answer.status === 409) revealReload();
       }
       return answer;
     }, function () {
@@ -328,7 +324,24 @@ export const REVIEW_COMMENTS_JS = String.raw`  // ── threads ─────
   function commentOnSelection() {
     var picked = selectionSpan();
     if (picked.refusal) { toast(picked.refusal); return; }
-    composer(picked.span.path, picked.span.line, picked.span.side, picked.span);
+    pressComposer(picked.span.path, picked.span.line, picked.span.side, picked.span);
+  }
+
+  /**
+   * The press that opens a composer: ask whether the tree moved, and open one only on a page that
+   * still draws the line.
+   *
+   * A reader's intent comes through here — the c key, the comment button, and a reply — while a
+   * restored draft does not: text that came back is not a press, and a reload must not cost a
+   * request per box. A press is a moment, so the check runs on it and nothing polls.
+   */
+  function pressComposer(path, line, side, opts) {
+    staleCheck(function (stale) {
+      if (!stale) { composer(path, line, side, opts); return; }
+      // The tree moved under this page: the chip is the way out, and the draft survives the reload.
+      revealReload();
+      toast("the diff moved since this page rendered — reload the page, then comment on the line again");
+    });
   }
 
   /**

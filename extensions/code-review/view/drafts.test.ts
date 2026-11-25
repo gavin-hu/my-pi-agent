@@ -81,6 +81,13 @@ gated("the review page's drafts", () => {
 						.first()
 						.click();
 					await page.locator("#rv-sel-comment").click();
+					// The press asks the session whether the tree moved before it opens anything, so the
+					// second box is a round trip away rather than the same tick (#877).
+					await page.waitForFunction(
+						() => (globalThis as unknown as ReviewDom).document.querySelectorAll(".rv-compose").length === 2,
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
 					expect(await page.locator(".rv-compose").count()).toBe(2);
 					await page
 						.locator(".rv-compose", { hasText: "a.ts:17" })

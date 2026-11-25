@@ -62,6 +62,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `code-review`: a moved diff says so before the reviewer types. Pressing **comment** asks the session
+  for the revision the page would render now — `GET /review/rev`, behind the page's own token, answering the one
+  value a write compares — and a page whose diff moved opens no box: the header's reload chip appears and nothing
+  is typed, where before the tab accepted line picks and refused every Save with `SNAPSHOT_MOVED` after the typing.
+  The check runs on the press alone, so nothing polls the diff; a refused or unreachable answer opens the box as
+  it always did, because the write's 409 stays the guarantee and this is the courtesy in front of it. The reveal
+  has one owner now (`revealReload()`), so the pushed frame, a refused write and the pre-check cannot drift; the
+  drafts a reload restores still come back without a request, since text that returned is not a press.
+
 - `bytefly`, `board`: the seat's chip is `⬢ lead`, a solid hexagon rather than the second right-pointing triangle it
   shared with `▶ auto`. Two triangles in one slot differed by weight alone, and the slot draws one mode at a time, so a
   reader had no comparison to make: the shape now differs and the colour still carries the verdict. It supersedes the

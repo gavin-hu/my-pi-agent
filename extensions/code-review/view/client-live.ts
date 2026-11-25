@@ -27,6 +27,35 @@ export const REVIEW_LIVE_JS = String.raw`  // Live frames: the review's state fr
   /** The review ended: the server said so, and the chip keeps that word for good. */
   var liveSettled = false;
 
+  /**
+   * The page's one stale mark: the header's reload chip, which keeps every draft.
+   *
+   * Three things learn the tree moved — a pushed frame, a refused write, and the press that asked
+   * first — and all three come through here, so the page cannot grow a second way of saying it.
+   */
+  function revealReload() {
+    var hint = byId("reload-hint");
+    if (hint) hint.hidden = false;
+  }
+
+  /**
+   * Ask for the revision this page would render now, and hand done whether it moved.
+   *
+   * One GET on the press that opens a composer: nothing here polls, and only a valid answer that
+   * differs counts as moved — a refused or unreachable check says "not moved" so the composer
+   * opens as it always did, and the write's own 409 stays the guarantee behind the courtesy.
+   *
+   * Not the kit's postJson: a read carries no body, and the day a second page needs a GET is the
+   * day a shared helper earns its place there rather than a second copy here.
+   */
+  function staleCheck(done) {
+    fetch(base + "/rev?token=" + encodeURIComponent(token), { headers: { Accept: "application/json" } })
+      .then(function (response) { return response.ok ? response.json() : null; }, function () { return null; })
+      .then(function (body) {
+        done(!!(body && typeof body.rev === "string" && body.rev !== rev));
+      }, function () { done(false); });
+  }
+
   /** One sink for both a frame that could apply and one that had to wait. */
   function liveApply(review) {
     adopt({ body: { review: review } });
@@ -68,8 +97,7 @@ export const REVIEW_LIVE_JS = String.raw`  // Live frames: the review's state fr
     if (!frame) return;
     if (frame.moved) {
       // The tree moved under every tab. The way out is the header's reload, which keeps drafts.
-      var hint = byId("reload-hint");
-      if (hint) hint.hidden = false;
+      revealReload();
       return;
     }
     if (frame.review) {
@@ -91,5 +119,4 @@ export const REVIEW_LIVE_JS = String.raw`  // Live frames: the review's state fr
       frame: liveFrame
     });
   }
-
 `;
