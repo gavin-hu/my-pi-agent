@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-25
+
 ### Added
 
 - `file-browse`: `/browse` takes the path the editor's `@` completion writes — the `@` and any surrounding
@@ -8905,7 +8907,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.27.0...v0.28.0
