@@ -89,20 +89,52 @@ describe("landSubject", () => {
 		const typed = boardCard("857", {
 			title: "docs(board): the seat's allow-list and its two phases, held to the constant",
 		});
+		// The prefix is the scope as well as the thing to strip: a card with no extension in its
+		// paths is named by its title, and `docs(board)` is the scope the commit format gives it.
 		expect(landSubject(typed)).toBe(
-			"merge(board): the seat's allow-list and its two phases, held to the constant (#857)",
+			"merge(docs(board)): the seat's allow-list and its two phases, held to the constant (#857)",
 		);
 		const bare = boardCard("1", { title: "docs: the seat's allow-list" });
-		expect(landSubject(bare)).toBe("merge(board): the seat's allow-list (#1)");
+		expect(landSubject(bare)).toBe("merge(docs): the seat's allow-list (#1)");
 		const plain = boardCard("2", { title: "the seat's allow-list" });
 		expect(landSubject(plain)).toBe("merge(board): the seat's allow-list (#2)");
 	});
 
-	test("names the one extension its paths are in, and falls back to board when they disagree or name none", () => {
+	test("names the one extension its paths are in, bare or nested", () => {
 		expect(landScope(boardCard("1", { paths: ["extensions/plan/a.ts", "lib/workflow/b.ts"] }))).toBe("plan");
-		expect(landScope(boardCard("1", { paths: ["extensions/plan/a.ts", "extensions/board/b.ts"] }))).toBe("board");
-		expect(landScope(boardCard("1", { paths: ["lib/workflow/b.ts", "CHANGELOG.md"] }))).toBe("board");
-		expect(landScope(boardCard("1", { paths: [] }))).toBe("board");
+		// A directory hint names its extension as clearly as a file does: #866's paths were two
+		// directories, and the first pattern needed a trailing slash to see either.
+		expect(landScope(boardCard("2", { paths: ["extensions/session-bus"] }))).toBe("session-bus");
+		// A path is data: the same card typed on Windows earns the same scope.
+		expect(landScope(boardCard("3", { paths: ["extensions\\session-bus\\runtime.ts"] }))).toBe("session-bus");
+	});
+
+	test("falls to the title when no extension is named, so a lib card is not the landing door's", () => {
+		// #868's shape, which landed `merge(board)` under a `session-bus:` title.
+		expect(
+			landScope(
+				boardCard("1", { title: "session-bus: a roster read of its own record", paths: ["lib/workflow/join.ts"] }),
+			),
+		).toBe("session-bus");
+		// Disagreeing extensions are no single scope, and the title is the one fact left that can
+		// name it — the line a later editor is likeliest to flip.
+		expect(
+			landScope(
+				boardCard("2", {
+					title: "session-bus: two doors",
+					paths: ["extensions/plan/a.ts", "extensions/board/b.ts"],
+				}),
+			),
+		).toBe("session-bus");
+	});
+
+	test("falls to the first path's area, and to board only when the card names nothing", () => {
+		// No extension and no prefix: the area is the scope the commit format gives it, and
+		// `extensions` is a container rather than an area, so two disagreeing extensions still
+		// fall through to board instead of `merge(extensions)`.
+		expect(landScope(boardCard("1", { paths: ["lib/workflow/b.ts", "CHANGELOG.md"] }))).toBe("lib");
+		expect(landScope(boardCard("2", { paths: ["extensions/plan/a.ts", "extensions/board/b.ts"] }))).toBe("board");
+		expect(landScope(boardCard("3", { paths: [] }))).toBe("board");
 	});
 });
 

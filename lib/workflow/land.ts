@@ -75,21 +75,55 @@ export type LandAnswer =
 	  }
 	| { error: string };
 
-/** A card's title often opens with its scope — `board:`, or the `docs(board):` a typed title uses. */
-const TITLE_SCOPE = /^(?:[\w-]+\([^)]*\)|[\w-]+):\s*/;
+/**
+ * A card's title often opens with its scope — `board:`, or the `docs(board):` a typed title uses.
+ *
+ * It is read twice and must mean one thing both times: `landSubject` strips it so the subject
+ * states the scope once, and `landScope` takes it as the scope when the paths name no extension.
+ */
+const TITLE_SCOPE = /^([\w-]+\([^)]*\)|[\w-]+):\s*/;
+
+/** The extension a path names: `extensions/<name>/<file>`, or the bare directory `extensions/<name>`. */
+const EXTENSION_PATH = /^extensions\/([^/]+)(?:\/|$)/;
+
+/** A path's top-level directory, unless that directory is `extensions` — a container, not an area. */
+function areaOf(path: string): string | undefined {
+	const [top, ...rest] = path.split("/");
+	return rest.length === 0 || top === "extensions" ? undefined : top;
+}
 
 /**
- * The extension a card's paths name, else `board` — the repository's own merge scopes.
+ * The scope a card earns: the one extension its paths name, else the one its title names, else
+ * the area its first path is in, else `board`.
  *
- * Paths outside `extensions/` are ignored rather than disqualifying: a card that moves a module
- * and its extension is the extension's work (#853 was `merge(plan)` with `lib/mode-state.ts`
- * among its paths), while two extensions disagreeing is no single scope at all.
+ * Paths win, because a card that moves a module and its extension is the extension's work (#853
+ * was `merge(plan)` with `lib/mode-state.ts` among its paths). The title is next, because a card
+ * whose work lives in `lib/` names no extension at all and its title already says which surface
+ * it belongs to — `#868` would otherwise land `merge(board)` under a `session-bus:` title, and a
+ * landed sha cannot be repaired. The area is the rung after that (`lib`, `docs`, `test`), so a
+ * lib-only card is not the landing tool's work either; `board` is left for a card that names
+ * nothing, which is the one case where the door's own name is the only one left.
+ *
+ * A path is data: backslashes are normalised first, so one card earns one scope whatever machine
+ * typed it, and a bare `extensions/<name>` counts as that extension because a card whose paths
+ * are directories names it just as clearly as one whose paths are files.
  */
-export function landScope(card: Pick<Card, "paths">): string {
-	const names = card.paths
-		.map((path) => /^extensions\/([^/]+)\//.exec(path)?.[1])
+export function landScope(card: Pick<Card, "title" | "paths">): string {
+	const paths = card.paths.map((path) => path.replace(/\\/g, "/"));
+	const names = paths
+		.map((path) => EXTENSION_PATH.exec(path)?.[1])
 		.filter((name): name is string => name !== undefined);
-	return names.length > 0 && names.every((name) => name === names[0]) ? names[0] : "board";
+	const [first] = names;
+	if (first !== undefined && names.every((name) => name === first)) return first;
+
+	const titled = TITLE_SCOPE.exec(card.title)?.[1];
+	if (titled !== undefined) return titled;
+
+	for (const path of paths) {
+		const area = areaOf(path);
+		if (area !== undefined) return area;
+	}
+	return "board";
 }
 
 /**
