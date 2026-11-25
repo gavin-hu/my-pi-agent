@@ -12,7 +12,6 @@
  * Load with:  pi --extension ./extensions/file-browse
  */
 
-import { realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -72,10 +71,10 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		if (await stop()) current.ctx.ui.notify("browse: stopped — the last page was closed", "info");
 	};
 
-	type ResolvedRoot = { root: string; config: ServeConfig; autoOpen: boolean };
+	type ResolvedPage = { root: string; file?: string; config: ServeConfig; autoOpen: boolean };
 
-	/** The folder `/browse [path]` names, or undefined after telling the user why. */
-	const resolveRoot = async (target: string, cwd: string, ctx: ExtensionContext): Promise<ResolvedRoot | undefined> => {
+	/** What `/browse [path]` asks for, or undefined after telling the user why. */
+	const resolvePage = async (target: string, cwd: string, ctx: ExtensionContext): Promise<ResolvedPage | undefined> => {
 		const [{ loadConfig }, { loadServeConfig }] = await Promise.all([
 			import("./config/config.ts"),
 			import("../../lib/serve-config.ts"),
@@ -84,23 +83,25 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		// The tab's switch is `serve`'s, read from the directory `serve` reads its port from, so
 		// one project document states both and a worktree session goes on reading the checkout's.
 		const { autoOpen } = loadServeConfig(ctx.cwd);
-		let root = cwd;
+		let page: { root: string; file?: string } = { root: cwd };
 		if (target) {
-			const { HttpError, resolveRequestPath } = await import("./files/paths.ts");
+			const { HttpError, browseTarget } = await import("./files/paths.ts");
 			try {
-				root = await resolveRequestPath(cwd, target);
+				page = await browseTarget(cwd, target);
 			} catch (error) {
 				const message = error instanceof HttpError ? error.message : String(error);
 				ctx.ui.notify(`browse: ${message}`, "error");
 				return undefined;
 			}
-			const info = await stat(root).catch(() => undefined);
-			if (!info?.isDirectory()) {
-				ctx.ui.notify(`browse: ${target} is not a folder inside the working directory`, "error");
-				return undefined;
-			}
 		}
-		return { root, config, autoOpen };
+		return { ...page, config, autoOpen };
+	};
+
+	/** The page a `/browse` opens: a named file's own view, or the root's listing. */
+	const pageUrlOf = async (url: string, file: string | undefined): Promise<string> => {
+		if (file === undefined) return url;
+		const { encodePath } = await import("../../lib/path.ts");
+		return `${url}view/${encodePath(file)}`;
 	};
 
 	/**
@@ -175,8 +176,8 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 	};
 
 	/** Open the page's server; the server, git, HTTP, and browser modules live here. */
-	const openServer = async (base: string, resolved: ResolvedRoot, ctx: ExtensionContext): Promise<void> => {
-		const { root, config, autoOpen } = resolved;
+	const openServer = async (base: string, resolved: ResolvedPage, ctx: ExtensionContext): Promise<void> => {
+		const { root, file, config, autoOpen } = resolved;
 		const create = deps.createServer ?? (await import("./transport/server.ts")).createFileServer;
 		const { requestMount } = await import("../../lib/http/index.ts");
 		const { WORKTREE_CHANGED_CHANNEL } = await import("../../lib/events.ts");
@@ -197,8 +198,9 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			// The listener lives exactly as long as the page, so a session with no page
 			// open holds no subscription to another extension's channel.
 			running = { server, ctx, config, base, off: pi.events.on(WORKTREE_CHANGED_CHANNEL, () => follow()) };
-			ctx.ui.notify(`browse: ${server.root} at ${server.url}`, "info");
-			await openPage(server.url, autoOpen, ctx);
+			const url = await pageUrlOf(server.url, file);
+			ctx.ui.notify(`browse: ${server.root} at ${url}`, "info");
+			await openPage(url, autoOpen, ctx);
 		} catch (error) {
 			ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
 		}
@@ -219,20 +221,17 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		}
 
 		const base = baseOf(ctx);
-		const resolved = await resolveRoot(target, base, ctx);
+		const resolved = await resolvePage(target, base, ctx);
 		if (resolved === undefined) return;
-		const { root, autoOpen } = resolved;
+		const { root, file, autoOpen } = resolved;
 
-		let realRoot = root;
-		try {
-			realRoot = realpathSync.native(root);
-		} catch {
-			// Keep the unresolved root; the server factory reports a real failure.
-		}
-		if (running && running.server.root === realRoot) {
-			ctx.ui.notify(`browse: ${running.server.url} (already running)`, "info");
+		// Both sides are canonical already — `baseOf` realpaths the session's root and
+		// `browseTarget` the target — so a served page is the same folder as this one.
+		if (running && running.server.root === root) {
+			const url = await pageUrlOf(running.server.url, file);
+			ctx.ui.notify(`browse: ${url} (already running)`, "info");
 			// The page is already served, so this is an open and not a restart.
-			await openPage(running.server.url, autoOpen, ctx);
+			await openPage(url, autoOpen, ctx);
 			return;
 		}
 

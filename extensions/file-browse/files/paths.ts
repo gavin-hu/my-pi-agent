@@ -5,11 +5,16 @@
  * malformed or absolute, resolved under the served root, and finally checked
  * with `realpath` so a symlink cannot escape the root. The resolved absolute
  * path is the only thing callers use; the raw URL is never passed to `fs`.
+ *
+ * `browseTarget` is the same question asked by the command rather than by a page: the
+ * argument `/browse` received wraps a folder to serve, or a file to open in the page its
+ * folder would get.
  */
 
 import { realpathSync } from "node:fs";
-import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import { encodePath, isInside } from "../../../lib/path.ts";
+import { stat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
+import { encodePath, isInside, normalizeTarget, posixPath } from "../../../lib/path.ts";
 
 // Re-exported where its callers already import it: one body, in `lib/path.ts`.
 export { encodePath };
@@ -90,6 +95,31 @@ export async function resolveRequestPath(root: string, rawPath: string): Promise
 
 /** The root-relative, posix-style path of `abs` under `root` (`""` for root). */
 export function relativePath(root: string, abs: string): string {
-	const rel = relative(root, abs);
-	return rel.split(sep).join("/");
+	return posixPath(relative(root, abs));
+}
+
+/** What a `/browse` argument names: a folder to serve, or a file to open in it. */
+export interface BrowseTarget {
+	root: string;
+	/** The root-relative file the page should open, when the argument named one. */
+	file?: string;
+}
+
+/**
+ * The page root a `/browse` argument asks for, and the file it named.
+ *
+ * An empty argument — `/browse`, `/browse @`, a pair of quotes — is the working
+ * directory. A folder is the page's root, as it always was. A file is shown in the page
+ * its folder would get: the root stays the working directory, so the sidebar is the
+ * project the file lives in and the file is what opens. Anything else, and anything
+ * outside the working directory, is the one refusal — naming the target as it was
+ * unwrapped, since `@src/app.ts` is what the person typed and not what was looked for.
+ */
+export async function browseTarget(base: string, raw: string): Promise<BrowseTarget> {
+	const named = normalizeTarget(raw) || ".";
+	const abs = await resolveRequestPath(base, named);
+	const info = await stat(abs).catch(() => undefined);
+	if (info?.isDirectory()) return { root: abs };
+	if (info?.isFile()) return { root: base, file: relativePath(base, abs) };
+	throw new HttpError(400, `${named} is not a file or folder inside the working directory`);
 }

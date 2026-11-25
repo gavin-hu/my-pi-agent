@@ -246,13 +246,55 @@ describe("browse command", () => {
 		expect(notifications.at(-1)?.message).toContain("serve extension is not loaded");
 	});
 
-	test("refuses a subpath that is not a folder", async () => {
+	test("opens the file a target names on its own page", async () => {
+		fixture = makeFixture();
+		const { pi } = createFakePi();
+		const opened: string[] = [];
+		let served = "";
+		fileBrowser(pi, {
+			open: (url) => void opened.push(url),
+			createServer: async (options: FileServerOptions) => {
+				served = options.root;
+				return fakeServer(options.root);
+			},
+		});
+		const { ctx } = fileBrowseCtx(fixture.root);
+
+		// The editor's @ completion keeps the `@` and its quotes in the text it writes.
+		await runCommand(pi, "browse", '@"sub/b.md"', ctx);
+
+		// The root stays the working directory, so the sidebar is the project the file lives in.
+		expect(served).toBe(realpathSync(fixture.root));
+		expect(opened).toEqual(["http://127.0.0.1:4321/files/view/sub/b.md"]);
+		await runCommand(pi, "browse", "stop", ctx);
+	});
+
+	test("opens a file page against the root it already serves", async () => {
+		fixture = makeFixture();
+		const { pi } = createFakePi();
+		const opened: string[] = [];
+		fileBrowser(pi, { createServer: async () => fakeServer(fixture!.root), open: (url) => void opened.push(url) });
+		const { ctx } = fileBrowseCtx(fixture.root);
+
+		await runCommand(pi, "browse", "", ctx);
+		// A file in that same tree is a page to show, not a reason to restart the server.
+		await runCommand(pi, "browse", "@a.txt", ctx);
+
+		expect(opened).toEqual(["http://127.0.0.1:4321/files/", "http://127.0.0.1:4321/files/view/a.txt"]);
+		await runCommand(pi, "browse", "stop", ctx);
+	});
+
+	test("refuses a target that is not there", async () => {
 		fixture = makeFixture();
 		const { pi } = createFakePi();
 		fileBrowser(pi, { createServer: async () => fakeServer(fixture!.root), open: noOpen });
 		const { ctx, notifications } = fileBrowseCtx(fixture.root);
-		await runCommand(pi, "browse", "a.txt", ctx);
-		expect(notifications.at(-1)?.level).toBe("error");
+		await runCommand(pi, "browse", "@nope-missing", ctx);
+		// The refusal names the path the person wrote, without the `@` the completion added.
+		expect(notifications.at(-1)).toEqual({
+			level: "error",
+			message: "browse: nope-missing is not a file or folder inside the working directory",
+		});
 	});
 
 	test("serves a subfolder of a root reached through a symlink", async () => {
