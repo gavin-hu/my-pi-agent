@@ -12,7 +12,15 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { pathRef } from "../../lib/format.ts";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
 import type { ReviewSession, ReviewStatus } from "./review/session.ts";
-import { type ReviewArgs, type ReviewResult, ReviewOutput, ReviewParams, TOOL_NAME } from "./schema.ts";
+import {
+	ACTION_FIELDS,
+	type ReviewArgs,
+	type ReviewResult,
+	REVIEW_ACTIONS,
+	ReviewOutput,
+	ReviewParams,
+	TOOL_NAME,
+} from "./schema.ts";
 
 /** The loader the extension hands this registerer: one session's page, on demand. */
 export type EnsureSession = (ctx?: ExtensionContext) => Promise<ReviewSession>;
@@ -72,7 +80,22 @@ export function registerReviewTool(pi: Pick<ExtensionAPI, "registerTool">, ensur
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const args = params as ReviewArgs;
 			const session = await ensure(ctx);
-			if (args.action === "open") {
+			// The one action this tool does not recognize used to fall into `close`, which closed a page
+			// nobody asked to close. The host's enum refuses it first, but a codemode caller does not go
+			// through the enum, so the fall-through is closed here rather than left to the host.
+			const action = REVIEW_ACTIONS.find((candidate) => candidate === args.action);
+			if (action === undefined) {
+				return failedResult(
+					`review: unknown action "${String(args.action)}"; use ${REVIEW_ACTIONS.join(", ")}.`,
+					resultOf(await session.status()),
+				);
+			}
+			// Before any action runs: a refused call has served no page, read no comment and closed
+			// nothing, and the status it answers with is what the page actually holds.
+			const { strayField } = await import("../../lib/stray-fields.ts");
+			const stray = strayField(action, args, ACTION_FIELDS);
+			if (stray !== undefined) return failedResult(`review: ${stray}`, resultOf(await session.status()));
+			if (action === "open") {
 				const outcome = await session.open({ scope: args.scope, base: args.base }, ctx);
 				const state = await session.status();
 				if (outcome.kind === "refused") {
@@ -84,11 +107,11 @@ export function registerReviewTool(pi: Pick<ExtensionAPI, "registerTool">, ensur
 						: `Review page: ${outcome.status.url} — ${outcome.problem}`;
 				return textResult(text, resultOf(outcome.status), resultOf(outcome.status));
 			}
-			if (args.action === "status") {
+			if (action === "status") {
 				const status = await session.status();
 				return textResult(statusLine(status), resultOf(status), resultOf(status));
 			}
-			if (args.action === "comments") {
+			if (action === "comments") {
 				const sent = session.sent();
 				const list = sent.map((comment) => ({
 					rel: comment.rel,

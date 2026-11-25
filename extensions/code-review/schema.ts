@@ -18,6 +18,21 @@ export const REVIEW_ACTIONS = ["open", "status", "comments", "close"] as const;
 
 export type ReviewAction = (typeof REVIEW_ACTIONS)[number];
 
+/**
+ * The fields each action reads.
+ *
+ * The parameters are one flat object, so every field is published to every action at once and
+ * only this table stops one reaching an action that would drop it: `scope` and `base` are
+ * `open`'s, and carrying one to `status` says nothing about what the call read. `lib/stray-fields.ts`
+ * words the refusal, and `tools.test.ts` holds the other direction.
+ */
+export const ACTION_FIELDS: Record<ReviewAction, readonly string[]> = {
+	open: ["scope", "base"],
+	status: [],
+	comments: [],
+	close: [],
+};
+
 export const ReviewParams = Type.Object({
 	action: StringEnum(REVIEW_ACTIONS, {
 		description: "open serves a review page; status reads it; comments reads what was sent; close ends it.",

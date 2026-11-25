@@ -48,8 +48,7 @@ export const MemoryParams = Type.Object({
 	),
 	scope: Type.Optional(
 		StringEnum(MEMORY_SCOPES, {
-			description:
-				'Which store to change: "project" (the default) or "global". Used by add, update, forget, and merge.',
+			description: 'Which store to read or change: "project" (the default) or "global".',
 		}),
 	),
 });

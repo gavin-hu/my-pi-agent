@@ -63,3 +63,20 @@ export interface MemoryDetails {
 	/** Model-readable validation message when the call was rejected. */
 	error?: string;
 }
+
+/**
+ * The fields each action reads.
+ *
+ * The parameters are one flat object, so every field is published to every action at once and
+ * only this table stops one reaching an action that would drop it. `scope` is here for all five
+ * because `list` is scoped too — it is the store the listing reads, not only the one a write
+ * touches. `lib/stray-fields.ts` words the refusal, and `tools.test.ts` holds the other
+ * direction so a published field cannot go unclaimed.
+ */
+export const ACTION_FIELDS: Record<MemoryAction, readonly string[]> = {
+	add: ["scope", "text"],
+	update: ["scope", "text", "to"],
+	forget: ["scope", "text"],
+	merge: ["scope", "first", "second", "merged"],
+	list: ["scope"],
+};
