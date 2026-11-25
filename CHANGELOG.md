@@ -62,12 +62,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- test: the browser layer runs on one Chrome instead of forty, and no page waits on Playwright's idle floor any more. A
-  review suite keeps one tab per file and navigates it, so a case costs a document instead of a context; `reloadReview` waits
-  on `load` plus the page's own first paint, which measured 184-196 ms against 682-745 ms for `networkidle`; and
-  `test/browser-budget.test.ts` fails `networkidle` in every suite and helper. Across the layer's 40 files and 257 cases the
-  run fell from 108.65 s to 58.61 s in one process. The forty suites are declared once, in `test/helpers/browser-suites.ts`,
-  which the hook-budget rule now reads - it had pinned seven of them and called the list every browser suite.
+- test: the browser layer runs on one Chrome instead of forty, and a page waits on its own first paint rather than on
+  Playwright's idle floor. A review suite keeps one tab per file and navigates it, so a case costs a document instead of a
+  context; `reloadReview` waits on `load` plus that first paint, measured at 184–196 ms against 682–745 ms for
+  `networkidle`. `test/browser-budget.test.ts` bans `networkidle` in every suite and helper with one recorded exception —
+  `extensions/code-review/view/interaction.test.ts`'s five waits, which #885 converts and whose entry fails as stale the
+  moment they go. In one `bun test` over its 40 files the layer runs 57–60 s across three runs of the same tree, down from
+  108.65 s, and `bun run bench:browser` times each file alone: 87.6 s of its 100 s ceiling at this tip. The forty suites are
+  declared once, in `test/helpers/browser-suites.ts`, which the hook-budget rule now reads — it had pinned seven of them and
+  called the list every browser suite.
 
 - `bytefly`, `board`: the mode slot's third silhouette is a planted flag, `⚑`, in the chip's `⚑ lead` — asymmetric against `▶ auto`'s
   triangle and `≡ plan`'s bars, where the seat's hexagon read as one more polygon. The `⬢ lead` bullet below stays as written; the ink and
