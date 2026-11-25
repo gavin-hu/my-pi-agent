@@ -147,6 +147,7 @@ an exact `--path-ignore-patterns` path apiece, while `check:all` and every widen
 forty. The tier is the runner's because `test/suite-sizes.test.ts` names three of those suites at
 their exact heights, so a `describe.skipIf` line per suite is refused. A suite added to the layer
 runs locally until someone names it smoke: **an addition costs time, never coverage.**
+
 The trade that buys is a local gate that can be green while the layer is red: `board land` pushes before CI
 runs, so a landing that reaches a page watches the run and says what it did, and a non-smoke suite red on
 `main` is this trade being paid rather than a mystery flake. It is 40.60 s to 14.18 s on a hub change's
