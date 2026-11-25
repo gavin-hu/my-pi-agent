@@ -86,7 +86,11 @@ const factsOf = (page: Page): Promise<Facts[]> =>
 				return found === null ? "" : style(found).fontSize;
 			};
 			return {
-				card: row.getAttribute?.("data-ask") ?? "",
+				// The row names its card through the sentence it describes: team-why-<id>.
+				card: (row.querySelector?.(".bf-row__title")?.getAttribute?.("aria-describedby") ?? "").replace(
+					"team-why-",
+					"",
+				),
 				row: { w: round(box(row).width), h: round(box(row).height) },
 				why:
 					why === null ? null : { x: Math.round(box(why).x), w: Math.round(box(why).width), h: round(box(why).height) },

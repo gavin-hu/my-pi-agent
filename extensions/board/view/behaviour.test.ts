@@ -332,7 +332,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const added = await store.create({ title: "A card with five hints", paths: hints }, CORE, clock.now());
 		try {
 			const page = await openPage();
-			// The board's own lane, not the Team tab's copy of it: the same card is drawn on both tabs.
 			const card = `#board-lanes .bf-row[data-card="${added.id}"]`;
 			await page.waitForSelector(`${card} .board-row__paths`, { timeout: PAINT_MS });
 

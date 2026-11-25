@@ -219,9 +219,8 @@ __LABEL_KEY__
     // The tone is the pill's and a danger row's sentence — two statements, neither of them the
     // ground, so an ask needs no paper and no glyph of its own.
     row.setAttribute("data-tone", decisionTone(entry.kind));
-    // Not data-card: an ask row is a line about a card, and the id belongs to the card the
-    // lanes draw. The attribute is what keeps "a card is drawn once" checkable.
-    row.setAttribute("data-ask", card.id);
+    // No data-card: an ask row is a line about a card, and the id belongs to the card the lanes
+    // draw. What ties the row to its card is the description below, team-why-<id>.
     var head = el("div", N.queueHead);
     var ref = el("span", N.queueRef);
     ref.appendChild(document.createTextNode("#" + card.id));

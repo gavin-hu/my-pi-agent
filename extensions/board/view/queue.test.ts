@@ -126,16 +126,15 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 			.map((card) => String(card.id))
 			.sort();
 		const drew = (await drawnCards(page)).sort();
-		// The invariant the redesign is: a card is drawn once on this tab — the ask row above it is
-		// a line about the card (`data-ask`), not a second drawing of it, and that is the difference
-		// the old queue erased when ten cards were drawn fourteen times.
+		// The invariant the redesign is: a card is drawn once on this tab. The ask row above it is a
+		// line about the card — it carries no data-card, only team-why-<id> — and that is the
+		// difference the old queue erased when ten cards were drawn fourteen times.
 		expect(new Set(drew).size).toBe(drew.length);
 		expect(drew).toEqual(open);
 		const asked = await page.evaluate(() => {
 			const document = (globalThis as unknown as { document: TeamDoc }).document;
-			return Array.from(
-				document.querySelectorAll("#team-asks .board-queue__row"),
-				(row) => row.getAttribute("data-ask") ?? "",
+			return Array.from(document.querySelectorAll("#team-asks .board-queue__row"), (row) =>
+				(row.querySelector(".bf-row__title")?.getAttribute("aria-describedby") ?? "").replace("team-why-", ""),
 			);
 		});
 		expect(new Set(asked).size).toBe(asked.length);
@@ -196,7 +195,10 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		await waitFor(async () => (await drawnCards(page)).includes(String(quiet.id)), PAINT_MS);
 		const row = await page.evaluate((id: string) => {
 			const document = (globalThis as unknown as { document: TeamDoc }).document;
-			const node = document.querySelector('#team-asks .board-queue__row[data-ask="' + id + '"]');
+			const node =
+				Array.from(document.querySelectorAll("#team-asks .board-queue__row")).find(
+					(row) => (row.querySelector(".bf-row__title")?.getAttribute("aria-describedby") ?? "") === "team-why-" + id,
+				) ?? null;
 			return {
 				pill: node?.querySelector(".bf-tag")?.textContent ?? "",
 				said: node?.querySelector(".board-queue__why")?.textContent ?? "",
@@ -258,6 +260,20 @@ describe.skipIf(CHROME === undefined)("the Needs you column", () => {
 		await waitFor(async () => (await column(page)).fold === "Show " + behind + " more", PAINT_MS);
 		const closed = await column(page);
 		expect(closed.asks).toBe(5);
+		// Every drawn row is described by its own line: the sentence belongs to the row, not to a
+		// head, so a row read on its own still says why it is here.
+		const described = await page.evaluate(() => {
+			const document = (globalThis as unknown as { document: TeamDoc }).document;
+			return Array.from(document.querySelectorAll("#team-asks .board-queue__row"), (row) => {
+				const id = row.querySelector(".bf-row__title")?.getAttribute("aria-describedby") ?? "";
+				return { row: id.replace("team-why-", ""), id, said: document.getElementById(id)?.textContent ?? "" };
+			});
+		});
+		expect(described.length).toBe(5);
+		for (const row of described) expect(row.id).toBe("team-why-" + row.row);
+		// The rank puts the loss first, so the drawn five are the gone ask and four contracts.
+		expect(described[0]?.said).toBe("ops-gone is not running \u2014 the card is free");
+		for (const row of described.slice(1)) expect(row.said).toBe("contract ready \u2014 needs approval");
 		await page.click('#board-team [data-fold="needs-you"]');
 		await waitFor(async () => (await column(page)).asks === before + 6, PAINT_MS);
 		expect((await column(page)).fold).toBe("Show fewer");
