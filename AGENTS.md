@@ -118,7 +118,7 @@ Three are gates; the fourth is review.
 
 ## UI verification
 
-A surface is verified by rendering it — `capture:screens`, `render:tools --width 80`,
+A surface is verified by rendering it — `capture:screens`, `render:tools html <out>`,
 `capture:plan`, `capture:file-browse` — and `bun test` renders every screen at three
 widths, so an overflowing frame fails.
 
