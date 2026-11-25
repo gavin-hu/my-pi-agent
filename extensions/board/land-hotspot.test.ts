@@ -16,9 +16,17 @@ import { describe, expect, test } from "bun:test";
 import { BASE, cleanLanding, landingWith, MERGE } from "../../test/helpers/land-git.ts";
 
 /** A landing that changes the suite manifest: the two files the proof reads, and the merge's tree. */
-function manifestLanding(options: { before: string; after: string; files: readonly string[] }) {
+/**
+ * A landing that changes the suite manifest: the two files the proof reads, and the merge's tree.
+ *
+ * `patch` is supplied as well as the two texts so a wrapped-group case is faithful to both rules:
+ * this suite's proof reads the texts, the superseded one read the diff, and a script answering only
+ * one of them could not show which rule a case is holding (#905).
+ */
+function manifestLanding(options: { before: string; after: string; files: readonly string[]; patch?: string }) {
 	return cleanLanding({
 		"diff --numstat": { stdout: "5\t0\tCHANGELOG.md\n1\t1\ttest/suite-manifest.ts\n" },
+		...(options.patch === undefined ? {} : { "diff --unified=0": { stdout: options.patch } }),
 		// The proof reads the base manifest, then the merge's, in that order.
 		show: [{ stdout: options.before }, { stdout: options.after }],
 		"ls-tree -r": { stdout: `${options.files.join("\n")}\n` },
@@ -33,6 +41,9 @@ function manifest(stems: readonly string[]): string {
 
 /** The head of both wrapped-group manifests below: one group, on one line either side. */
 const WRAPPED_HEAD = "export const EXTENSION_SUITES: Record<string, readonly string[]> = {\n\t";
+
+/** The hunk header both wrapped-group diffs carry, so a rule reading the diff sees the change. */
+const WRAPPED_HUNK = "@@ -1,1 +1,1 @@\n";
 
 describe("the landing proof's append hotspots", () => {
 	test("undoes a landing that deletes lines in an append-hotspot", async () => {
@@ -53,6 +64,7 @@ describe("the landing proof's append hotspots", () => {
 				before: manifest(["footer/budget", "footer/footer"]),
 				after: manifest(["footer/footer", "panel/settings-scope"]),
 				files: ["extensions/bytefly/footer/footer.test.ts", "extensions/bytefly/panel/settings-scope.test.ts"],
+				patch: '@@ -2,3 +2,3 @@\n-\t\t"footer/budget",\n+\t\t"panel/settings-scope",\n',
 			}),
 		);
 		expect(await answer).toMatchObject({ merge: MERGE });
@@ -68,6 +80,7 @@ describe("the landing proof's append hotspots", () => {
 				before: manifest(["footer/budget", "footer/footer"]),
 				after: manifest(["footer/footer"]),
 				files: ["extensions/bytefly/footer/budget.test.ts", "extensions/bytefly/footer/footer.test.ts"],
+				patch: '@@ -2,3 +2,2 @@\n-\t\t"footer/budget",\n',
 			}),
 		);
 		const result = await answer;
@@ -87,6 +100,7 @@ describe("the landing proof's append hotspots", () => {
 				before: `${WRAPPED_HEAD}"web-access": ["fetch/extract"],\n};\n`,
 				after: `${WRAPPED_HEAD}"web-access": ["fetch/extract", "fetch/schema"],\n};\n`,
 				files: ["extensions/web-access/fetch/extract.test.ts", "extensions/web-access/fetch/schema.test.ts"],
+				patch: `${WRAPPED_HUNK}-\t"web-access": ["fetch/extract"],\n+\t"web-access": ["fetch/extract", "fetch/schema"],\n`,
 			}),
 		);
 		expect(await answer).toMatchObject({ merge: MERGE });
@@ -102,6 +116,7 @@ describe("the landing proof's append hotspots", () => {
 				before: `${WRAPPED_HEAD}"web-access": ["fetch/extract", "fetch/schema"],\n};\n`,
 				after: `${WRAPPED_HEAD}"web-access": ["fetch/extract"],\n};\n`,
 				files: ["extensions/web-access/fetch/extract.test.ts", "extensions/web-access/fetch/schema.test.ts"],
+				patch: `${WRAPPED_HUNK}-\t"web-access": ["fetch/extract", "fetch/schema"],\n+\t"web-access": ["fetch/extract"],\n`,
 			}),
 		);
 		const result = await answer;
