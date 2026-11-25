@@ -47,6 +47,21 @@ const FROM_ANOTHER_TAB = {
 	},
 };
 
+/** Two drafts from another tab: what an open send dialog must list after the frame lands. */
+const TWO_DRAFTS = {
+	review: {
+		id: "",
+		comments: [
+			{ id: "c1", rel: "a.ts", line: 1, side: "new", body: "one", state: "draft", at: 1 },
+			{ id: "c2", rel: "a.ts", line: 1, side: "new", body: "two", state: "draft", at: 2 },
+		],
+		reviewed: [],
+	},
+};
+
+/** A frame whose store holds no draft: the confirmation has nothing left to carry. */
+const NO_DRAFTS = { review: { id: "", comments: [], reviewed: [] } };
+
 gated("the review page's live frames", () => {
 	let browser: TestBrowser;
 
@@ -139,6 +154,51 @@ gated("the review page's live frames", () => {
 				fixture.closePage();
 				await pressComment(page);
 				await page.waitForSelector(".rv-compose__area", { timeout: REVIEW_PAINT_MS });
+			});
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * A frame under the open dialog is data the confirmation must show: `/api/send` carries every
+	 * draft the store holds, so a list built once at open would promise less than the press sends.
+	 */
+	test(
+		"a frame under the open send dialog re-reads its list",
+		async () => {
+			await withLivePage(async (page) => {
+				await startComment(page, "one note");
+				await page.locator(".rv-compose__acts .bf-btn--primary").click();
+				await page.waitForSelector(".rv-thread", { timeout: REVIEW_PAINT_MS });
+				await page.locator("#rv-send").click();
+				await page.waitForFunction(
+					() => (globalThis as unknown as ReviewDom).document.getElementById("rv-send-dialog")?.hidden === false,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await page.locator("#rv-send-list .rv-dialog-item").count()).toBe(1);
+
+				await pushFrame(page, TWO_DRAFTS);
+				await page.waitForFunction(
+					() =>
+						(globalThis as unknown as ReviewDom).document.querySelectorAll("#rv-send-list .rv-dialog-item").length ===
+						2,
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await page.locator("#rv-send-title").textContent()).toContain("2 comments");
+				expect(await page.locator("#rv-send-dialog").isVisible()).toBe(true);
+
+				await pushFrame(page, NO_DRAFTS);
+				await page.waitForFunction(
+					() =>
+						(globalThis as unknown as ReviewDom).document.getElementById("rv-send-title")?.textContent ===
+						"Nothing left to send",
+					undefined,
+					{ timeout: REVIEW_PAINT_MS },
+				);
+				expect(await page.locator("#rv-send-dialog").isVisible()).toBe(true);
+				expect(await page.locator("#rv-send-confirm").isDisabled()).toBe(true);
 			});
 		},
 		CASE_MS,

@@ -56,7 +56,6 @@ export const REVIEW_KEYS_JS = String.raw`  function setWrap(on) {
     try { navigator.clipboard.writeText(text || "no comments yet").then(done, done); } catch (error) { toast("The clipboard is blocked here"); }
   });
   byId("rv-send").addEventListener("click", openSend);
-  byId("rv-send-close").addEventListener("click", closeSend);
   byId("rv-send-cancel").addEventListener("click", closeSend);
   byId("rv-send-confirm").addEventListener("click", sendNow);
   byId("rv-sel-clear").addEventListener("click", clearSelection);
@@ -112,7 +111,8 @@ export const REVIEW_KEYS_JS = String.raw`  function setWrap(on) {
 
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
-      if (!byId("rv-send-dialog").hidden) { closeSend(); return; }
+      // The kit's dialog script owns Escape while the send dialog is open: its capture listener
+      // closes, restores the opener and stops propagation, so this handler never sees that layer.
       // The composer Escape closes is the one the focus is in: with one per line, closing them all
       // would take text the reviewer was not done writing. The textarea itself stops the event, so
       // this branch is the Save and Cancel buttons' own.
