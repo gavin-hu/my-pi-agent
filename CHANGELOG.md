@@ -152,6 +152,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: the watch a session asked for now lives in its record, and a restart restores it. `watching: { armed, wake }`
+  was written on every join and never read back, so a fresh runtime armed from its own silence and a session set to `wake`
+  came back as `on` with nothing said — silent, because the seat's round and the team line read `armed` only. The record carries
+  one mode (`off`, `on`, `wake`) that a start adopts beside the mail cursor; `off` stays off, an older `{ armed, wake }` record
+  still reads, and the pair is derived on every write for the readers outside the bus.
+
 - `board`: the seat's `bash` judge reads git's options by position, so a subcommand's own `-c` is no longer refused as the
   global one: `git grep -c TODO`, `git diff -c` and `git log -c` run while `git -c alias.x=!sh x`, `git --bare`,
   `git --git-dir=…` and `git grep -O<pager>` stay refused — the last three by the global-slot check and grep's own case,

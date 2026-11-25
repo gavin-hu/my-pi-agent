@@ -38,7 +38,7 @@ messages, consume an inbox, and claim paths before editing them.
 
 The board lists every session with its unread count and claims, plus your own identity. `Tab`
 cycles Sessions, Inbox, and Claims, `Enter` opens the focused row, `w` toggles listening, and `x`
-releases a claim you hold — after a confirmation. It joins nothing by itself.
+releases a claim you hold — after a confirmation. It joins nothing by itself, and the `watch on` / `watch wake` chip is your own watch, not the row under the cursor.
 
 ## Reference
 
@@ -99,8 +99,8 @@ authentication between sessions; the [agent directory](../security.md#the-agent-
 - Pull-based for a bare `session join`: a message waits for a session that is not listening. A board
 or team join asks for `wake`, so a handoff, an ask, or a sign starts a turn in an idle teammate.
 - Reading is not joining: `/sessions` shows a board you are not on until you join or act.
-- Membership is per session and does not survive a resume or a restart; unread mail and the derived
-label do.
+- Membership is per session and does not survive a resume or a restart; the watch mode does, with unread mail and the
+derived label — a record says `off`, `on`, or `wake`, and a start adopts it, so `off` stays off until a person asks again.
 - The board acts on your own state only — it never consumes mail or touches a peer's claims.
 - Two listening peers can wake each other in a loop; stop listening on one.
 - A fan-out is one file per inbox, so it can be partial; the result names the delivered and the missed.

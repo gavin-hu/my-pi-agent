@@ -29,7 +29,7 @@ import { isPidAlive, startTokenOf } from "../../lib/spawn.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import type { SessionBus, SessionBusOptions } from "./api.ts";
 import type { MailCursor } from "./cursor.ts";
-import { createMailWatch } from "./mail-watch.ts";
+import { createMailWatch, recordWatch, storedWatchMode } from "./mail-watch.ts";
 import { createTurn } from "./presence.ts";
 import {
 	MAX_LABEL,
@@ -191,6 +191,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const { createMailCursor } = await import("./cursor.ts");
 			cursor = createMailCursor({ store: () => store, record: () => record });
 			await cursor.adopt();
+			await mailWatch.restore(storedWatchMode(await store.session(id)));
 		})();
 		try {
 			await starting;
@@ -451,7 +452,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// Written on every join, disarmed included, so a peer reads it from disk instead of
 			// asking: `armed: false` is the fact `team` reports as "not listening", and the
 			// field's absence is only ever a record older than this line.
-			me.watching = { armed: watching.armed, wake: watching.wake };
+			recordWatch(me, watching);
 			await requireStore().writeSession(me);
 			return { label, watching };
 		},
