@@ -222,6 +222,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `land` carries a release prep. Every release rewrites the changelog's `[Unreleased]` foot reference and
+  adds the new version's line below it, and the proof read that pointer as an appended record — so 0.31.0's own prep
+  could not land. A `CHANGELOG.md` line the landing deletes is now legitimate when **every** deleted line there is a
+  reference and the landing adds one; a bullet, a heading, a lone reference and a bullet beside a rewritten reference
+  are refused exactly as before, with the sentence they always printed.
+
 - `watch`, `plan`: a field an action never reads is refused rather than dropped in silence — a `logs` call carrying
   `path` now answers that `add` takes it, and `enter` with a `title` points at `write`. Each table lives beside its
   tool's action list, `lib/stray-fields.ts` words the refusal, and a test holds every published field to an action

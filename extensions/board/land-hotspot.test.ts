@@ -45,13 +45,83 @@ const WRAPPED_HEAD = "export const EXTENSION_SUITES: Record<string, readonly str
 /** The hunk header both wrapped-group diffs carry, so a rule reading the diff sees the change. */
 const WRAPPED_HUNK = "@@ -1,1 +1,1 @@\n";
 
+/**
+ * The changelog patch #909's 0.31.0 prep really makes: the `[Unreleased]` reference rewritten, the new
+ * version's line added beneath it, and the new heading above the window. `git diff e386545f 3f7fd000
+ * -- CHANGELOG.md` is this, `4/1`, and the allowance exists for exactly this shape.
+ */
+const RELEASE_PATCH = [
+	"@@ -6,6 +6,8 @@",
+	"+## [0.31.0] - 2026-11-25",
+	"+",
+	"@@ -8899,7 +8901,8 @@ one installable Pi package.",
+	"-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...HEAD",
+	"+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.31.0...HEAD",
+	"+[0.31.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...v0.31.0",
+	"",
+].join("\n");
+
+/** A bullet no landing may drop. */
+const BULLET_PATCH = "@@ -10,1 +10,0 @@\n-- `board`: a record nobody may overwrite.\n";
+
+/** The sentence a refused `CHANGELOG.md` deletion prints, byte for byte. */
+const APPEND_REFUSAL =
+	"the landing deletes lines in CHANGELOG.md, which are appended and not rewritten: the merge was undone and nothing was pushed.";
+
+/** A landing that deletes lines in `CHANGELOG.md`: the counts, and the lines the proof reads. */
+function changelogLanding(options: { numstat: string; patch: string }) {
+	return cleanLanding({
+		"diff --numstat": { stdout: options.numstat },
+		"diff --unified=0": { stdout: options.patch },
+	});
+}
+
 describe("the landing proof's append hotspots", () => {
-	test("undoes a landing that deletes lines in an append-hotspot", async () => {
-		const { git, answer } = landingWith(
-			cleanLanding({ "diff --numstat": { stdout: "5\t2\tCHANGELOG.md\n59\t0\tlead-gate.test.ts\n" } }),
-		);
-		expect(await answer).toMatchObject({ error: expect.stringContaining("deletes lines in CHANGELOG.md") });
+	test("undoes a landing that deletes a bullet, with the sentence it always printed", async () => {
+		// A removed bullet is a peer's record overwritten, and the reference allowance beside it did
+		// not reword the case the rule keeps.
+		const { git, answer } = landingWith(changelogLanding({ numstat: "5\t2\tCHANGELOG.md\n", patch: BULLET_PATCH }));
+		const result = await answer;
+		if (!("error" in result)) throw new Error("expected the landing to be refused");
+		expect(result.error).toBe(APPEND_REFUSAL);
 		expect(git.argv("reset").at(0)).toEqual(["reset", "--keep", BASE]);
+		expect(git.argv("push")).toEqual([]);
+	});
+
+	test("lands a release prep that rewrites the foot reference and adds the new one", async () => {
+		// #909's real shape, `4/1`: a reference is a pointer, so the cut that moves it and adds the
+		// new version's line has done what every release does.
+		const { git, answer } = landingWith(changelogLanding({ numstat: "4\t1\tCHANGELOG.md\n", patch: RELEASE_PATCH }));
+		expect(await answer).toMatchObject({ merge: MERGE });
+		expect(git.argv("reset")).toEqual([]);
+		expect(git.argv("push")).toHaveLength(1);
+	});
+
+	test("undoes a removed reference with nothing replacing it", async () => {
+		const { git, answer } = landingWith(
+			changelogLanding({
+				numstat: "0\t1\tCHANGELOG.md\n",
+				patch: "@@ -8899,2 +8899,1 @@\n-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...HEAD\n",
+			}),
+		);
+		const result = await answer;
+		if (!("error" in result)) throw new Error("expected the landing to be refused");
+		expect(result.error).toBe(APPEND_REFUSAL);
+		expect(git.argv("push")).toEqual([]);
+	});
+
+	test("undoes a bullet deleted beside a rewritten reference", async () => {
+		// "Every" is the word the rule turns on: one reference in the diff does not excuse the bullet
+		// next to it.
+		const { git, answer } = landingWith(
+			changelogLanding({
+				numstat: "4\t2\tCHANGELOG.md\n",
+				patch: `${RELEASE_PATCH}-- \`board\`: a record nobody may overwrite.\n`,
+			}),
+		);
+		const result = await answer;
+		if (!("error" in result)) throw new Error("expected the landing to be refused");
+		expect(result.error).toBe(APPEND_REFUSAL);
 		expect(git.argv("push")).toEqual([]);
 	});
 
