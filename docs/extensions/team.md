@@ -74,31 +74,31 @@ live session that never joined looks the same. A message to a quiet or not-liste
 is not heard. `/team who` prints that answer as rows — `live (n)`, `quiet (n)`, `not on the bus (n)`,
 `gone (n)`, nothing elided — and `/team who <label>` answers for one. The round closes with
 `2 of 4 sessions live — /team who lists them`.
-**Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own name — `/team
-join <label>`, or a bare one for the first free `team.teammates` name, the id-derived `team-agent-` name when
-none is free. A recordless board session is named the same way, so card and join agree. An assign or an ask
-joins once, and a typed label also joins `team.teammates`; a bare join writes nothing and leaves Pi's name alone.
-A board/team join asks for `wake`, so a handoff, an ask, or a sign starts an idle teammate's turn;
-`session join listen:false` is the opt-out, and an armed record without wake is upgraded.
+**Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own name — `/team join <label>`, or a bare one for the
+first free `team.teammates` name, the id-derived `team-agent-` name when none is free. A recordless board session is named the same way, so card and
+join agree; a bare join writes nothing and leaves Pi's name alone. A team join asks for `wake`, so a handoff, an ask, or a sign starts an idle
+teammate's turn; `session join listen:false` is the opt-out.
 
-`assign` and `ask` join **before** they send, because the message names this session as the way back, and
-send nothing when the join is refused. The door is not always `/team join`: with no bus loaded it names
-the extension to turn on, and with the label held by another record it says whose it is — joining under
-another name costs a lead its signature, because the gates compare `team.lead` by label.
+**The tool arrives with the team.** `team` is offered only to a session the bus holds a record of: a turn start reads the record, adds the tool the
+turn after a join lands, and takes it away the turn after a leave. A session on no team is told where the door is instead, in the line the board would
+have drawn — `/team join <label>`, or `/board` for the seat — so a missing tool reads as "not yet" rather than "this Pi has no team". All three verbs
+ask the same question before they read a card or send anything, and with no bus loaded nothing is offered at all: there is no team to be on. Nor is
+`/team join` always a door — with no bus loaded it names the extension to turn on, a held label says whose it is, and with `team` toggled off `/board`
+is the one left.
 
 **Leaving.** `/team exit` is the inverse: the record goes, the claims it holds are released, the watch
 stops and the bar stops drawing the name. Two facts hold it back, each on its own line with the door that
 frees it: a card this session holds (`board release 935`), which with no record a peer could never take
-back, and the page's seat (`/board stop`), which the next sign would put back on the bus. The next send,
-claim, or card write puts the session back on the bus under the same id; delivered mail stays until
-`/sessions drop` clears it.
+back, and the page's seat (`/board stop`), which the next sign would put back on the bus. Joining again —
+`/team join`, `/board`, or `session join` — puts the session back under the same id, and the tool returns with
+it at the next turn; delivered mail stays until `/sessions drop` clears it.
 
 **Plan mode.** Neither `team` nor `session` is read-only, so plan mode refuses both by name; `board list` still reads, and assign waits for the approval.
 
 ## Limits
 
-- Nothing here starts a peer's process: a peer that never joined cannot be handed a
-  card, and one listening with `wake` is woken by its mail.
+- Nothing here starts a peer's process: a peer that never joined cannot be handed a card — it is offered no
+  `team` tool either, and its turn names the door — and one listening with `wake` is woken by its mail.
 - A card somebody already holds is not assignable: `board reclaim` it, then assign.
 - An offer is advice — a card can stay offered indefinitely, counted as unassigned.
 - Ownership does not claim paths: the peer still claims the files it edits through `session`.

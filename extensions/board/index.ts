@@ -145,10 +145,12 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	 */
 	let memberModule: Promise<typeof import("../../lib/workflow/join.ts")> | undefined;
 	let memberTools: MemberTools | undefined;
-	const offerTools = async (ctx: ExtensionContext): Promise<void> => {
+	const offerTools = async (ctx: ExtensionContext): Promise<boolean> => {
 		const module = await (memberModule ??= import("../../lib/workflow/join.ts"));
 		memberTools ??= module.createMemberTools(pi, session, [BOARD_TOOL], { solo: true });
-		await memberTools.sync(ctx);
+		// The answer is whether the tool is offered now, which the turn start below needs: it is the
+		// fact that decides whether this turn draws the card line or the door.
+		return await memberTools.sync(ctx);
 	};
 
 	/** Whether the first turn has read this session's cards, so later turns do not read them again. */
@@ -256,7 +258,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		// After the seat's reconcile and before its early return: the reconcile writes the active set,
 		// so a sync that ran first would be overwritten, and one after the return would never run for
 		// a lead — those are the two ways this ordering goes wrong.
-		await offerTools(ctx);
+		const offered = await offerTools(ctx);
 		if (holding !== undefined) {
 			const context = await (contextModule ??= import("./context.ts"));
 			const facts = await context.leadFacts(session, ctx);
@@ -264,6 +266,13 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 			return {
 				message: { customType: context.BOARD_CONTEXT_TYPE, content: context.buildLeadContext(facts), display: false },
 			};
+		}
+		// No tool, so this turn says where the door is: the line that keeps "no board here" from
+		// reading as "no board anywhere". It does not spend `read` — the door is paid every turn
+		// while the session is on no team, and the turn it joins still gets the card line.
+		if (!offered) {
+			const door = await (contextModule ??= import("./context.ts"));
+			return { message: { customType: door.BOARD_CONTEXT_TYPE, content: door.doorContext(), display: false } };
 		}
 		if (read) return undefined;
 		const context = await (contextModule ??= import("./context.ts"));

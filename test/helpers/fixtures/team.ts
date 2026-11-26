@@ -13,14 +13,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { registerTools } from "../../../extensions/team/tools.ts";
-import type { Deliver } from "../../../lib/session-tool.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";
-import { type BoardSession, openBoardSession } from "../../../lib/workflow/session.ts";
+import type { Deliver, SendInput } from "../../../lib/session-tool.ts";
+import { notDeliveredLine, type Peer, type TeamJoin } from "../../../lib/session-tool.ts";
 import type { Claims } from "../../../lib/workflow/claims.ts";
 import { MAX_WIP } from "../../../lib/workflow/limits.ts";
-import type { SendInput } from "../../../lib/session-tool.ts";
-import { notDeliveredLine, type Peer, type TeamJoin } from "../../../lib/session-tool.ts";
-import { writeJoinedRecord } from "../bus.ts";
+import { type BoardSession, openBoardSession } from "../../../lib/workflow/session.ts";
+import { writeBusRecord, writeJoinedRecord } from "../bus.ts";
 import { fakeCtx } from "../context.ts";
 import { tempDir } from "../env.ts";
 import { createFakePi } from "../fakes.ts";
@@ -82,6 +81,13 @@ export interface TeamSuiteOptions {
 	roster?: Array<Peer[] | null>;
 	/** Test seam: the bus a lane crossing writes to, so a case records it without a bus. */
 	claims?: Claims;
+	/**
+	 * Make this session a stranger: no record on the bus, so the verbs' gate refuses it.
+	 *
+	 * The default is a member, because these suites are about what a verb does once it may act —
+	 * the refusal itself is `tools.test.ts`'s case, and it asks for this.
+	 */
+	member?: boolean;
 }
 
 /**
@@ -201,12 +207,31 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	const tool = fake.tools.get("team");
 	if (!tool) throw new Error("the team tool was not registered");
 	const { ctx } = fakeCtx({ cwd, sessionId: "s-lead", sessionName: "billing-lead" });
+	/**
+	 * The record that makes this session a member before its first call.
+	 *
+	 * Written with no `watching` on purpose: the gate only asks whether a live record exists, while
+	 * a real `joinTeam` returns early on a record that states its own watch — so the join these
+	 * cases assert is still asked, and the record it leaves is its own.
+	 */
+	let seeded = false;
+	const seedMember = async (): Promise<void> => {
+		if (seeded || options.member === false) return;
+		seeded = true;
+		const me = await session.who(ctx, cwd);
+		writeBusRecord(await session.busDir(cwd), { id: "s-lead", label: me.label, lastSeen: NOW });
+	};
 	return {
 		tool,
 		ctx,
 		sent,
 		joined,
 		cwd,
+		/**
+		 * Put this session on the team, for a case that drives the tool directly rather than
+		 * through `call` — the partial-result case hands its own update function to `execute`.
+		 */
+		enlist: seedMember,
 		/** Who this session writes as — the label and id a refusal has to compare against. */
 		async me() {
 			return await session.who(ctx, cwd);
@@ -223,6 +248,7 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 			return card.id;
 		},
 		async call(args: Record<string, unknown>) {
+			await seedMember();
 			return (await tool.execute("call-1", args, undefined, undefined, ctx)) as {
 				content: Array<{ text: string }>;
 				details: TeamDetails;

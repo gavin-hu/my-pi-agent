@@ -16,10 +16,12 @@
  * Load with:  pi --extension ./extensions/team --extension ./extensions/session-bus
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { type BoardSession, openBoardSession } from "../../lib/workflow/session.ts";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { createTeamJoin, createTeamLeave, type TeamJoin, type TeamLeave } from "../../lib/session-tool.ts";
+import { TEAM_TOOL } from "../../lib/tool-names.ts";
+import type { MemberTools } from "../../lib/workflow/join.ts";
+import { type BoardSession, openBoardSession } from "../../lib/workflow/session.ts";
 import { registerCommands } from "./commands.ts";
 import { registerTools } from "./tools.ts";
 
@@ -43,4 +45,28 @@ export default function team(pi: ExtensionAPI, deps: TeamDeps = {}): void {
 	const leave = deps.leave ?? createTeamLeave(pi);
 	registerTools(pi, session, { team });
 	registerCommands(pi, session, { team, leave });
+
+	/**
+	 * The model's tool list, as the team's own question: `team` is offered while this session is on
+	 * the team, and never otherwise — `solo` is false because there is nothing to hand over with no
+	 * bus, which is the one place this differs from `board`. `lib/workflow/join.ts` is outside this
+	 * entry's static graph and loads on the first turn that asks, because `test/dependencies.test.ts`
+	 * holds what an entry pays at load.
+	 */
+	let memberModule: Promise<typeof import("../../lib/workflow/join.ts")> | undefined;
+	let memberTools: MemberTools | undefined;
+	const offerTools = async (ctx: ExtensionContext): Promise<void> => {
+		const module = await (memberModule ??= import("../../lib/workflow/join.ts"));
+		memberTools ??= module.createMemberTools(pi, session, [TEAM_TOOL], { solo: false });
+		await memberTools.sync(ctx);
+	};
+
+	// The two lifecycle points this entry did not have before the tool had an audience. Both ask the
+	// bus's record, so a `/resume` needs nothing stored and a `/team join` shows up at the next turn.
+	pi.on("session_start", async (_event, ctx) => {
+		await offerTools(ctx);
+	});
+	pi.on("before_agent_start", async (_event, ctx) => {
+		await offerTools(ctx);
+	});
 }

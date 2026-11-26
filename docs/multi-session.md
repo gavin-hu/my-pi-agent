@@ -50,9 +50,11 @@ requests   board, team ───► lib/session-tool.ts
 ## A round, in order
 
 1. **Join.** `/board` joins the session that leads as the board's lead; any other
-   session joins on its first claim or with `session join`. `/team join` takes the first
-   name `team.teammates` lists that nobody holds — the default five unless the project
-   states its own — and `/team join <label>` is the one door that renames a session.
+   session joins with `/team join` or `session join`, and its `board` and `team` tools
+   arrive at the next turn — a session on no team is offered neither, and its turn names
+   the door. `/team join` takes the first name `team.teammates` lists that nobody holds —
+   the default five unless the project states its own — and `/team join <label>` is the
+   one door that renames a session.
 2. **Put the work on the board.** `board add` lands a card in `backlog`, where
    nobody holds it.
 3. **Take one card.** `board claim 4` moves it to `plan` for this session, or the

@@ -15,26 +15,20 @@
  * once, as aliases of the same store operation with a second sentence and a second result line
  * each; #581 removed them, so the two doors cannot drift apart.
  *
- * `assign` and `ask` join this session to the team once, because each is answered by mail:
- * `session-bus` records a sender and arms no watch, so without the join a lead that only ever runs
- * the round would have a reply nobody reports. Both join **before** they send, because the message
- * names this session as the way back — a lead the bus will not hold hands a peer a reply its own
- * `session send` refuses — and they send nothing when the join does not land. `offer` does not
- * join, and need not: it is answered by a claim.
+ * All three verbs belong to a session the bus holds, so the gate is the first thing each asks: a
+ * session on no team is offered no `team` tool by its entry, and a call that arrives anyway — the
+ * turn a leave landed in, a record the heartbeat pruned — is refused with `NOT_ON_TEAM` before it
+ * reads a card or sends anything. Past the gate, `assign` and `ask` still ask the bus to arm a
+ * watch, because each is answered by mail and `session-bus` records a sender without arming one;
+ * that call upgrades a member's watch and never joins a stranger, because a stranger has no tool.
  */
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
-import { type Card, type CardOwner, cardArg, cardRef, cardRefOf } from "../../lib/workflow/card.ts";
-import type { TeamState } from "../../lib/workflow/join.ts";
-import { indexOf } from "../../lib/workflow/links.ts";
-import { type Actor, mayOp } from "../../lib/workflow/rules.ts";
-import type { BoardSession } from "../../lib/workflow/session.ts";
-import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import { attempt, messageOf } from "../../lib/errors.ts";
 import { plural, sanitizeUntrustedLine } from "../../lib/format.ts";
-import { peersWithAlarm } from "../../lib/session-roster.ts";
 import { sameLabel } from "../../lib/session-label.ts";
+import { peersWithAlarm } from "../../lib/session-roster.ts";
 import {
 	createDeliver,
 	createTeamJoin,
@@ -42,8 +36,10 @@ import {
 	type DeliveryFailure,
 	type TeamJoin,
 } from "../../lib/session-tool.ts";
+import { strayField } from "../../lib/stray-fields.ts";
 import { type ToolFailure, textResult, toolError } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
 	callLine,
@@ -54,15 +50,19 @@ import {
 	syncElapsedTimer,
 	type ToolMessageResult,
 } from "../../lib/tui/tool.ts";
-import { strayField } from "../../lib/stray-fields.ts";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { type Card, type CardOwner, cardArg, cardRef, cardRefOf } from "../../lib/workflow/card.ts";
+import type { TeamState } from "../../lib/workflow/join.ts";
+import { indexOf } from "../../lib/workflow/links.ts";
+import { type Actor, mayOp } from "../../lib/workflow/rules.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
+import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import { askId, askText, DEFAULT_QUESTION, type ReplyRoute } from "./dispatch.ts";
 import {
 	formatAsk,
 	formatBroadcast,
 	formatHandoff,
-	formatHandoffUnsent,
 	formatHandoffFailure,
+	formatHandoffUnsent,
 	formatNotSent,
 	formatOffer,
 	formatOfferFailure,
@@ -149,18 +149,18 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 	const team = deps.team ?? createTeamJoin(pi);
 
 	/**
-	 * Put this session on the team, once, for the verbs a peer answers by mail.
+	 * Ask the bus to arm this member's watch, for the two verbs a peer answers by mail.
 	 *
-	 * The same join `/board` and `board`'s claim make, asked again when the bus no longer holds
-	 * this session, so a lead that only ever runs the round is on the team under the label it
-	 * writes cards as rather than merely on the bus, where a send records a sender and arms no
-	 * watch. Loaded on demand, like the claim's join was, so registration stays as small as it is.
+	 * A member whose record is armed and waking needs nothing here — the join returns the state it
+	 * found — so the call is for the record that is armed without a wake, or one written by a build
+	 * before the field existed. It never joins a stranger: the gate above answers first, and the
+	 * tool that would have asked is not offered to a session on no team. Loaded on demand, so
+	 * registration stays as small as it is.
 	 *
-	 * The answer is returned rather than only recorded, because two of the three verbs send a
-	 * message the answer is the precondition of: a join that did not land is a message that must
-	 * not go out, and one that did is why the peer can answer at all.
+	 * The answer is returned rather than only recorded, because a watch that did not arm is a
+	 * message that must not go out: the peer could answer a session that never reads it.
 	 */
-	const joinRound = async (ctx: ExtensionContext, label: string): Promise<TeamState> => {
+	const upgradeWatch = async (ctx: ExtensionContext, label: string): Promise<TeamState> => {
 		const { joinTeam } = await import("../../lib/workflow/join.ts");
 		return await joinTeam(session, team, ctx, label);
 	};
@@ -168,6 +168,9 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 	pi.registerTool({
 		name: TEAM_TOOL,
 		label: "Team",
+		// Offered only while this session is on the team: its entry syncs the active set from the
+		// bus's record, and a registration that activated the tool would put it in every session.
+		defaultActive: false,
 		description: TEAM_DESCRIPTION,
 		promptSnippet: TEAM_SNIPPET,
 		promptGuidelines: TEAM_GUIDELINES,
@@ -201,9 +204,16 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			const known = await attempt(session.who(ctx, ctx.cwd));
 			if ("error" in known) return refusal(action, known.error);
 			const me = known.value;
-			// The join every verb a peer answers by mail asks for, built once per call from the
-			// name the reply line names — so the round never keeps a second copy of its label.
-			const join = (): Promise<TeamState> => joinRound(ctx, me.label);
+			// The gate, and the first thing a verb that reaches another session asks: a card's owner is
+			// a name peers resolve, and a handoff or an offer from a session on no team reaches one a
+			// peer cannot answer. Before the card argument and the store, so a refusal has read neither;
+			// loaded here rather than at registration, so a session that never runs the round pays
+			// nothing for it.
+			const gate = await import("../../lib/workflow/join.ts");
+			if (!(await gate.onTeam(session, ctx))) return refusal(action, gate.NOT_ON_TEAM);
+			// The watch a peer's answer needs, built once per call from the name the reply line names —
+			// so the round never keeps a second copy of its label.
+			const join = (): Promise<TeamState> => upgradeWatch(ctx, me.label);
 			try {
 				// `ask` is the one verb with no card behind it, so it runs before the id and the store:
 				// what it needs is this session's name, for the reply line, and the bus.

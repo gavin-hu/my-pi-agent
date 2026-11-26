@@ -54,6 +54,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with no record, naming `/team join` or `/board` as the door, so a card's owner is always a name a
   peer resolves. Breaking: a session that used to claim cold must join first.
 
+- `team`: the tool arrives with the team, the way `board`'s does. A session the bus holds no live record of is
+  offered no `team` tool — it registers inactive and a turn start offers it once the record lands, and with no
+  bus loaded it is never offered at all — and that turn carries one line instead, naming `/team join <label>`
+  or `/board`, so a missing tool reads as "not yet" rather than "this Pi has no team". `assign`, `offer` and
+  `ask` ask the same record before they read a card or send anything, and the join they used to make on the
+  way is now only the watch upgrade it still is.
+
 - `board`: `/board`'s help is rendered from one table — the word, whether it takes a card, its flags — so
   the command's description, the line a mistyped word gets and the completer cannot spell the vocabulary
   differently. The only text that changes is the usage line, whose words now come in the table's order: the
