@@ -399,6 +399,30 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			mailWatch.onWake = callback;
 		},
 
+		// Leaving is the session's own door to what `stop` does at the end of a process: the row, its
+		// claims and the watch that would speak for it all go — while the start, its store, and the
+		// row's id stay, so the next join re-adds the same id (a card is owned by it) rather than
+		// minting a stranger's.
+		async leave() {
+			// Not `prepare()`: that joins first, which is the one thing a leave must not do.
+			await ensureReady();
+			if (!store || !record) return { released: [] };
+			const me = record;
+			const wasOnBus = joined;
+			// Both clocks go with the row: the heartbeat would write it back on its next tick, and a
+			// watch would announce mail to a session the bus no longer lists.
+			stopHeartbeat?.();
+			stopHeartbeat = undefined;
+			mailWatch.stop();
+			// Claims first: a row removed while its claims stood would leave paths nobody could see
+			// were taken, while a release that lands before a failed removal is the retry itself.
+			const released = await store.releaseAll(me.id);
+			await store.removeSession(me.id);
+			joined = false;
+			labels?.withdraw();
+			return { ...(wasOnBus ? { label: me.label } : {}), released };
+		},
+
 		async status() {
 			if (!store || !record) throw new Error("session bus is not started.");
 			// A reader does not join: an unjoined session prunes and reads, and is not
