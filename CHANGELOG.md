@@ -23,6 +23,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   page and the seat end with the session it replaces; the record does not, because the teardown carries
   the reason #915 keeps it by.
 
+### Changed
+
+- `board`: `/board`'s help is rendered from one table — the word, whether it takes a card, its flags — so
+  the command's description, the line a mistyped word gets and the completer cannot spell the vocabulary
+  differently. The only text that changes is the usage line, whose words now come in the table's order: the
+  two signs before `status`, `stop` and `team`.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached
