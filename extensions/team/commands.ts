@@ -17,15 +17,30 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { addTeammate, type AddTeammateResult } from "../../lib/workflow/config.ts";
-import { type Card, cardRef } from "../../lib/workflow/card.ts";
+import { type Card, cardRef, holds } from "../../lib/workflow/card.ts";
 import { buildRound, type RoundSummary } from "../../lib/workflow/round.ts";
 import { formatRound, holdingLine, LEAD_ROUND, withLiveOwner } from "../../lib/workflow/round-text.ts";
 import { plural } from "../../lib/format.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
-import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
+import {
+	createTeamJoin,
+	createTeamLeave,
+	type JoinResult,
+	type TeamJoin,
+	type TeamJoinInput,
+	type TeamLeave,
+} from "../../lib/session-tool.ts";
 import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";
 import { isTeammate, labelKey, sessionNameOf } from "../../lib/session-label.ts";
-import { formatJoined, formatNotJoined, joinNote } from "./format.ts";
+import {
+	formatJoined,
+	formatLeft,
+	formatNotJoined,
+	formatNotLeft,
+	formatStillOn,
+	joinNote,
+	type LeaveBlocker,
+} from "./format.ts";
 
 /** The command's name, which is also the word a user types. */
 export const TEAM_COMMAND = "team";
@@ -36,7 +51,7 @@ export const TEAM_COMMAND = "team";
  * `who` and `join` take a label, so the completer continues past either word; `help` prints
  * {@link TEAM_USAGE} instead of reading the board.
  */
-export const TEAM_WORDS = ["who", "join", "help"] as const;
+export const TEAM_WORDS = ["who", "join", "exit", "help"] as const;
 
 /** The words that take a label, so a completion continues into one and the usage says so. */
 const LABEL_WORDS = new Set<string>(["who", "join"]);
@@ -52,6 +67,7 @@ export const TEAM_USAGE = [
 	"  /team                  the round: who holds what, and what needs a decision",
 	"  /team who [<label>]    who is here, one row per session; one session when a label is named",
 	"  /team join [<label>]   join the team as <label>; a bare join keeps this session's name",
+	"  /team exit            leave the team: drop this session's record and its claims",
 	"  /team help             these words",
 ].join("\n");
 
@@ -65,8 +81,13 @@ export const TEAM_USAGE = [
  */
 export const MAX_ROUND_LINES = 10;
 
-export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: { team?: TeamJoin } = {}): void {
+export function registerCommands(
+	pi: ExtensionAPI,
+	session: BoardSession,
+	deps: { team?: TeamJoin; leave?: TeamLeave } = {},
+): void {
 	const team = deps.team ?? createTeamJoin(pi);
+	const leaving = deps.leave ?? createTeamLeave(pi);
 	// The completer is given no command context, and `ExtensionAPI` carries no cwd, so the root it
 	// reads is the one Pi hands the session here: a resumed session's cwd lives in its header rather
 	// than in the process, so `process.cwd()` would name the wrong repository for a moved checkout.
@@ -77,7 +98,7 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 	pi.registerCommand(TEAM_COMMAND, {
 		// The line and the guideline are the same sentence: `/team` is where a lead reads the round, and
 		// `lib/workflow/round-text.ts` owns what it is called.
-		description: `${LEAD_ROUND} \`/team who [<label>]\` names who is here; \`/team join [<label>]\` joins the team`,
+		description: `${LEAD_ROUND} \`/team who [<label>]\` names who is here; \`/team join [<label>]\` joins the team, and \`/team exit\` leaves it`,
 		getArgumentCompletions: async (prefix: string) => {
 			const [typedWord = "", ...rest] = prefix.trimStart().split(/\s+/);
 			// The word is matched without case and written back as the word the command parses, because
@@ -133,6 +154,11 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 				);
 				return;
 			}
+			if (word === "exit") {
+				const { text, level } = await leaveTeam(session, ctx, leaving);
+				ctx.ui.notify(text, level);
+				return;
+			}
 			if (word === "help") {
 				ctx.ui.notify(TEAM_USAGE, "info");
 				return;
@@ -153,6 +179,50 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			);
 		},
 	});
+}
+
+/**
+ * `/team exit`: what still holds this session on the team, then the leave itself.
+ *
+ * Both refusals are read before the bus is asked, and each names the door that frees it. A card the
+ * exit would strand is the first: a card whose owner the bus has no record of waits for a person,
+ * because a peer may only take a quiet or gone owner's. The seat is the second: the next sign a
+ * seated lead makes would put the session back on the bus the exit had just cleared.
+ */
+async function leaveTeam(
+	session: BoardSession,
+	ctx: ExtensionCommandContext,
+	leave: TeamLeave,
+): Promise<{ text: string; level: "info" | "warning" }> {
+	const blockers = await leaveBlockers(session, ctx);
+	if (blockers.length > 0) return { text: formatStillOn(blockers), level: "warning" };
+	const left = await leave.leave(ctx);
+	if (!left.ok) return { text: formatNotLeft(left.error), level: "warning" };
+	// No label is a session that was already off the team: the answer the person asked for, and no
+	// name to give up because it had none.
+	if (left.label === undefined) return { text: formatNotJoined("nothing to leave"), level: "info" };
+	return { text: formatLeft(left.label, left.released), level: "info" };
+}
+
+/** What holds this session on the team, each with the verb that frees it. */
+async function leaveBlockers(session: BoardSession, ctx: ExtensionCommandContext): Promise<LeaveBlocker[]> {
+	const me = await session.who(ctx, ctx.cwd);
+	const blockers: LeaveBlocker[] = [];
+	if (me.seat === true) {
+		blockers.push({
+			reason: "this session is serving the board's page",
+			door: "/board stop — ends the page and the seat together.",
+		});
+	}
+	const store = await session.store(ctx.cwd);
+	for (const card of await store.list()) {
+		if (card.lane === "done" || !holds(card, me)) continue;
+		blockers.push({
+			reason: `${cardRef(card.id)} ${card.lane} is yours`,
+			door: `board release ${card.id} — with no record, only the lead can take it back.`,
+		});
+	}
+	return blockers;
 }
 
 /** What a `/team join` asks the bus for, and the project name a bare one took when it took one. */

@@ -18,7 +18,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type BoardSession, openBoardSession } from "../../lib/workflow/session.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import { createTeamJoin, createTeamLeave, type TeamJoin, type TeamLeave } from "../../lib/session-tool.ts";
 import { registerCommands } from "./commands.ts";
 import { registerTools } from "./tools.ts";
 
@@ -27,6 +27,8 @@ export interface TeamDeps {
 	session?: BoardSession;
 	/** Test seam: the join, so a suite records it instead of asking a bus. */
 	team?: TeamJoin;
+	/** Test seam: the leave, so a suite records it instead of asking a bus. */
+	leave?: TeamLeave;
 }
 
 export default function team(pi: ExtensionAPI, deps: TeamDeps = {}): void {
@@ -35,6 +37,9 @@ export default function team(pi: ExtensionAPI, deps: TeamDeps = {}): void {
 	// One join for the tool and the command: a round's claim and `/team join` are two doors to
 	// the same team, and the command is a request over `pi.events` because it cannot call a tool.
 	const team = deps.team ?? createTeamJoin(pi);
+	// The other way out of the same team, on the same transport: `/team exit` is a command, so it
+	// cannot call the bus's own leave either.
+	const leave = deps.leave ?? createTeamLeave(pi);
 	registerTools(pi, session, { team });
-	registerCommands(pi, session, { team });
+	registerCommands(pi, session, { team, leave });
 }
