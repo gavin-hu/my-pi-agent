@@ -28,6 +28,12 @@ import {
 import { mapConcurrent } from "../../../lib/pool.ts";
 import { comparesNothing, MAX_BASE_LENGTH, NO_COMPARISON, type ReviewScope, scopeLabel, wireSide } from "../scope.ts";
 
+/** The header git prints for a combined diff, which has three columns and no two sides. */
+const COMBINED_DIFF = /^diff --cc /m;
+
+/** What `git diff --cached` prints instead of a diff for a path with conflicts. */
+const UNMERGED_PATH = "* Unmerged path ";
+
 /** One changed file in a snapshot. */
 export interface ReviewFile {
 	/** Root-relative, posix-style path. */
@@ -42,6 +48,11 @@ export interface ReviewFile {
 	lines: DiffLine[];
 	/** A binary change, which has no text diff. */
 	binary: boolean;
+	/**
+	 * True when the file is unmerged in this comparison, so git answered with a combined diff or
+	 * with `* Unmerged path` rather than two sides: there are no rows to draw and the page says so.
+	 */
+	unmerged?: boolean;
 	/** True when `maxLines` cut the diff short. */
 	truncated: boolean;
 }
@@ -341,6 +352,20 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 		if (diff.code !== 0) {
 			return { rel: entry.rel, status: entry.status, add: 0, del: 0, lines: [], binary: false, truncated: false };
 		}
+		// An unmerged path has no two sides to compare: `worktree` gets a combined `diff --cc` with
+		// three columns, `staged` gets the `* Unmerged path` line alone. Neither is a diff this page
+		// can draw, and parsing either would only produce rows with no line numbers.
+		if (COMBINED_DIFF.test(diff.stdout) || diff.stdout.startsWith(UNMERGED_PATH))
+			return {
+				rel: entry.rel,
+				status: entry.status,
+				add: 0,
+				del: 0,
+				lines: [],
+				binary: false,
+				unmerged: true,
+				truncated: false,
+			};
 		const parsed = parseUnifiedDiff(diff.stdout, maxLines);
 		return {
 			rel: entry.rel,

@@ -97,6 +97,9 @@ async function git(args: string[], cwd: string): Promise<ExecResult> {
 	return execP("git", args, { cwd });
 }
 
+/** The production `RunGit` seam, over the suite's own git process. */
+export const runGit: RunGit = (args, options) => execP("git", args, { cwd: options.cwd, env: options.env });
+
 /** Create a temp git repo with one commit. */
 export async function makeRepo(prefix = "pi-test-"): Promise<string> {
 	const dir = mkdtempSync(join(tmpdir(), prefix));

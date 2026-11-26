@@ -141,6 +141,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	"code-review": [
 		"scope",
 		"config/config",
+		"git/conflict",
 		"git/diff",
 		"review/store",
 		"review/session",
