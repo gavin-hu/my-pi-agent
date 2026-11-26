@@ -46,7 +46,6 @@ function started(overrides: Partial<StartFacts> = {}) {
 		host: HOST,
 		reason: "new",
 		cwd: "/repo",
-		mode: "tui",
 		repoRoot: "/repo",
 		fromGit: false,
 		now: NOW,

@@ -318,6 +318,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"extension",
 		"seat-release",
 		"own-record",
+		"after-new",
 	],
 	"web-access": ["fetch/extract", "fetch/fetch", "fetch/schema", "fetch/structured", "search/search", "http"],
 	wechat: [

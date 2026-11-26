@@ -38,7 +38,6 @@ import {
 	normalizeLimit,
 	normalizePaths,
 	resolveRecipients,
-	sessionMode,
 	settleSend,
 	shortId,
 } from "./protocol.ts";
@@ -136,10 +135,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		}).read(me, liveOnly);
 	}
 
-	const ensureStarted = async (
-		context: ExtensionContext,
-		reason: SessionStartEvent["reason"] | undefined,
-	): Promise<void> => {
+	const ensureStarted = async (context: ExtensionContext, reason?: SessionStartEvent["reason"]): Promise<void> => {
 		if (starting) return starting;
 		starting = (async () => {
 			// Canonical once, here: the root git reports is a real path, so an unresolved
@@ -166,7 +162,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			store = createBusStore(host === undefined ? { dir } : { dir, host });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
-			const mode = sessionMode(context.mode);
 			// Asked once, when the bus starts: a reused pid is settled from the record
 			// afterwards, so no heartbeat tick spawns `ps`, and a session that never
 			// joins pays nothing in its factory.
@@ -174,7 +169,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// The record this process serves: a `/new` keeps the row it left, so a reset costs the
 			// transcript and nothing else. `own-record.ts` says which row, and why every guard
 			// fails toward minting one.
-			const { startRecord } = await import("./own-record.ts");
+			const { startRecord, wasServed } = await import("./own-record.ts");
 			record = await startRecord({
 				pi,
 				store,
@@ -185,7 +180,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				host,
 				reason,
 				cwd,
-				mode,
 				repoRoot: repo?.root ?? cwd,
 				fromGit: repo?.fromGit === true,
 				now: now(),
@@ -197,6 +191,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			cursor = createMailCursor({ store: () => store, record: () => record });
 			await cursor.adopt();
 			await mailWatch.restore(storedWatchMode(await store.session(record.id)));
+			// A served row is one this process was already on the bus with, so the start joins it as a
+			// resumed session would: the beat is what keeps a peer's prune from taking the row — and the
+			// claims a card is worked under — ten quiet minutes later.
+			if (wasServed(record, id)) await joinBus();
 		})();
 		try {
 			await starting;

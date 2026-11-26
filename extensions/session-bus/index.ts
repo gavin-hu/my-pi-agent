@@ -2,7 +2,9 @@
  * session-bus — coordinate parallel Pi sessions on one repository.
  *
  * No session joins on start: it joins through `join`, through the first action
- * that makes it addressable, or through `w` on its own board, in any mode.
+ * that makes it addressable, or through `w` on its own board, in any mode — the one
+ * exception is a `/new`, whose process was already on the bus: it re-joins the row it
+ * kept, because a record nobody beats is one a peer's prune takes (`own-record.ts`).
  * `/sessions` and `status` only read, so a fresh board is empty and a peer never
  * appears merely because the package loaded. The factory only registers; the
  * runtime owns the heartbeat and removes the registry entry when the process ends — but

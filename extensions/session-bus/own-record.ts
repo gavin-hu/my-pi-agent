@@ -29,7 +29,7 @@ import type {
 	SessionShutdownEvent,
 	SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
-import type { SessionMode } from "./protocol.ts";
+import { sessionMode } from "./protocol.ts";
 import { automaticLabel } from "./label.ts";
 import type { BusStore } from "./store.ts";
 import type { SessionRecord } from "./types.ts";
@@ -59,7 +59,6 @@ export interface StartFacts {
 	/** Why the host says this start happened. */
 	reason: SessionStartEvent["reason"] | undefined;
 	cwd: string;
-	mode: SessionMode;
 	/** The repository root, when the caller resolved one. */
 	repoRoot: string;
 	/** Whether git resolved the repository, so its working trees can be asked for. */
@@ -67,13 +66,21 @@ export interface StartFacts {
 	now: number;
 }
 
-/** The record this process serves: the row a `/new` left behind, else a fresh one. */
+/**
+ * The record this process serves: the row a `/new` left behind, else a fresh one.
+ *
+ * A served row keeps the id the previous transcript minted, which is the whole point — the inbox,
+ * the cursor, the watch and the claims are that id's. A minted one carries this session's id. So a
+ * caller can tell the two apart ({@link wasServed}), and the one that has to is the start: a served
+ * row is already on the bus with claims a card is worked under, so the process joins it.
+ */
 export async function startRecord(facts: StartFacts): Promise<SessionRecord> {
+	const mode = sessionMode(facts.context.mode);
 	const served = await servedRow(facts);
 	if (served !== undefined) {
 		// The row's id, name, mail, watch, claims and start time are its own; only what describes
 		// this context now is written over them.
-		return { ...served, lastSeen: facts.now, cwd: facts.cwd, repoRoot: facts.repoRoot, mode: facts.mode };
+		return { ...served, lastSeen: facts.now, cwd: facts.cwd, repoRoot: facts.repoRoot, mode };
 	}
 	return {
 		id: facts.id,
@@ -87,13 +94,25 @@ export async function startRecord(facts: StartFacts): Promise<SessionRecord> {
 		...(facts.host === undefined ? {} : { host: facts.host }),
 		cwd: facts.cwd,
 		repoRoot: facts.repoRoot,
-		mode: facts.mode,
+		mode,
 		startedAt: facts.now,
 		lastSeen: facts.now,
 		// Asked once, here: a reused pid is settled from the record, not by this session polling
 		// `ps` for its own heartbeat.
 		...(facts.startToken === undefined ? {} : { startToken: facts.startToken }),
 	};
+}
+
+/**
+ * Whether a start served the row this process left behind, rather than minting one.
+ *
+ * The answer is the id, because that is the difference: a served row keeps the id the previous
+ * transcript minted (no row carrying this session's id is ever served), and a minted one is ours.
+ * A start that served does what a resumed session does — it joins — so the beat keeps the row, and
+ * the claims a card is worked under, past the TTL a peer's prune would otherwise take them at.
+ */
+export function wasServed(started: SessionRecord, sessionId: string): boolean {
+	return started.id !== sessionId;
 }
 
 /**

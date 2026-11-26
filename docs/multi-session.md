@@ -92,6 +92,7 @@ record carries the name, the mail, the watch, the claims and the card across the
 | an inbox message | one recipient | read, or after 24 hours |
 
 ## A stopped owner
+
 A session that stops leaves its path claims behind, and the board says so rather than implying a free
 slot: over a card whose owner stopped, it prints `9 paths stay held by jack until it stops`. **A card
 whose owner has stopped is not a card whose paths are free** — a peer reaching for one is refused by a
