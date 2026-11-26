@@ -6,7 +6,7 @@
  * a command, no listener, no socket), and that `PI_DISABLED_EXTENSIONS` still stops it.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { LEAD_MODE_ENTRY_TYPE, PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
@@ -14,7 +14,10 @@ import type { BoardSession } from "../../lib/workflow/session.ts";
 import { stubSession } from "../../test/helpers/board.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withEnv } from "../../test/helpers/env.ts";
+import { JOIN_DOORS } from "../../lib/workflow/join.ts";
+import { doorContext, MAX_CONTEXT_CHARS } from "./context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
 import board from "./index.ts";
 import type { BoardPage, PageStart } from "./page.ts";
 
@@ -73,6 +76,9 @@ const CALL = { toolName: "write", input: { path: "a.md", content: "x" } };
  * registers.
  */
 const ENABLED = { [ENV_DISABLED_EXTENSIONS]: "" };
+
+const temps = makeTempTracker();
+afterAll(() => temps.flush());
 
 describe("the board extension", () => {
 	test("registers one tool and one command, and starts nothing", async () => {
@@ -274,9 +280,13 @@ describe("the board extension", () => {
 			};
 		}
 
-		/** One turn start, as the host runs it: every handler, in order. */
-		async function turn(fake: ReturnType<typeof createFakePi>, ctx: unknown): Promise<void> {
-			for (const handler of fake.handlers.get("before_agent_start") ?? []) await handler({}, ctx);
+		/** One turn start, as the host runs it, with the message its last handler returned. */
+		async function turn(fake: ReturnType<typeof createFakePi>, ctx: unknown): Promise<{ content: string } | undefined> {
+			let message: { content: string } | undefined;
+			for (const handler of fake.handlers.get("before_agent_start") ?? []) {
+				message = ((await handler({}, ctx)) as { message: { content: string } } | undefined)?.message;
+			}
+			return message;
 		}
 
 		/** The same session, serving the page as the seat: the half `reconcile` reads besides the branch. */
@@ -341,6 +351,28 @@ describe("the board extension", () => {
 			});
 		});
 
+		test("draws the door every turn while this session is on no team", async () => {
+			await withEnv(ENABLED, async () => {
+				const fake = busBoard(onClock([]));
+				const { ctx } = fakeCtx({ sessionId: "s-lead" });
+				// Twice on one session: the door does not spend the latch the card line sets.
+				expect((await turn(fake, ctx))?.content).toContain("/team join");
+				expect((await turn(fake, ctx))?.content).toContain("/team join");
+			});
+		});
+
+		test("draws it nowhere once the session is on the team, or when the bus keeps the tool", async () => {
+			await withEnv(ENABLED, async () => {
+				// A member holds nothing here, so there is no line at all — and no door either.
+				const joined = busBoard(onClock([{ id: "s-lead", label: "billing-lead", lastSeen: NOW }]));
+				expect(await turn(joined, fakeCtx({ sessionId: "s-lead" }).ctx)).toBeUndefined();
+				// No bus: `solo` keeps the tool, so there is no door to draw.
+				const solo = createFakePi();
+				board(solo.pi, { session: stubSession(), page: stubPage([]) });
+				expect(await turn(solo, fakeCtx().ctx)).toBeUndefined();
+			});
+		});
+
 		test("offers the tool to a lead on the team, after the seat has narrowed the set", async () => {
 			await withEnv(ENABLED, async () => {
 				const fake = busBoard(seated(onClock([{ id: "s-lead", label: "billing-lead", lastSeen: NOW }])));
@@ -352,5 +384,16 @@ describe("the board extension", () => {
 				expect(fake.pi.getActiveTools()).toContain("board");
 			});
 		});
+	});
+});
+
+describe("the door sentence", () => {
+	test("names the pair the refusal names, on one line inside the message's ceiling", () => {
+		const line = doorContext();
+		// One constant, two sentences: a door the refusal names and the line does not is a reader
+		// sent at a door their build may not have.
+		expect(line).toContain(JOIN_DOORS);
+		expect(line.split("\n")).toHaveLength(1);
+		expect(line.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
 	});
 });

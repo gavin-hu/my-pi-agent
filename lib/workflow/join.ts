@@ -277,16 +277,21 @@ export async function onTeam(session: JoinSession, ctx: ExtensionContext): Promi
 }
 
 /**
+ * The two doors onto the team, written once.
+ *
+ * Two sentences send a reader at them — the refusal a gated door prints, and the line a turn
+ * start draws for a session on no team — and a pair that drifted would send half a reader at a
+ * door their build does not have (`team` off leaves `/board`; a bus off leaves neither).
+ */
+export const JOIN_DOORS = "`/team join <label>`, or `/board` to serve the page as the seat";
+
+/**
  * What a door says when the gate refuses: no record, nothing written, and where to go.
  *
  * One sentence for the four ways of not being on the team, because the guard cannot tell them
- * apart without spending a request, and a refusal that guessed would accuse the wrong thing. The
- * doors it names are the ones that join: `/team join` for a name of this session's own, `/board`
- * for the seat.
+ * apart without spending a request, and a refusal that guessed would accuse the wrong thing.
  */
-export const NOT_ON_TEAM =
-	"Not on the team: the session bus has no live record of this session. " +
-	"Join with `/team join <label>`, or `/board` to serve the page as the seat.";
+export const NOT_ON_TEAM = `Not on the team: the session bus has no live record of this session. Join with ${JOIN_DOORS}.`;
 
 /**
  * Put one name in the active set, or take it out, leaving every other name where it is.
@@ -309,9 +314,10 @@ export interface MemberTools {
 	 *
 	 * Called where a turn starts, and idempotent: it writes only when the state it wants differs
 	 * from the one it last applied, so a user who removes a tool through `/tools` keeps it
-	 * removed until their membership changes.
+	 * removed until their membership changes. The answer is whether the names are offered now,
+	 * for a caller that has something to say only while they are not — the board's door line.
 	 */
-	sync(ctx: ExtensionContext): Promise<void>;
+	sync(ctx: ExtensionContext): Promise<boolean>;
 }
 
 /** What a surface says about itself: the names it offers, and whether a run with no bus keeps them. */
@@ -342,9 +348,10 @@ export function createMemberTools(
 	return {
 		async sync(ctx) {
 			const wanted = (options.solo && !busLoaded(pi)) || (await onTeam(session, ctx));
-			if (wanted === offered) return;
+			if (wanted === offered) return wanted;
 			offered = wanted;
 			for (const name of names) setToolActive(pi, name, wanted);
+			return wanted;
 		},
 	};
 }

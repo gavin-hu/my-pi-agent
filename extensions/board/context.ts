@@ -18,12 +18,13 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { plural } from "../../lib/format.ts";
+import { SESSION_TTL_MS } from "../../lib/session-roster.ts";
 import { type Card, cardRef, holds } from "../../lib/workflow/card.ts";
+import { JOIN_DOORS } from "../../lib/workflow/join.ts";
 import { laneIndex } from "../../lib/workflow/lanes.ts";
 import { reasonFor } from "../../lib/workflow/reason.ts";
-import { plural } from "../../lib/format.ts";
 import { buildRound } from "../../lib/workflow/round.ts";
-import { SESSION_TTL_MS } from "../../lib/session-roster.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 
 /** The marker the model reads, and the custom type the session stores. */
@@ -41,6 +42,20 @@ export const MAX_BULLET_CHARS = 200;
 
 /** Room kept for the `and N more` line, so a bullet never pushes it past the ceiling. */
 const MORE_RESERVE = "\n- and 99 more".length;
+
+/**
+ * What a turn says when this session is offered no `board` tool.
+ *
+ * The tool is absent, so this sentence is the only thing that says a board exists here and how to
+ * get one: without it a model reads the gap as "this Pi has no board" and keeps its list in
+ * memory, which is the failure the whole gate has to avoid. It names the same two doors the
+ * refusal names — one constant, `JOIN_DOORS` — so a reader is never sent to a door their build
+ * does not have. One line, inside the message's own ceiling, and the caller pays it only while the
+ * tool is withheld.
+ */
+export function doorContext(): string {
+	return `${BOARD_CONTEXT_MARKER} This board is not yours yet: join with ${JOIN_DOORS}.`;
+}
 
 /** The cards this session holds and has not finished, in lane order and then by id. */
 export async function heldCards(

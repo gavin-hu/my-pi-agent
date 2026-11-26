@@ -11,9 +11,10 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import type { Card } from "../../lib/workflow/card.ts";
+import { NOT_ON_TEAM } from "../../lib/workflow/join.ts";
+import { fakeTheme, toolRenderContext } from "../../test/helpers/fakes.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { type TeamSuite, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
-import { fakeTheme, toolRenderContext } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { ACTION_FIELDS, TEAM_ACTIONS, type TeamDetails } from "./types.ts";
 
@@ -233,11 +234,14 @@ describe("the transcript block", () => {
 	test("hands Pi a partial result while the send is in flight", async () => {
 		let partials = 0;
 		let duringSend = 0;
-		const { tool, seed, ctx } = harness({
+		const { tool, seed, enlist, ctx } = harness({
 			duringSend: () => {
 				duringSend = partials;
 			},
 		});
+		// This case drives `execute` itself, so it puts the session on the team itself: `call`
+		// does that for every other one.
+		await enlist();
 		const id = await seed();
 		await tool.execute(
 			"call-1",
@@ -290,5 +294,42 @@ describe("the transcript block", () => {
 		expect(expanded).not.toContain("\u001b");
 		expect(expanded).not.toContain("\u0007");
 		expect(expanded).toContain("title");
+	});
+});
+
+describe("the gate", () => {
+	test("refuses all three verbs for a session the bus holds no record of", async () => {
+		const suite = harness({ member: false });
+		const id = await suite.seed();
+		for (const args of [
+			{ action: "assign", card: id, to: "billing-core" },
+			{ action: "offer", card: id },
+			{ action: "ask", to: "billing-core", question: "what is left?" },
+		]) {
+			const refused = await suite.call(args);
+			expect(refused.isError, String(args.action)).toBe(true);
+			expect(resultText(refused)).toContain(NOT_ON_TEAM);
+		}
+		// Nothing left this session: no message, no join, and no owner on the card.
+		expect(suite.sent).toEqual([]);
+		expect(suite.joined).toEqual([]);
+		const store = await suite.store();
+		expect((await store.read(id))?.owner).toBeUndefined();
+	});
+
+	test("refuses before it reads the card, so a stranger is not told what exists", async () => {
+		const suite = harness({ member: false });
+		const refused = await suite.call({ action: "assign", card: "999", to: "billing-core" });
+		// The gate answers first: a card that does not exist is not the sentence a stranger gets.
+		expect(resultText(refused)).toContain(NOT_ON_TEAM);
+		expect(resultText(refused)).not.toContain("#999 does not exist");
+	});
+
+	test("lets a member through, and answers as it always did", async () => {
+		const suite = harness();
+		const id = await suite.seed();
+		const assigned = await suite.call({ action: "assign", card: id, to: "billing-core" });
+		expect(assigned.isError).toBeFalsy();
+		expect(assigned.details.card?.owner?.label).toBe("billing-core");
 	});
 });
