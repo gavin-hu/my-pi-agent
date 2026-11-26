@@ -95,6 +95,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"sign-no-lead",
 		"sign-record",
 		"verify",
+		"write-gate",
 		"extension",
 		"transport/router",
 		"transport/server",

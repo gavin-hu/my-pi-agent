@@ -32,9 +32,9 @@ import {
 	PLAN_TOGGLE_REQUEST,
 	type PlanModeRequest,
 } from "../../lib/mode-entry.ts";
-import { isBoardRead, supportsReadOnlyDelegation } from "../../lib/policy.ts";
+import { isBoardRead, pinReadOnlySubagent } from "../../lib/policy.ts";
 import { boardWriteRefusal } from "../../lib/workflow/actions.ts";
-import { BOARD_TOOL, QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
+import { BASH_TOOL, BOARD_TOOL, QUESTION_TOOL, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
@@ -219,14 +219,11 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 		// apply, and each refuses outside its mode. The source-path check keeps a
 		// same-named tool from another extension from borrowing the exemption.
 		if (runtime.isOwnTool(toolName)) return undefined;
-		// `subagent` stays active, but only as read-only delegation. The flag is
-		// forced in place (the child enforces it through `--tools`), so the model
-		// cannot forget it; a `subagent` that does not declare the parameter is
-		// refused rather than run read-write.
+		// `subagent` stays active, but only as read-only delegation. The pin is one body with the
+		// board's gate; plan mode adds the one rule that is its own below.
 		if (toolName === SUBAGENT_TOOL) {
-			if (!supportsReadOnlyDelegation(pi)) {
-				return `Plan mode: the registered "${SUBAGENT_TOOL}" tool does not support read-only delegation; explore with the structured tools instead. ${BLOCKED_GUIDANCE}`;
-			}
+			const unpinned = pinReadOnlySubagent(pi, input);
+			if (unpinned !== undefined) return `Plan mode: ${unpinned} ${BLOCKED_GUIDANCE}`;
 			if (typeof input === "object" && input !== null) {
 				// A background run outlives the call and is reached only through `/agents`, which
 				// refuses while planning: starting one here would spend a child's budget on a
@@ -234,7 +231,6 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 				if ((input as Record<string, unknown>).background === true) {
 					return `Plan mode: a background run cannot be inspected or collected while planning; run it in the foreground and wait for it. ${BLOCKED_GUIDANCE}`;
 				}
-				(input as Record<string, unknown>)[SUBAGENT_READ_ONLY_PARAM] = true;
 			}
 			return undefined;
 		}
@@ -248,21 +244,14 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 		const blocked = policy.check(toolName);
 		if (blocked) return `Plan mode: ${blocked.reason}`;
 		// `bash` is allowed by the policy so read-only git stays possible; this is
-		// what actually restricts it to chained read-only git commands. The
-		// Windows shell (`powershell`) is not in the policy allow list, so it is
+		// what actually restricts it to chained read-only git commands. The judge is one
+		// body with the board's gate, so the grammar and the write-back stay in one place.
+		// The Windows shell (`powershell`) is not in the policy allow list, so it is
 		// blocked above, not here.
-		if (toolName === "bash") {
-			const command = (input as { command?: unknown } | undefined)?.command;
-			if (typeof command !== "string" || command.trim() === "") {
-				return `Plan mode: an empty bash command is not allowed. ${BASH_BLOCKED_GUIDANCE}`;
-			}
-			const { readOnlyGitCommand } = await import("../../lib/git/read-command.ts");
-			const decision = readOnlyGitCommand(command, PLAN_PHRASING);
-			if (!decision.ok) return `Plan mode: ${decision.reason} ${BASH_BLOCKED_GUIDANCE}`;
-			// The guard hands back the command it approved, with the switches that keep a
-			// repository's own diff program out of it: the call runs what the guard decided, the
-			// same way the subagent branch above writes its forced parameter onto the input.
-			(input as { command: string }).command = decision.command;
+		if (toolName === BASH_TOOL) {
+			const { readOnlyBashRefusal } = await import("../../lib/git/read-command.ts");
+			const reason = readOnlyBashRefusal(input, PLAN_PHRASING, BASH_BLOCKED_GUIDANCE);
+			if (reason !== undefined) return `Plan mode: ${reason}`;
 		}
 		const { hasPathInput } = await import("./path-guard.ts");
 		if (hasPathInput(input) && !PLAN_SAFE_TOOLS.includes(toolName)) {

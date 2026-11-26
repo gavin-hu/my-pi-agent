@@ -557,3 +557,26 @@ export function readOnlyGitCommand(input: string, phrasing: ModePhrasing): GitCo
 	}
 	return { ok: true, command: rewritten.join("") };
 }
+
+/**
+ * Judge a `bash` call as read-only git, or say why it may not run.
+ *
+ * The three steps a guard takes are here rather than in each handler: refuse a command that is
+ * not a non-empty string, judge it with {@link readOnlyGitCommand}, and write the approved
+ * command back onto the call — the guard decides both the shape and the switches, so the call
+ * runs what it approved rather than what the model wrote. Plan mode and the board's write gate
+ * are the two callers, and the sentence comes back with neither a mode prefix nor a guidance
+ * clause: what a refusal is called, and where it sends the caller next, are the caller's own.
+ *
+ * `undefined` is the ordinary answer, and it means the call may run as it now stands.
+ */
+export function readOnlyBashRefusal(input: unknown, phrasing: ModePhrasing, guidance: string): string | undefined {
+	const command = (input as { command?: unknown } | undefined)?.command;
+	if (typeof command !== "string" || command.trim() === "") {
+		return `an empty bash command is not allowed. ${guidance}`;
+	}
+	const decision = readOnlyGitCommand(command, phrasing);
+	if (!decision.ok) return `${decision.reason} ${guidance}`;
+	(input as { command: string }).command = decision.command;
+	return undefined;
+}

@@ -1,7 +1,6 @@
 # plan — decide before the model writes
 
-Plan mode keeps the session read-only while the model investigates, then hands
-you a plan to approve. Nothing lands in your tree until you say yes.
+Plan mode keeps the session read-only, then hands you a plan to approve.
 
 <img src="../../assets/screens/plan.png" alt="The terminal plan review: a Plan Review title rule, a changed-section notice, the plan body with ◼/◻ step boxes, a scroll gauge naming the section and line range, and the Esc/a/r/w, scroll, and section-jump hints" width="2000" height="1582">
 
@@ -11,7 +10,8 @@ refinement a midline dot in the margin marks each section that changed.
 - **Use it for** any change you would want to read before it lands.
 - **`/plan <task>`** starts one; `Shift+Tab` toggles plan mode too.
 - **Nothing in your tree is written** until you approve — no file, no command, no
-  commit. The one thing planning writes is the plan file itself, outside the checkout.
+  commit, the plan file aside. A card still in `plan` refuses a write anyway until
+  `board move <id> execute`, so the approval and the move are two steps.
 
 ## What you can do
 

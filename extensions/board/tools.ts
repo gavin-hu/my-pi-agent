@@ -40,8 +40,8 @@ export const BOARD_DESCRIPTION =
  * paragraph a model reads only when it reaches `done`. Everything a fourth bullet used to say is
  * stated once by the field or the action it is about — a `blocked` card's resume is the
  * `blocker` parameter's sentence, `dependsOn`'s refusal is its own parameter's, "steps belong in
- * `todo`" closes the description, and "`paths` are hints, not claims" closes the `paths`
- * parameter. Repeating one here costs every request for nothing, which is what the ceiling in
+ * `todo`" closes the description, and "in `execute` they are the write boundary" closes the
+ * `paths` parameter. Repeating one here costs every request for nothing, which is what the ceiling in
  * `test/prompt-budget.test.ts` is for: one idea per bullet, and none of them already said.
  */
 export const BOARD_GUIDELINES = [

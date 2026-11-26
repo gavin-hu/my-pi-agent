@@ -1,15 +1,15 @@
 /**
  * The bus's path claims, as a card's lane says they should be.
  *
- * A card's `paths` are hints the plan named, and the bus's claims are the one ownership the
- * board can make real (`docs/extensions/board.md` says so: "a label, not a lock — only
- * `session-bus` path claims are"). So the rule here is one sentence: **a card in `execute`
- * holds its paths, and a card anywhere else does not.** Entering `execute` claims them,
- * leaving it — or finishing, or dropping the card — releases them, and an edit that changes
- * them inside `execute` claims the added ones and releases the removed ones, because the
- * claims have to follow the paths rather than the lane alone. `MutateResult.previous` is the
- * card the store read under its lock, so a write that changes neither lane nor paths costs no
- * bus call at all.
+ * A card's `paths` are what the plan named, and they are two things at once: the boundary the
+ * board's write gate refuses a write outside while the card is in `execute`
+ * (`extensions/board/write-gate.ts`), and the bus's claims, which are the ownership a peer reads
+ * and reports. So the rule here is one sentence: **a card in `execute` holds its paths, and a card
+ * anywhere else does not.** Entering `execute` claims them, leaving it — or finishing, or dropping
+ * the card — releases them, and an edit that changes them inside `execute` claims the added ones
+ * and releases the removed ones, because the claims have to follow the paths rather than the lane
+ * alone. `MutateResult.previous` is the card the store read under its lock, so a write that
+ * changes neither lane nor paths costs no bus call at all.
  *
  * Nothing here may cost a card write. A board without `session-bus` is the documented
  * single-session mode, so no bus means silence rather than a clause on every move; a bus
