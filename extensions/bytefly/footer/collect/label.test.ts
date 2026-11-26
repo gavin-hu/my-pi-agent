@@ -35,12 +35,13 @@ function busWith(id: string, label: string): string {
 /** Follow a session's label, and collect everything the follower reports. */
 async function follow(
 	agentDir: string,
-): Promise<{ pi: ReturnType<typeof makeFakePi>["pi"]; reports: Array<string | null> }> {
+): Promise<{ pi: ReturnType<typeof makeFakePi>["pi"]; reports: Array<string | null>; stop: () => void }> {
 	const { pi } = makeFakePi();
 	const { ctx } = fakeFooterCtx({ sessionName: "billing-core" });
 	const reports: Array<string | null> = [];
-	await followRosterLabel({ pi, ctx, agentDir, sink: (label) => reports.push(label) });
-	return { pi, reports };
+	const follower = followRosterLabel({ pi, ctx, agentDir, sink: (label) => reports.push(label) });
+	await follower.ready;
+	return { pi, reports, stop: follower.stop };
 }
 
 describe("following the roster label", () => {
@@ -66,6 +67,15 @@ describe("following the roster label", () => {
 		// carry this in the snapshot's memo key.
 		pi.events.emit(SESSION_LABEL_CHANNEL, { id: "sess", label: "rose" });
 		expect(reports).toEqual(["rose"]);
+	});
+
+	test("stops naming the transcript whose follower was dropped", async () => {
+		const followed = await follow(temps.track(scratchDir(temps, "pi-footer-label-")));
+		// A `/new` replaces the transcript inside one process and re-installs the footer: the install
+		// that follows drops the listener the previous one made, or every reset would leave one behind.
+		followed.stop();
+		followed.pi.events.emit(SESSION_LABEL_CHANNEL, { id: "sess", label: "rose" });
+		expect(followed.reports).toEqual([]);
 	});
 });
 

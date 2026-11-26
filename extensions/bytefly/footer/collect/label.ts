@@ -26,27 +26,38 @@ import {
 /** What to draw: the label a join settled for this session. No record draws no chip at all. */
 export type RosterLabelSink = (label: string) => void;
 
+/** Following one transcript's label: the way to drop it, and when the record has been read. */
+export interface LabelFollower {
+	/**
+	 * Drop the subscription — what a footer that installs under the next transcript calls first.
+	 *
+	 * A `/new` replaces the transcript inside one process, so an install is not a session: without
+	 * this, every reset would leave a listener writing into the bar's one sink, and nothing would
+	 * ever drop it.
+	 */
+	stop(): void;
+	/** Resolves when the record has been read, so a caller can wait for the first drawn name. */
+	ready: Promise<void>;
+}
+
 /**
  * Read this session's label once, then report every label the bus publishes for it.
  *
  * The subscription is here rather than beside the footer's other listeners because the
- * channel and the record walk are one contract, and only this module is deferred. It is
- * never unsubscribed: Pi drops an extension's listeners when it unloads, and a footer that
- * re-installs (a session tree change) is the same session under the same label.
- *
- * Answers when the record has been read, so a caller can wait for the first frame that
- * draws a label rather than guess at a timer.
+ * channel and the record walk are one contract, and only this module is deferred. The caller
+ * owns the answer: Pi drops an extension's listeners when it unloads, and a `/new` does not
+ * unload one, so the install that follows a reset drops the listener the previous one made.
  */
 export function followRosterLabel(input: {
 	pi: Pick<ExtensionAPI, "events">;
 	ctx: Pick<ExtensionContext, "sessionManager" | "cwd">;
 	agentDir: string;
 	sink: RosterLabelSink;
-}): Promise<void> {
+}): LabelFollower {
 	const { pi, ctx, agentDir, sink } = input;
 	const own = sessionIdOf(ctx);
-	if (own === undefined) return Promise.resolve();
-	pi.events.on(SESSION_LABEL_CHANNEL, (event) => {
+	if (own === undefined) return { stop: () => {}, ready: Promise.resolve() };
+	const stop = pi.events.on(SESSION_LABEL_CHANNEL, (event) => {
 		// The channel reaches every session in this process, and only one of them is this one:
 		// a peer's label would put its name on this session's bar.
 		const published = event as SessionLabelEvent | undefined;
@@ -56,10 +67,11 @@ export function followRosterLabel(input: {
 	// The record the bus wrote before this process started, if any — and the session's own directory,
 	// which is what scopes the one-release legacy bus to this repository's records. A failure is the
 	// same answer as no record: the bar names nobody.
-	return readSessionLabel(agentDir, own, { cwd: ctx.cwd }).then(
+	const ready = readSessionLabel(agentDir, own, { cwd: ctx.cwd }).then(
 		(label) => {
 			if (label !== undefined) sink(label);
 		},
 		() => {},
 	);
+	return { stop, ready };
 }
