@@ -189,57 +189,25 @@ describe("the sweep at a turn start", () => {
 		expect(await releaseEnded(lead.board.runtime, lead.board.ctx)).toBe("released #1 and #2 from sessions that ended");
 	});
 
-	test("hands a resumed session back its own card, with the work still on it", async () => {
-		// The same name under a new id is what a `/resume` is to the bus. Before this branch the sweep
-		// reclaimed the card into the pool on the first turn, taking the lane, the plan and the slot with it.
+	test("pools a stopped owner's card even when this session wears its name", async () => {
+		// A name is not an identity: two sessions wear one in a row, so the sweep reads the id `holds`
+		// compares and never the label. The card goes back to the pool, and whoever wants it claims it
+		// again — the branch that handed it to the same-named session was the re-seat, retired in #918.
 		const { cwd, lead, peer } = board();
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
 		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
 
-		expect(await releaseEnded(resumed, lead.board.ctx)).toBe("re-seated #1 in this session");
+		expect(await releaseEnded(resumed, lead.board.ctx)).toBe("released #1 from a session that ended");
 		const card = (await lead.call({ action: "list", card: "1" })).details.card;
-		expect(card?.lane).toBe("plan");
-		expect(card?.owner).toMatchObject({ id: "s-resumed", label: PEER });
-		// The note is the card's own account: a re-seat writes no lane transition, so without it a reader
-		// finds a write by a name that never held the card.
-		expect(card?.notes.at(-1)?.text).toContain("whose session had stopped");
-	});
-
-	test("says when the record it acted on had been pruned", async () => {
-		// A pruned record is the weaker fact — the bus watched nothing stop, it forgot — so the clause a
-		// session acts on names which of the two it was.
-		const { cwd, lead, peer } = board();
-		await lead.call({ action: "add", title: "One" });
-		await peer.call({ action: "claim", card: "1" });
-		// The bus exists and holds nothing about the peer: its record aged out.
-		await record(lead.board.runtime, cwd, { id: LEAD_ID, label: LEAD, pid: DEAD_PID, lastSeen: NOW });
-		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
-
-		expect(await releaseEnded(resumed, lead.board.ctx)).toBe("re-seated #1 in this session (owner record pruned)");
-		expect((await lead.call({ action: "list", card: "1" })).details.card?.owner?.id).toBe("s-resumed");
-	});
-
-	test("re-seats a pruned owner to the session wearing the same name", async () => {
-		// Only the resumed session's record exists: the old id is absent, not gone. A label fallback
-		// answered "live" for a session that does not hold the card, so the sweep skipped it forever;
-		// the id is what says the owner stopped. `sameLabel` is exact, so the seat is this name and no
-		// similarly named session can take the card.
-		const { cwd, lead, peer } = board();
-		await lead.call({ action: "add", title: "One" });
-		await peer.call({ action: "claim", card: "1" });
-		await record(peer.board.runtime, cwd, { id: "s-resumed", label: PEER, lastSeen: NOW });
-		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
-
-		expect(await releaseEnded(resumed, lead.board.ctx)).toBe("re-seated #1 in this session (owner record pruned)");
-		const card = (await lead.call({ action: "list", card: "1" })).details.card;
-		expect(card?.owner).toMatchObject({ id: "s-resumed", label: PEER });
+		expect(card?.lane).toBe("backlog");
+		expect(card?.owner).toBeUndefined();
 	});
 
 	test("leaves a live record alone even under this session's own name", async () => {
 		// The case a wrong rule would fail silently: the labels match, and the record says that session is
-		// running. Nothing is written — neither a re-seat nor a release.
+		// running. Nothing is written.
 		const { cwd, lead, peer } = board();
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
@@ -254,7 +222,7 @@ describe("the sweep at a turn start", () => {
 
 	test("leaves a quiet record under its own name to a later turn", async () => {
 		// A quiet record may be a session still in a long turn, so no card moves now. The lock-out is
-		// bounded rather than permanent: the next turn after it ages to `gone` re-seats the card.
+		// bounded rather than permanent: the next turn after it ages to `gone` pools the card.
 		const { cwd, lead, peer } = board();
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
@@ -265,20 +233,18 @@ describe("the sweep at a turn start", () => {
 		expect((await lead.call({ action: "list", card: "1" })).details.card?.owner?.id).toBe(PEER_ID);
 	});
 
-	test("names a re-seated card and a released one in the same sentence", async () => {
+	test("pools cards from two stopped sessions in one clause", async () => {
 		const { cwd, lead, peer } = board();
 		for (const title of ["One", "Two"]) await lead.call({ action: "add", title });
 		await peer.call({ action: "claim", card: "1" });
 		await lead.call({ action: "claim", card: "2" });
-		// The peer's record is gone, and so is the one that holds #2 — but only #1 wears the name the
-		// resumed session answers to.
+		// Both records are gone, and neither card is this session's: the sweep pools both, and the clause
+		// counts what it wrote rather than who had held it.
 		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
 		await record(lead.board.runtime, cwd, { id: LEAD_ID, label: LEAD, pid: DEAD_PID, lastSeen: NOW });
-		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
+		const other: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-other", label: "someone-else" }) };
 
-		expect(await releaseEnded(resumed, lead.board.ctx)).toBe(
-			"re-seated #1 in this session, released #2 from a session that ended",
-		);
+		expect(await releaseEnded(other, lead.board.ctx)).toBe("released #1 and #2 from sessions that ended");
 	});
 });
 
@@ -306,26 +272,9 @@ async function turnStart(session: BoardSession, ctx: ExtensionContext): Promise<
 }
 
 describe("the turn start the sweep runs in", () => {
-	test("names the card it re-seats as a card, not only as a sentence", async () => {
-		// #601: the held list was read before the sweep, so a card handed back this turn reached the
-		// transcript as a note about a write and never as a card — and `read` keeps that turn the only
-		// one, so the resumed session never saw it at all.
-		const { cwd, lead, peer } = board();
-		await lead.call({ action: "add", title: "One" });
-		await peer.call({ action: "claim", card: "1" });
-		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
-		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
-
-		const content = await turnStart(resumed, lead.board.ctx);
-		// The card, with the lane and the step it owes, and the write that put it there.
-		expect(content).toContain("[BOARD] 1 card is yours:");
-		expect(content).toContain("#1");
-		expect(content).toContain("re-seated #1 in this session");
-	});
-
 	test("says nothing but the sweep's line when the sweep hands back no card of its own", async () => {
-		// The other side of the ordering: a released card is not held, so the line is the note alone —
-		// which is what `buildBoardContext` answers for an empty list with something to report.
+		// A pooled card is nobody's, so the clause is all the transcript gets — which is what
+		// `buildBoardContext` answers for an empty held list with something to report.
 		const { cwd, lead, peer } = board();
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
@@ -337,10 +286,11 @@ describe("the turn start the sweep runs in", () => {
 	});
 
 	/**
-	 * The label-only card: the sweep can match it only by name, and a name is what a seat hands over,
-	 * so a dead session's record under a live session's label is not evidence about the live one.
+	 * The label-only card: a record can carry a name and no id, and the sweep reads it the same way it
+	 * reads any other — the record under that name is gone, so nobody is holding the card. The branch
+	 * that refused to act on a name-only owner guarded the re-seat, which is gone (#918).
 	 */
-	test("leaves a card alone when its owner is only a label, and names the record it could not read", async () => {
+	test("pools a card whose owner is only a label", async () => {
 		const { cwd, lead, peer } = board();
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
@@ -348,18 +298,15 @@ describe("the turn start the sweep runs in", () => {
 			const owner = card.owner as { label: string; id?: string };
 			owner.id = undefined;
 		});
-		// The record under the label the card names is dead — and the card cannot say *which* session it
-		// meant, because `recordOf` matches only a label. Whoever wears that name now is not asked.
 		await record(peer.board.runtime, cwd, { id: PEER_ID, label: PEER, pid: DEAD_PID, lastSeen: NOW });
 
 		// A fresh store, because the record was written under the one the first tools opened: the
 		// sweep has to read the card as it is on disk, not as the claim left it in memory.
 		const fresh = boardTool({ cwd, agentDir: lead.board.agentDir, lead: LEAD, now: NOW, sessionId: LEAD_ID });
-		expect(JSON.parse(readFileSync(cardFile(lead.board.agentDir, "1"), "utf8")).owner).toEqual({ label: PEER });
-		const said = await releaseEnded(fresh.board.runtime, fresh.board.ctx);
-		expect((await lead.call({ action: "list", card: "1" })).details.card?.lane).toBe("plan");
-		expect(said).toContain("only by label");
-		expect(said).toContain(PEER);
+		expect(await releaseEnded(fresh.board.runtime, fresh.board.ctx)).toBe("released #1 from a session that ended");
+		const card = (await fresh.call({ action: "list", card: "1" })).details.card;
+		expect(card?.lane).toBe("backlog");
+		expect(card?.owner).toBeUndefined();
 	});
 
 	/**
