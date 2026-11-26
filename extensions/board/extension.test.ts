@@ -9,12 +9,12 @@
 import { describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { LEAD_MODE_ENTRY_TYPE, PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
-import { stubSession } from "../../test/helpers/board.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
-import { withEnv } from "../../test/helpers/env.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
+import { stubSession } from "../../test/helpers/board.ts";
+import { fakeCtx } from "../../test/helpers/context.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
 import board from "./index.ts";
 import type { BoardPage, PageStart } from "./page.ts";
 
@@ -252,6 +252,105 @@ describe("the board extension", () => {
 			expect(session.served()).toBeUndefined();
 			expect(notifications.at(-1)).toContain("lead mode off");
 			expect(await guard(CALL, ctx)).toBeUndefined();
+		});
+	});
+
+	/**
+	 * The tool a session is offered, which is the team's own question asked at a turn start.
+	 *
+	 * The default double reads no bus, so the solo board is the case these helpers start from; a case
+	 * about membership hands in a roster that holds this session, or one that does not.
+	 */
+	/** The clock the records a case seeds are judged against. */
+	const NOW = 50_000;
+
+	describe("the tool a session is offered", () => {
+		/** A session whose roster is the one a case names, with a clock its records are judged by. */
+		function onClock(records: Array<{ id: string; label: string; lastSeen: number }>): BoardSession {
+			return {
+				...stubSession(),
+				now: () => NOW,
+				roster: async () => records.map((record) => ({ ...record, mode: "tui", mail: 0 })),
+			};
+		}
+
+		/** One turn start, as the host runs it: every handler, in order. */
+		async function turn(fake: ReturnType<typeof createFakePi>, ctx: unknown): Promise<void> {
+			for (const handler of fake.handlers.get("before_agent_start") ?? []) await handler({}, ctx);
+		}
+
+		/** The same session, serving the page as the seat: the half `reconcile` reads besides the branch. */
+		function seated(session: BoardSession): BoardSession {
+			return { ...session, serving: () => "team-lead" };
+		}
+
+		/** A board whose bus is loaded: the `session` tool is the one way `busLoaded` knows. */
+		function busBoard(session: BoardSession) {
+			const fake = createFakePi();
+			fake.pi.registerTool({ name: "session" });
+			board(fake.pi, { session, page: stubPage([]) });
+			return fake;
+		}
+
+		test("is offered only once a turn finds this session on the team", async () => {
+			await withEnv(ENABLED, async () => {
+				const { ctx } = fakeCtx({ sessionId: "s-lead" });
+				const cold = busBoard(onClock([]));
+				await turn(cold, ctx);
+				expect(cold.pi.getActiveTools()).not.toContain("board");
+
+				const joined = busBoard(onClock([{ id: "s-lead", label: "billing-lead", lastSeen: NOW }]));
+				await turn(joined, ctx);
+				expect(joined.pi.getActiveTools()).toContain("board");
+			});
+		});
+
+		test("is withdrawn the turn after the record goes, and comes back when it does", async () => {
+			await withEnv(ENABLED, async () => {
+				const records: Array<{ id: string; label: string; lastSeen: number }> = [
+					{ id: "s-lead", label: "billing-lead", lastSeen: NOW },
+				];
+				const fake = busBoard(onClock(records));
+				const { ctx } = fakeCtx({ sessionId: "s-lead" });
+				await turn(fake, ctx);
+				expect(fake.pi.getActiveTools()).toContain("board");
+				// A peer's `/team exit` on this id, or a record the heartbeat pruned.
+				records.length = 0;
+				await turn(fake, ctx);
+				expect(fake.pi.getActiveTools()).not.toContain("board");
+			});
+		});
+
+		test("is offered with no bus loaded, because a solo board is still a work list", async () => {
+			await withEnv(ENABLED, async () => {
+				const fake = createFakePi();
+				board(fake.pi, { session: stubSession(), page: stubPage([]) });
+				await turn(fake, fakeCtx().ctx);
+				expect(fake.pi.getActiveTools()).toContain("board");
+			});
+		});
+
+		test("keeps the seat's narrowing and the offer apart: a lead on no team gets neither tool", async () => {
+			await withEnv(ENABLED, async () => {
+				const fake = busBoard(seated(onClock([])));
+				const { ctx } = fakeCtx({ branch: SEAT, sessionId: "s-lead" });
+				await turn(fake, ctx);
+				// The seat entered — `plan` is its verb — and the offer did not survive it.
+				expect(fake.pi.getActiveTools()).toContain("plan");
+				expect(fake.pi.getActiveTools()).not.toContain("board");
+			});
+		});
+
+		test("offers the tool to a lead on the team, after the seat has narrowed the set", async () => {
+			await withEnv(ENABLED, async () => {
+				const fake = busBoard(seated(onClock([{ id: "s-lead", label: "billing-lead", lastSeen: NOW }])));
+				const { ctx } = fakeCtx({ branch: SEAT, sessionId: "s-lead" });
+				// The host's set has no `board`, so this passes only if the sync runs after the seat's
+				// early return — which is the ordering the handler has to keep.
+				await turn(fake, ctx);
+				expect(fake.pi.getActiveTools()).toContain("plan");
+				expect(fake.pi.getActiveTools()).toContain("board");
+			});
 		});
 	});
 });

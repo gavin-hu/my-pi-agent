@@ -10,24 +10,24 @@
  * seam with nothing on one side.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
-import { type Card, cardArg, normalizeCardId } from "../../lib/workflow/card.ts";
-import { planForContract } from "../../lib/workflow/artifact.ts";
-import type { Verification } from "../../lib/workflow/contract.ts";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { attempt, messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
+import { busLoaded, createDeliver, type Deliver } from "../../lib/session-tool.ts";
+import { strayField } from "../../lib/stray-fields.ts";
+import { textResult } from "../../lib/tool-result.ts";
+import { planForContract } from "../../lib/workflow/artifact.ts";
+import { type Card, cardArg, normalizeCardId } from "../../lib/workflow/card.ts";
+import type { Verification } from "../../lib/workflow/contract.ts";
 import type { LandingVerdict } from "../../lib/workflow/landing.ts";
 import { type Lane, movableLanes } from "../../lib/workflow/lanes.ts";
 import type { CardOp } from "../../lib/workflow/rules.ts";
-import { createDeliver, type Deliver, type TeamJoin } from "../../lib/session-tool.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { type HolderFact, signMark } from "../../lib/workflow/signs.ts";
 import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
-import { strayField } from "../../lib/stray-fields.ts";
-import { textResult } from "../../lib/tool-result.ts";
 import { CLAIM_NEXT, formatCard, formatDropped } from "./format.ts";
 import { refusal } from "./result.ts";
 import type { BoardArgs } from "./schema.ts";
@@ -94,10 +94,9 @@ export async function mutate(
 	/**
 	 * What the call says besides the card: `next` after any successful write, `told` when the result
 	 * says a sign owes the owner its message, `ready` when it says a completed contract owes the lead
-	 * one, `cross` for the actions whose write can change a lane or an `execute` card's paths, and
-	 * `joined` for the one action
-	 * whose write makes this session a teammate. `told` is not gated on the write: a repeat sign that
-	 * stamped nothing still owes one while the card says the sign was never told.
+	 * one, and `cross` for the actions whose write can change a lane or an `execute` card's paths.
+	 * `told` is not gated on the write: a repeat sign that stamped nothing still owes one while the
+	 * card says the sign was never told.
 	 *
 	 * A write owes at most one of the two messages, because the operations that ask are disjoint — a
 	 * sign cannot complete a contract and a contract cannot carry one — so the result's `told` is
@@ -114,7 +113,6 @@ export async function mutate(
 		 */
 		notice?: (card: Card, result: MutateResult) => Promise<{ card?: Card; line?: string } | undefined>;
 		cross?: (result: MutateResult) => Promise<string | undefined>;
-		joined?: () => Promise<string | undefined>;
 		/**
 		 * The name the bus shows for the holder's session id, when the caller could read it.
 		 *
@@ -138,10 +136,9 @@ export async function mutate(
 	// After the write, as the sign's message is: a bus that cannot answer costs a clause and
 	// never the move it came after.
 	const held = report.cross === undefined ? undefined : await report.cross(result).catch(() => undefined);
-	// The same rule for the team: the card is taken either way, so a join that did not land is a
-	// line on the result rather than an error that reads as nothing having happened.
+	// After the write: the card is taken either way, so a clause a bus cannot answer costs the
+	// result a line rather than the move it came after.
 	const toldLine = notified?.line;
-	const joined = report.joined === undefined ? undefined : await report.joined().catch(() => undefined);
 	const row =
 		report.ownerLabel === undefined || card.owner === undefined
 			? card
@@ -153,7 +150,6 @@ export async function mutate(
 		// into its own sentence: a flush-left line under an indented card reads as a second card.
 		held === undefined ? undefined : `  ${held}`,
 		toldLine,
-		joined === undefined ? undefined : `  ${joined}`,
 	].filter((line): line is string => line !== undefined);
 	return textResult(body.join("\n"), {
 		action,
@@ -209,8 +205,8 @@ export interface ActionInput {
 	pi: ExtensionAPI;
 	runtime: BoardSession;
 	ctx: ExtensionContext;
-	/** The team the registration resolved, so a claim joins through the same one. */
-	deps: { team: TeamJoin; notify?: Deliver; verify?: VerifyRun };
+	/** The dispatch's own seams: the notice it owes a person, and the check it runs for a sign. */
+	deps: { notify?: Deliver; verify?: VerifyRun };
 	args: BoardArgs;
 }
 
@@ -316,24 +312,18 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 			}
 			case "add":
 				return await add(store, me, args, now);
-			case "claim":
-				// Taking a card is what makes this session a teammate. It is the one action here worth
-				// being addressed about, and the board is the user's surface for the team, so nobody has
-				// to know the bus exists. A refused claim wrote nothing and enlists nobody, so the join is
-				// the write's successor — and a join that did not land is a line on the result, because the
-				// card it came after is already true.
-				return await write(
-					{ kind: "claim" },
-					{
-						next: CLAIM_NEXT,
-						// Loaded here, not at registration: the join is the claim's side effect, so a session that
-						// never claims pays nothing for it.
-						joined: async () => {
-							const { joinFailureLine, joinTeam } = await import("../../lib/workflow/join.ts");
-							return joinFailureLine(await joinTeam(runtime, deps.team, ctx, me.label));
-						},
-					},
-				);
+			case "claim": {
+				// A card's owner is a name peers resolve, so a claim belongs to a session the bus holds. The
+				// question is the same one the tool list asks, asked again here because membership can go
+				// inside a turn — a peer's `/team exit`, a record the heartbeat pruned — and with no bus
+				// loaded there is no team to be on, so the solo board claims as it always has.
+				// Loaded here, not at registration: a session that never claims pays nothing for it.
+				if (busLoaded(pi)) {
+					const { NOT_ON_TEAM, onTeam } = await import("../../lib/workflow/join.ts");
+					if (!(await onTeam(runtime, ctx))) return refusal("claim", me, NOT_ON_TEAM);
+				}
+				return await write({ kind: "claim" }, { next: CLAIM_NEXT });
+			}
 			case "release":
 				return await write({ kind: "release" }, { cross });
 			case "reclaim":

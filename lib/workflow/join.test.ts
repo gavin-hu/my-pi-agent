@@ -1,23 +1,25 @@
 /**
- * The one join: when a door asks at all, and what a line reads.
+ * Membership: who is on the team, and the tool list that follows from it.
  *
- * The rule is one sentence and three answers — ask while the standing says nothing good,
+ * The join rule is one sentence and three answers — ask while the standing says nothing good,
  * keep a standing the roster still backs under the name asked for, ask again while it does
  * not — and the cases here are its boundaries: the record that aged out, the process that is
  * gone, the host with no session id, the roster that will not read, and the record that holds
- * another name. What the record says about its own watch is `join-record.test.ts`; the fixture
- * both suites seed is `test/helpers/join-fixture.ts`.
+ * another name. `onTeam` is the same roster read reduced to the one answer the doors and the
+ * tool list need, and `createMemberTools` is that answer spent. What the record says about its
+ * own watch is `join-record.test.ts`; the fixture both suites seed is `test/helpers/join-fixture.ts`.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { removeBusRecord, writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { ID, LABEL, NOW, joinHarness, joinedStanding, liveRecord } from "../../test/helpers/join-fixture.ts";
-import { writeBusRecord, removeBusRecord } from "../../test/helpers/bus.ts";
-import { SESSION_TTL_MS, type RosterSession } from "../session-roster.ts";
-import { startTokenOf } from "../spawn.ts";
+import { ID, joinedStanding, joinHarness, LABEL, liveRecord, NOW } from "../../test/helpers/join-fixture.ts";
+import { type RosterSession, SESSION_TTL_MS } from "../session-roster.ts";
 import { NO_BUS_ERROR } from "../session-tool.ts";
-import { joinFailureLine, joinTeam, standingOf, teamStatus } from "./join.ts";
+import { startTokenOf } from "../spawn.ts";
+import { createMemberTools, joinTeam, onTeam, standingOf, teamStatus } from "./join.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -253,22 +255,85 @@ describe("joinTeam", () => {
 	});
 });
 
-describe("joinFailureLine", () => {
-	test("says nothing about a join that landed", () => {
-		expect(joinFailureLine({ label: LABEL, listening: true })).toBeUndefined();
+describe("onTeam", () => {
+	test("is true for a live record of this session, and asks the bus nothing", async () => {
+		const { session, ctx, busDir, asked } = joinHarness(temps);
+		liveRecord(busDir);
+		expect(await onTeam(session, ctx)).toBe(true);
+		// The rule is a read of the files, so a turn-start question costs no request.
+		expect(asked).toEqual([]);
 	});
 
-	test("ends the bus's own clause so the fix reads as its own sentence", () => {
-		// The bus writes both shapes — "the session bus is not loaded" and "…is already in use by
-		// session s-peer." — and the line is one clause of a result either way.
-		expect(joinFailureLine({ error: NO_BUS_ERROR })).toBe(`Not on the team: ${NO_BUS_ERROR}.`);
-		expect(joinFailureLine({ error: "the request was lost." })).toBe("Not on the team: the request was lost.");
+	test("is false for a session the bus has no record of", async () => {
+		const { session, ctx, asked } = joinHarness(temps);
+		expect(await onTeam(session, ctx)).toBe(false);
+		expect(asked).toEqual([]);
 	});
 
-	test("carries what the caller can do about it, when the join worked that out", () => {
-		expect(joinFailureLine({ error: NO_BUS_ERROR, fix: "Turn it on." })).toBe(
-			`Not on the team: ${NO_BUS_ERROR}. Turn it on.`,
-		);
+	test("is false for a record whose heartbeat aged out, which the bus still remembers", async () => {
+		const { session, ctx, busDir } = joinHarness(temps);
+		liveRecord(busDir, NOW - SESSION_TTL_MS - 1);
+		expect(await onTeam(session, ctx)).toBe(false);
+	});
+
+	test("is false for a host with no session id, which has no record to look for", async () => {
+		const { session, busDir } = joinHarness(temps);
+		liveRecord(busDir);
+		const { ctx } = fakeCtx({ cwd: "/repo/billing" });
+		expect(await onTeam(session, ctx)).toBe(false);
+	});
+
+	test("is false when the roster cannot be read, never a throw", async () => {
+		const { session, ctx } = joinHarness(temps, {
+			roster: async () => {
+				throw new Error("no agent directory");
+			},
+		});
+		expect(await onTeam(session, ctx)).toBe(false);
+	});
+});
+
+describe("createMemberTools", () => {
+	/** A host whose bus is loaded or not, and whose active set the case reads back. */
+	function host(bus: boolean): { pi: ReturnType<typeof createFakePi>["pi"]; active: () => string[] } {
+		const fake = createFakePi({ active: ["read"], ...(bus ? { allTools: [{ name: "session" }] } : {}) });
+		return { pi: fake.pi, active: () => fake.pi.getActiveTools() };
+	}
+
+	test("offers the names while this session is on the team, and withdraws them when it is not", async () => {
+		const { session, ctx, busDir } = joinHarness(temps);
+		const { pi, active } = host(true);
+		const tools = createMemberTools(pi, session, ["board"], { solo: false });
+		await tools.sync(ctx);
+		expect(active()).toEqual(["read"]);
+		const file = liveRecord(busDir);
+		await tools.sync(ctx);
+		expect(active()).toEqual(["read", "board"]);
+		removeBusRecord(file);
+		await tools.sync(ctx);
+		expect(active()).toEqual(["read"]);
+	});
+
+	test("offers a solo surface with no bus loaded, and never one that needs the bus", async () => {
+		const { session, ctx } = joinHarness(temps);
+		const solo = host(false);
+		const needsBus = host(false);
+		await createMemberTools(solo.pi, session, ["board"], { solo: true }).sync(ctx);
+		await createMemberTools(needsBus.pi, session, ["board"], { solo: false }).sync(ctx);
+		expect(solo.active()).toEqual(["read", "board"]);
+		expect(needsBus.active()).toEqual(["read"]);
+	});
+
+	test("does not put a tool back that the user removed while the team did not change", async () => {
+		const { session, ctx, busDir } = joinHarness(temps);
+		const { pi, active } = host(true);
+		liveRecord(busDir);
+		const tools = createMemberTools(pi, session, ["board"], { solo: false });
+		await tools.sync(ctx);
+		// `/tools` is the user's own answer, and a level-triggered sync would spend every turn undoing it.
+		pi.setActiveTools(["read"]);
+		await tools.sync(ctx);
+		expect(active()).toEqual(["read"]);
 	});
 });
 

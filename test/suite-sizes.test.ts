@@ -39,7 +39,7 @@ function allSuites(): string[] {
 /** Every declared suite past the bar, at its height: debt, and a height only falls. */
 const LONG_SUITES: Record<string, number> = {
 	"extensions/board/page.test.ts": 521,
-	"extensions/board/tools.test.ts": 1237,
+	"extensions/board/tools.test.ts": 1211,
 	"extensions/board/view/behaviour.test.ts": 730,
 	"extensions/board/view/pages.test.ts": 617,
 	"extensions/bytefly/block/block.test.ts": 561,
