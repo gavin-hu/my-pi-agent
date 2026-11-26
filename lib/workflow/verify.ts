@@ -20,7 +20,7 @@ import { dirname, join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type ChildSink, type ChildSlot, createChildSupervisor } from "../child.ts";
 import { messageOf } from "../errors.ts";
-import { sanitizeLine } from "../format.ts";
+import { sanitizeLine, shortenPath } from "../format.ts";
 import { createExecRunner, currentBranch, defaultBranch, gitCommonDir, headSha, type RunGit } from "../git/index.ts";
 import type { Card } from "./card.ts";
 import type { Lead, SizeGatesOutcome, Verification } from "./contract.ts";
@@ -339,7 +339,9 @@ function noWorkSentence(cwd: string, facts: TreeFacts): string {
 		.join(" ");
 	const where = at === "" ? "at its HEAD" : `at ${at}`;
 	return (
-		`the tree at ${cwd} is ${where} and carries no commit past ${facts.base ?? "the base branch"}: ` +
+		// The path is the caller's — `root` can be one they typed — so it prints as a refusal does
+		// elsewhere: shortened against home, and never carrying a second line.
+		`the tree at ${sanitizeLine(shortenPath(cwd))} is ${where} and carries no commit past ${facts.base ?? "the base branch"}: ` +
 		"a spot-check there would sign the base — name the card's worktree with `root`, or close the card with `done` and an `override` if its work is already in."
 	);
 }
