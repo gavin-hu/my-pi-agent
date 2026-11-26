@@ -190,6 +190,23 @@ describe("the review page", () => {
 		expect(html).toContain("Showing the first 1 diff lines");
 	});
 
+	test("says a file is unmerged instead of drawing an empty panel", () => {
+		const unmerged: ReviewSnapshot["files"][number] = {
+			rel: "f.ts",
+			status: "U",
+			add: 0,
+			del: 0,
+			lines: [],
+			binary: false,
+			unmerged: true,
+			truncated: false,
+		};
+		const html = renderReviewPage(input({ snapshot: snapshot({ files: [unmerged] }) }));
+		expect(html).toContain("This file is unmerged");
+		expect(html).not.toContain("No text change is shown");
+		expect(html).not.toContain('<pre class="bf-code');
+	});
+
 	test("says when the file cap left files out, and when the tree moved", () => {
 		const html = renderReviewPage(input({ snapshot: snapshot({ omitted: 3 }), review: review({ rev: "OLDER" }) }));
 		expect(html).toContain("3 more files");

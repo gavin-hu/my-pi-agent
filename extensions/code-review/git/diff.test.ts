@@ -11,8 +11,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RunGit } from "../../../lib/git/index.ts";
-import { execP, makeRepo, makeRepoWithRemote, makeTempTracker } from "../../../test/helpers/git.ts";
+import { execP, makeRepo, makeRepoWithRemote, makeTempTracker, runGit } from "../../../test/helpers/git.ts";
 import { comparisonOf } from "../../../test/helpers/review-scope.ts";
 import { MAX_BASE_LENGTH } from "../scope.ts";
 import {
@@ -30,9 +29,6 @@ import {
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-/** The production seam, over the suite's own git process. */
-const run: RunGit = (args, options) => execP("git", args, { cwd: options.cwd, env: options.env });
 
 /** A repository on a `feature` branch with one commit the base does not carry. */
 async function featureRepo(): Promise<string> {
@@ -62,7 +58,7 @@ describe("parseNameStatusZ", () => {
 describe("a branch review", () => {
 	test("reads the commits against the base, and counts what it shows", async () => {
 		const repo = await featureRepo();
-		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("branch"));
+		const outcome = await createReviewReaderFrom(runGit, repo).snapshot(comparisonOf("branch"));
 		expect(outcome.kind).toBe("snapshot");
 		if (outcome.kind !== "snapshot") return;
 		const { snapshot } = outcome;
@@ -81,7 +77,7 @@ describe("a branch review", () => {
 		writeFileSync(join(repo, "README.md"), "hello\nstaged\n");
 		await execP("git", ["add", "README.md"], { cwd: repo });
 		writeFileSync(join(repo, "note.txt"), "new\n");
-		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("change"));
+		const outcome = await createReviewReaderFrom(runGit, repo).snapshot(comparisonOf("change"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(outcome.snapshot.label).toBe("main → working tree");
 		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
@@ -92,7 +88,7 @@ describe("a branch review", () => {
 
 	test("answers the same fingerprint for the same tree, and a new one after a commit", async () => {
 		const repo = await featureRepo();
-		const reader = createReviewReaderFrom(run, repo);
+		const reader = createReviewReaderFrom(runGit, repo);
 		const first = await reader.snapshot(comparisonOf("branch"));
 		const second = await reader.snapshot(comparisonOf("branch"));
 		if (first.kind !== "snapshot" || second.kind !== "snapshot") throw new Error("expected snapshots");
@@ -107,7 +103,7 @@ describe("a branch review", () => {
 
 	test("keeps two scopes over one tree apart, even showing the same diff", async () => {
 		const repo = await featureRepo();
-		const reader = createReviewReaderFrom(run, repo);
+		const reader = createReviewReaderFrom(runGit, repo);
 		const branch = await reader.snapshot(comparisonOf("branch"));
 		const change = await reader.snapshot(comparisonOf("change"));
 		if (branch.kind !== "snapshot" || change.kind !== "snapshot") throw new Error("expected snapshots");
@@ -121,13 +117,13 @@ describe("a branch review", () => {
 describe("the default ref", () => {
 	test("detects the base when the section names none", async () => {
 		const repo = await featureRepo();
-		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "ref", ref: "main" });
+		expect(await createReviewReaderFrom(runGit, repo).baseRef()).toEqual({ kind: "ref", ref: "main" });
 	});
 
 	test("reads the default branch through its origin ref, as lib/git names it", async () => {
 		const { repo, remote } = await makeRepoWithRemote();
 		temps.track(remote);
-		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "ref", ref: "origin/main" });
+		expect(await createReviewReaderFrom(runGit, repo).baseRef()).toEqual({ kind: "ref", ref: "origin/main" });
 	});
 
 	test("prefers the remote ref when origin/HEAD is gone and a local main exists", async () => {
@@ -135,38 +131,38 @@ describe("the default ref", () => {
 		temps.track(remote);
 		await execP("git", ["symbolic-ref", "--delete", "refs/remotes/origin/HEAD"], { cwd: repo });
 		// The landing line's name is the local branch; the line a change lands on is the remote's.
-		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "ref", ref: "origin/main" });
+		expect(await createReviewReaderFrom(runGit, repo).baseRef()).toEqual({ kind: "ref", ref: "origin/main" });
 	});
 
 	test("names a configured ref that does not resolve, rather than blaming the key", async () => {
 		const repo = await featureRepo();
-		const reader = createReviewReaderFrom(run, repo, { base: "no-such-branch" });
+		const reader = createReviewReaderFrom(runGit, repo, { base: "no-such-branch" });
 		expect(await reader.baseRef()).toEqual({ kind: "failed", message: baseUnresolved("no-such-branch") });
 	});
 
 	test("names the bound a configured ref passed, rather than cutting it to another ref", async () => {
 		const repo = await featureRepo();
-		const reader = createReviewReaderFrom(run, repo, { base: "x".repeat(MAX_BASE_LENGTH + 1) });
+		const reader = createReviewReaderFrom(runGit, repo, { base: "x".repeat(MAX_BASE_LENGTH + 1) });
 		expect(await reader.baseRef()).toEqual({ kind: "failed", message: baseTooLong(MAX_BASE_LENGTH + 1) });
 	});
 
 	test("refuses when the repository names no default branch", async () => {
 		const repo = await featureRepo();
 		await execP("git", ["branch", "-m", "main", "develop"], { cwd: repo });
-		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "failed", message: NO_BASE });
+		expect(await createReviewReaderFrom(runGit, repo).baseRef()).toEqual({ kind: "failed", message: NO_BASE });
 	});
 });
 
 describe("the other presets", () => {
 	test("the last commit reads HEAD^...HEAD, and refuses before HEAD has a parent", async () => {
 		const repo = await featureRepo();
-		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("last"));
+		const outcome = await createReviewReaderFrom(runGit, repo).snapshot(comparisonOf("last"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(outcome.snapshot.label).toBe("HEAD^...HEAD");
 		expect(outcome.snapshot.files.map((file) => file.rel)).toEqual(["a.ts"]);
 
 		const fresh = temps.track(await makeRepo());
-		expect(await createReviewReaderFrom(run, fresh).snapshot(comparisonOf("last"))).toEqual({
+		expect(await createReviewReaderFrom(runGit, fresh).snapshot(comparisonOf("last"))).toEqual({
 			kind: "failed",
 			message: NO_PARENT,
 		});
@@ -177,7 +173,7 @@ describe("the other presets", () => {
 		writeFileSync(join(repo, "README.md"), "hello\nstaged\n");
 		await execP("git", ["add", "README.md"], { cwd: repo });
 		writeFileSync(join(repo, "note.txt"), "new\n");
-		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("staged"));
+		const outcome = await createReviewReaderFrom(runGit, repo).snapshot(comparisonOf("staged"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(outcome.snapshot.label).toBe("HEAD → index");
 		expect(outcome.snapshot.files.map((file) => [file.rel, file.status])).toEqual([["README.md", "M"]]);
@@ -188,7 +184,7 @@ describe("the other presets", () => {
 		const repo = await featureRepo();
 		writeFileSync(join(repo, "a.ts"), "const a = 1;\nconst b = 3;\n");
 		writeFileSync(join(repo, "note.txt"), "one\ntwo\n");
-		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("worktree"));
+		const outcome = await createReviewReaderFrom(runGit, repo).snapshot(comparisonOf("worktree"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(outcome.snapshot.label).toBe("index → working tree");
 		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
@@ -205,7 +201,7 @@ describe("the other presets", () => {
 		await execP("git", ["add", "README.md"], { cwd: repo });
 		writeFileSync(join(repo, "a.ts"), "const a = 1;\nconst b = 3;\n");
 		writeFileSync(join(repo, "note.txt"), "one\n");
-		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("uncommitted"));
+		const outcome = await createReviewReaderFrom(runGit, repo).snapshot(comparisonOf("uncommitted"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(outcome.snapshot.label).toBe("HEAD → working tree");
 		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
@@ -220,12 +216,12 @@ describe("the other presets", () => {
 		const repo = await featureRepo();
 		writeFileSync(join(repo, "big.txt"), Array.from({ length: 40 }, (_, index) => `line ${index}`).join("\n"));
 		writeFileSync(join(repo, "second.txt"), "s\n");
-		const reader = createReviewReaderFrom(run, repo, { maxFiles: 1, maxLines: 5 });
+		const reader = createReviewReaderFrom(runGit, repo, { maxFiles: 1, maxLines: 5 });
 		const outcome = await reader.snapshot(comparisonOf("worktree"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(outcome.snapshot.files).toHaveLength(1);
 		expect(outcome.snapshot.omitted).toBeGreaterThan(0);
-		const big = await createReviewReaderFrom(run, repo, { maxLines: 5 }).snapshot(comparisonOf("worktree"));
+		const big = await createReviewReaderFrom(runGit, repo, { maxLines: 5 }).snapshot(comparisonOf("worktree"));
 		if (big.kind !== "snapshot") throw new Error("expected a snapshot");
 		const file = big.snapshot.files.find((entry) => entry.rel === "big.txt");
 		expect(file?.truncated).toBe(true);
@@ -239,7 +235,7 @@ describe("a pair a reader names", () => {
 		writeFileSync(join(repo, "README.md"), "hello\nstaged\n");
 		await execP("git", ["add", "README.md"], { cwd: repo });
 		writeFileSync(join(repo, "a.ts"), "const a = 1;\nconst b = 3;\n");
-		const outcome = await createReviewReaderFrom(run, repo).snapshot({
+		const outcome = await createReviewReaderFrom(runGit, repo).snapshot({
 			from: { kind: "rev", ref: "main" },
 			to: { kind: "index" },
 		});
@@ -254,7 +250,7 @@ describe("a pair a reader names", () => {
 	test("reads a branch nobody has checked out", async () => {
 		const repo = await featureRepo();
 		await execP("git", ["checkout", "-q", "main"], { cwd: repo });
-		const outcome = await createReviewReaderFrom(run, repo).snapshot({
+		const outcome = await createReviewReaderFrom(runGit, repo).snapshot({
 			from: { kind: "rev", ref: "main" },
 			to: { kind: "rev", ref: "feature" },
 		});
@@ -265,7 +261,7 @@ describe("a pair a reader names", () => {
 
 	test("refuses one side read twice, and a side the repository does not have", async () => {
 		const repo = await featureRepo();
-		const reader = createReviewReaderFrom(run, repo);
+		const reader = createReviewReaderFrom(runGit, repo);
 		expect(await reader.snapshot({ from: { kind: "rev", ref: "HEAD" }, to: { kind: "rev", ref: "HEAD" } })).toEqual({
 			kind: "failed",
 			message: expect.stringContaining("same side"),
@@ -283,7 +279,7 @@ describe("a whole file's text", () => {
 		writeFileSync(join(repo, "a.ts"), "one\ntwo\n");
 		writeFileSync(join(repo, "blob.bin"), Buffer.from([0x7f, 0x00, 0x01]));
 		writeFileSync(join(repo, "long.txt"), "line\n".repeat(40));
-		const reader = createReviewReaderFrom(run, repo, { maxFileBytes: 64 });
+		const reader = createReviewReaderFrom(runGit, repo, { maxFileBytes: 64 });
 		// Both gutter numbers are the file's own, so the diff renderer draws the numbers a
 		// reader compares against rather than a second numbering scheme.
 		expect(await reader.text("a.ts")).toEqual({
@@ -308,7 +304,7 @@ describe("a whole file's text", () => {
 describe("a tree with no answer", () => {
 	test("refuses outside a repository", async () => {
 		const outside = temps.track(mkdtempSync(join(tmpdir(), "pi-review-plain-")));
-		expect(await createReviewReaderFrom(run, outside).snapshot(comparisonOf("branch"))).toEqual({
+		expect(await createReviewReaderFrom(runGit, outside).snapshot(comparisonOf("branch"))).toEqual({
 			kind: "failed",
 			message: NOT_A_REPOSITORY,
 		});
@@ -331,7 +327,7 @@ describe("a repository with no commits", () => {
 
 	test("renders the index and the tree, with no commit to name", async () => {
 		const repo = await unborn();
-		const reader = createReviewReaderFrom(run, repo);
+		const reader = createReviewReaderFrom(runGit, repo);
 		const staged = await reader.snapshot(comparisonOf("staged"));
 		if (staged.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(staged.snapshot.fromSha).toBeUndefined();
@@ -350,7 +346,7 @@ describe("a repository with no commits", () => {
 
 	test("still refuses the comparisons that need a commit", async () => {
 		const repo = await unborn();
-		const reader = createReviewReaderFrom(run, repo);
+		const reader = createReviewReaderFrom(runGit, repo);
 		// No default branch resolves, so the two scopes built on it have no left end.
 		expect(await reader.snapshot(comparisonOf("branch"))).toEqual({ kind: "failed", message: NO_COMMITS });
 		expect(await reader.snapshot(comparisonOf("change"))).toEqual({ kind: "failed", message: NO_COMMITS });
