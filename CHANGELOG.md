@@ -17,6 +17,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a `/compact` re-injects the line naming the cards a session holds. The reset that covers a
+  replaced transcript handled `/new` and `/tree` but not compaction, so a session that compacted kept its
+  reading and worked a card the summary no longer named — the next turn reads again, through the path the
+  jump already uses, and the seat's own per-turn line is untouched.
+
 - `code-review`: four things the page said that were not true now say what the state is. A focused page's
   Commented view blamed a filter nobody typed — `No files match ""` — where the file simply has no comments, so it
   names that and the control that shows the file again; an unmark told a file it was back to "commented" when it
