@@ -55,6 +55,46 @@ describe("landSubject", () => {
 		expect(landScope(boardCard("3", { paths: ["extensions\\session-bus\\runtime.ts"] }))).toBe("session-bus");
 	});
 
+	test("keeps the extension only while it is where the card's work is", () => {
+		// #853's card holds: its own page, a guide, and the changelog are part of the work, and a tie
+		// stays with the extension.
+		expect(
+			landScope(
+				boardCard("1", {
+					paths: ["extensions/plan/a.ts", "docs/extensions/plan.md", "docs/multi-session.md", "CHANGELOG.md"],
+				}),
+			),
+		).toBe("plan");
+		expect(landScope(boardCard("2", { paths: ["extensions/plan/a.ts", "test/suite-manifest.ts"] }))).toBe("plan");
+		// #931's shape: one corrected docstring in another extension's suite, outnumbered by three
+		// paths that name another surface, so the area rung answers. `merge(wechat)` went into the
+		// history of a card that changed no wechat behaviour, and a landed sha cannot be repaired.
+		expect(
+			landScope(
+				boardCard("3", {
+					paths: [
+						"docs/design-system.md",
+						"docs/_data/docs.json",
+						"docs/extensions/bytefly.md",
+						"lib/tui",
+						"lib/README.md",
+						"package.json",
+						"README.md",
+						"README.zh-CN.md",
+						"test/site-docs.test.ts",
+						"test/tui-conventions.test.ts",
+						"extensions/wechat/boundary.test.ts",
+						"CHANGELOG.md",
+					],
+				}),
+			),
+		).toBe("docs");
+		// A test sweep is test work, even when one of its suites sits beside an extension.
+		expect(landScope(boardCard("4", { paths: ["extensions/x/a.test.ts", "test/a.test.ts", "test/b.test.ts"] }))).toBe(
+			"test",
+		);
+	});
+
 	test("falls to the title when no extension is named, so a lib card is not the landing door's", () => {
 		// #868's shape, which landed `merge(board)` under a `session-bus:` title.
 		expect(
