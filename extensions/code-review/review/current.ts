@@ -46,6 +46,14 @@ export interface ReviewCurrent {
 	openPage(scope: ReviewScope): Promise<ReviewPageState>;
 }
 
+/**
+ * The base a snapshot reads with: a page's stored ref, or `undefined` so the reader asks the
+ * chain again. `""` is what a page holds before anything resolved, never an answer.
+ */
+function resolvedBase(base: string): string | undefined {
+	return base === "" ? undefined : base;
+}
+
 export function createReviewCurrent(deps: ReviewCurrentDeps): ReviewCurrent {
 	let config = deps.config;
 	/** The reader built for one root and one base; rebuilt when either moves. */
@@ -80,15 +88,18 @@ export function createReviewCurrent(deps: ReviewCurrentDeps): ReviewCurrent {
 			config = next;
 		},
 		page: () => deps.store.current(),
-		snapshotOf: (page) => reader().snapshot(page.scope, page.base),
+		snapshotOf: (page) => reader().snapshot(page.scope, resolvedBase(page.base)),
 		async snapshot() {
 			const page = deps.store.current();
-			return page === undefined ? { kind: "failed", message: NO_PAGE } : reader().snapshot(page.scope, page.base);
+			return page === undefined
+				? { kind: "failed", message: NO_PAGE }
+				: reader().snapshot(page.scope, resolvedBase(page.base));
 		},
 		async openPage(scope) {
 			const page = deps.store.open(scope, "", "");
-			if (scope === "base") page.base = (await reader().baseRef()) ?? "";
-			const outcome = await reader().snapshot(scope, page.base);
+			// One resolution, and it is the snapshot's: a page that stored a failed detection as
+			// `""` would re-grade that failure without asking git again.
+			const outcome = await reader().snapshot(scope, undefined);
 			if (outcome.kind === "snapshot") {
 				page.base = outcome.snapshot.base;
 				page.label = outcome.snapshot.label;

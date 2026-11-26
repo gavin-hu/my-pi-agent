@@ -12,8 +12,11 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RunGit } from "../../../lib/git/index.ts";
-import { execP, makeRepo, makeTempTracker } from "../../../test/helpers/git.ts";
+import { execP, makeRepo, makeRepoWithRemote, makeTempTracker } from "../../../test/helpers/git.ts";
+import { MAX_BASE_LENGTH } from "../scope.ts";
 import {
+	baseTooLong,
+	baseUnresolved,
 	createReviewReaderFrom,
 	NO_BASE,
 	NO_COMMITS,
@@ -70,11 +73,47 @@ describe("a base review", () => {
 		expect(snapshot.files[0].lines.some((line) => line.kind === "add" && line.text === "const a = 1;")).toBe(true);
 	});
 
-	test("detects the base when the section names none, and refuses when none resolves", async () => {
+	test("detects the base when the section names none", async () => {
 		const repo = await featureRepo();
-		expect(await createReviewReaderFrom(run, repo).baseRef()).toBe("main");
-		const missing = await createReviewReaderFrom(run, repo, { base: "no-such-branch" }).snapshot("base");
-		expect(missing).toEqual({ kind: "failed", message: NO_BASE });
+		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "ref", ref: "main" });
+		// `""` is what a page holds before anything resolved, so it asks again rather than
+		// standing in for a base nobody found.
+		const blank = await createReviewReaderFrom(run, repo).snapshot("base", "");
+		expect(blank.kind).toBe("snapshot");
+	});
+
+	test("reads the default branch through its origin ref, as lib/git names it", async () => {
+		const { repo, remote } = await makeRepoWithRemote();
+		temps.track(remote);
+		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "ref", ref: "origin/main" });
+	});
+
+	test("prefers the remote ref when origin/HEAD is gone and a local main exists", async () => {
+		const { repo, remote } = await makeRepoWithRemote();
+		temps.track(remote);
+		await execP("git", ["symbolic-ref", "--delete", "refs/remotes/origin/HEAD"], { cwd: repo });
+		// The landing line's name is the local branch; the line a change lands on is the remote's.
+		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "ref", ref: "origin/main" });
+	});
+
+	test("names a configured ref that does not resolve, rather than blaming the key", async () => {
+		const repo = await featureRepo();
+		const reader = createReviewReaderFrom(run, repo, { base: "no-such-branch" });
+		expect(await reader.baseRef()).toEqual({ kind: "failed", message: baseUnresolved("no-such-branch") });
+		expect(await reader.snapshot("base")).toEqual({ kind: "failed", message: baseUnresolved("no-such-branch") });
+	});
+
+	test("names the bound a configured ref passed, rather than cutting it to another ref", async () => {
+		const repo = await featureRepo();
+		const reader = createReviewReaderFrom(run, repo, { base: "x".repeat(MAX_BASE_LENGTH + 1) });
+		expect(await reader.baseRef()).toEqual({ kind: "failed", message: baseTooLong(MAX_BASE_LENGTH + 1) });
+		expect(await reader.snapshot("base")).toEqual({ kind: "failed", message: baseTooLong(MAX_BASE_LENGTH + 1) });
+	});
+
+	test("refuses when the repository names no default branch", async () => {
+		const repo = await featureRepo();
+		await execP("git", ["branch", "-m", "main", "develop"], { cwd: repo });
+		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "failed", message: NO_BASE });
 	});
 
 	test("answers the same fingerprint for the same tree, and a new one after a commit", async () => {

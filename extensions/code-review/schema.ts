@@ -72,6 +72,9 @@ export const ReviewOutput = Type.Object({
 	sent: Type.Integer(),
 	reviewed: Type.Integer(),
 	url: Type.Optional(Type.String()),
+	problem: Type.Optional(
+		Type.String({ description: "Why the page has no diff, when the snapshot it read failed; absent when it has one." }),
+	),
 	list: Type.Optional(Type.Array(ReviewCommentOutput)),
 });
 

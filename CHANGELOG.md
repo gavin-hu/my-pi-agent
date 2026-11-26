@@ -31,6 +31,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `code-review`: a scope change is one reversible rule. The page's tabs, `/review <scope>` and `code_review` all refuse it on the drafts and marks a replacement would destroy — never on sent comments, which the session keeps — with one sentence built in `review/scope-work.ts`, and a refusal from the command or the tool now names the address the page is still open at.
 
+- `code-review`: a `base` review that cannot use its base says which fault it hit. A configured `code-review.base` that does not resolve is named with the key to check, one longer than 200 characters names its length and the bound instead of being cut to a different ref, and only a repository with no default branch at all gets the "set `base`" advice — in the `/review` notice, in `code_review`'s new `problem` field, and on the page. The default-branch chain is `lib/git`'s `defaultBranch` now, read through its `origin/` ref, rather than a second copy that had drifted from it; a stored page also stops treating an unresolved base as one it knows.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added

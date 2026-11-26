@@ -9,7 +9,6 @@
 
 import { loadConfigSection } from "../../../lib/config.ts";
 import { clampInteger, cleanString } from "../../../lib/json.ts";
-import { MAX_BASE_LENGTH } from "../scope.ts";
 
 export interface ReviewConfig {
 	/** The ref a `base` review compares against; `""` detects one. */
@@ -38,7 +37,9 @@ export function normalizeReviewConfig(
 	if (!raw) return base;
 	const configured = cleanString(raw.base, base.base);
 	return {
-		base: configured.slice(0, MAX_BASE_LENGTH),
+		// Kept whole: the reader owns the bound and names a ref that is too long, where a cut
+		// here would quietly resolve to a different branch and say nothing about it.
+		base: configured,
 		diffContext: clampInteger(raw.diffContext, base.diffContext, 0, 100),
 		maxDiffLines: clampInteger(raw.maxDiffLines, base.maxDiffLines, 1, 1_000_000),
 		maxFiles: clampInteger(raw.maxFiles, base.maxFiles, 1, 10_000),
