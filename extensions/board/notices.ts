@@ -64,6 +64,8 @@ export interface DeliveryRequest {
 	to?: string;
 	/** The handoff's or offer's note. */
 	note?: string;
+	/** The merge a landing made, for the `land` row's sentence. */
+	merged?: string;
 	ctx: ExtensionContext;
 	deliver: Deliver;
 	audience?: Audience;
@@ -81,6 +83,7 @@ export async function deliverNotice(request: DeliveryRequest): Promise<Delivery>
 		...(request.by === undefined ? {} : { by: request.by }),
 		...(request.to === undefined ? {} : { to: request.to }),
 		...(request.note === undefined ? {} : { note: request.note }),
+		...(request.merged === undefined ? {} : { merged: request.merged }),
 	});
 	// A board that names no lead has no gate for a session to open: the person's door is the only
 	// one, and the result already says so. Nothing to send, and nothing owed.

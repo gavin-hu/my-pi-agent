@@ -30,6 +30,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   either end. The page ships with the package, its glyph table is held to `GLYPHS` by
   `lib/tui/glyphs.test.ts`, and both entry READMEs' Documentation tables list it.
 
+- `board`: a landing now tells the card's holder. The seat's `board land` merged and pushed, and the
+  holder — the one session whose next move the merge opens — heard nothing: the last message was the
+  spot-check, which promises a step that did not notify, so the close was found by polling
+  `origin/main`. The door sends one event to the card's owner after the proof: the merge sha, and that
+  `done` is theirs and records it. It is best effort in the one direction that matters — the merge is
+  pushed first, so a bus that refuses costs a clause on the seat's line (`told` / `was not told (…)`)
+  and never an undo — and it is the seventh notice in the table, sent once like an offer rather than
+  owed twice, keyed on the review the landing carried out.
+
 ### Changed
 
 - `board`: `/board`'s help is rendered from one table — the word, whether it takes a card, its flags — so
