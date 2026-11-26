@@ -70,6 +70,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `team`: `/team who` and `/team join` offer no labels when the board store cannot open, instead of throwing out of the completer — the editor awaits that promise with no catch, so the one rejection used to cost every later Tab in the process, which the host's share of is filed as `earendil-works/pi#12566`.
 
+- `team`: a label completion writes the whole argument back, so Tab keeps the word it was typed after — `/team who <TAB>` used to leave `/team gavin`, a bare name the command then refused — and the list now completes a name with a space in it and a word typed in any case.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added

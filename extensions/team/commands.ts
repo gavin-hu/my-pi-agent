@@ -79,8 +79,10 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 		// `lib/workflow/round-text.ts` owns what it is called.
 		description: `${LEAD_ROUND} \`/team who [<label>]\` names who is here; \`/team join [<label>]\` joins the team`,
 		getArgumentCompletions: async (prefix: string) => {
-			const [word = "", ...rest] = prefix.trimStart().split(/\s+/);
-			if (rest.length > 1) return null;
+			const [typedWord = "", ...rest] = prefix.trimStart().split(/\s+/);
+			// The word is matched without case and written back as the word the command parses, because
+			// the value replaces the argument: `/team W` has to land as `/team who …`, not `/team W …`.
+			const word = typedWord.toLowerCase();
 			if (rest.length === 0) {
 				const items = TEAM_WORDS.filter((candidate) => candidate.startsWith(word));
 				return items.length > 0
@@ -88,10 +90,12 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 					: null;
 			}
 			// A label is the argument both words take, and the names a bare join draws from are the ones
-			// worth offering: `team.teammates` is that list. The store is memoized by root, so a keystroke
-			// opens it once per session; a completion that cannot name a root offers nothing.
+			// worth offering: `team.teammates` is that list. The label is the whole rest, because that is how
+			// the handler joins its argument — a team name stated with a space in it completes rather than
+			// ending the list at its second word. The store is memoized by root, so a keystroke opens it once
+			// per session; a completion that cannot name a root offers nothing.
 			if (!LABEL_WORDS.has(word) || root === undefined) return null;
-			const typed = labelKey(rest[0] ?? "");
+			const typed = labelKey(rest.join(" "));
 			// A store that cannot open is the same answer as no root, and it has to be given rather than
 			// thrown: the editor awaits this with no catch, so a rejection here costs every later Tab in
 			// the process its autocomplete. One failure is not the session's — the open is memoized
@@ -99,7 +103,10 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			const store = await session.store(root).catch(() => undefined);
 			if (store === undefined) return null;
 			const names = store.config().teammates.filter((candidate) => labelKey(candidate).startsWith(typed));
-			return names.length > 0 ? names.map((value) => ({ value, label: value })) : null;
+			// The value is the whole argument and not the name: pi-tui replaces the argument text with it,
+			// so a bare label deletes the word that asked for the list (`/team who ` would become
+			// `/team gavin`, which this command then refuses).
+			return names.length > 0 ? names.map((name) => ({ value: `${word} ${name}`, label: name })) : null;
 		},
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			const [word = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
