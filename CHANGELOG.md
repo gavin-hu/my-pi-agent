@@ -57,6 +57,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: the selection bar no longer takes the diff's last rows with it. The bar floats over
+  the bottom of the page and nothing reserved its height, so at the end of the scroll the last rows sat
+  inside its box with no scrolling left to lift them out. The file's last section now carries the bar's
+  measured reach — re-measured on every selection and on a resize, because a long ref wraps the bar
+  taller — and the room goes back when the bar closes. The toast reads that same measurement now
+  instead of keeping its own copy of it.
+
 - `code-review`: a conflicted file no longer draws an unexplained empty panel. `worktree` gets
   git's combined `diff --cc` — three columns, a hunk header the two-sided parser never matches —
   and `staged` gets `* Unmerged path` and nothing else; the reader now recognises both and the

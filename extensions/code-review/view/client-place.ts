@@ -181,6 +181,37 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     });
   }
 
+  /**
+   * How far the bar reaches up from a box's bottom edge, plus the gap it wants above itself.
+   * Measured rather than fixed, because the bar's height follows its ref: 45px at 1440 wide and
+   * 61 at 600. A closed bar reaches nowhere, and 0 is how a caller knows there is nothing to
+   * reserve.
+   */
+  function barClearance(edgeBottom) {
+    var bar = byId("rv-selbar");
+    if (!bar || bar.getAttribute("data-open") !== "true") return 0;
+    return Math.max(0, edgeBottom - bar.getBoundingClientRect().top) + 8;
+  }
+
+  /**
+   * Reserve the bar's height under the diff while the bar is open, so the file's last rows can be
+   * scrolled above it instead of being read through it. The pair the pinned head already uses: the
+   * measurement here, the rule in the sheet, and one property joining the two.
+   */
+  function fitBarInset() {
+    var main = byId("rv-main");
+    if (!main) return;
+    var clearance = barClearance(main.getBoundingClientRect().bottom);
+    if (clearance > 0) main.style.setProperty("--rv-bar-inset", clearance + "px");
+    else main.style.removeProperty("--rv-bar-inset");
+  }
+
+  /** Both measurements follow the viewport: the heads' height, and how far the bar reaches. */
+  function remeasure() {
+    measureHeads();
+    fitBarInset();
+  }
+
   /** Each head's measured height, so a hunk jump lands below the pinned head at any width. */
   function measureHeads() {
     sections().forEach(function (section) {
@@ -322,6 +353,7 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     if (!cursor || !at) {
       markAnchor(null, null);
       bar.setAttribute("data-open", "false");
+      fitBarInset();
       return;
     }
     markAnchor(row, at);
@@ -335,6 +367,8 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     byId("rv-selbar-ref").textContent = ref;
     byId("rv-selbar-ref").setAttribute("data-ref", ref);
     bar.setAttribute("data-open", "true");
+    // After the open: the bar's box is what the inset is measured from, and a closed bar has none.
+    fitBarInset();
     if (focus) {
       // The row is the focus target: tabindex="-1" keeps it out of the tab order, and the
       // focus ring tells a keyboard reader which line the next key acts on.

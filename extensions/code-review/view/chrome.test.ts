@@ -1,11 +1,13 @@
 /**
  * The review page's chrome, in a browser: what the rail's controls do to it, the band it folds
- * into, and the wrap button that has to speak for the row at every width.
+ * into, the wrap button that has to speak for the row at every width, and the room the selection
+ * bar takes from the diff's bottom.
  *
  * Split from `interaction.test.ts` when #819 (the kit's sidebar) and #814 (the wrap toggle's one
- * owner) pushed that suite past the size bar. The reading — cursor, place, spill — is one
- * capability; what the controls do to the rail and the diff is another, and the launch,
- * the fixture and the comment helper are shared through `test/helpers/review-browser.ts`.
+ * owner) pushed that suite past the size bar, and again for #930's bar case. The reading —
+ * cursor, place, spill — is one capability; what the controls do to the rail and the diff is
+ * another, and the launch, the fixture and the comment helper are shared through
+ * `test/helpers/review-browser.ts`.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -330,6 +332,61 @@ gated("the review page's chrome", () => {
 				);
 				expect(await active(), "the diff takes focus once Send is disabled").toBe("rv-main");
 			});
+		},
+		CASE_MS,
+	);
+
+	/**
+	 * The bar floats over the diff's bottom edge, and a row the scroll cannot lift above it is a row
+	 * the reader cannot finish: the diff's last section reserves the bar's own height while it is
+	 * up (#930). The bar is a control over the diff, so the case lives with the chrome's.
+	 */
+	test(
+		"a picked line reserves the bar's height, so the last row clears it",
+		async () => {
+			await withPage(
+				async (page) => {
+					await page.keyboard.press("j");
+					// The inset is a measured length, so the case waits on the page's own write rather than
+					// on a paint: the bar's box is what the length is measured from, and only the page has it.
+					await page.waitForFunction(
+						() => {
+							const doc = globalThis as unknown as ReviewDom;
+							const section = doc.document.querySelector(".rv-file:last-child");
+							if (section === null) return false;
+							return (
+								doc.document.getElementById("rv-selbar")?.getAttribute("data-open") === "true" &&
+								Number.parseFloat(doc.getComputedStyle(section).paddingBottom) > 0
+							);
+						},
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
+					const ends = await page.evaluate(() => {
+						const doc = (globalThis as unknown as ReviewDom).document;
+						const main = doc.getElementById("rv-main");
+						const bar = doc.getElementById("rv-selbar");
+						if (main === null || bar === null) return { row: 0, barTop: 0 };
+						main.scrollTop = 1e6;
+						const rows = doc.querySelectorAll(".rv-diff .bf-diff-line");
+						const row = rows[rows.length - 1]?.getBoundingClientRect();
+						return { row: Math.round(row?.bottom ?? 0), barTop: Math.round(bar.getBoundingClientRect().top) };
+					});
+					expect(ends.row, "the last row ends above the bar, not in it").toBeLessThanOrEqual(ends.barTop);
+					// Closing the bar gives the room back, so a closed page scrolls as it always did.
+					await page.locator("#rv-sel-clear").click();
+					await page.waitForFunction(
+						() => {
+							const doc = globalThis as unknown as ReviewDom;
+							const section = doc.document.querySelector(".rv-file:last-child");
+							return section !== null && doc.getComputedStyle(section).paddingBottom === "0px";
+						},
+						undefined,
+						{ timeout: REVIEW_PAINT_MS },
+					);
+				},
+				{ lines: 60 },
+			);
 		},
 		CASE_MS,
 	);
