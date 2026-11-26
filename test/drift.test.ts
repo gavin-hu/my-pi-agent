@@ -207,10 +207,10 @@ describe("the contributor guide", () => {
 	/**
 	 * `CONTRIBUTING.md` is where `AGENTS.md` points for the workflow, so it grows the way the
 	 * entry doc did: one more caveat per gate, until the flow at the top is a wall nobody
-	 * reads. 2320 words today, ceiling 2320, and it may only fall — a trim lowers this number
+	 * reads. 2309 words today, ceiling 2309, and it may only fall — a trim lowers this number
 	 * in the same commit.
 	 */
-	const CEILING = 2320;
+	const CEILING = 2309;
 
 	test("CONTRIBUTING.md holds its word ceiling", () => {
 		const source = readFileSync(join(repo, "CONTRIBUTING.md"), "utf-8");
