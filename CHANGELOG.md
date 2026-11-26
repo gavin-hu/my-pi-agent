@@ -23,6 +23,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   page and the seat end with the session it replaces; the record does not, because the teardown carries
   the reason #915 keeps it by.
 
+### Removed
+
+- `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached
+  it. Its premise was a `/resume` that mints a new id under the same name, which no longer happens: a
+  resume keeps the id it carries, and a `/new` keeps the record. A card whose owner's record reads `gone`
+  is pooled instead, whether the card names that owner by id or by a label alone, so nothing here is
+  re-owned by a name; the session that wants the card claims it again from the pool.
+
 ### Fixed
 
 - `session-bus`: a `/new` no longer takes a session's name off the bar. The reset kept the bus record
