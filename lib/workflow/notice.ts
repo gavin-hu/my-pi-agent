@@ -25,7 +25,7 @@ import { type PeerRow, peerNamed } from "../session-roster.ts";
 import type { Actor } from "./rules.ts";
 
 /** One transition a notice is composed for. */
-export type NoticeKind = "assign" | "ready" | "offer" | "approve" | "review" | "reclaim";
+export type NoticeKind = "assign" | "ready" | "offer" | "approve" | "review" | "land" | "reclaim";
 
 /**
  * Who a notice is for, as a role rather than a session.
@@ -45,6 +45,8 @@ export interface NoticeContext {
 	to?: string;
 	/** The handoff's or offer's note. */
 	note?: string;
+	/** The merge a landing made, for the `land` row's sentence. */
+	merged?: string;
 }
 
 /**
@@ -74,7 +76,7 @@ function noticeKey(card: Card, notice: NoticeKind, at: number | undefined): stri
 	return `card:${card.id}:${notice}:${at ?? card.updatedAt}`;
 }
 
-/** The six rows: three with a told half, and three sent once. */
+/** The seven rows: three with a told half, and four sent once. */
 export const NOTICES: Record<NoticeKind, Notice> = {
 	assign: {
 		kind: "handoff",
@@ -108,6 +110,14 @@ export const NOTICES: Record<NoticeKind, Notice> = {
 		key: (card) => noticeKey(card, "review", card.review?.at),
 		told: TELL_FIELDS.review,
 		text: (card, context) => signedText(card, "review", context.by ?? context.lead),
+	},
+	land: {
+		kind: "event",
+		audience: "owner",
+		// Keyed on the spot-check the landing carried out: a card re-reviewed and landed again is a
+		// new merge to close, and a repeat of the same landing is the same key the bus folds into one.
+		key: (card) => noticeKey(card, "land", card.review?.at),
+		text: (card, context) => landedText(card, context.merged),
 	},
 	reclaim: {
 		kind: "event",
@@ -171,6 +181,21 @@ export function readyText(card: Card, lead: Lead): string {
 /** What a sign sends the card's owner: who signed, and the move it unlocked. */
 export function signedText(card: Card, sign: Sign, by: string): string {
 	return SIGN_WORDS[sign].signed(card, by);
+}
+
+/**
+ * What a landing sends the card's holder: the merge that carries it, and the close that is theirs.
+ *
+ * The sha is named because `done` resolves the landing from the chain, so the holder's next move is
+ * against that merge. Without one — a caller that composed the row without it — the sentence still
+ * says the merge is on `main` rather than inventing a sha nobody checked.
+ */
+export function landedText(card: Card, merged: string | undefined): string {
+	const merge = merged === undefined ? "the merge" : `merge ${merged.slice(0, 8)}`;
+	return (
+		`Landed: ${cardRef(card.id)} "${card.title}" — ${merge} on main.\n` +
+		`Next: close it — board action "move" with lane "done"; it records that merge.`
+	);
 }
 
 /**
