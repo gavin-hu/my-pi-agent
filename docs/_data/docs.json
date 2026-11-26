@@ -107,6 +107,12 @@
       "summary": "Every tool and slash command the pack registers, by name, with the page that owns it."
     },
     {
+      "path": "design-system.md",
+      "title": "Design system",
+      "group": "Guides",
+      "summary": "What the colors, glyphs, and blocks on screen mean, and the rules a surface keeps."
+    },
+    {
       "path": "configuration.md",
       "title": "Configuration",
       "group": "Guides",

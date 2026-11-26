@@ -13,8 +13,8 @@
  *
  * Two vocabularies live here and they do not mix: `ok`/`warn`/`bad` are verdicts —
  * they say how something *is* — and `hue1`…`hue5` are categories, which say only
- * "this is not those". A surface that shows hues keeps its verdicts to the places
- * that earn one, because a reader cannot tell a borrowed green from a judgement.
+ * "this is not those". The rule that keeps them apart on a surface is
+ * [`docs/design-system.md`](../../docs/design-system.md#color-is-a-role).
  */
 
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";

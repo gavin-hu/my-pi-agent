@@ -23,6 +23,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   page and the seat end with the session it replaces; the record does not, because the teardown carries
   the reason #915 keeps it by.
 
+- `docs`: the design system has one home. `docs/design-system.md` states what a mark means when you
+  read a screen and the rules a surface keeps when you write one, and `lib/tui/README.md` is now the
+  map — which primitive, which screen member, which sanitizer, which gate — with its sections retitled
+  so no name is shared and every pointer an `#anchor`, so `test/doc-links.test.ts` fails on a rename at
+  either end. The page ships with the package, its glyph table is held to `GLYPHS` by
+  `lib/tui/glyphs.test.ts`, and both entry READMEs' Documentation tables list it.
+
 ### Changed
 
 - `board`: `/board`'s help is rendered from one table — the word, whether it takes a card, its flags — so
