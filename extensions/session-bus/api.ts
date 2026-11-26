@@ -82,6 +82,10 @@ export interface SessionBus {
 	 * The answer says what was given up. The start is kept — the store, the record's id, and what a
 	 * card names — so a later `join` re-adds the same row under the same id rather than a stranger's;
 	 * `stop` stays the host's door and does this at the end of a process.
+	 *
+	 * Refused when another pane with this session id owns the row — a `/resume` in a second pane
+	 * registers one id twice, and the one leaving must not strip the one still working — and a failed
+	 * write leaves the session as it was rather than as a row nobody beats.
 	 */
 	leave(): Promise<LeaveOutcome>;
 	status(): Promise<SessionStatus>;

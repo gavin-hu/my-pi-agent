@@ -59,6 +59,33 @@ describe("leaving the bus", () => {
 		expect(await tom.bus.leave()).toEqual({ released: [] });
 	});
 
+	test("leaves a row another pane owns alone, claims and all", async () => {
+		const dir = scratchDir(temps, "pi-leave-");
+		const bus = { dir, repo: { root: "/repo/peer", key: "shared" }, now: () => 1_000, heartbeatMs: 0, watchMs: 0 };
+		// The pane that owns the row: the same session id in a running process — what a `/resume` in a
+		// second window registers. It joins and takes a path, so what a wrong leave would strip shows.
+		const owner = createSessionBus({} as ExtensionAPI, bus);
+		const { ctx: ownerCtx } = fakeCtx({ cwd: "/repo/peer", sessionId: "s2", sessionName: "tom" });
+		await owner.start(ownerCtx);
+		await owner.join({ label: "tom", listen: false });
+		await owner.claim(["src/a.ts"]);
+
+		// The other pane: the same id, a process that is not the row's owner.
+		const mine = createSessionBus({} as ExtensionAPI, { ...bus, pid: 424_242 });
+		const { ctx: mineCtx } = fakeCtx({ cwd: "/repo/peer", sessionId: "s2", sessionName: "tom" });
+		await mine.start(mineCtx);
+		await expect(mine.leave()).rejects.toThrow(/another pane/);
+
+		// The row is still the owner's, so its claim still is: a third session meets it by name.
+		const gavin = session(dir, "/repo/lead", "s1", "gavin");
+		await joins(gavin);
+		expect((await gavin.bus.claim(["src/a.ts"])).conflicts).toEqual([
+			{ path: "src/a.ts", owner: "s2", ownerLabel: "tom" },
+		]);
+		expect((await owner.status()).onBus).toBe(true);
+		await owner.stop();
+	});
+
 	test("keeps the id a card is owned by, so the next join is the same session", async () => {
 		const { tom } = await pair("pi-leave-");
 		const before = (await tom.bus.status()).me.id;
