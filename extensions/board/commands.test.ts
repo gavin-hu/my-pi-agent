@@ -1,5 +1,5 @@
 /**
- * `/board` — the four words, and what each one does to the page.
+ * `/board` — the words it knows, and what each one does to the page.
  *
  * The command is a parser over the lifecycle, so a fake page records what it was
  * asked for and the context records what the user is told. A word the command does
@@ -322,7 +322,7 @@ describe("/board", () => {
 		expect(calls).toEqual([]);
 		expect(lead.calls).toEqual([]);
 		expect(notifications.at(-1)).toBe(
-			'board: "exit" is not a word this command knows — try /board archive, /board approve <id>, /board review <id>, /board status, /board stop, /board team',
+			'board: "exit" is not a word this command knows — try /board next, /board archive, /board approve <id>, /board review <id>, /board status, /board stop, /board team',
 		);
 	});
 
@@ -330,7 +330,7 @@ describe("/board", () => {
 		const { calls, notifications } = await run("scrub");
 		expect(calls).toEqual([]);
 		expect(notifications.at(-1)).toContain(
-			"try /board archive, /board approve <id>, /board review <id>, /board status, /board stop, /board team",
+			"try /board next, /board archive, /board approve <id>, /board review <id>, /board status, /board stop, /board team",
 		);
 	});
 
@@ -358,7 +358,7 @@ describe("/board", () => {
 		// lead's session is for: a description that offers a peer the sign contradicts the gate.
 		expect(description).toContain("sign its two gates as the lead");
 		expect(description).toContain(
-			"/board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+			"/board [next | archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		);
 	});
 });

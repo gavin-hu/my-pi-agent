@@ -14,7 +14,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
 import type { ArtifactProof } from "../../lib/workflow/artifact.ts";
-import { cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
+import { cardRef, normalizeCardId, type Card } from "../../lib/workflow/card.ts";
 import type { Lead } from "../../lib/workflow/contract.ts";
 import { isLead, personActor, type Sign, signMark, signOf } from "../../lib/workflow/signs.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
@@ -35,7 +35,7 @@ import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 export const BOARD_COMMAND = "board";
 
 /** The words the command accepts, in the order a user is likely to want them. */
-const BOARD_WORDS = ["archive", "approve", "review", "status", "stop", "team"] as const;
+const BOARD_WORDS = ["next", "archive", "approve", "review", "status", "stop", "team"] as const;
 
 /**
  * The seat's two moves, as the command needs them: taking it when the page it just
@@ -56,7 +56,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, sign its two gates as the lead, take the lead's seat, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+			"Open the shared board in a local browser, sign its two gates as the lead, take the lead's seat, or fold the finished cards away: /board [next | archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
@@ -142,6 +142,23 @@ export function registerCommands(
 				// when it closes itself (the idle grace), and both writes are the same fact.
 				session.serve(undefined);
 				ctx.ui.notify(`${stopped ? "board: stopped" : "board: not running"}${off}`, "info");
+				return;
+			}
+			if (word === "next") {
+				// The boundary is this session's own: what it still holds is the one fact that decides whether
+				// a fresh transcript is a start or an escape. A `blocked` card is parked by somebody else's
+				// decision, so it does not hold the door — and can say so on the next session's own line.
+				const refusal =
+					rest.length > 0 ? nextRefusal({ argued: rest[0] ?? "" }) : nextRefusal(await heldOrFailure(session, ctx));
+				if (refusal !== undefined) {
+					ctx.ui.notify(refusal, "warning");
+					return;
+				}
+				// A replacement mid-stream is the one call whose order the host documents: waiting first is
+				// what `rewind` does before it replaces a view, and a command is the door this is safe at.
+				if (!ctx.isIdle()) await ctx.waitForIdle();
+				const { cancelled } = await ctx.newSession();
+				if (cancelled) ctx.ui.notify(NEXT_CANCELLED, "warning");
 				return;
 			}
 			if (word !== "" && word !== "team") {
@@ -421,4 +438,45 @@ export function dropLine(dropped: StaleDrop, status: BoardPageStatus): string {
 	if (dropped === "live") return `board: nothing to stop here — ${status.seat} is answering on :${status.port}`;
 	if (dropped === "dropped") return `board: dropped ${status.seat}'s note for :${status.port} — it answered nobody`;
 	return `board: nothing to stop here — ${status.seat}'s note for :${status.port} is already gone`;
+}
+
+/** The one failure a replacement can report, because the replacement is the thing that says nothing. */
+export const NEXT_CANCELLED = "board: the new session was cancelled — nothing was replaced";
+
+/**
+ * What a boundary has to answer: the cards this session still holds, the word typed past `next`, or a
+ * read that failed. One of the three, because nothing else is a reason to refuse a new session.
+ */
+export type NextAsk = { argued: string } | { unreadable: true } | { held: readonly Card[] };
+
+/**
+ * Why `/board next` will not start a session yet, or `undefined` when the boundary is clear.
+ *
+ * The gate is this session's own work: a card in `plan` or `execute` is one the transcript was still
+ * holding, and a new one would be leaving rather than finishing. `blocked` is not that — it waits on
+ * a person's decision, and the next transcript's first line names it, so refusing there would trap a
+ * session on the one thing it cannot do itself. A board that could not be read is a refusal too,
+ * since the check is what proves nothing is open; the line names the door that skips the check.
+ */
+export function nextRefusal(ask: NextAsk): string | undefined {
+	if ("argued" in ask) {
+		return "board: /board next takes no card — the session it starts finds yours on its first turn";
+	}
+	if ("unreadable" in ask) {
+		return "board: /board next could not read the board just now — nothing is proved about your cards; /new starts a session anyway";
+	}
+	const open = ask.held.filter((card) => card.lane === "plan" || card.lane === "execute");
+	const first = open[0];
+	if (first === undefined) return undefined;
+	const named = open.map((card) => `${cardRef(card.id)} in ${card.lane}`).join(", ");
+	return open.length === 1
+		? `board: ${named} is still yours — close it, or \`board release ${first.id}\` to start fresh`
+		: `board: ${named} are still yours — close each, or \`board release <id>\` to start fresh`;
+}
+
+/** The cards this session holds, or the answer that says the board could not be read for them. */
+async function heldOrFailure(session: BoardSession, ctx: ExtensionCommandContext): Promise<NextAsk> {
+	const { heldCards } = await import("./context.ts");
+	const held = await heldCards(session, ctx);
+	return held === undefined ? { unreadable: true } : { held };
 }
