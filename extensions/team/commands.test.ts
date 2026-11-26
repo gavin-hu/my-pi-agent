@@ -13,6 +13,7 @@ import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
+import { openBoardSession } from "../../lib/workflow/session.ts";
 import {
 	MAX_ROUND_LINES,
 	type PresenceRow,
@@ -395,5 +396,26 @@ describe("its words", () => {
 		expect(await command.getArgumentCompletions?.("join o")).toEqual([{ value: "ops-core", label: "ops-core" }]);
 		// `help` takes no argument, so a completion after it stops rather than offering names.
 		expect(await command.getArgumentCompletions?.("help ")).toBeNull();
+	});
+
+	test("answers nothing when the store cannot open, rather than throwing at the editor", async () => {
+		// The editor awaits a completer with no catch, so a rejection here is the whole process's
+		// autocomplete; a store that cannot open is a repository this command cannot name.
+		const fake = createFakePi();
+		const unreachable = openBoardSession(fake.pi, {
+			open: async () => {
+				throw new Error("git is not on PATH");
+			},
+		});
+		registerCommands(fake.pi, unreachable);
+		const command = fake.commands.get(TEAM_COMMAND);
+		if (!command) throw new Error("the team command was not registered");
+		const { ctx } = fakeCtx({ cwd: "/repo" });
+		await emit(fake.pi, "session_start", {}, ctx);
+		// `resolves` rather than a null read off a settled call: without the guard this promise
+		// rejects, so the case fails on the rejection the editor would have met, not on a shape.
+		await expect(command.getArgumentCompletions?.("who ")).resolves.toBeNull();
+		// The words are static and read no store: the keystroke after a failed one still completes.
+		expect(await command.getArgumentCompletions?.("w")).toEqual([{ value: "who ", label: "who" }]);
 	});
 });

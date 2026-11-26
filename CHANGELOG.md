@@ -36,6 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `code-review`: a scope change is one reversible rule. The page's tabs, `/review <scope>` and `code_review` all refuse it on the drafts and marks a replacement would destroy — never on sent comments, which the session keeps — with one sentence built in `review/scope-work.ts`, and a refusal from the command or the tool now names the address the page is still open at.
 
+- `team`: `/team who` and `/team join` offer no labels when the board store cannot open, instead of throwing out of the completer — the editor awaits that promise with no catch, so the one rejection used to cost every later Tab in the process, which the host's share of is filed as `earendil-works/pi#12566`.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
