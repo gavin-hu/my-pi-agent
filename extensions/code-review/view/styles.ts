@@ -60,6 +60,11 @@ export const REVIEW_CSS = `
 .rv-del{color:var(--danger)}
 .rv-main{padding:0;gap:0}
 .rv-files-scroll{min-height:0}
+/* The bar floats over the diff's bottom edge, so the last section carries the bar's height as room.
+   Not the scrolling box itself: it is a flex child whose height is the line's, and padding-bottom
+   on a flex child is spent inside that height, so the box would give back nothing to scroll. On
+   the content it is room the diff can move through, and its last row clears the bar (#930). */
+.rv-file:last-child{padding-bottom:var(--rv-bar-inset,0)}
 .rv-banner{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-3) var(--space-5) 0;padding:var(--space-2) var(--space-3);border-left:2px solid var(--warn);background:var(--search-soft);border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm)}
 .rv-banner b{color:var(--text)}
 /* A comment this render has no row for: the diff moved under the line it named, so its thread
