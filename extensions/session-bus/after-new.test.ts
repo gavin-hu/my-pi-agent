@@ -15,7 +15,6 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import sessionBus from "./index.ts";
 import { createSessionBus } from "./runtime.ts";
 import { createBusStore } from "./store.ts";
@@ -95,7 +94,7 @@ describe("a `/new` on a running bus", () => {
 		// only one it can match a published name against.
 		const after = land.open("s-new");
 		const published: SessionLabelEvent[] = [];
-		after.pi.events.on(SESSION_LABEL_CHANNEL, (event) => published.push(event as SessionLabelEvent));
+		after.pi.events.on(SESSION_LABEL_CHANNEL, (event: unknown) => published.push(event as SessionLabelEvent));
 		await reset(before);
 		await emit(after.pi, "session_start", { type: "session_start", reason: "new" }, after.ctx);
 		await after.bus.start(after.ctx);
