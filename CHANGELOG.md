@@ -17,6 +17,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a `/new` no longer takes a session's name off the bar. The reset kept the bus record
+  but the footer's chip went blank, because the label channel published the record's id while its only
+  reader compares its own transcript's, and Pi's title — an entry in the transcript's file a reset
+  begins — was never written again, so a `/resume` of that id started from the repository's name. The
+  channel names the transcript now, a served start writes the row's name back onto it, and a footer
+  that re-installs after a reset drops the listener it replaces rather than adding one.
+
 - `code-review`: four things the page said that were not true now say what the state is. A focused page's
   Commented view blamed a filter nobody typed — `No files match ""` — where the file simply has no comments, so it
   names that and the control that shows the file again; an unmark told a file it was back to "commented" when it
