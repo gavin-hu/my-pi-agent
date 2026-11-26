@@ -11,7 +11,7 @@
  * graph.
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext, SessionShutdownEvent, SessionStartEvent } from "@earendil-works/pi-coding-agent";
 import type { HostIdentity } from "../../lib/session-files.ts";
 import type { LivenessFn, StartTokenFn } from "../../lib/spawn.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
@@ -48,8 +48,21 @@ export interface SessionBusOptions {
 }
 
 export interface SessionBus {
-	start(ctx: ExtensionContext): Promise<void>;
-	stop(): Promise<void>;
+	/**
+	 * Load this session's records, serving the row a `/new` left behind.
+	 *
+	 * The event is optional because a caller that is not the host's lifecycle has no reason to
+	 * give: a join request, a suite, a command. Without one, nothing is served and a record is
+	 * minted, which is what every one of those callers wants.
+	 */
+	start(ctx: ExtensionContext, event?: SessionStartEvent): Promise<void>;
+	/**
+	 * Release this session's resources.
+	 *
+	 * `"new"` keeps the record and its claims, because the process goes on serving them under a
+	 * new transcript; every other reason ends the session and removes what it held.
+	 */
+	stop(event?: SessionShutdownEvent): Promise<void>;
 	status(): Promise<SessionStatus>;
 	/** The live bus, read only: no record refresh, no prune. */
 	snapshot(): Promise<SessionStatus>;

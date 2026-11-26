@@ -31,6 +31,8 @@ export interface BusRecord {
 	pid?: number;
 	/** Whether the session listens for mail, as a join writes it. */
 	watching?: { armed: boolean; wake: boolean };
+	/** The machine that wrote the record, for a case about a bus this machine did not write. */
+	host?: string;
 }
 
 /** Write one session record under `busDir`, and answer the file it wrote. */

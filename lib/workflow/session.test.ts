@@ -7,28 +7,19 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_ROOT } from "../env.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { billingCard } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { agentLabel } from "../session-label.ts";
+import { NOW, offlinePi, openSession, recordOnBus } from "../../test/helpers/board-session.ts";
 import { createStore, openBoard } from "./store.ts";
 import { busDirFor, openBoardSession } from "./session.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-const NOW = 42_000;
-
-/** A pi whose git calls fail, so a directory keys on itself. */
-function offlinePi() {
-	return createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
-}
 
 /** A pi whose git calls report `root` as a repository's root and common dir. */
 function repoPi(root: string) {
@@ -42,137 +33,20 @@ function repoPi(root: string) {
 	});
 }
 
-/** A runtime with a temp agent directory and a fixed clock. */
-function runtimeFor(agentDir: string) {
-	return openBoardSession(offlinePi().pi, { now: () => NOW, agentDir });
-}
-
-/** A repository whose project document states `names` as its team, led by `lead` when one is given. */
-function teamProject(names: readonly string[], lead?: string): string {
-	const cwd = temps.track(tempDir("pi-board-session-"));
-	mkdirSync(join(cwd, ".pi"), { recursive: true });
-	writeFileSync(
-		join(cwd, ".pi", "bytefly.json"),
-		JSON.stringify({ team: { ...(lead === undefined ? {} : { lead }), teammates: names } }),
-	);
-	return cwd;
-}
-
-/**
- * A record on this repository's bus, written where `readRoster` reads it.
- *
- * The label a session writes as comes from here, so a case about a name a person chose
- * has to put the record on the bus first — an empty directory is "no record".
- */
-async function recordOnBus(
-	runtime: ReturnType<typeof runtimeFor>,
-	cwd: string,
-	record: { id: string; label: string; lastSeen?: number; pid?: number },
-): Promise<void> {
-	const { lastSeen = NOW, ...rest } = record;
-	writeBusRecord(await runtime.busDir(cwd), { ...rest, lastSeen });
-}
-
-describe("who", () => {
-	const agentDir = temps.track(tempDir("pi-agent-"));
-
-	test("draws the default team's first free name, not the user's own name", async () => {
-		const runtime = runtimeFor(agentDir);
-		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1", sessionName: "billing-core" });
-		// Pi's session name is the user's, and a rename must not move a card's owner: the draw names the
-		// session from the loader's default team — `gavin` is the lead's own name, so `tom` is free — and
-		// the same call answers the same word every time.
-		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "tom" });
-		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("tom");
-	});
-
-	test("writes as the label the bus already holds for this session", async () => {
-		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
-		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
-		// `/team join core-claims` names the session on the bus, so its cards, its notes, and
-		// the join a claim makes are all that one word rather than a name derived past it.
-		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "core-claims" });
-		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "core-claims" });
-	});
-
-	test("draws from the team when the record is somebody else's, or blank", async () => {
-		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
-		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
-		await recordOnBus(runtime, "/repo/billing", { id: "s-2", label: "core-claims" });
-		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("tom");
-		// A label is text from a file, so it is flattened and capped like any other: an empty
-		// one names like no record at all instead of leaving a blank chip.
-		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "" });
-		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("tom");
-	});
-
-	test("names a session with no record from the first team.teammates name nobody holds", async () => {
-		const agentDir = temps.track(tempDir("pi-agent-"));
-		const runtime = runtimeFor(agentDir);
-		const cwd = teamProject(["gavin", "tom", "sam"], "gavin");
-		// `gavin` is the lead's own name and `tom` a record's, so `sam` is the first this session may
-		// take: the readable word the project already chose, not its id's tail.
-		await recordOnBus(runtime, cwd, { id: "s-2", label: "tom" });
-		const { ctx } = fakeCtx({ cwd, sessionId: "s-1" });
-		expect(await runtime.who(ctx, cwd)).toEqual({ id: "s-1", label: "sam" });
-	});
-
-	test("falls back to the id when the team can give no free name", async () => {
-		const agentDir = temps.track(tempDir("pi-agent-"));
-		const runtime = runtimeFor(agentDir);
-		// Two ways a list gives nothing: it names only the lead, and every name it names is held.
-		for (const [names, held] of [
-			[["gavin"], []],
-			[
-				["tom", "sam"],
-				["tom", "sam"],
-			],
-		] as const) {
-			const cwd = teamProject(names, "gavin");
-			for (const label of held) await recordOnBus(runtime, cwd, { id: `s-${label}`, label });
-			const { ctx } = fakeCtx({ cwd, sessionId: "s-1" });
-			expect((await runtime.who(ctx, cwd)).label).toBe(agentLabel("s-1"));
-		}
-	});
-
-	test("names it as the seat while it serves the page, and as itself again after", async () => {
-		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
-		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
-		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "core-claims" });
-		expect(runtime.serving()).toBeUndefined();
-		runtime.serve("team-lead");
-		expect(runtime.serving()).toBe("team-lead");
-		// The page a session serves is a role, so it outranks the name the team gave it.
-		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-lead" });
-		runtime.serve(undefined);
-		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("core-claims");
-	});
-
-	test("keeps the readable chain for a host that reports no id", async () => {
-		const runtime = runtimeFor(agentDir);
-		const named = fakeCtx({ cwd: "/repo/billing", sessionId: "", sessionName: "billing-core" });
-		expect((await runtime.who(named.ctx, "/repo/billing")).label).toBe("billing-core");
-		const anonymous = fakeCtx({ cwd: "/repo/billing", sessionId: "" });
-		const who = await runtime.who(anonymous.ctx, "/repo/billing");
-		expect(who.id).toBeUndefined();
-		expect(who.label).toBe("billing");
-	});
-});
-
 describe("team", () => {
 	test("has no standing until something asks for one", () => {
-		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const runtime = openSession(temps.track(tempDir("pi-agent-")));
 		expect(runtime.team.last()).toBeUndefined();
 	});
 
 	test("keeps the label and whether mail will reach the session", () => {
-		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const runtime = openSession(temps.track(tempDir("pi-agent-")));
 		runtime.team.record({ ok: true, label: "team-agent-s1", watching: { armed: true, wake: false } });
 		expect(runtime.team.last()).toMatchObject({ ok: true, label: "team-agent-s1" });
 	});
 
 	test("keeps a failure, so a line can say why, and a later attempt replaces it", () => {
-		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const runtime = openSession(temps.track(tempDir("pi-agent-")));
 		runtime.team.record({ ok: false, error: "the session bus is not loaded" });
 		// A failure is not "on the team": a caller reads `ok` to decide whether to ask again.
 		expect(runtime.team.last()?.ok).toBe(false);
@@ -220,7 +94,7 @@ describe("one session per host", () => {
 describe("store", () => {
 	test("opens one store per working directory", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		const first = await runtime.store("/repo/billing");
 		const second = await runtime.store("/repo/billing");
 		expect(second).toBe(first);
@@ -233,7 +107,7 @@ describe("store", () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
 		const worktree = temps.track(tempDir("pi-worktree-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		const inside = await withEnv({ [ENV_ROOT]: worktree }, () => runtime.store(cwd));
 		expect(inside.root()).toBe(worktree);
 		const back = await withEnv({ [ENV_ROOT]: undefined }, () => runtime.store(cwd));
@@ -268,14 +142,14 @@ describe("store", () => {
 	test("files a repository-less directory under a local- name in the agent directory", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		const store = await runtime.store(cwd);
 		expect(store.dir.startsWith(join(agentDir, "repos", "local-"))).toBe(true);
 	});
 
 	test("files two directories separately", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		const one = await runtime.store(temps.track(tempDir("pi-cwd-")));
 		const other = await runtime.store(temps.track(tempDir("pi-cwd-")));
 		expect(one.dir).not.toBe(other.dir);
@@ -286,7 +160,7 @@ describe("busDir", () => {
 	test("names the bus directory beside the board's, inside the repository's own directory", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		const store = await runtime.store(cwd);
 		// Siblings under `repos/<id>/`: the bus is derived from the store's own directory, so the
 		// two cannot drift about which repository or which id they belong to.
@@ -304,7 +178,7 @@ describe("busDir", () => {
 
 	test("resolves once per working directory", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		const first = runtime.busDir("/repo/billing");
 		expect(runtime.busDir("/repo/billing")).toBe(first);
 		await first;
@@ -339,7 +213,7 @@ describe("holder", () => {
 	test("binds the bus's answer to the owner it was read for", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		await recordOnBus(runtime, cwd, { id: "s-core", label: "billing-core" });
 		const card = heldBy("s-core", "billing-core");
 		expect(await runtime.holder(cwd, card)).toEqual({ owner: { id: "s-core", label: "billing-core" }, state: "live" });
@@ -348,7 +222,7 @@ describe("holder", () => {
 	test("answers absent for an owner the bus has recorded nobody under", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		await recordOnBus(runtime, cwd, { id: "s-lead", label: "billing-lead" });
 		const card = heldBy("s-core", "billing-core");
 		expect(await runtime.holder(cwd, card)).toEqual({
@@ -361,7 +235,7 @@ describe("holder", () => {
 		// No bus is a question: a machine that has recorded nobody cannot say a session stopped.
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		expect(await runtime.holder(cwd, heldBy("s-core", "billing-core"))).toBeUndefined();
 		expect(await runtime.holder(cwd, billingCard())).toBeUndefined();
 	});
@@ -392,14 +266,14 @@ describe("planDir", () => {
 	test("files a directory outside a repository under the same identity as its board", async () => {
 		// The branch a copy gets wrong: the flat store is the mover's spelling now, not this one's.
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const runtime = runtimeFor(agentDir);
+		const runtime = openSession(agentDir);
 		const planDir = await runtime.planDir("/repo/billing");
 		expect(planDir).toBe(join(dirname((await runtime.store("/repo/billing")).dir), "plans"));
 		expect(dirname(dirname(planDir))).toBe(join(agentDir, "repos"));
 	});
 
 	test("resolves once per working directory", async () => {
-		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const runtime = openSession(temps.track(tempDir("pi-agent-")));
 		const first = runtime.planDir("/repo/billing");
 		expect(runtime.planDir("/repo/billing")).toBe(first);
 		await first;
@@ -408,7 +282,7 @@ describe("planDir", () => {
 
 describe("now", () => {
 	test("is the injected clock", () => {
-		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const runtime = openSession(temps.track(tempDir("pi-agent-")));
 		expect(runtime.now()).toBe(NOW);
 	});
 });

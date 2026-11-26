@@ -317,6 +317,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"unaccounted",
 		"extension",
 		"seat-release",
+		"own-record",
 	],
 	"web-access": ["fetch/extract", "fetch/fetch", "fetch/schema", "fetch/structured", "search/search", "http"],
 	wechat: [
@@ -417,6 +418,7 @@ export const LIB_SUITES: readonly string[] = [
 	"workflow/tone",
 	"workflow/verify",
 	"workflow/view",
+	"workflow/who",
 	"bus-request",
 	"browser",
 	"child",

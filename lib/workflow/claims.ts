@@ -97,11 +97,12 @@ function samePaths(before: Card, after: Card): boolean {
  * Claim the paths of the cards this session already holds in `execute`, and say what was not held.
  *
  * The first turn after a session starts is the one write this module makes without a lane
- * crossing: the bus forgets a session's claims when it stops, and a resumed session is holding
- * the same card. Best-effort by design — the first turn must not fail on a bus, and the claim
- * it repeats is idempotent — but not silent: a refusal or a conflict is one clause the injected
- * line carries, because a failure nobody hears is what made this re-claim a no-op in the first
- * place. `undefined` is every ordinary answer: no bus, no execute card with paths, or all held.
+ * crossing: the bus forgets a session's claims when its process ends, and a session resumed in a
+ * new process is holding the same card. (A `/new` is not that: the record keeps its claims, so the
+ * reset has nothing to take back.) Best-effort by design — the first turn must not fail on a bus,
+ * and the claim it repeats is idempotent — but not silent: a refusal or a conflict is one clause the
+ * injected line carries, because a failure nobody hears is what made this re-claim a no-op in the
+ * first place. `undefined` is every ordinary answer: no bus, no execute card with paths, or all held.
  */
 export async function reclaimHeld(
 	claims: Claims,

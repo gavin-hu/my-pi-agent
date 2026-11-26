@@ -78,6 +78,13 @@ export interface BoardHarnessOptions {
 	/** The suite's temp tracker, so a directory this creates is cleaned up. */
 	track?: <T extends string | undefined>(dir: T) => T;
 	/**
+	 * The process this session is worked from, for a case about a transcript reset.
+	 *
+	 * A `/new` keeps the bus record the process serves, so a session with a new id is only named by
+	 * the row it left if the row's pid is the one it runs as (#915). Defaults to the real process.
+	 */
+	pid?: number;
+	/**
 	 * The `serve` section the project document states, beside the team.
 	 *
 	 * The page's tab is `serve.autoOpen`, so a case about a page that opens none states it here
@@ -123,12 +130,12 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 	// non-repository session takes, and one less subprocess per case. A case that needs a
 	// repository (a move to done records its commit) passes `exec`.
 	const fake = createFakePi({ exec: options.exec ?? (async () => ({ stdout: "", stderr: "", code: 1 })) });
-	const runtime = openBoardSession(
-		fake.pi,
-		options.claims === undefined
-			? { now: options.clock ?? (() => now), agentDir }
-			: { now: options.clock ?? (() => now), agentDir, claims: options.claims },
-	);
+	const runtime = openBoardSession(fake.pi, {
+		now: options.clock ?? (() => now),
+		agentDir,
+		...(options.claims === undefined ? {} : { claims: options.claims }),
+		...(options.pid === undefined ? {} : { pid: options.pid }),
+	});
 	const { ctx, notifications } = fakeCtx({
 		cwd,
 		sessionId: options.sessionId ?? "s-lead",

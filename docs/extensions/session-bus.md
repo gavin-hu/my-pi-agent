@@ -99,8 +99,8 @@ authentication between sessions; the [agent directory](../security.md#the-agent-
 - Pull-based for a bare `session join`: a message waits for a session that is not listening. A board
 or team join asks for `wake`, so a handoff, an ask, or a sign starts a turn in an idle teammate.
 - Reading is not joining: `/sessions` shows a board you are not on until you join or act.
-- Membership is per session and does not survive a resume or a restart; the watch mode does, with unread mail and the
-derived label — a record says `off`, `on`, or `wake`, and a start adopts it, so `off` stays off until a person asks again.
+- Membership belongs to the process, not the transcript: a `/new` keeps the record — its name, its
+watch, its claims and its unread count — while a quit ends it and frees the label once the row ages out.
 - The board acts on your own state only — it never consumes mail or touches a peer's claims.
 - Two listening peers can wake each other in a loop; stop listening on one.
 - A fan-out is one file per inbox, so it can be partial; the result names the delivered and the missed.
