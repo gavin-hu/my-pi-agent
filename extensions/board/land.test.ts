@@ -95,6 +95,19 @@ describe("landSubject", () => {
 		);
 	});
 
+	test("names `docs` for a card whose subject is a documented root file", () => {
+		// #932's landing, verbatim: the changelog rides every card and the manifest rides the code, so
+		// the one test file that measured the change was the only path with a directory to name, and a
+		// `CONTRIBUTING.md` card landed `merge(test)`.
+		expect(landScope(boardCard("1", { paths: ["CONTRIBUTING.md", "test/drift.test.ts", "CHANGELOG.md"] }))).toBe(
+			"docs",
+		);
+		expect(landScope(boardCard("2", { paths: ["AGENTS.md", "test/drift.test.ts"] }))).toBe("docs");
+		// The manifest answers nothing, so a rider cannot outvote the code it accompanies.
+		expect(landScope(boardCard("3", { paths: ["package.json", "lib/workflow/land.ts"] }))).toBe("lib");
+		expect(landScope(boardCard("4", { paths: ["CONTRIBUTING.md", "package.json"] }))).toBe("docs");
+	});
+
 	test("falls to the title when no extension is named, so a lib card is not the landing door's", () => {
 		// #868's shape, which landed `merge(board)` under a `session-bus:` title.
 		expect(

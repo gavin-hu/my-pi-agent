@@ -107,10 +107,23 @@ function topOf(path: string): string | undefined {
 	return rest.length === 0 ? undefined : top;
 }
 
-/** The area a path is in: its top-level directory, unless that is `extensions` — a container, not an area. */
+/** The documentation a reader keeps beside the code: a card whose subject is one of these is `docs` work. */
+const DOCS_ROOT = new Set(["AGENTS.md", "CONTRIBUTING.md", "README.md", "README.zh-CN.md"]);
+
+/**
+ * The area a path names: its top-level directory, unless that is `extensions` — a container, not an
+ * area — or, for a file at the repository root, `docs` when that file is documentation.
+ *
+ * `package.json` and `CHANGELOG.md` name no area on purpose. Both ride another card's work: the
+ * manifest is bumped beside the code it describes, and the changelog bullet rides every card, so
+ * either one answering would let a rider outvote the work it accompanies. #932 is what the table is
+ * for — `CONTRIBUTING.md`'s roster, with `test/drift.test.ts` holding its word ceiling, landed
+ * `merge(test)` because the one test file was the only path with a directory to name.
+ */
 function areaOf(path: string): string | undefined {
 	const top = topOf(path);
-	return top === "extensions" ? undefined : top;
+	if (top !== undefined) return top === "extensions" ? undefined : top;
+	return DOCS_ROOT.has(path) ? "docs" : undefined;
 }
 
 /**
