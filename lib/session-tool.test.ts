@@ -10,6 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fakeCtx } from "../test/helpers/context.ts";
+import { requestHost as host } from "../test/helpers/session-request.ts";
 import {
 	busLoaded,
 	claimPaths,
@@ -58,29 +59,6 @@ function nestedHost(): never {
 function commandCtx(): ExtensionContext {
 	const { executeTool: _executeTool, ...rest } = fakeCtx().ctx as Record<string, unknown>;
 	return rest as unknown as ExtensionContext;
-}
-
-/**
- * A host whose `session` tool is (or is not) registered, and whose request reaches `answer`.
- *
- * The request's shape is the caller's: `join` and `send` ask on two channels with two
- * payloads, so a case says which one it is answering.
- */
-function host<R>(answer?: (request: R) => void, options: { loaded?: boolean } = {}) {
-	const emitted: Array<{ channel: string; data: unknown }> = [];
-	return {
-		emitted,
-		host: {
-			events: {
-				on: () => () => {},
-				emit: (channel: string, data: unknown) => {
-					emitted.push({ channel, data });
-					if (answer) answer(data as R);
-				},
-			},
-			getAllTools: () => (options.loaded === false ? [] : [{ name: "session" }]),
-		},
-	};
 }
 
 describe("join", () => {

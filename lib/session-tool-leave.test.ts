@@ -9,30 +9,8 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { requestHost as host } from "../test/helpers/session-request.ts";
 import { leave, type TeamLeaveRequest, TEAM_LEAVE_REQUEST } from "./session-tool.ts";
-
-/**
- * A host whose `session` tool is (or is not) registered, and whose request reaches `answer`.
- *
- * The same double `session-tool.test.ts` builds for the join: a leave is one more payload on one
- * more channel, so a case says only what its answer is.
- */
-function host<R>(answer?: (request: R) => void, options: { loaded?: boolean } = {}) {
-	const emitted: Array<{ channel: string; data: unknown }> = [];
-	return {
-		emitted,
-		host: {
-			events: {
-				on: () => () => {},
-				emit: (channel: string, data: unknown) => {
-					emitted.push({ channel, data });
-					if (answer) answer(data as R);
-				},
-			},
-			getAllTools: () => (options.loaded === false ? [] : [{ name: "session" }]),
-		},
-	};
-}
 
 describe("leave", () => {
 	test("asks the bus once, on its own channel, and reports what it gave up", async () => {
