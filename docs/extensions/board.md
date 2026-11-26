@@ -27,7 +27,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | Approve the contract | `/board approve 4` in the lead's session, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
 | Park a card | `board move 4 blocked blocker decision blockedBy "waiting on the API owner"` |
-| Sign off finished work | `/board review 4` in the lead's session, then `board move 4 done` |
+| Sign off finished work | `/board review 4` in the lead's session, then `board move 4 done`, and `/board next` starts the next session — once nothing of yours is in `plan` or `execute`; the page and its seat end with it, the record does not |
 | Explain something | `board note 4 "why the retry is capped at three"` |
 | Set finished work aside | `/board archive` in the lead's session, or the `board` action `archive` from any session |
 | Read the round | `board list round: true`, or `/team` — owners, unassigned, unplanned, awaiting approval, awaiting review, untold, blocked, done |
@@ -67,10 +67,10 @@ declaring another card, or a squashed branch its subject names. A reviewed merge
 only while it is the tip; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
 A folded card names that merge in `landed`; the argument is checked at or below its spot-check, never above it.
 
-**Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints
-the URL, and a remote turn says the browser needs this machine); `/board approve <id>` and `review <id>
-[--root <tree>]` sign, `archive` sweeps, `status` prints the seat, repository, port, and tabs, and `stop`
-ends the page and the seat together: leaving the seat costs the live round, and `/board` re-takes both.
+**Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints the URL, and a
+remote turn says the browser needs this machine); `/board next` starts a new session at a boundary; `/board approve
+<id>` and `review <id> [--root <tree>]` sign, `archive` sweeps, `status` prints the seat, repository, port, and tabs,
+and `stop` ends the page and the seat together: leaving the seat costs the live round, and `/board` re-takes both.
 
 **Who signs.** The lead is `team.lead` in `bytefly.json` (default `gavin`), and the page serves as that name; an
 empty lead lets only the person sign and serves no page. A session signs only while it is the lead, never while

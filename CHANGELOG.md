@@ -15,6 +15,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a start whose reason is `new` serves the row the one before it left, and every other reason — a
   quit, a reload, a `/resume`, a fork — ends the membership as it did.
 
+- `board`: `/board next` starts the next session at a card boundary, so finishing a card and starting the
+  next is one word rather than a `/new` plus a read of what is still yours. It asks first: a card of this
+  session's in `plan` or `execute` refuses and is named, while a `blocked` one — parked on somebody else's
+  decision — goes through and is listed on the next transcript's own line. A board that cannot be read
+  refuses too, naming `/new` as the door that skips the check, and a cancelled replacement is said. The
+  page and the seat end with the session it replaces; the record does not, because the teardown carries
+  the reason #915 keeps it by.
+
 ### Fixed
 
 - `session-bus`: a `/new` no longer takes a session's name off the bar. The reset kept the bus record
