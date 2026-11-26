@@ -11,9 +11,10 @@
  * same reason: a session that never lands a card never loads the git seams it would need.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
+import { type Deliver, createDeliver } from "../../lib/session-tool.ts";
 import { cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
 import type { Card } from "../../lib/workflow/card.ts";
 import { missingSign } from "../../lib/workflow/lead.ts";
@@ -29,8 +30,8 @@ export interface LandStore {
 
 /** What the door is handed: the tool's call, and the session making it. */
 export interface LandDoorOptions {
-	/** The host, for `pi.exec` — the git seam is `createExecRunner`'s. */
-	pi: Pick<ExtensionAPI, "exec">;
+	/** The host, for `pi.exec` — the git seam is `createExecRunner`'s — and the bus seam's own halves. */
+	pi: Pick<ExtensionAPI, "exec" | "events" | "getAllTools">;
 	/** The session's board: the store, and the config the lead's name comes from. */
 	runtime: { store(cwd: string): Promise<LandStore> };
 	/** The call's context: its working directory is the checkout a landing runs in. */
@@ -39,6 +40,8 @@ export interface LandDoorOptions {
 	me: Actor;
 	/** The card the call named, as the model sent it: a call without one is refused, not defaulted. */
 	card: string | undefined;
+	/** The bus seam, for the notice the holder gets; the production default is `createDeliver(pi)`. */
+	notify?: Deliver;
 }
 
 /** The answer the tool wraps: the landing's line, or the sentence that stopped it. */
@@ -98,9 +101,46 @@ export async function landCardDoor(options: LandDoorOptions): Promise<LandDoorAn
 		run: createExecRunner(pi),
 	});
 	if ("error" in answer) return { kind: "refused", error: answer.error, card };
+	const told = await tellHolder({
+		pi,
+		ctx,
+		card,
+		lead,
+		merged: answer.merge,
+		...(options.notify === undefined ? {} : { notify: options.notify }),
+	});
 	return {
 		kind: "landed",
-		text: `Landed: merge ${answer.merge.slice(0, 8)} — ${answer.subject}\nproof: ${proofText(answer.rows)} · pushed ${answer.pushed}`,
+		text: `Landed: merge ${answer.merge.slice(0, 8)} — ${answer.subject}\nproof: ${proofText(answer.rows)} · pushed ${answer.pushed}${told}`,
 		card,
 	};
+}
+
+/**
+ * Tell the card's holder the merge is on `main` and the close is theirs.
+ *
+ * Best effort in the one direction that matters: the merge is pushed by now, so a bus that refuses
+ * costs a clause on the seat's line and never an undo. The role resolves against the card's own
+ * owner record, so a holder whose session has exited keeps the message for its next turn.
+ */
+async function tellHolder(options: {
+	pi: Pick<ExtensionAPI, "events" | "getAllTools">;
+	ctx: { cwd: string };
+	card: Card;
+	lead: string;
+	merged: string;
+	notify?: Deliver;
+}): Promise<string> {
+	const { deliverNotice } = await import("./notices.ts");
+	const told = await deliverNotice({
+		kind: "land",
+		card: options.card,
+		lead: options.lead,
+		merged: options.merged,
+		// The seam reads the context only to make its tool call, which runs in `cwd`: a landing
+		// always passes the tool's own context through, and a suite hands it the same `{ cwd }`.
+		ctx: options.ctx as ExtensionContext,
+		deliver: options.notify ?? createDeliver(options.pi),
+	});
+	return told.line === undefined ? "" : `\n${told.line}`;
 }

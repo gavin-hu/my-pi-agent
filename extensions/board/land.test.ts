@@ -8,6 +8,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { signBus, type Sent } from "../../test/helpers/board-signs.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
 import { boardCard } from "../../test/helpers/fixtures/board.ts";
 import {
 	Answer,
@@ -259,6 +261,7 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 		lane: "execute",
 		title: "board: land is a reviewed card's verb, not a mode exit",
 		paths: ["extensions/board/actions.ts"],
+		owner: { label: "jack" },
 		review: {
 			by: "gavin",
 			at: 10,
@@ -272,22 +275,28 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 	}
 
 	/** `pi.exec` as the door's seam, answering from the same script the unit cases use. */
-	function host(script: Record<string, Answer | Answer[]>) {
+	function host(script: Record<string, Answer | Answer[]>, bus: { fail?: string; delivered?: string } = {}) {
 		const git = fakeGit(script);
+		const sent: Sent[] = [];
 		return {
 			git,
-			pi: {
+			sent,
+			// `createFakePi` hands back the double and its recorders; the host is the `.pi` half.
+			pi: createFakePi({
 				exec: async (_command: string, args: string[], options?: { cwd?: string }) => {
 					const result = await git.run(args, { cwd: options?.cwd ?? "/checkout" });
-					return { stdout: result.stdout, stderr: result.stderr, code: result.code, killed: false, truncated: false };
+					return { stdout: result.stdout, stderr: result.stderr, code: result.code };
 				},
-			},
+			}).pi,
+			notify: signBus({ sent, delivered: "jack", ...bus }),
 		};
 	}
 
 	test("refuses a session that is not the seat, naming the door that is open", async () => {
+		const { pi, notify } = host(cleanLanding());
 		const answer = await landCardDoor({
-			pi: host(cleanLanding()).pi,
+			pi,
+			notify,
 			runtime: board(EXECUTED),
 			ctx: { cwd: "/checkout" },
 			me: { id: "s-tom", label: "tom" },
@@ -298,8 +307,10 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 
 	test("refuses a card that is not in execute, and hands the card back", async () => {
 		const card = boardCard("1");
+		const { pi, notify } = host(cleanLanding());
 		const answer = await landCardDoor({
-			pi: host(cleanLanding()).pi,
+			pi,
+			notify,
 			runtime: board(card),
 			ctx: { cwd: "/checkout" },
 			me: { label: "gavin", seat: true },
@@ -309,8 +320,10 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 	});
 
 	test("refuses a card whose spot-check records no tree", async () => {
+		const { pi, notify } = host(cleanLanding());
 		const answer = await landCardDoor({
-			pi: host(cleanLanding()).pi,
+			pi,
+			notify,
 			runtime: board(boardCard("1", { lane: "execute" })),
 			ctx: { cwd: "/checkout" },
 			me: { label: "gavin", seat: true },
@@ -320,9 +333,10 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 	});
 
 	test("lands through the door: the line names the merge, the proof and the push", async () => {
-		const { pi, git } = host(cleanLanding());
+		const { pi, git, notify } = host(cleanLanding());
 		const answer = await landCardDoor({
 			pi,
+			notify,
 			runtime: board(EXECUTED),
 			ctx: { cwd: "/checkout" },
 			me: { label: "gavin", seat: true },
@@ -330,8 +344,43 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 		});
 		expect(answer).toMatchObject({
 			kind: "landed",
-			text: "Landed: merge 44444444 — merge(board): land is a reviewed card's verb, not a mode exit (#856)\nproof: CHANGELOG.md 5/0 · extensions/board/lead-gate.test.ts 59/0 · pushed origin main",
+			text: "Landed: merge 44444444 — merge(board): land is a reviewed card's verb, not a mode exit (#856)\nproof: CHANGELOG.md 5/0 · extensions/board/lead-gate.test.ts 59/0 · pushed origin main\n  told jack",
 		});
+		expect(git.calls.at(-1)).toEqual(["push", "origin", "main:main"]);
+	});
+
+	test("tells the holder the merge is theirs to close, once, as the event the close hangs off", async () => {
+		// The last step of the loop had no message: the seat merged and the holder found out by
+		// polling `origin/main`. The sha is in the sentence because `done` resolves against it.
+		const { pi, notify, sent } = host(cleanLanding());
+		await landCardDoor({
+			pi,
+			notify,
+			runtime: board(EXECUTED),
+			ctx: { cwd: "/checkout" },
+			me: { label: "gavin", seat: true },
+			card: "856",
+		});
+		expect(sent).toHaveLength(1);
+		expect(sent[0]).toMatchObject({ kind: "event", to: "jack", about: "856" });
+		expect(sent[0]?.text).toContain("merge 44444444 on main");
+		expect(sent[0]?.text).toContain('lane "done"');
+	});
+
+	test("a refused send costs a clause, and the landing stands", async () => {
+		// The merge is pushed before the message is composed, so a bus that refuses can never undo
+		// it: the seat reads who was not told, and the card is landed all the same.
+		const { pi, git, notify } = host(cleanLanding(), { fail: "the session bus is not loaded" });
+		const answer = await landCardDoor({
+			pi,
+			notify,
+			runtime: board(EXECUTED),
+			ctx: { cwd: "/checkout" },
+			me: { label: "gavin", seat: true },
+			card: "856",
+		});
+		expect(answer.kind).toBe("landed");
+		expect(answer.kind === "landed" ? answer.text : "").toContain("jack was not told (the session bus is not loaded)");
 		expect(git.calls.at(-1)).toEqual(["push", "origin", "main:main"]);
 	});
 });
