@@ -44,7 +44,7 @@ import type { CardType } from "./kind.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG } from "./config.ts";
 import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
-import { archive, assign, claim, closedArchive, drop, edit, move, note, offer, release, reseat } from "./steps.ts";
+import { archive, assign, claim, closedArchive, drop, edit, move, note, offer, release } from "./steps.ts";
 
 import type { NoticeField } from "./contract.ts";
 import { announced, type HolderFact } from "./signs.ts";
@@ -180,12 +180,6 @@ export type CardOp =
 			 */
 			swept?: boolean;
 	  }
-	/**
-	 * Hand the card to the session standing in its owner's seat: the id is re-pointed and nothing else
-	 * moves. `holder` is the bus's answer about the owner the card names, bound as `reclaim`'s is, so a
-	 * card that changed hands under the read is re-seated on no fact at all.
-	 */
-	| { kind: "reseat"; holder?: HolderFact }
 	/**
 	 * Record that the card was offered to the team: `team offer` broadcasts it on the bus
 	 * and then writes this, because an event nobody answers otherwise leaves no trace.
@@ -340,8 +334,6 @@ function prepare(
 			return edit(card, op, actor, board);
 		case "reclaim":
 			return reclaim(card, actor, config, op.holder, op.swept);
-		case "reseat":
-			return reseat(card, actor, now, op.holder);
 		case "announced":
 			return announced(card, op, actor, config, now);
 		case "offer":

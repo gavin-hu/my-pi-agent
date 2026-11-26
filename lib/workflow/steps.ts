@@ -15,7 +15,6 @@
  */
 
 import { listOf } from "../format.ts";
-import { shortId } from "../session-label.ts";
 import { type ArtifactProof, proved } from "./artifact.ts";
 import {
 	BLOCKERS,
@@ -46,7 +45,6 @@ import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
 import { contractRoute, LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import {
 	heldBy,
-	heldState,
 	holderRefusal,
 	mayMove,
 	missingSign,
@@ -55,7 +53,7 @@ import {
 	signRefusal,
 	spotCheckRefusal,
 } from "./lead.ts";
-import { appendNote, type HolderFact, owesAnnouncement, signedAs, signMark } from "./signs.ts";
+import { appendNote, owesAnnouncement, signedAs, signMark } from "./signs.ts";
 import { ownerRefusal, type WipLimits, wipRefusal } from "./limits.ts";
 import { owesHandoff } from "./card.ts";
 import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependentsOf, waitingOn } from "./links.ts";
@@ -116,55 +114,6 @@ function releasedToPool(): Partial<Card> {
 		// back is not finished, so the sign cannot travel with it. A `reclaim` keeps it instead:
 		// the sign is evidence, and only its signer withdraws it (`lead.ts`).
 		review: undefined,
-	};
-}
-
-/**
- * Hand a card back to the session standing in its owner's seat.
- *
- * A `/resume` is a new session id under the same label, so a card its old id holds is one the
- * resumed session cannot write — and the turn-start sweep is where that is decided, because it
- * already reads the roster. The owner's id is re-pointed and nothing else moves: the lane, the
- * contract, the approval, the spot-check and the WIP slot the card occupies are all the work
- * itself, and pooling it (which `reclaim` does) would spend them.
- *
- * Who may: a caller wearing the owner's label, while the bus says that owner is `gone` or
- * `absent`. `quiet` is refused on purpose — a quiet record may be a peer that is still running,
- * and handing one session's card to another because a heartbeat aged out is the confusion
- * `unresolved` exists to prevent. Waiting costs nothing: the sweep runs at every turn start, so
- * the next turn after that record ages to `gone` re-seats the card.
- *
- * `absent` is the weaker evidence — a record the bus pruned, not a session it watched stop — and
- * it is admitted only for a caller's own seat. The sweep says which of the two it acted on.
- */
-export function reseat(card: Card, actor: Actor, now: number, holder?: HolderFact): Prepared {
-	const ref = cardRef(card.id);
-	if (LANE_RULES[card.lane].terminal) return { error: `${ref} is done; there is nothing to re-seat.` };
-	const owner = card.owner;
-	if (owner === undefined) return { error: `${ref} has no owner to re-seat.` };
-	if (owner.handoff?.unresolved === true) {
-		return { error: `${ref}'s owner is a label the bus could not name, so no session can stand in its seat.` };
-	}
-	if (owner.label.toLowerCase() !== actor.label.toLowerCase()) {
-		return { error: `${ref} is held by ${owner.label}; only that name can stand in its seat.` };
-	}
-	// A re-seat writes a session id, so a caller the bus cannot name is refused rather than stored empty.
-	if (actor.id === undefined) {
-		return { error: `${ref} can be re-seated only by a session the bus names; this caller has no id.` };
-	}
-	const state = heldState(card, holder);
-	if (state !== "gone" && state !== "absent") {
-		const why = state === undefined ? "nothing says it stopped" : `it is ${state}`;
-		return { error: `${ref}'s owner is not stopped — ${why} — so only the lead takes its card.` };
-	}
-	// The old id goes into a note, never the lane log: `laneSince` reads it to decide if a sign is stale.
-	const from = owner.id === undefined ? "a label-only owner" : `owner ${shortId(owner.id)}`;
-	return {
-		changed: true,
-		fields: {
-			owner: { ...owner, id: actor.id, label: actor.label },
-			...appendNote(card, actor.label, now, `re-seated from ${from}, whose session had stopped`),
-		},
 	};
 }
 

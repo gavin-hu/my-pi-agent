@@ -403,7 +403,6 @@ export const LIB_SUITES: readonly string[] = [
 	"workflow/reason",
 	"workflow/reclaim",
 	"workflow/refusal-order",
-	"workflow/reseat",
 	"workflow/round",
 	"workflow/round-text",
 	"workflow/settings-root",
