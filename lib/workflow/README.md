@@ -331,8 +331,11 @@ last join did, so a claim joins and `/board status` can say — and `openBoardSe
 store per working directory, opened on first use and remembered, because the repository
 lookup shells out to git; a failed open is not remembered, so one bad read does not outlive
 the call that hit it. The identity is the pair a card records: the Pi session id, which keeps
-a card held across a rename, and the name the bus already holds for it, else the first free
-`team.teammates` name, else the id-derived one.
+a card held across a rename and across a transcript reset, and the name the bus already holds
+for it, else the first free `team.teammates` name, else the id-derived one. The row `who`
+reads that id off is the id's own first, then the one this *process* serves — a `/new` keeps
+that record, so the id a card is owned by survives the reset — and never a row another machine
+wrote, whose pid is a number that may coincide.
 
 One session per *host*, not one per extension: `board` and `team` load with separate module
 caches, so two sessions would mean the seat `/board` sets is invisible to every write `team`

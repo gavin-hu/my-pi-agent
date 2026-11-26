@@ -24,7 +24,12 @@
  */
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+	SessionShutdownEvent,
+	SessionStartEvent,
+} from "@earendil-works/pi-coding-agent";
 import { pruneStaleNotices, type NoticeMessage } from "./notice.ts";
 
 export interface PendingReporterOptions<T> {
@@ -133,12 +138,21 @@ export interface PendingChannelRuntime {
 	 * Called, not awaited: the scan runs beside the rest of the reload, and the report trigger
 	 * is armed when it lands, so a runtime that resolves a repository or opens a store is still
 	 * fully loaded before anything is reported.
+	 *
+	 * The event is handed over because its `reason` is the one fact a runtime cannot read from
+	 * anywhere else: the host spells a `/new` nowhere but here, and a runtime that keeps state
+	 * across a replaced transcript has to know it was one.
 	 */
-	load(ctx: ExtensionContext): void | Promise<void>;
+	load(ctx: ExtensionContext, event: SessionStartEvent): void | Promise<void>;
 	/** Repaint the status chip; a runtime that publishes none omits it. */
 	setStatus?(ctx: ExtensionContext): void;
-	/** Release the session's resources; idempotent. */
-	shutdown(): Promise<void>;
+	/**
+	 * Release the session's resources; idempotent.
+	 *
+	 * The event carries the reason for the same one as `load`, on the other edge: `"new"` is a
+	 * transcript the process goes on serving, and every other reason ends it.
+	 */
+	shutdown(event: SessionShutdownEvent): Promise<void>;
 }
 
 export interface PendingChannelOptions {
@@ -168,12 +182,12 @@ export function registerPendingChannel(
 ): void {
 	let armed: Promise<void> = Promise.resolve();
 
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", (event, ctx) => {
 		reporter.sessionStart();
 		// Started, not awaited: the scan runs beside the reload. The trigger is armed when it
 		// lands, which is the same order the awaited form had — the waiting moved to the
 		// readers below, so a lifecycle event no longer pays for a scan nobody has asked for.
-		armed = Promise.resolve(runtime.load(ctx)).then(
+		armed = Promise.resolve(runtime.load(ctx, event)).then(
 			() => onSessionStart?.(ctx),
 			(error: unknown) => {
 				// The load failed: arm anyway, so a reporter that still has something to say is
@@ -212,11 +226,11 @@ export function registerPendingChannel(
 	// pruned; another source's are left for its own handler.
 	pi.on("context", (event) => reporter.filterContext(event.messages));
 
-	pi.on("session_shutdown", async () => {
+	pi.on("session_shutdown", async (event) => {
 		// A load still running is awaited before the runtime is released, and its failure is
 		// swallowed here: a shutdown must release what exists even if the scan did not finish.
 		await armed.catch(() => {});
 		onSessionShutdown?.();
-		await runtime.shutdown();
+		await runtime.shutdown(event);
 	});
 }

@@ -123,6 +123,25 @@ describe("the sweep at a turn start", () => {
 		expect((await lead.call({ action: "list", card: "2" })).details.card?.owner).toBeUndefined();
 	});
 
+	test("leaves alone the card a session serves across a `/new`", async () => {
+		// One process, two transcripts: the reset kept the record (#915), so the row a peer addresses —
+		// and the id the card is owned by — is the one the previous transcript worked under.
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const pid = 4_242;
+		const open = (sessionId: string) => boardTool({ cwd, agentDir, lead: LEAD, now: NOW, sessionId, pid });
+		const lead = open(LEAD_ID);
+		const before = open(PEER_ID);
+		await lead.call({ action: "add", title: "One" });
+		await before.call({ action: "claim", card: "1" });
+		await record(before.board.runtime, cwd, { pid, lastSeen: NOW });
+
+		const after = open("after-a-new");
+		expect((await after.board.runtime.who(after.board.ctx, cwd)).id).toBe(PEER_ID);
+		expect(await releaseEnded(lead.board.runtime, lead.board.ctx)).toBeUndefined();
+		expect((await lead.call({ action: "list", card: "1" })).details.card?.owner?.id).toBe(PEER_ID);
+	});
+
 	test("skips a refusal and still releases the card it can", async () => {
 		const { cwd, lead, peer } = board();
 		for (const title of ["One", "Two"]) await lead.call({ action: "add", title });

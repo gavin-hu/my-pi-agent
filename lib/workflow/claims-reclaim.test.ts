@@ -1,10 +1,10 @@
 /**
  * The re-claim after a restart: a resumed pane takes back the paths of the cards it holds.
  *
- * The bus forgets a session's claims when its record stops, and a resumed session is holding the
- * same card — so the first turn makes one write the crossing rule does not, and that write is this.
- * Its own suite because the crossing's cases are the lane's and these are a restart's: a case that
- * mixed them would have to say which of the two it was about.
+ * The bus forgets a session's claims when its process ends, and a session resumed in a new process
+ * is holding the same card — so the first turn makes one write the crossing rule does not, and that
+ * write is this. Its own suite because the crossing's cases are the lane's and these are a restart's:
+ * a case that mixed them would have to say which of the two it was about.
  */
 
 import { describe, expect, test } from "bun:test";

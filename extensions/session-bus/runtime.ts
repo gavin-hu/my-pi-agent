@@ -12,7 +12,7 @@
 
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, SessionStartEvent } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { BUS_DIR_NAME, ensureHostIdentity, type HostIdentity } from "../../lib/session-files.ts";
@@ -38,7 +38,6 @@ import {
 	normalizeLimit,
 	normalizePaths,
 	resolveRecipients,
-	sessionMode,
 	settleSend,
 	shortId,
 } from "./protocol.ts";
@@ -136,7 +135,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		}).read(me, liveOnly);
 	}
 
-	const ensureStarted = async (context: ExtensionContext): Promise<void> => {
+	const ensureStarted = async (context: ExtensionContext, reason?: SessionStartEvent["reason"]): Promise<void> => {
 		if (starting) return starting;
 		starting = (async () => {
 			// Canonical once, here: the root git reports is a real path, so an unresolved
@@ -163,35 +162,39 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			store = createBusStore(host === undefined ? { dir } : { dir, host });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
-			const mode = sessionMode(context.mode);
 			// Asked once, when the bus starts: a reused pid is settled from the record
 			// afterwards, so no heartbeat tick spawns `ps`, and a session that never
 			// joins pays nothing in its factory.
 			const processToken = (seams.token ?? startTokenOf)(pid);
-			// Deferred with the ask it makes: a factory registers, and the label settles at the
-			// first addressable action instead.
-			const { automaticLabel } = await import("./label.ts");
-			const label = await automaticLabel(pi, { context, cwd, id, fromGit: repo?.fromGit === true });
-			record = {
+			// The record this process serves: a `/new` keeps the row it left, so a reset costs the
+			// transcript and nothing else. `own-record.ts` says which row, and why every guard
+			// fails toward minting one.
+			const { startRecord, wasServed } = await import("./own-record.ts");
+			record = await startRecord({
+				pi,
+				store,
+				context,
 				id,
-				label,
 				pid,
-				...(identity === undefined ? {} : { host: identity.id }),
+				startToken: processToken,
+				host,
+				reason,
 				cwd,
 				repoRoot: repo?.root ?? cwd,
-				mode,
-				startedAt: now(),
-				lastSeen: now(),
-				// Asked once, here: a reused pid is settled from the record, not by this session
-				// polling `ps` for its own heartbeat.
-				...(processToken === undefined ? {} : { startToken: processToken }),
-			};
+				fromGit: repo?.fromGit === true,
+				now: now(),
+			});
 			// A record that outlived its process still says what that session was told, and a resume
-			// is that session: adopting its cursor keeps its old mail out of the count.
+			// is that session: adopting its cursor keeps its old mail out of the count. A `/new` reads
+			// the row it serves, which is the row the previous transcript wrote.
 			const { createMailCursor } = await import("./cursor.ts");
 			cursor = createMailCursor({ store: () => store, record: () => record });
 			await cursor.adopt();
-			await mailWatch.restore(storedWatchMode(await store.session(id)));
+			await mailWatch.restore(storedWatchMode(await store.session(record.id)));
+			// A served row is one this process was already on the bus with, so the start joins it as a
+			// resumed session would: the beat is what keeps a peer's prune from taking the row — and the
+			// claims a card is worked under — ten quiet minutes later.
+			if (wasServed(record, id)) await joinBus();
 		})();
 		try {
 			await starting;
@@ -414,24 +417,19 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	}
 
 	return {
-		async start(context) {
-			await ensureStarted(context);
+		async start(context, event) {
+			await ensureStarted(context, event?.reason);
 		},
 
-		async stop() {
+		async stop(event) {
 			stopHeartbeat?.();
 			stopHeartbeat = undefined;
 			mailWatch.stop();
 			if (store && record && joined) {
-				// A `/resume` in a second pane registers the same session id twice; the record
-				// names the process that owns it, so this one releases and removes only its
-				// own. Releasing unconditionally would strip the survivor of the claims it is
-				// still working under.
-				const owner = await store.session(record.id).catch(() => undefined);
-				if (owner === undefined || owner.pid === pid) {
-					await store.releaseAll(record.id).catch(() => {});
-					await store.removeSession(record.id).catch(() => {});
-				}
+				// The row's whole afterlife is `own-record.ts`'s: a `/new` keeps it for the process's
+				// next transcript, every other reason releases its claims and removes it.
+				const { endRecord } = await import("./own-record.ts");
+				await endRecord({ store, record, pid, reason: event?.reason, now: now() });
 			}
 			joined = false;
 			starting = undefined;

@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `session-bus`: a `/new` keeps the record the process serves, so clearing a transcript at a card
+  boundary costs the context and nothing else — the name a peer addresses, the inbox with the cursor
+  that counts it, the watch mode a join settled on, the claims on the paths being edited, and the card
+  the board owns by that id. The reset is the transcript's because a record belongs to the process:
+  a start whose reason is `new` serves the row the one before it left, and every other reason — a
+  quit, a reload, a `/resume`, a fork — ends the membership as it did.
+
 ### Fixed
 
 - `code-review`: four things the page said that were not true now say what the state is. A focused page's

@@ -79,6 +79,10 @@ requests   board, team ───► lib/session-tool.ts
 
 ## Who holds what, and for how long
 
+A card boundary is a context boundary: a session clears its transcript with `/new` once its card is
+closed — never mid-card, where the plan and the diagnosis live only in the transcript — and the
+record carries the name, the mail, the watch, the claims and the card across the reset.
+
 | Thing | Held by | Ends when |
 |---|---|---|
 | a card | one session, by its id | released, reclaimed, or closed |
@@ -109,8 +113,9 @@ with no seat is refused, and `/board` starts a session attached to a board, whic
   path claim is what makes the collision visible before the edit.
 - **One user, and one machine per session.** A session's process is on the machine
   that wrote its record, so another machine's session is read by its heartbeat and
-  never by its pid — and mailed from here it will not read it. Membership does not
-  survive a resume or a restart — unread mail and the label do.
+  never by its pid — and mailed from here it will not read it. A `/new` keeps the
+  record, so a reset costs the transcript and nothing else; a quit ends the
+  membership, and the label and the inbox with it.
 - **No forced takeover.** Reclaiming a card takes it back to `backlog`; nobody
   takes a path claim from a session that is still running.
 

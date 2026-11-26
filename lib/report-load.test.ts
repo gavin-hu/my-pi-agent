@@ -115,3 +115,27 @@ describe("the load a channel starts", () => {
 		expect(log).toEqual(["sessionStart", "load", "disarm", "shutdown"]);
 	});
 });
+
+describe("the lifecycle event a channel hands its runtime", () => {
+	test("both edges pass the host's own event, because its reason is written nowhere else", async () => {
+		const seen: string[] = [];
+		const { pi } = createFakePi();
+		registerPendingChannel(pi, {
+			reporter: quietReporter([]),
+			runtime: {
+				load: async (_ctx, event) => {
+					seen.push(`load:${event.reason}`);
+				},
+				shutdown: async (event) => {
+					seen.push(`shutdown:${event.reason}`);
+				},
+			},
+		});
+
+		await emit(pi, "session_start", { type: "session_start", reason: "new" }, ctx);
+		await emit(pi, "session_shutdown", { type: "session_shutdown", reason: "quit" }, ctx);
+		// A runtime that keeps state across a replaced transcript reads `"new"` from here: without it
+		// the `/new` shutdown is indistinguishable from a quit, and every reset would look like an end.
+		expect(seen).toEqual(["load:new", "shutdown:quit"]);
+	});
+});

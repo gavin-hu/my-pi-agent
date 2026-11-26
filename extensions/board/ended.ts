@@ -32,9 +32,11 @@ function listed(items: readonly string[]): string {
  * Hand a stopped session's cards on, and say which: the seat first, then the pool.
  *
  * Two verbs, because the caller is the fact that tells them apart. A card whose owner wears this
- * session's name is the one a `/resume` left behind — this session is the same work with a new id —
- * so it is re-seated: the owner id moves and the lane, plan and slot stay. Every other card an
- * owner stopped on is released into the pool, which is what the reclaim gate already lets a peer do.
+ * session's name is one a `/resume` in another process left behind — the id it was owned by is gone
+ * with that process, and the name is the same work — so it is re-seated: the owner id moves and the
+ * lane, plan and slot stay. (A `/new` needs none of this: the record keeps its id, so the card was
+ * never anybody else's — #915.) Every other card an owner stopped on is released into the pool,
+ * which is what the reclaim gate already lets a peer do.
  *
  * Refusals are skipped rather than reported: a refusal is a race (another session swept the same
  * card) or a record that changed between the read and the write, and the store's locked

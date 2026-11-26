@@ -6,8 +6,10 @@
  * answer is remembered per `cwd`. A failed open is not: one bad read must not
  * outlive the call that hit it, so the next call asks again. The identity is the
  * same pair a card records — the session id Pi knows, and the name the team
- * addresses it by — so the id is what keeps a card held across a rename, and the
- * name is read from the bus record where it is.
+ * addresses it by — so the id is what keeps a card held across a rename and across a
+ * transcript reset, and the name is read from the bus record where it is. The record is
+ * read as *this process's* too: a `/new` keeps it, so the id its cards are owned by is
+ * the one the row carries and not the one the new transcript was handed.
  *
  * One session per *host*, not one per extension: Pi loads `board` and `team` with
  * separate module caches, so two sessions would mean the seat `/board` sets is
@@ -71,6 +73,11 @@ export interface BoardSession {
 	 * collide and cannot drift on a rename. A host that reports no id has no record to
 	 * read, so it keeps the readable chain instead. One name on every surface is the point: the
 	 * card, the bus record, and the roster say the same word.
+	 *
+	 * The record looked at is two rows, the id's first: the one this session id names, and the one
+	 * this *process* serves — a `/new` keeps it, so the id its cards are owned by is the row's and not
+	 * the one the new transcript was handed (#915). A row from another machine is neither: its pid
+	 * is a number that may coincide, so the read asks which machine wrote it.
 	 *
 	 * Read rather than remembered, because a join is not this session's event alone: the
 	 * label can arrive through `/team join`, through the bus's own `join`, or on the record
@@ -184,6 +191,8 @@ export interface BoardSessionOptions {
 	open?: (cwd: string) => Promise<BoardStore>;
 	/** Test seam: the bus a lane crossing writes to, so a suite records it without a bus. */
 	claims?: Claims;
+	/** Test seam: the process whose bus record this session serves, so a suite drives a `/new`. */
+	pid?: number;
 }
 
 /**
@@ -303,24 +312,44 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			const { holdsSeat } = await (modeState ??= import("../mode-state.ts"));
 			const seatHeld = holdsSeat(ctx.sessionManager.getBranch());
 			const dressed = (actor: Actor): Actor => (seatHeld ? { ...actor, seat: true } : actor);
+			// The record is the bus's word for this session, so it is read rather than derived. Two rows
+			// can be this session's: the one its id names — a session that joined before, a `/reload` —
+			// and the one this process served before a `/new` replaced the transcript, because a reset
+			// keeps the record (#915): a peer addresses it and a card is owned by it. The id row wins,
+			// so a session that did not just reset is named exactly as it was.
+			//
+			// Read here rather than through `session.roster`, which names no machine: a row is only this
+			// process's when the pid in it is a *local* pid, and a record from another machine's bus can
+			// carry a number that coincides with this one.
+			const roster =
+				id === undefined ? undefined : await readRoster(await session.busDir(cwd), { host: await session.host() });
+			const pid = options.pid ?? process.pid;
+			const mine =
+				id === undefined
+					? undefined
+					: (roster?.find((entry) => entry.id === id) ??
+						roster?.find((entry) => entry.pid === pid && entry.foreign !== true));
 			// The seat is a role rather than a session, so it outranks the record: the page a
 			// session serves is the name its cards are read against. A host that reports no id
 			// has no record to look for, so it keeps the bus's own readable chain.
-			if (seat !== undefined) return dressed(id === undefined ? { label: seat } : { id, label: seat });
+			if (seat !== undefined) {
+				const seatId = mine?.id ?? id;
+				return dressed(seatId === undefined ? { label: seat } : { id: seatId, label: seat });
+			}
 			if (id === undefined) return dressed({ label: defaultLabel({ sessionName: sessionNameOf(ctx), cwd }) });
-			// The record is the bus's word for this session, so it is read rather than derived;
-			// a record that names nothing is no record, and draws like one.
-			const roster = await session.roster(cwd);
-			const held = normalizeLabel(roster?.find((entry) => entry.id === id)?.label, "");
-			if (held !== "") return dressed({ id, label: held });
+			// From here this session has an id, so the record it serves has one too.
+			const mineId = mine?.id ?? id;
+			// A record that names nothing is no record, and draws like one.
+			const held = normalizeLabel(mine?.label, "");
+			if (held !== "") return dressed({ id: mineId, label: held });
 			// No record, so the team names this session: the first name the list leaves free, and the id's
 			// tail only when it leaves none — a stated `[]`, or every name held. The list is the store's
 			// because the lead it excludes is the one the gates compare, and the roster above has
 			// already opened that store — a failure there is the call's, not the name's.
 			const team = (await session.store(cwd)).config();
-			const taken = (roster ?? []).filter((entry) => entry.id !== id).map((entry) => labelKey(entry.label));
+			const taken = (roster ?? []).filter((entry) => entry.id !== mineId).map((entry) => labelKey(entry.label));
 			taken.push(labelKey(team.lead));
-			return dressed({ id, label: firstFreeName(team.teammates, taken, agentLabel(id)) });
+			return dressed({ id: mineId, label: firstFreeName(team.teammates, taken, agentLabel(mineId)) });
 		},
 		now: options.now ?? Date.now,
 		busDir(cwd) {

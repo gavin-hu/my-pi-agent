@@ -2,10 +2,14 @@
  * session-bus — coordinate parallel Pi sessions on one repository.
  *
  * No session joins on start: it joins through `join`, through the first action
- * that makes it addressable, or through `w` on its own board, in any mode.
+ * that makes it addressable, or through `w` on its own board, in any mode — the one
+ * exception is a `/new`, whose process was already on the bus: it re-joins the row it
+ * kept, because a record nobody beats is one a peer's prune takes (`own-record.ts`).
  * `/sessions` and `status` only read, so a fresh board is empty and a peer never
  * appears merely because the package loaded. The factory only registers; the
- * runtime owns the heartbeat and removes the registry entry on shutdown. Nothing arms an
+ * runtime owns the heartbeat and removes the registry entry when the process ends — but
+ * a `/new` keeps it, because a reset replaces the transcript and not the session a peer
+ * addresses (`own-record.ts`). Nothing arms an
  * inbox watch that a join never asked for — the join may be one from an earlier run of the
  * same session, which a start adopts so the mode a user set survives a restart — and delivery
  * stays pull-based until then: with the watch armed, new mail is reported at the next turn, or
@@ -77,15 +81,17 @@ export default function sessionBus(pi: ExtensionAPI, deps: SessionBusDeps = {}):
 		reporter,
 		runtime: {
 			// A start failure is reported once and leaves the runtime retryable: the next
-			// tool call starts it again, and a bus that never started simply never polls.
-			load: async (ctx) => {
+			// tool call starts it again, and a bus that never started simply never polls. The
+			// event comes through because its reason is what a `/new` is: the one start that
+			// serves the record this process already had instead of minting another.
+			load: async (ctx, event) => {
 				try {
-					await bus.start(ctx);
+					await bus.start(ctx, event);
 				} catch (error) {
 					ctx.ui.notify(`Session bus did not start: ${messageOf(error)}`, "warning");
 				}
 			},
-			shutdown: () => bus.stop(),
+			shutdown: (event) => bus.stop(event),
 		},
 		// A reload or a replaced session reuses the runtime, so the mail trigger is
 		// armed on every session start and cleared before the runtime releases.

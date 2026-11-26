@@ -187,10 +187,11 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		// an empty session, and only an answer is worth remembering.
 		if (held === undefined) return undefined;
 		read = true;
-		// The second write a turn start makes. The bus forgets a session's claims when it stops, so a
-		// resumed session takes back the paths of the cards it is already executing, and says the one
-		// thing that did not work — a failure nothing reports is how that was a no-op. It takes the
-		// held list, which is why it comes after the read and not beside the sweep.
+		// The second write a turn start makes. The bus forgets a session's claims when its process
+		// ends, so a session resumed in a new process takes back the paths of the cards it is already
+		// executing, and says the one thing that did not work — a failure nothing reports is how that
+		// was a no-op. A `/new` keeps them, so this is the resume's write, not the reset's. It takes
+		// the held list, which is why it comes after the read and not beside the sweep.
 		const reclaimed =
 			held.length === 0
 				? undefined

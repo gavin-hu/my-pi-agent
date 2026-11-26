@@ -83,9 +83,8 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/worktree/flow.test.ts": 825,
 	"extensions/worktree/git.test.ts": 893,
 	"lib/workflow/rules.test.ts": 673,
-	// #797's regression case — the store re-opened on a moved root — took this suite 16 lines past
-	// the bar, and the case belongs beside the cache it proves rather than in a suite of its own.
-	"lib/workflow/session.test.ts": 414,
+	// `session.test.ts` left this ledger by splitting its `who` cases into `who.test.ts` (#915):
+	// the reset gave that question a second row to consider, and one suite asked it twice.
 	"lib/workflow/store.test.ts": 606,
 	"lib/workflow/view.test.ts": 418,
 	"lib/core.test.ts": 844,
