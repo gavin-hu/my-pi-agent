@@ -149,9 +149,7 @@ export function registerCommands(
 				// a fresh transcript is a start or an escape. A `blocked` card is parked by somebody else's
 				// decision, so it does not hold the door — and can say so on the next session's own line.
 				const refusal =
-					rest.length > 0
-						? nextRefusal({ argued: rest[0] ?? "" })
-						: nextRefusal(await heldOrFailure(session, ctx));
+					rest.length > 0 ? nextRefusal({ argued: rest[0] ?? "" }) : nextRefusal(await heldOrFailure(session, ctx));
 				if (refusal !== undefined) {
 					ctx.ui.notify(refusal, "warning");
 					return;
