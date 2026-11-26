@@ -19,11 +19,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_REVIEW_CONFIG } from "../../extensions/code-review/config/config.ts";
-import { createReviewCurrent } from "../../extensions/code-review/review/current.ts";
+import { createReviewCurrent, type ReviewCurrent } from "../../extensions/code-review/review/current.ts";
 import { createReviewStore } from "../../extensions/code-review/review/store.ts";
 import { createReviewPage } from "../../extensions/code-review/transport/server.ts";
 import { presetScope } from "../../extensions/code-review/scope.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
+import { ENV_ROOT } from "../../lib/env.ts";
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
 import { parseShotArgs, runCli } from "../cli.ts";
 
@@ -88,7 +89,13 @@ function git(cwd: string, args: string[]): void {
 }
 
 /** The fixture repository: `main` with one file, and a branch that changes two. */
-function buildFixture(): string {
+export function buildFixture(): string {
+	// A fixture is not a session: the worktree override is the environment's answer about which tree a
+	// *session* is in, and a capture's page is served from the tree this function builds. Left in place it
+	// stands in for the fixture, because `createReviewCurrent`'s place resolves the directory it is given
+	// through `effectiveRealCwd` — so the run would photograph whatever checkout the session was in, and
+	// die later on a comment the wrong diff cannot anchor (#927).
+	delete process.env[ENV_ROOT];
 	const dir = mkdtempSync(join(tmpdir(), "pi-review-shot-"));
 	git(dir, ["init", "-q", "-b", "main"]);
 	writeFileSync(join(dir, "README.md"), "# Aurora Gateway\n\nOne binary, one config file, no plugins.\n");
@@ -117,9 +124,8 @@ async function post(page: { url: string }, path: string, body: unknown): Promise
 	if (!response.ok) throw new Error(`the fixture write was refused: ${await response.text()}`);
 }
 
-/** The capture: a repository, the shipped page over it, two comments, one PNG. */
-export async function capture(options: ShotOptions): Promise<void> {
-	const dir = buildFixture();
+/** The review the shot draws from `dir`: the fixture's own checkout, and the page's one store. */
+export function fixtureReview(dir: string): { store: ReturnType<typeof createReviewStore>; current: ReviewCurrent } {
 	const exec = async (command: string, args: string[], callOptions: { cwd?: string } = {}) => {
 		try {
 			const stdout = execFileSync(command, args, { cwd: callOptions.cwd ?? dir, encoding: "utf-8" });
@@ -142,6 +148,13 @@ export async function capture(options: ShotOptions): Promise<void> {
 		config: { ...DEFAULT_REVIEW_CONFIG, base: "main", maxFiles: 20, maxDiffLines: 400 },
 		cwd: () => dir,
 	});
+	return { store, current };
+}
+
+/** The capture: a repository, the shipped page over it, two comments, one PNG. */
+export async function capture(options: ShotOptions): Promise<void> {
+	const dir = buildFixture();
+	const { store, current } = fixtureReview(dir);
 	const outcome = await createReviewPage({
 		store,
 		current,
