@@ -34,8 +34,33 @@ import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 /** The command's name, which is also the word a user types. */
 export const BOARD_COMMAND = "board";
 
-/** The words the command accepts, in the order a user is likely to want them. */
-const BOARD_WORDS = ["next", "archive", "approve", "review", "status", "stop", "team"] as const;
+/** One word `/board` accepts: how a user writes it, and what may follow it. */
+export interface BoardWord {
+	/** The word itself, lowercased: what the handler parses and the completer offers. */
+	word: string;
+	/** Whether a card id follows — the two signs take one, and nothing else does. */
+	card: boolean;
+	/** The flags the word accepts, spelled as a user writes them; absent when it takes none. */
+	flags?: string;
+}
+
+/**
+ * The words the command accepts, in the order a user is likely to want them: the two card verbs,
+ * the two signatures, then the page's own.
+ *
+ * One table, three surfaces — the description the host shows, the line a mistyped word gets, and
+ * the completer — so a word is added once and no help can spell the vocabulary differently. The
+ * `card` column is the one fact `signOf` also answers, and the suite pins the two together.
+ */
+export const BOARD_WORDS: readonly BoardWord[] = [
+	{ word: "next", card: false },
+	{ word: "archive", card: false, flags: "[--older-than <age>]" },
+	{ word: "approve", card: true },
+	{ word: "review", card: true, flags: "[--root <tree>] [--override <why>]" },
+	{ word: "status", card: false },
+	{ word: "stop", card: false },
+	{ word: "team", card: false },
+];
 
 /**
  * The seat's two moves, as the command needs them: taking it when the page it just
@@ -55,14 +80,13 @@ export function registerCommands(
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
-		description:
-			"Open the shared board in a local browser, sign its two gates as the lead, take the lead's seat, or fold the finished cards away: /board [next | archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+		description: `Open the shared board in a local browser, sign its two gates as the lead, take the lead's seat, or fold the finished cards away: ${usageLine()}`,
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
 			const text = prefix.trimStart().toLowerCase();
 			if (text.includes(" ")) return null;
-			const items = BOARD_WORDS.filter((word) => word.startsWith(text));
+			const items = BOARD_WORDS.filter((entry) => entry.word.startsWith(text)).map((entry) => entry.word);
 			return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
@@ -201,11 +225,29 @@ export function registerCommands(
 	});
 }
 
-/** The words, as the warning that names them: a sign takes a card, and nothing else does. */
+/** The card slot a word takes, as a user writes it: nothing for the words that take none. */
+function cardSlot(entry: BoardWord): string {
+	return entry.card ? " <id>" : "";
+}
+
+/** One word as a user writes it, flags included: what the description needs. */
+function usageOf(entry: BoardWord): string {
+	return `${entry.word}${cardSlot(entry)}${entry.flags === undefined ? "" : ` ${entry.flags}`}`;
+}
+
+/**
+ * The usage line the description carries: every word, its slots spelled once.
+ *
+ * This is the one surface with room for the flags, and the one a person reads to find out what a
+ * word takes. The warning below answers a different question, so it keeps the short form.
+ */
+function usageLine(): string {
+	return `/board [${BOARD_WORDS.map(usageOf).join(" | ")}]`;
+}
+
+/** The words a mistyped word is corrected with: the word and its card slot, never its flags. */
 function wordHelp(): string {
-	return BOARD_WORDS.map((entry) => (signOf(entry) === undefined ? `/board ${entry}` : `/board ${entry} <id>`)).join(
-		", ",
-	);
+	return BOARD_WORDS.map((entry) => `/board ${entry.word}${cardSlot(entry)}`).join(", ");
 }
 
 /** A line for the person, and the tone it is shown in: a failure is not the same news as a sign. */
