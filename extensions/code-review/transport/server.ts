@@ -61,8 +61,8 @@ export interface ReviewServer {
 	base: string;
 	store: ReviewStore;
 	current: ReviewCurrent;
-	/** The scope the page is showing. */
-	scope(): ReviewScope;
+	/** The comparison the page is showing, when one is open. */
+	scope(): ReviewScope | undefined;
 	/** Read the page's current snapshot. */
 	snapshot(): Promise<SnapshotOutcome>;
 	/** Release the prefix; idempotent. The page it served is the session's to drop. */
@@ -115,7 +115,7 @@ export async function createReviewPage(
 			base: REVIEW_BASE,
 			store: deps.store,
 			current: deps.current,
-			scope: () => deps.store.current()?.scope ?? "base",
+			scope: () => deps.store.current()?.scope,
 			snapshot: () => deps.current.snapshot(),
 			close: async () => {
 				if (closed) return;

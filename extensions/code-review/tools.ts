@@ -12,6 +12,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { pathRef } from "../../lib/format.ts";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
 import type { ReviewSession, ReviewStatus } from "./review/session.ts";
+import { wireSide } from "./scope.ts";
 import {
 	ACTION_FIELDS,
 	type ReviewArgs,
@@ -29,7 +30,8 @@ export type EnsureSession = (ctx?: ExtensionContext) => Promise<ReviewSession>;
 function resultOf(status: ReviewStatus, list?: ReviewResult["list"]): ReviewResult {
 	return {
 		open: status.url !== undefined,
-		scope: status.scope,
+		...(status.preset === undefined ? {} : { scope: status.preset }),
+		...(status.scope === undefined ? {} : { from: wireSide(status.scope.from), to: wireSide(status.scope.to) }),
 		label: status.label,
 		files: status.files,
 		comments: status.comments,
@@ -63,12 +65,10 @@ export function registerReviewTool(pi: Pick<ExtensionAPI, "registerTool">, ensur
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Code review",
-		description:
-			"Serve the working tree as a review page a person can comment on line by line, then read what they sent. " +
-			"`open` serves it, `status` reads it, `comments` hands back the sent comments, and `close` ends it.",
+		description: "Serve a comparison as a review page a person can comment on line by line, then read what they sent.",
 		promptSnippet: "Serve a diff as a review page, and read the comments a reviewer sent.",
 		promptGuidelines: [
-			"Use code_review open when the user wants to review a branch or their uncommitted changes in a browser.",
+			"Use code_review open when the user wants a branch or uncommitted change reviewed in a browser.",
 			"Use code_review comments when a notice said review comments were sent, before changing code for them.",
 			"Do not use code_review to read files; it serves a diff, and the read tools read content.",
 		],
@@ -98,7 +98,7 @@ export function registerReviewTool(pi: Pick<ExtensionAPI, "registerTool">, ensur
 			const stray = strayField(action, args, ACTION_FIELDS);
 			if (stray !== undefined) return failedResult(`review: ${stray}`, resultOf(await session.status()));
 			if (action === "open") {
-				const outcome = await session.open({ scope: args.scope, base: args.base }, ctx);
+				const outcome = await session.open({ scope: args.scope, from: args.from, to: args.to }, ctx);
 				const state = await session.status();
 				if (outcome.kind === "refused") {
 					return failedResult(`review: ${outcome.reason}`, resultOf(state));

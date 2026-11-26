@@ -230,15 +230,15 @@ ignored, and an absent id keeps its registry default.
 
 ## `code-review` — what a review compares
 
-The page reads the branch against `base`; the other comparisons need no ref. The
-repository's default branch is detected, so a project whose default has no
-`origin/HEAD` and is not `main` or `master` names it once here. `diffContext` and
-`maxDiffLines` live here too: `file-browse` set them while it drew a diff of its
-own, and a project that moved them here keeps what it had.
+`base` is the left end a review opens on when it names none: `change`, `branch`, and
+any pair that gives only a right side. The repository's default branch is detected, so
+a project whose default has no `origin/HEAD` and is not `main` or `master` names it
+once here. `diffContext` and `maxDiffLines` live here too: `file-browse` set them while
+it drew a diff of its own, and a project that moved them here keeps what it had.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `base` | string | `""` | a ref, or `""` to detect | The ref a `base` review compares against: `""` detects the default branch (`origin/HEAD`'s, else a local `main` or `master`) and reads it through its `origin/` ref. A ref that does not resolve, or one longer than 200 characters, is refused by name. |
+| `base` | string | `""` | a ref, or `""` to detect | The ref a review's left end defaults to: `""` detects the default branch (`origin/HEAD`'s, else a local `main` or `master`) and reads it through its `origin/` ref. A ref that does not resolve, or one longer than 200 characters, is refused by name. |
 | `diffContext` | integer | `3` | `0`–`100` | Unified context lines around each hunk. |
 | `maxDiffLines` | integer | `4000` | `1`–`1000000` | Diff lines per file before the page truncates and says so. |
 | `maxFiles` | integer | `200` | `1`–`10000` | Changed files the page lists; the rest are counted, not drawn. |

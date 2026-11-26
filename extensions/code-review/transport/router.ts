@@ -35,7 +35,19 @@ import type { ReviewSnapshot } from "../git/diff.ts";
 import type { ReviewCurrent } from "../review/current.ts";
 import { scopeRefusal, scopeWork } from "../review/scope-work.ts";
 import { NO_PAGE, SNAPSHOT_MOVED, type ReviewComment, type ReviewStore, type WriteOp } from "../review/store.ts";
-import { parseScope, type ReviewScope } from "../scope.ts";
+import { NO_BASE } from "../git/diff.ts";
+import {
+	comparesNothing,
+	MAX_BASE_LENGTH,
+	NO_COMPARISON,
+	parsePreset,
+	parseSide,
+	presetScope,
+	type ReviewPreset,
+	type ReviewScope,
+	sameScope,
+	scopeLabel,
+} from "../scope.ts";
 import { REVIEW_CLIENT_JS } from "../view/client.ts";
 import { renderReviewFile } from "../view/file.ts";
 import { renderReviewPage, renderReviewProblem } from "../view/page.ts";
@@ -147,25 +159,33 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 	const { store, current, base } = deps;
 
 	/**
-	 * The page's shell for a scope, minting a token when the scope changed. `file` narrows
-	 * what is drawn, never what is read: the snapshot is the whole scope, so its fingerprint
-	 * — and every write's `rev` — stays the same whether the page shows one file or all.
+	 * The page's shell for a comparison, minting a token when the comparison changed. `file`
+	 * narrows what is drawn, never what is read: the snapshot is the whole comparison, so its
+	 * fingerprint — and every write's `rev` — is the same whether the page shows one file or all.
 	 */
-	const pageFor = async (scope: ReviewScope, file: string | undefined): Promise<ServeResponse> => {
+	const pageFor = async (
+		asked: { scope: ReviewScope; preset?: ReviewPreset },
+		file: string | undefined,
+	): Promise<ServeResponse> => {
 		const held = store.current();
-		if (held !== undefined && held.scope !== scope && held.review !== undefined) {
+		if (held !== undefined && !sameScope(held.scope, asked.scope) && held.review !== undefined) {
 			const work = scopeWork(held.review);
 			if (work.drafts + work.marks > 0) {
 				return {
 					status: 409,
 					headers: pageHeaders(),
-					body: renderReviewProblem(base, "This review has work on this scope", scopeRefusal(held.review, held.label)),
+					body: renderReviewProblem(
+						base,
+						"This review has work on this scope",
+						scopeRefusal(held.review, scopeLabel(held.scope)),
+					),
 				};
 			}
 		}
-		// A page is mounted with a scope, so a same-scope read renders the page it already
+		// A page is mounted with a comparison, so a same-scope read renders the page it already
 		// has — its token, its review, and its comments — rather than minting a second one.
-		const page = held !== undefined && held.scope === scope ? held : store.open(scope, "", "");
+		const page =
+			held !== undefined && sameScope(held.scope, asked.scope) ? held : store.open(asked.scope, asked.preset);
 		const outcome = await current.snapshotOf(page);
 		if (outcome.kind === "failed") {
 			return {
@@ -174,10 +194,6 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 				body: renderReviewProblem(base, "No diff to review", outcome.message),
 			};
 		}
-		// The comparison the first read resolved is the page's: a write then names the ref it is
-		// graded against, and a refusal leaves `""` so the next request asks git again.
-		page.base = outcome.snapshot.base;
-		page.label = outcome.snapshot.label;
 		const { repo, root } = current.place();
 		return {
 			status: 200,
@@ -188,6 +204,7 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 				root,
 				token: page.token,
 				snapshot: outcome.snapshot,
+				...(page.preset === undefined ? {} : { preset: page.preset }),
 				...(file === undefined ? {} : { file }),
 				...(page.review === undefined ? {} : { review: page.review }),
 			}),
@@ -202,11 +219,47 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 	});
 
 	/**
+	 * The comparison an address names: a preset's word, or the two sides it spells.
+	 *
+	 * An address naming neither opens the default, so a bare `/review/new` still works, and a
+	 * word this page does not know is refused rather than silently opening something else.
+	 */
+	const requestedScope = async (
+		search: URLSearchParams,
+	): Promise<{ scope: ReviewScope; preset?: ReviewPreset } | { reason: string }> => {
+		const word = search.get("scope");
+		const preset = parsePreset(word);
+		if (word !== null && preset === undefined) return { reason: `"${word}" is not a comparison this page offers` };
+		for (const ref of [search.get("from"), search.get("to")]) {
+			if (ref !== null && ref.length > MAX_BASE_LENGTH)
+				return { reason: `a side is ${ref.length} characters; the longest accepted is ${MAX_BASE_LENGTH}` };
+		}
+		const from = parseSide(search.get("from"));
+		const to = parseSide(search.get("to"));
+		let defaultRef: string | undefined;
+		if (preset !== undefined || from === undefined) {
+			const answered = await current.reader().baseRef();
+			if (answered.kind === "failed") return { reason: answered.message };
+			defaultRef = answered.ref;
+		}
+		const scope =
+			preset === undefined
+				? {
+						from: from ?? { kind: "rev" as const, ref: defaultRef ?? "" },
+						to: to ?? { kind: "rev" as const, ref: "HEAD" },
+					}
+				: presetScope(preset, defaultRef);
+		if (scope === undefined) return { reason: NO_BASE };
+		if (comparesNothing(scope)) return { reason: NO_COMPARISON };
+		return { scope, ...(preset === undefined ? {} : { preset }) };
+	};
+
+	/**
 	 * One file's whole text.
 	 *
 	 * Only a path the snapshot lists is served, so the address cannot name a file this review
 	 * does not cover, and only one that resolves inside the root. The view and its way back use
-	 * the comparison the page is on, never the one the address asked with: `?scope=` only records
+	 * the comparison the page is on, never the one the address asked with: the query only records
 	 * where the link came from, and a stale one must not draw one comparison on another's page.
 	 */
 	const filePage = async (path: string | null): Promise<ServeResponse> => {
@@ -234,6 +287,7 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 			body: renderReviewFile({
 				base,
 				scope: outcome.snapshot.scope,
+				...(page.preset === undefined ? {} : { preset: page.preset }),
 				rel,
 				lines: text.lines,
 				binary: text.binary,
@@ -251,10 +305,6 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		if (page === undefined) return jsonError(409, NO_PAGE);
 		const snapshot = await current.snapshotOf(page);
 		if (snapshot.kind === "failed") return jsonError(409, snapshot.message);
-		// The review records the comparison and its name when it is minted, so the
-		// page's own header and a later stale banner read one fact.
-		page.base = snapshot.snapshot.base;
-		page.label = snapshot.snapshot.label;
 		let body: WriteBody;
 		try {
 			body = JSON.parse(request.body) as WriteBody;
@@ -363,11 +413,12 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		}
 		if (method === "POST") return { result: jsonError(404, "That route does not exist.") };
 
-		const scope = parseScope(search.get("scope")) ?? "base";
+		const asked = await requestedScope(search);
 		// A focused view is a view: it names a file to draw, and never changes the comparison.
 		const file = search.get("file") ?? undefined;
 		if (pathname === "/" || pathname === "/new" || pathname === "/new/" || pathname === "/index.html") {
-			return { result: await pageFor(scope, file) };
+			if ("reason" in asked) return { result: problem(400, "No comparison to show", asked.reason) };
+			return { result: await pageFor(asked, file) };
 		}
 		if (pathname === "/file") return { result: await filePage(search.get("path")) };
 		const id = pathname.replace(/^\//, "").replace(/\/$/, "");

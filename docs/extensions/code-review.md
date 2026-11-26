@@ -16,8 +16,8 @@ is written to your tree.
 
 | What you want | What to do |
 |---|---|
-| Serve a review of the branch | `/review`, or `code_review` with `action: "open"` |
-| Review the last commit, everything uncommitted, the index, or the tree | `/review last`, `/review head`, `/review staged`, `/review worktree` |
+| Serve a review of everything uncommitted, branch included | `/review`, or `code_review` with `action: "open"` |
+| Review one comparison by name, or any two ends | `/review branch`, `/review last`, `/review staged`, `/review worktree`; any pair with `from`/`to` |
 | Read one file of it | **view file** on a file's head, which serves its whole text from the review |
 | Comment on a line | click a gutter number, then **comment** — or `c` with a line selected |
 | Comment on a range | click one gutter, Shift-click another |
@@ -50,19 +50,20 @@ Run `code_review` action "comments" for all of them.
 
 | Action | What it does |
 |---|---|
-| `open` | Serve the page and hand back its address; `scope` and `base` choose the comparison |
+| `open` | Serve the page and hand back its address; `scope` names a preset, or `from`/`to` spell the two ends |
 | `status` | What the page shows: its address, scope, files, comment counts, and the reason when it has no diff |
 | `comments` | Every comment the reviewer sent, with file, line, and side |
 | `close` | End the page; refused while comments are still drafts |
 
-**The five comparisons.** `base` reads `<base>...HEAD`, the branch against the
-line it left; `last` reads `HEAD~1...HEAD`; `head` (shown as **uncommitted**)
-reads the tree against `HEAD`, so the index and the working tree arrive together
-with untracked files; `staged` reads the index; and `worktree` reads the working
-tree alone, untracked files included. The base ref is the `base` key, else the default
-branch — `origin/HEAD`'s, else a local `main` or `master` — read through its `origin/`
-ref. A ref that does not resolve, one over 200 characters, and no default branch at all
-are each refused by name, by `/review` and the page.
+**The six comparisons.** A scope is two ends — `from → to`, each a revision, the index, or
+the working tree. `change` (the default) is the branch's commits and everything
+uncommitted as one change, untracked files included; `branch` the commits alone; `last`
+`HEAD^...HEAD`; `uncommitted` the tree against `HEAD`; `staged` the index; `worktree` the
+tree against the index. Two commits compare from the line they share, so a merged-in base
+does not show. Any other pair is spelled `from`/`to` on the page or the tool. The base ref
+is the `base` key, else the default branch — `origin/HEAD`'s, else local `main` or
+`master`, through its `origin/` ref — and a ref that does not resolve, one over 200
+characters, or no default branch at all is refused by name.
 
 **The page.** One page per session, at `/review/`. Its id is minted by the first
 write, so looking costs nothing; the token rides the query and the id the address. A
@@ -82,7 +83,7 @@ the revision the page would render now, so a moved diff opens no box; the write 
 rail shows that file and an **all files** link back, while the count and the progress
 still name the whole scope — `1 of 2 files` for a page drawing one of two — and the
 snapshot and its token stay the whole scope's. The head's **view file** serves the
-whole file at `/review/file?scope=<s>&path=<rel>`: only a listed path, read under the
+whole file at `/review/file?<the comparison>&path=<rel>`: only a listed path, read under the
 reviewed checkout, on the diff's gutter, with a way back. `n` and `p` step its hunks;
 `[` and `]` step the whole review's, each landing below the pinned head.
 
@@ -94,16 +95,15 @@ anyway. A surviving row anchors to its marked new number; a deleted line's ref s
 
 - The review is the session's. Its comments live as long as the page does; an unsent
   draft stays in this tab, per line, and sending keeps both — notice and `code_review`.
-- One page per session. A scope change is refused while the page holds a draft or a
-  mark, by one rule for `/review`, the tool and the tabs; sent comments never hold it.
+- One page per session. A change of comparison is refused while the page holds a draft or
+  a mark, by one rule for `/review`, the tool and the tabs; sent comments never hold it.
 - A focused page (`?file=`) hides the other files without forgetting them, and a
   moved diff can leave a comment or an unsent draft on a line no hunk shows: both
   still send, and the stranded one is listed above the diff, to delete or discard.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
   diff lines per file; the page says what a cap left out.
 - In a repository with no commits yet, `staged` and `worktree` still render a page;
-  `base`, `last` and `head` say the commit they compare is missing — `head` too, since
-  `git diff HEAD` needs one and `--cached` does not.
+  `change`, `branch`, `last` and `uncommitted` name the commit they are missing.
 - The page needs `git`, `serve`, and a local browser; without `serve` the tool says
   the session has no port, and a launcher that cannot start is reported with the address.
 

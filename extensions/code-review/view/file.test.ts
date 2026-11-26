@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { DiffLine } from "../../../lib/diff/parse.ts";
+import { comparisonOf } from "../../../test/helpers/review-scope.ts";
 import { renderReviewFile } from "./file.ts";
 
 /** One file's context lines, numbered the way `ReviewReader.text` hands them over. */
@@ -9,7 +10,8 @@ function text(...lines: string[]): DiffLine[] {
 
 const input = (over: Partial<Parameters<typeof renderReviewFile>[0]> = {}) => ({
 	base: "/review",
-	scope: "base" as const,
+	scope: comparisonOf("branch", "origin/main"),
+	preset: "branch" as const,
 	rel: "lib/http/mount.ts",
 	lines: text("const grace = 1000;", "mount(prefix, grace);"),
 	binary: false,
@@ -24,7 +26,7 @@ describe("the file view", () => {
 		expect(html).toContain("browse-diff-no");
 		expect(html).toContain("mount(prefix, grace);");
 		// The way back names the comparison, so the reader lands on the review they were in.
-		expect(html).toContain('id="rv-back" href="/review/new?scope=base"');
+		expect(html).toContain('id="rv-back" href="/review/new?scope=branch"');
 		// The review's own page: no address into another page's prefix.
 		expect(html).not.toContain('href="/files');
 	});

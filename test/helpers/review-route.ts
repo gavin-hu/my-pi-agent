@@ -17,6 +17,7 @@ import {
 	type ReviewStore,
 } from "../../extensions/code-review/review/store.ts";
 import type { ReviewScope } from "../../extensions/code-review/scope.ts";
+import { comparisonOf } from "./review-scope.ts";
 import { createReviewHandler } from "../../extensions/code-review/transport/router.ts";
 import type { LoopbackHandler, LoopbackReply, LoopbackRequest, ServeResponse } from "../../lib/http/index.ts";
 
@@ -60,7 +61,7 @@ export interface ReviewRouteOptions {
 	text?: ReviewReader["text"];
 	/** The checkout the handler reports; `/tmp/repo` by default. */
 	place?: { root: string; repo: string };
-	/** The page opened before the case runs; `base` by default, `undefined` for none. */
+	/** The page opened before the case runs; `branch` by default, `undefined` for none. */
 	scope?: ReviewScope | undefined;
 }
 
@@ -83,8 +84,7 @@ export function reviewRoute(options: ReviewRouteOptions = {}) {
 		},
 	];
 	const snapshot = (): ReviewSnapshot => ({
-		scope: "base",
-		base: "main",
+		scope: comparisonOf("branch"),
 		label: "main...HEAD",
 		files,
 		omitted: 0,
@@ -113,8 +113,8 @@ export function reviewRoute(options: ReviewRouteOptions = {}) {
 		base: "/review",
 		onSent: (comments) => sent.push(comments),
 	});
-	const scope = "scope" in options ? options.scope : "base";
-	if (scope !== undefined) store.open(scope, "", "");
+	const scope = "scope" in options ? options.scope : comparisonOf("branch");
+	if (scope !== undefined) store.open(scope, "branch");
 	return { state, store, handler, sent, snapshot, reader };
 }
 
@@ -123,14 +123,13 @@ function currentOf(store: ReviewStore, reader: ReviewReader, place: { root: stri
 	return {
 		place: () => place,
 		reader: () => reader,
-		configure: () => {},
 		page: () => store.current(),
-		snapshotOf: (page) => reader.snapshot(page.scope, page.base),
+		snapshotOf: (page) => reader.snapshot(page.scope),
 		async snapshot() {
 			const page = store.current();
-			return page === undefined ? { kind: "failed", message: NO_PAGE } : reader.snapshot(page.scope, page.base);
+			return page === undefined ? { kind: "failed", message: NO_PAGE } : reader.snapshot(page.scope);
 		},
-		openPage: async (scope) => store.open(scope, "", ""),
+		openPage: async (scope, preset) => store.open(scope, preset),
 	};
 }
 

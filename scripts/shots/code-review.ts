@@ -22,6 +22,7 @@ import { DEFAULT_REVIEW_CONFIG } from "../../extensions/code-review/config/confi
 import { createReviewCurrent } from "../../extensions/code-review/review/current.ts";
 import { createReviewStore } from "../../extensions/code-review/review/store.ts";
 import { createReviewPage } from "../../extensions/code-review/transport/server.ts";
+import { presetScope } from "../../extensions/code-review/scope.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
 import { parseShotArgs, runCli } from "../cli.ts";
@@ -152,7 +153,9 @@ export async function capture(options: ShotOptions): Promise<void> {
 		throw new Error(outcome.reason);
 	}
 	const page = outcome.page;
-	await current.openPage("base");
+	const scope = presetScope("change", "main");
+	if (scope === undefined) throw new Error("the change preset has no default to resolve");
+	await current.openPage(scope, "change");
 	const held = page.store.current();
 	const snapshot = await page.snapshot();
 	if (held === undefined || snapshot.kind !== "snapshot") throw new Error("the fixture has no diff to review");

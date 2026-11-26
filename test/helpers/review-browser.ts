@@ -16,6 +16,7 @@ import { findChrome } from "../../scripts/capture/chrome.ts";
 import type { DiffLine } from "../../lib/diff/parse.ts";
 import type { ReviewSnapshot } from "../../extensions/code-review/git/diff.ts";
 import type { ReviewCurrent } from "../../extensions/code-review/review/current.ts";
+import { comparisonOf } from "./review-scope.ts";
 import { createReviewStore } from "../../extensions/code-review/review/store.ts";
 import { createReviewHandler } from "../../extensions/code-review/transport/router.ts";
 import { suiteTab, type TestBrowser } from "./browser.ts";
@@ -112,8 +113,7 @@ export function reviewSnapshot(fingerprint: string, options: SnapshotOptions = {
 		);
 	}
 	return {
-		scope: "base",
-		base: "main",
+		scope: comparisonOf("branch"),
 		label: "main...HEAD",
 		files,
 		omitted: 0,
@@ -172,7 +172,7 @@ export async function mountReviewPage(
 	let minted = 0;
 	const store = createReviewStore({ mint: () => `token${++minted}`.padEnd(32, "a"), now: () => 1 });
 	if (seed.length > 0) {
-		const page = store.open("base", "", "");
+		const page = store.open(comparisonOf("branch"), "branch");
 		for (const entry of seed) {
 			store.write(page.token, "rev-1", "rev-1", {
 				kind: "comment",
@@ -191,11 +191,10 @@ export async function mountReviewPage(
 	const current: ReviewCurrent = {
 		place: () => ({ root: "/tmp/probe", repo: "probe" }),
 		reader: () => reader,
-		configure: () => {},
 		page: () => store.current(),
 		snapshotOf: () => reader.snapshot(),
 		snapshot: () => reader.snapshot(),
-		openPage: async (scope) => store.open(scope, "", ""),
+		openPage: async (scope, preset) => store.open(scope, preset),
 	};
 	const handler = createReviewHandler({ store, current, base: REVIEW_MOUNT });
 	const mount = await testMountSource()({

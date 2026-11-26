@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ReviewComment } from "./review/store.ts";
 import type { OpenOutcome, ReviewSession, ReviewStatus } from "./review/session.ts";
+import { comparisonOf } from "../../test/helpers/review-scope.ts";
+
 import { registerReviewTool, statusLine } from "./tools.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
@@ -11,7 +13,7 @@ function fakeSession(options: { status?: Partial<ReviewStatus>; open?: OpenOutco
 	const calls: string[] = [];
 	const status: ReviewStatus = {
 		url: "http://127.0.0.1:4781/review/new",
-		scope: "base",
+		scope: comparisonOf("change", "origin/main"),
 		label: "main...HEAD",
 		files: 2,
 		comments: 1,
@@ -55,7 +57,7 @@ describe("code_review", () => {
 	test("open serves the page and names the address and the size", async () => {
 		const { session } = fakeSession();
 		const ctx = fakeCtx().ctx;
-		const result = await toolFor(session).execute("c1", { action: "open", scope: "base" }, undefined, undefined, ctx);
+		const result = await toolFor(session).execute("c1", { action: "open", scope: "branch" }, undefined, undefined, ctx);
 		expect(result.content[0].text).toContain("Review page: http://127.0.0.1:4781/review/new");
 		expect(result.details).toMatchObject({
 			open: true,
@@ -125,13 +127,13 @@ describe("code_review", () => {
 
 describe("statusLine", () => {
 	test("says how to serve one when no page is open", () => {
-		expect(statusLine({ scope: "base", label: "", files: 0, comments: 0, drafts: 0, sent: 0, reviewed: 0 })).toContain(
+		expect(statusLine({ label: "", files: 0, comments: 0, drafts: 0, sent: 0, reviewed: 0 })).toContain(
 			'action "open"',
 		);
 	});
 
 	test("names the sent comments a closed page left behind", () => {
-		const line = statusLine({ scope: "base", label: "", files: 0, comments: 0, drafts: 0, sent: 3, reviewed: 0 });
+		const line = statusLine({ label: "", files: 0, comments: 0, drafts: 0, sent: 3, reviewed: 0 });
 		expect(line).toContain("3 review comments have been sent");
 	});
 });
@@ -141,7 +143,7 @@ describe("code_review tool: a stray field", () => {
 		const { session, calls } = fakeSession();
 		const refused = await toolFor(session).execute(
 			"c1",
-			{ action: "status", scope: "base" },
+			{ action: "status", scope: "branch" },
 			undefined,
 			undefined,
 			fakeCtx().ctx,

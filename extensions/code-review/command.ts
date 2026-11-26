@@ -1,22 +1,22 @@
 /**
- * `/review`: serve the working tree as a review page, and drive it.
+ * `/review`: serve a comparison as a review page, and drive it.
  *
- * Bare `/review` serves the branch against its base; a scope word serves that
- * comparison instead, and is refused while the page holds a draft or a mark — the same
- * rule the page's own tabs apply, since sent comments survive a scope change. `status`
- * prints the address and what it holds, `stop` closes the page — the page's own
- * comments stay readable through the `code_review` tool either way.
+ * Bare `/review` opens the whole change; a preset word opens that comparison instead, and
+ * is refused while the page holds a draft or a mark — the same rule the page's own tabs
+ * apply, since sent comments survive a scope change. `status` prints the address and what
+ * it holds, `stop` closes the page — the page's own comments stay readable through the
+ * `code_review` tool either way.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { EnsureSession } from "./tools.ts";
 import { statusLine } from "./tools.ts";
-import { REVIEW_SCOPES, isReviewScope } from "./scope.ts";
+import { isReviewPreset, REVIEW_PRESETS } from "./scope.ts";
 
 /** The words `/review` completes, in the order it lists them. */
-export const REVIEW_WORDS: readonly string[] = [...REVIEW_SCOPES, "status", "stop"];
+export const REVIEW_WORDS: readonly string[] = [...REVIEW_PRESETS, "status", "stop"];
 
-/** The same words in one line, so a scope added to `REVIEW_SCOPES` cannot leave the usage behind. */
+/** The same words in one line, so a preset added to `REVIEW_PRESETS` cannot leave the usage behind. */
 const WORD_LIST = REVIEW_WORDS.join("|");
 
 /** What a bare `/review` does, and what each word after it does. */
@@ -33,7 +33,7 @@ export function registerReviewCommand(pi: Pick<ExtensionAPI, "registerCommand">,
 		},
 		handler: async (args, ctx) => {
 			const word = args.trim().split(/\s+/)[0] ?? "";
-			if (word !== "" && !isReviewScope(word) && word !== "status" && word !== "stop") {
+			if (word !== "" && !isReviewPreset(word) && word !== "status" && word !== "stop") {
 				ctx.ui.notify(`review: ${REVIEW_USAGE}`, "error");
 				return;
 			}
@@ -55,7 +55,7 @@ export function registerReviewCommand(pi: Pick<ExtensionAPI, "registerCommand">,
 			}
 			// The page prints its own address and the reason it has no diff; nothing is
 			// repeated here, so one open is one pair of lines.
-			await session.open({ ...(isReviewScope(word) ? { scope: word } : {}) }, ctx);
+			await session.open({ ...(isReviewPreset(word) ? { scope: word } : {}) }, ctx);
 		},
 	});
 }

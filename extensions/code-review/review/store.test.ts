@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { pathRef } from "../../../lib/format.ts";
+import { comparisonOf } from "../../../test/helpers/review-scope.ts";
 import {
 	BAD_TOKEN,
 	createReviewStore,
@@ -37,15 +38,15 @@ function replyTo(parent: string, body = "and a test"): Extract<WriteOp, { kind: 
 describe("the review page", () => {
 	test("opens with a token and no review: nothing is minted until the first write", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		expect(page.token.length).toBeGreaterThan(20);
 		expect(page.review).toBeUndefined();
-		expect(store.current()?.scope).toBe("base");
+		expect(store.current()?.scope).toEqual(comparisonOf("branch"));
 	});
 
 	test("the first write mints one id, and the next keeps it", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		const first = store.write(page.token, REV, REV, comment());
 		expect(first.ok).toBe(true);
 		const second = store.write(page.token, REV, REV, comment("and a test"));
@@ -58,7 +59,7 @@ describe("the review page", () => {
 
 	test("a send, a drop and a mark land on a snapshot the page no longer shows", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		const first = store.write(page.token, REV, REV, comment());
 		if (!first.ok) throw new Error(first.message);
 		const id = first.review.comments[0].id;
@@ -74,7 +75,7 @@ describe("the review page", () => {
 
 	test("the first write records the page's snapshot, not the one it read", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		// A stale page's first write must not clear the banner saying the diff moved under it, so
 		// the review keeps the revision the page rendered rather than the fresh one.
 		const marked = store.write(page.token, REV, "snap-2", { kind: "reviewed", rel: "a.ts", reviewed: true });
@@ -84,7 +85,7 @@ describe("the review page", () => {
 
 	test("a reply keeps the comment it answers, and answers nothing itself", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		const first = store.write(page.token, REV, REV, comment());
 		if (!first.ok) throw new Error(first.message);
 		const parent = first.review.comments[0].id;
@@ -104,7 +105,7 @@ describe("the review page", () => {
 
 	test("refuses a parent on another line, and one the review does not hold", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		const first = store.write(page.token, REV, REV, comment());
 		if (!first.ok) throw new Error(first.message);
 		const parent = first.review.comments[0].id;
@@ -132,7 +133,7 @@ describe("the review page", () => {
 
 	test("a comment on a span keeps its end, and one spelling names it", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		const span = store.write(page.token, REV, REV, { ...comment(), endLine: 9 });
 		if (!span.ok) throw new Error(span.message);
 		const [written] = span.review.comments;
@@ -146,7 +147,7 @@ describe("the review page", () => {
 
 	test("refuses a span that ends where it starts, and a reply that carries one", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		expect(store.write(page.token, REV, REV, { ...comment(), endLine: 4 })).toEqual({
 			ok: false,
 			status: 400,
@@ -171,7 +172,7 @@ describe("the review page", () => {
 
 	test("a comment keeps its anchor, its quote, and its trimmed body", () => {
 		const { store } = countingStore();
-		const page = store.open("worktree", "", "worktree");
+		const page = store.open(comparisonOf("worktree"));
 		const result = store.write(page.token, REV, REV, {
 			kind: "comment",
 			rel: " src/a.ts ",
@@ -193,7 +194,7 @@ describe("the review page", () => {
 
 	test("a snapshot the page no longer shows is refused, and nothing changes", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		store.write(page.token, REV, REV, comment());
 		const moved = store.write(page.token, REV, "snap-2", comment("stale"));
 		expect(moved).toEqual({ ok: false, status: 409, message: SNAPSHOT_MOVED });
@@ -203,8 +204,8 @@ describe("the review page", () => {
 	test("a token another page minted is refused, and no page is refused", () => {
 		const { store } = countingStore();
 		expect(store.write("anything", REV, REV, comment())).toEqual({ ok: false, status: 409, message: NO_PAGE });
-		const page = store.open("base", "main", "main...HEAD");
-		const other = store.open("last", "", "HEAD~1...HEAD");
+		const page = store.open(comparisonOf("branch"));
+		const other = store.open(comparisonOf("last"));
 		const refused = store.write(page.token, REV, REV, comment());
 		expect(refused.ok).toBe(false);
 		if (!refused.ok) expect(refused.message).toBe(BAD_TOKEN);
@@ -236,7 +237,7 @@ describe("a refused first write", () => {
 	for (const [name, op, status] of refusals) {
 		test(`${name} mints nothing`, () => {
 			const { store, count } = countingStore();
-			const page = store.open("base", "main", "main...HEAD");
+			const page = store.open(comparisonOf("branch"));
 			const before = count();
 			const refused = store.write(page.token, REV, REV, op);
 			expect(refused.ok).toBe(false);
@@ -248,7 +249,7 @@ describe("a refused first write", () => {
 
 	test("the first accepted write mints exactly one id, and resume answers for it", () => {
 		const { store, count } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		expect(count(), "the page opened with one token").toBe(1);
 		const refused = store.write(page.token, REV, REV, {
 			kind: "comment",
@@ -273,7 +274,7 @@ describe("a refused first write", () => {
 describe("the comments a review holds", () => {
 	test("an empty body, an over-long one, a bad line, and a full review are refused", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		const write = (op: WriteOp) => store.write(page.token, REV, REV, op);
 		const empty = write(comment("   "));
 		expect(empty.ok).toBe(false);
@@ -299,7 +300,7 @@ describe("the comments a review holds", () => {
 
 	test("drop removes one comment and refuses an id that is not there", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		const added = store.write(page.token, REV, REV, comment());
 		if (!added.ok) throw new Error(added.message);
 		const id = added.review.comments[0].id;
@@ -312,7 +313,7 @@ describe("the comments a review holds", () => {
 
 	test("a reviewed mark is set once and cleared again", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		store.write(page.token, REV, REV, comment());
 		const marked = store.write(page.token, REV, REV, { kind: "reviewed", rel: "a.ts", reviewed: true });
 		if (!marked.ok) throw new Error(marked.message);
@@ -329,7 +330,7 @@ describe("the comments a review holds", () => {
 describe("sending", () => {
 	test("marks every draft sent and hands the session the list once", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		store.write(page.token, REV, REV, comment("one"));
 		store.write(page.token, REV, REV, comment("two"));
 		const sent = store.write(page.token, REV, REV, { kind: "send" });
@@ -351,7 +352,7 @@ describe("sending", () => {
 	 */
 	test("an empty send is accepted: it mints one review and answers no comments", () => {
 		const { store, count } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		expect(store.current()?.review).toBeUndefined();
 		const sent = store.write(page.token, REV, REV, { kind: "send" });
 		if (!sent.ok) throw new Error(sent.message);
@@ -368,7 +369,7 @@ describe("sending", () => {
 
 	test("a comment written after a send is a fresh draft", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		store.write(page.token, REV, REV, comment("one"));
 		store.write(page.token, REV, REV, { kind: "send" });
 		const later = store.write(page.token, REV, REV, comment("two"));
@@ -380,7 +381,7 @@ describe("sending", () => {
 describe("resuming and closing", () => {
 	test("resumes only the current review, and only with its own token", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		const written = store.write(page.token, REV, REV, comment());
 		if (!written.ok) throw new Error(written.message);
 		expect(store.resume(written.id, page.token)?.review?.id).toBe(written.id);
@@ -390,7 +391,7 @@ describe("resuming and closing", () => {
 
 	test("closing forgets the page, and a second close is a no-op", () => {
 		const { store } = countingStore();
-		const page = store.open("base", "main", "main...HEAD");
+		const page = store.open(comparisonOf("branch"));
 		store.close();
 		expect(store.current()).toBeUndefined();
 		store.close();

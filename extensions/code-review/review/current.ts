@@ -11,7 +11,7 @@ import { effectiveRealCwd } from "../../../lib/env.ts";
 import { lastSegment } from "../../../lib/path.ts";
 import type { ReviewConfig } from "../config/config.ts";
 import { createReviewReader, type ReviewReader, type SnapshotOutcome } from "../git/diff.ts";
-import type { ReviewScope } from "../scope.ts";
+import type { ReviewPreset, ReviewScope } from "../scope.ts";
 import { NO_PAGE, type ReviewPageState, type ReviewStore } from "./store.ts";
 
 /** What the seam needs of the session it serves. */
@@ -31,27 +31,14 @@ export interface ReviewCurrent {
 	place(): { root: string; repo: string };
 	/** The reader for the root this request reads — rebuilt when the root moved. */
 	reader(): ReviewReader;
-	/** Read the next requests with this config: an open's `base` replaces the configured one. */
-	configure(config: ReviewConfig): void;
 	/** The session's page, or undefined when no review is open. */
 	page(): ReviewPageState | undefined;
 	/** One page's snapshot, or the sentence a scope with no answer owes. */
 	snapshotOf(page: ReviewPageState): Promise<SnapshotOutcome>;
 	/** The open page's snapshot, or the sentence a session with no page owes. */
 	snapshot(): Promise<SnapshotOutcome>;
-	/**
-	 * Mint the page for a scope, with the base and label its header prints. The one rule for
-	 * what an opening serves, so a command, a tool and a capture cannot disagree.
-	 */
-	openPage(scope: ReviewScope): Promise<ReviewPageState>;
-}
-
-/**
- * The base a snapshot reads with: a page's stored ref, or `undefined` so the reader asks the
- * chain again. `""` is what a page holds before anything resolved, never an answer.
- */
-function resolvedBase(base: string): string | undefined {
-	return base === "" ? undefined : base;
+	/** Mint the page for a scope — and the preset that names it, when one does. */
+	openPage(scope: ReviewScope, preset?: ReviewPreset): Promise<ReviewPageState>;
 }
 
 export function createReviewCurrent(deps: ReviewCurrentDeps): ReviewCurrent {
@@ -84,27 +71,16 @@ export function createReviewCurrent(deps: ReviewCurrentDeps): ReviewCurrent {
 	return {
 		place,
 		reader,
-		configure(next) {
-			config = next;
-		},
 		page: () => deps.store.current(),
-		snapshotOf: (page) => reader().snapshot(page.scope, resolvedBase(page.base)),
+		snapshotOf: (page) => reader().snapshot(page.scope),
 		async snapshot() {
 			const page = deps.store.current();
-			return page === undefined
-				? { kind: "failed", message: NO_PAGE }
-				: reader().snapshot(page.scope, resolvedBase(page.base));
+			return page === undefined ? { kind: "failed", message: NO_PAGE } : reader().snapshot(page.scope);
 		},
-		async openPage(scope) {
-			const page = deps.store.open(scope, "", "");
-			// One resolution, and it is the snapshot's: a page that stored a failed detection as
-			// `""` would re-grade that failure without asking git again.
-			const outcome = await reader().snapshot(scope, undefined);
-			if (outcome.kind === "snapshot") {
-				page.base = outcome.snapshot.base;
-				page.label = outcome.snapshot.label;
-			}
-			return page;
+		async openPage(scope, preset) {
+			// The opening mints the page and nothing else: the snapshot a page draws is read per
+			// request, so an eager read here would be a second git call for an answer nobody kept.
+			return deps.store.open(scope, preset);
 		},
 	};
 }

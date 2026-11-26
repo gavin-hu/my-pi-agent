@@ -18,7 +18,9 @@ import type {
 	MountSpec,
 } from "../../../lib/http/index.ts";
 import type { ArmTimer } from "../../../lib/timer.ts";
+import { comparisonOf } from "../../../test/helpers/review-scope.ts";
 import { createReviewStore, type ReviewComment, type ReviewStore } from "../review/store.ts";
+
 import type { ReviewCurrent } from "../review/current.ts";
 import type { ReviewReader } from "../git/diff.ts";
 import type { ReviewSnapshot } from "../git/diff.ts";
@@ -73,8 +75,7 @@ function timer(): { arm: ArmTimer; armed: number[]; cancel: number; fire: () => 
 /** One changed file, and a snapshot whose fingerprint a case can move. */
 function readerOf(state: { rev: string }): ReviewReader {
 	const snapshot = (): ReviewSnapshot => ({
-		scope: "base",
-		base: "main",
+		scope: comparisonOf("branch"),
 		label: "main...HEAD",
 		files: [
 			{
@@ -139,16 +140,13 @@ async function harness(options: { schedule?: ArmTimer; onAbandoned?: () => void 
 	const current: ReviewCurrent = {
 		place: () => ({ root: "/tmp/repo", repo: "repo" }),
 		reader: () => reader,
-		configure: () => {},
 		page: () => store.current(),
-		snapshotOf: (page) => reader.snapshot(page.scope, page.base),
+		snapshotOf: (page) => reader.snapshot(page.scope),
 		async snapshot() {
 			const page = store.current();
-			return page === undefined
-				? { kind: "failed" as const, message: "no page" }
-				: reader.snapshot(page.scope, page.base);
+			return page === undefined ? { kind: "failed" as const, message: "no page" } : reader.snapshot(page.scope);
 		},
-		openPage: async (scope) => store.open(scope, "", ""),
+		openPage: async (scope, preset) => store.open(scope, preset),
 	};
 	const sent: Array<ReadonlyArray<ReviewComment>> = [];
 	const mount = fakeMount();
@@ -163,7 +161,7 @@ async function harness(options: { schedule?: ArmTimer; onAbandoned?: () => void 
 	});
 	if (started.kind !== "page") throw new Error(started.reason);
 	const page: ReviewServer = started.page;
-	store.open("base", "", "");
+	store.open(comparisonOf("branch"), "branch");
 
 	/** Subscribe the way a browser does: the stream route, then `openSink`. */
 	const attach = async (token?: string): Promise<{ tab: ReturnType<typeof tab>; detach: () => void }> => {

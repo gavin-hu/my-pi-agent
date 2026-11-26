@@ -15,6 +15,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a start whose reason is `new` serves the row the one before it left, and every other reason — a
   quit, a reload, a `/resume`, a fork — ends the membership as it did.
 
+### Changed
+
+- `code-review`: a scope is two ends now — `from → to`, each a revision, the index, or the
+  working tree — and six presets name the pairs a reader asks for: `change` (the default: the
+  branch and everything uncommitted as one change), `branch`, `last`, `uncommitted`, `staged`,
+  `worktree`. The words `base` and `head` go — `/review base` is `/review branch` now, and
+  `head` was already shown as uncommitted — and `code_review`'s `base` parameter is replaced by
+  `from`/`to`, which also open a comparison no preset names: `{ "to": "index" }` is the change
+  as staged so far, `origin/feature` against `origin/main` a branch nobody checked out. Two
+  commits compare from the line they share, so a merged-in base no longer shows as the
+  branch's own work, and untracked files join exactly when the right side is the working tree.
+
 ### Fixed
 
 - `session-bus`: a `/new` no longer takes a session's name off the bar. The reset kept the bus record

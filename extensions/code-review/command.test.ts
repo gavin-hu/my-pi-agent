@@ -3,13 +3,14 @@ import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { registerReviewCommand, REVIEW_USAGE, REVIEW_WORDS } from "./command.ts";
 import type { OpenOutcome, ReviewSession, ReviewStatus } from "./review/session.ts";
+import { comparisonOf } from "../../test/helpers/review-scope.ts";
 
 /** A session the command drives, recording what it was asked. */
 function fakeSession(options: { opened?: OpenOutcome; status?: Partial<ReviewStatus> } = {}) {
 	const calls: Array<Record<string, unknown>> = [];
 	const status: ReviewStatus = {
 		url: "http://127.0.0.1:4781/review/new",
-		scope: "base",
+		scope: comparisonOf("change", "origin/main"),
 		label: "main...HEAD",
 		files: 2,
 		comments: 1,
@@ -47,9 +48,10 @@ describe("/review", () => {
 			(command.getArgumentCompletions(prefix) ?? []).map((item: { value: string }) => item.value);
 		expect(complete("")).toEqual([...REVIEW_WORDS]);
 		expect(complete("st")).toEqual(["staged", "status", "stop"]);
-		expect(complete("base")).toEqual(["base"]);
+		expect(complete("ch")).toEqual(["change"]);
+		expect(complete("branch")).toEqual(["branch"]);
 		expect(complete("nope")).toEqual([]);
-		expect(command.getArgumentCompletions("base extra")).toBeNull();
+		expect(command.getArgumentCompletions("branch extra")).toBeNull();
 	});
 
 	test("a bare /review opens the page at the default scope", async () => {
