@@ -10,7 +10,7 @@ promises, and the notes that explain it — and two signatures are needed before
 - **The page is a view**: it follows the files, and nothing is claimed, moved, or signed from a browser.
 - **Two signatures**: the lead signs both gates — a contract before `execute`, the work before
   `done` — with `board` or `/board`, and `/board` also takes the seat that refuses code (below).
-- **The lane is the record**, and a session is told once which cards are its own, with what each owes.
+- **The lane is the record**: told once which cards are its own and what each owes, and again after a `/tree` or a `/compact`.
 - **Steps stay out of it** — they live in the owner's plan and `todo`.
 
 ## What you can do

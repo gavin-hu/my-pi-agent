@@ -92,7 +92,12 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			// opens it once per session; a completion that cannot name a root offers nothing.
 			if (!LABEL_WORDS.has(word) || root === undefined) return null;
 			const typed = labelKey(rest[0] ?? "");
-			const store = await session.store(root);
+			// A store that cannot open is the same answer as no root, and it has to be given rather than
+			// thrown: the editor awaits this with no catch, so a rejection here costs every later Tab in
+			// the process its autocomplete. One failure is not the session's — the open is memoized
+			// unremembered, so the next keystroke asks again.
+			const store = await session.store(root).catch(() => undefined);
+			if (store === undefined) return null;
 			const names = store.config().teammates.filter((candidate) => labelKey(candidate).startsWith(typed));
 			return names.length > 0 ? names.map((value) => ({ value, label: value })) : null;
 		},
