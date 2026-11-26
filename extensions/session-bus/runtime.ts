@@ -194,7 +194,12 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// A served row is one this process was already on the bus with, so the start joins it as a
 			// resumed session would: the beat is what keeps a peer's prune from taking the row — and the
 			// claims a card is worked under — ten quiet minutes later.
-			if (wasServed(record, id)) await joinBus();
+			if (wasServed(record, id)) {
+			await joinBus();
+			// The row kept the name; the transcript Pi holds did not. A minted start names nobody,
+			// because naming it would put a session that never joined on the bar.
+			labels.nameTranscript();
+		}
 		})();
 		try {
 			await starting;

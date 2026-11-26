@@ -28,7 +28,7 @@ function suffixLabel(label: string, id: string): string {
 /** What the start knows about the name it just took, and what it may write it to. */
 export interface LabelSeams {
 	/** The host's event bus, and the call that names the transcript it holds. */
-	pi: Pick<ExtensionAPI, "events">;
+	pi: Pick<ExtensionAPI, "events"> & Partial<Pick<ExtensionAPI, "setSessionName">>;
 	/** The bus this session was written to. */
 	store: BusStore;
 	/** The record this process serves: the row a `/new` keeps. */
@@ -57,6 +57,8 @@ export interface SessionLabels {
 	publish(): void;
 	/** The holder as a refusal names it: which session, and what it is now. */
 	heldBy(holder: SessionRecord): string;
+	/** Write this session's name onto the transcript Pi holds, which a `/new` replaced. */
+	nameTranscript(): void;
 }
 
 export function createLabels(seams: LabelSeams): SessionLabels {
@@ -133,5 +135,22 @@ export function createLabels(seams: LabelSeams): SessionLabels {
 			: `already in use by session ${holder.id}`;
 	}
 
-	return { taken, settle, publish, heldBy };
+	/**
+	 * Put this session's name back on the transcript a `/new` replaced.
+	 *
+	 * The row outlives the reset, but Pi's title does not: it is a `session_info` entry in the
+	 * transcript's own file, so a served start finds the next one unnamed and every surface that
+	 * reads Pi's name — the notify title, and the `defaultLabel` a later `/resume` starts from — loses
+	 * the name a peer already addresses. A host that refuses the call leaves the bus working: the
+	 * title is a convenience, and the row is what a peer sends to.
+	 */
+	function nameTranscript(): void {
+		try {
+			pi.setSessionName?.(record.label);
+		} catch {
+			// The title is the host's to keep; a refusal costs no membership.
+		}
+	}
+
+	return { taken, settle, publish, heldBy, nameTranscript };
 }
