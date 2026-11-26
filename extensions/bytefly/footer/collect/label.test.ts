@@ -35,12 +35,13 @@ function busWith(id: string, label: string): string {
 /** Follow a session's label, and collect everything the follower reports. */
 async function follow(
 	agentDir: string,
-): Promise<{ pi: ReturnType<typeof makeFakePi>["pi"]; reports: Array<string | null> }> {
+): Promise<{ pi: ReturnType<typeof makeFakePi>["pi"]; reports: Array<string | null>; stop: () => void }> {
 	const { pi } = makeFakePi();
 	const { ctx } = fakeFooterCtx({ sessionName: "billing-core" });
 	const reports: Array<string | null> = [];
-	await followRosterLabel({ pi, ctx, agentDir, sink: (label) => reports.push(label) });
-	return { pi, reports };
+	const follower = followRosterLabel({ pi, ctx, agentDir, sink: (label) => reports.push(label) });
+	await follower.ready;
+	return { pi, reports, stop: follower.stop };
 }
 
 describe("following the roster label", () => {
