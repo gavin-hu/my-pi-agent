@@ -68,6 +68,15 @@ describe("following the roster label", () => {
 		pi.events.emit(SESSION_LABEL_CHANNEL, { id: "sess", label: "rose" });
 		expect(reports).toEqual(["rose"]);
 	});
+
+	test("stops naming the transcript whose follower was dropped", async () => {
+		const followed = await follow(temps.track(scratchDir(temps, "pi-footer-label-")));
+		// A `/new` replaces the transcript inside one process and re-installs the footer: the install
+		// that follows drops the listener the previous one made, or every reset would leave one behind.
+		followed.stop();
+		followed.pi.events.emit(SESSION_LABEL_CHANNEL, { id: "sess", label: "rose" });
+		expect(followed.reports).toEqual([]);
+	});
 });
 
 describe("the installed footer's chip", () => {

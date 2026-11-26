@@ -10,7 +10,8 @@
  *
  * The extension is loaded for real — `session_start` and `session_shutdown` are emitted at it — so
  * these cases fail if the host's event stops reaching `start`/`stop`: a `/new` shutdown would remove
- * the row, and the successor would mint one.
+ * the row, and the successor would mint one. The bus is built on the fake host rather than on an
+ * empty double, which is what lets a case watch the label channel the footer itself reads.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -18,6 +19,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import sessionBus from "./index.ts";
 import { createSessionBus } from "./runtime.ts";
 import { createBusStore } from "./store.ts";
+import { SESSION_LABEL_CHANNEL, type SessionLabelEvent } from "../../lib/session-label.ts";
 import { SESSION_TTL_MS } from "../../lib/session-roster.ts";
 import { busMessage, landMessage } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
@@ -44,7 +46,7 @@ function world() {
 	const dir = scratchDir(temps, "pi-session-bus-");
 	const open = (sessionId: string, pid = PID) => {
 		const fake = createFakePi();
-		const bus = createSessionBus({} as ExtensionAPI, {
+		const bus = createSessionBus(fake.pi, {
 			dir,
 			pid,
 			alive: () => true,
@@ -83,6 +85,30 @@ async function reset(from: ReturnType<ReturnType<typeof world>["open"]>) {
 }
 
 describe("a `/new` on a running bus", () => {
+	test("the served transcript is the one the label channel names, and Pi's title with it", async () => {
+		const land = world();
+		const before = land.open("s-old");
+		await emit(before.pi, "session_start", { type: "session_start", reason: "startup" }, before.ctx);
+		await before.bus.join({ label: "tom", listen: false });
+
+		// The transcript the reset leaves, as its own footer would subscribe to it: the id it has is the
+		// only one it can match a published name against.
+		const after = land.open("s-new");
+		const published: SessionLabelEvent[] = [];
+		after.pi.events.on(SESSION_LABEL_CHANNEL, (event) => published.push(event as SessionLabelEvent));
+		await reset(before);
+		await emit(after.pi, "session_start", { type: "session_start", reason: "new" }, after.ctx);
+		await after.bus.start(after.ctx);
+
+		// The row is the process's, and keeps the id the previous transcript minted; the name goes to the
+		// transcript on screen, which is the one whose footer is listening.
+		expect((await after.bus.status()).me).toEqual({ id: "s-old", label: "tom" });
+		expect(published.at(-1) ?? undefined).toEqual({ id: "s-new", label: "tom" });
+		// Pi's title is an entry in the transcript's own file, so the reset cleared it and the served start
+		// is what puts it back: without it a `/resume` of this id starts from the repository's name.
+		expect(after.pi.getSessionName()).toBe("tom");
+	});
+
 	test("the row it kept is still the session's own, with its claims, after a peer's prune past the TTL", async () => {
 		const land = world();
 		const before = land.open("s-old");
@@ -141,5 +167,8 @@ describe("a `/new` on a running bus", () => {
 		// session that has not named itself.
 		expect(await createBusStore({ dir: land.dir }).sessions()).toEqual([]);
 		expect(land.ticks).toHaveLength(0);
+		// Nor is a name published or written onto the transcript: the bar names a session that joined, and
+		// nothing else.
+		expect(first.pi.getSessionName()).toBeUndefined();
 	});
 });

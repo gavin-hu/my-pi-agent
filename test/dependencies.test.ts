@@ -233,13 +233,6 @@ describe("dependency budget", () => {
 });
 
 /**
- * A surface that loads on first use, with the sentence that says when.
- *
- * The entry modules are what Pi calls on every start, so a static import here is
- * the regression: the feature is registered, but its page, server, or screen is
- * not needed until a command or a TUI branch asks for it.
- */
-/**
  * The surfaces a rule keeps out, rather than a list that keeps growing.
  *
  * A full-screen surface lives under `view/` — the `wechat` doc's "`view/` draws a
@@ -265,10 +258,11 @@ function ruleOf(path: string): string {
 }
 
 /**
- * The deferrals a rule cannot express, each with the sentence that says when it loads.
- *
- * A row here is an exception to `DEFERRED_BY_RULE`'s filing rule: a module that is
- * not a screen but still must not be paid at start.
+ * The deferrals a rule cannot express, each with the sentence that says when it loads: the entry
+ * modules are what Pi calls on every start, so a static import here is the regression — the feature
+ * is registered, but its page, server, or screen is not needed until a command or a TUI branch asks
+ * for it. A row here is an exception to `DEFERRED_BY_RULE`'s filing rule: a module that is not a
+ * screen but still must not be paid at start.
  */
 const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/wechat/bridge.ts": "the bridge loads when a bound session starts it",
