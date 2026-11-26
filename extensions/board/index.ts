@@ -262,10 +262,15 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		if (holding !== undefined) {
 			const context = await (contextModule ??= import("./context.ts"));
 			const facts = await context.leadFacts(session, ctx);
-			if (facts === undefined) return undefined;
-			return {
-				message: { customType: context.BOARD_CONTEXT_TYPE, content: context.buildLeadContext(facts), display: false },
-			};
+			const lead = facts === undefined ? undefined : context.buildLeadContext(facts);
+			// The seat and the door in one message: this is the session whose work the withheld tool
+			// strands — it signs, reviews and lands — so it is the last one that may be told it holds
+			// a seat and not how to get the board back. A seat whose facts cannot be read still owes
+			// the door, and one whose tool is offered owes the door nothing.
+			const content = offered ? lead : lead === undefined ? context.doorContext() : `${lead}\n${context.doorContext()}`;
+			return content === undefined
+				? undefined
+				: { message: { customType: context.BOARD_CONTEXT_TYPE, content, display: false } };
 		}
 		// No tool, so this turn says where the door is: the line that keeps "no board here" from
 		// reading as "no board anywhere". It does not spend `read` — the door is paid every turn

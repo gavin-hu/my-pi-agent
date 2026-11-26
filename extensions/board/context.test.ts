@@ -10,6 +10,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { LEAD_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import {
 	type ClaimPathsResult,
 	type ReleasePathsResult,
@@ -225,6 +226,26 @@ describe("the factory's turn", () => {
 			await call({ action: "add", title: "Two", paths: [] });
 			await call({ action: "claim", card: "2" });
 			expect(await starters[0]?.({}, harness.ctx)).toBeUndefined();
+		});
+	});
+
+	test("carries the door with the seat's line when a seated session is on no team", async () => {
+		await withEnv(ENABLED, async () => {
+			// A real board, because the seat's line reads the cards and the roster.
+			const harness = boardHarness({
+				now: NOW,
+				lead: LEAD,
+				track: temps.track,
+				branch: [{ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } }],
+			});
+			harness.fake.pi.registerTool({ name: "session" });
+			const session = { ...harness.runtime, serving: () => "team-lead" };
+			board(harness.fake.pi, { session, page: pageWithNoRecording() });
+			const [starter] = harness.fake.handlers.get("before_agent_start") ?? [];
+			const message = (await starter?.({}, harness.ctx)) as { message: { content: string } } | undefined;
+			// `board` is withheld here, so the seat's line says how to get it back — after the facts it
+			// is about, because the seat is what the turn came for.
+			expect(message?.message.content).toMatch(/\[LEAD MODE\][\s\S]*\/team join/);
 		});
 	});
 
