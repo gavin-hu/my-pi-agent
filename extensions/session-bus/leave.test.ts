@@ -14,12 +14,14 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { SESSION_LABEL_CHANNEL, type SessionLabelEvent } from "../../lib/session-label.ts";
+import { type LeaveResult, TEAM_LEAVE_REQUEST } from "../../lib/session-tool.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { scratchDir } from "../../test/helpers/env.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { busToolSession as session, joinBusSession as joins } from "../../test/helpers/fixtures/session-bus-tool.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createSessionBus } from "./runtime.ts";
+import sessionBus from "./index.ts";
+import { createSessionBus, type SessionBus } from "./runtime.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -84,7 +86,7 @@ describe("leaving the bus", () => {
 	test("takes the name off the bar, because the session it named is on no bus", async () => {
 		const fake = createFakePi();
 		const seen: string[] = [];
-		fake.pi.events.on(SESSION_LABEL_CHANNEL, (event) => seen.push((event as SessionLabelEvent).label));
+		fake.pi.events.on(SESSION_LABEL_CHANNEL, (event: unknown) => seen.push((event as SessionLabelEvent).label));
 		const bus = createSessionBus(fake.pi as ExtensionAPI, {
 			dir: scratchDir(temps, "pi-leave-"),
 			repo: { root: "/repo/peer", key: "shared" },
@@ -101,5 +103,54 @@ describe("leaving the bus", () => {
 
 		await bus.leave();
 		expect(seen).toEqual([""]);
+	});
+});
+
+describe("the leave request", () => {
+	/** An extension on a bus of its own, started the way the host starts it. */
+	async function mounted(dir: string) {
+		const fake = createFakePi();
+		const bus = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo/peer", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			watchMs: 0,
+		});
+		sessionBus(fake.pi, { bus });
+		const { ctx } = fakeCtx({ cwd: "/repo/peer", sessionId: "s2", sessionName: "tom" });
+		await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
+		return { pi: fake.pi, bus, ctx };
+	}
+
+	test("answers what the bus gave up, and the session reads as off the bus", async () => {
+		const { pi, bus, ctx } = await mounted(scratchDir(temps, "pi-leave-"));
+		await bus.join({ label: "tom", listen: false });
+		await bus.claim(["src/a.ts"]);
+
+		const answered = new Promise<LeaveResult>((resolve) => {
+			pi.events.emit(TEAM_LEAVE_REQUEST, { ctx, respond: resolve });
+		});
+
+		expect(await answered).toEqual({ ok: true, label: "tom", released: ["src/a.ts"] });
+		expect((await bus.status()).onBus).toBe(false);
+	});
+
+	test("answers a failure rather than leaving the caller waiting", async () => {
+		const fake = createFakePi();
+		// Only `leave` is reached, so the double is that one call refusing.
+		const refusing = {
+			leave: async () => {
+				throw new Error("the bus is not started.");
+			},
+		} as unknown as SessionBus;
+		sessionBus(fake.pi, { bus: refusing });
+		const { ctx } = fakeCtx({ cwd: "/repo/peer", sessionId: "s2", sessionName: "tom" });
+
+		const answered = new Promise<LeaveResult>((resolve) => {
+			fake.pi.events.emit(TEAM_LEAVE_REQUEST, { ctx, respond: resolve });
+		});
+
+		expect(await answered).toEqual({ ok: false, error: "the bus is not started." });
 	});
 });

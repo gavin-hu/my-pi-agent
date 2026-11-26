@@ -449,6 +449,7 @@ export const LIB_SUITES: readonly string[] = [
 	"session-mail",
 	"session-tool",
 	"session-tool-send",
+	"session-tool-leave",
 	"mode-state",
 	"state",
 	"requirements",

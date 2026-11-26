@@ -290,6 +290,66 @@ export async function join(
 	});
 }
 
+/** EventBus channel on which a caller asks `session-bus` to take this session off the team. */
+export const TEAM_LEAVE_REQUEST = "my-pi-agent/team-leave/request";
+
+/**
+ * What a leave did: the name it gave up, and the paths that went back.
+ *
+ * `ok` with no `label` is a session that was on no bus to leave — the truth a caller reports, not a
+ * failure: nothing is left to give up, which is what the person asked for.
+ */
+export type LeaveResult = { ok: true; label?: string; released: string[] } | { ok: false; error: string };
+
+/** What a caller sends on {@link TEAM_LEAVE_REQUEST}. */
+export interface TeamLeaveRequest {
+	/** The caller's context. */
+	ctx: ExtensionContext;
+	/** Claimed once, with what the bus answered; the caller settles on that claim. */
+	respond(result: BusAnswer<LeaveResult>): void;
+}
+
+/**
+ * How an extension takes its session off the team, whatever kind of context it is holding.
+ *
+ * A second seam beside {@link TeamJoin} rather than a fourth method on it: a caller that only asks
+ * for a leave has no join to give, and every suite faking a join would otherwise owe a leave it
+ * never asks for.
+ */
+export interface TeamLeave {
+	/** Leave the team. Never throws. */
+	leave(ctx: ExtensionContext): Promise<LeaveResult>;
+}
+
+/** The production leave, bound to one extension's `pi`. */
+export function createTeamLeave(pi: Pick<ExtensionAPI, "events" | "getAllTools">): TeamLeave {
+	return { leave: (ctx) => leave(pi, ctx) };
+}
+
+/**
+ * Leave the team: the bus drops this session's row, its claims, and its watch.
+ *
+ * No `start` is asked first, the way a join asks for one: a start mints the record, and a person
+ * asking to leave must not be joined by the act of leaving. A session the bus never started answers
+ * with nothing to give up.
+ *
+ * With no bus loaded the caller reads the sentence rather than waiting for a listener that is not
+ * there, as {@link join} does — a leave is a door of the same team, so it fails in the same words.
+ */
+export async function leave(
+	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
+	ctx: ExtensionContext,
+): Promise<LeaveResult> {
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS_ERROR };
+	return requestOverBus<LeaveResult, TeamLeaveRequest>(pi, {
+		channel: TEAM_LEAVE_REQUEST,
+		payload: (respond) => ({ ctx, respond }),
+		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
+		failed: (error) => ({ ok: false, error: messageOf(error) }),
+		timedOut: () => ({ ok: false, error: NO_ANSWER_ERROR }),
+	});
+}
+
 /**
  * Every session the bus lists, or `undefined` when it cannot answer.
  *
