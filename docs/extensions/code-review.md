@@ -97,11 +97,11 @@ anyway. A surviving row anchors to its marked new number; a deleted line's ref s
   draft stays in this tab, per line, and sending keeps both — notice and `code_review`.
 - One page per session. A change of comparison is refused while the page holds a draft or
   a mark, by one rule for `/review`, the tool and the tabs; sent comments never hold it.
-- A focused page (`?file=`) hides the other files without forgetting them, and a
-  moved diff can leave a comment or an unsent draft on a line no hunk shows: both
-  still send, and the stranded one is listed above the diff, to delete or discard.
+- A focused page (`?file=`) hides the other files without forgetting them; a moved diff can
+  strand a comment or a draft on a line no hunk shows — it still sends, and is listed to delete.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
-  diff lines per file; the page says what a cap left out.
+  diff lines per file; the page says what a cap left out. A conflicted file is listed and
+  says it is unmerged — there are no rows to comment on until it is resolved.
 - In a repository with no commits yet, `staged` and `worktree` still render a page;
   `change`, `branch`, `last` and `uncommitted` name the commit they are missing.
 - The page needs `git`, `serve`, and a local browser; without `serve` the tool says

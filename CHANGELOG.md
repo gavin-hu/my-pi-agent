@@ -50,6 +50,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: a conflicted file no longer draws an unexplained empty panel. `worktree` gets
+  git's combined `diff --cc` — three columns, a hunk header the two-sided parser never matches —
+  and `staged` gets `* Unmerged path` and nothing else; the reader now recognises both and the
+  page says the file is unmerged and to resolve it in the tree. A rev-based comparison still
+  draws its real two-way diff, conflict markers and all, because that is a diff it can draw.
+
 - `session-bus`: a `/new` no longer takes a session's name off the bar. The reset kept the bus record
   but the footer's chip went blank, because the label channel published the record's id while its only
   reader compares its own transcript's, and Pi's title — an entry in the transcript's file a reset

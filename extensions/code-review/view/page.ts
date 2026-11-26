@@ -191,7 +191,9 @@ function fileSection(
 	// The header already names the path and the stats, so the diff's own `diff --git`,
 	// `index`, and `---`/`+++` lines are the page repeating itself.
 	const rows = file.lines.filter((line) => line.kind !== "meta");
-	if (file.binary) {
+	if (file.unmerged) {
+		notes.push('<p class="rv-file__note">This file is unmerged — resolve it in your tree, then reload the page.</p>');
+	} else if (file.binary) {
 		notes.push('<p class="rv-file__note">A binary or unreadable change; there is no text diff for it.</p>');
 	} else if (rows.length === 0) {
 		notes.push('<p class="rv-file__note">No text change is shown for this file.</p>');
