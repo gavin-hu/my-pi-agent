@@ -4,7 +4,8 @@
  * Three rules a text scan can hold: a component that answers Pi's `focused` check assigns both
  * halves, a tool renderer reuses `context.lastComponent` so a frame is not rebuilt from
  * scratch, and the expand affordance is bound to the shared keybinding id rather than a
- * literal key. The design contract behind them is `lib/tui/README.md`.
+ * literal key. The rule behind them is `docs/design-system.md`, and the modules that
+ * carry it are `lib/tui/README.md`.
  */
 
 import { join } from "node:path";

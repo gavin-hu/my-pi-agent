@@ -76,6 +76,7 @@
   "files": [
     "extensions/**",
     "docs/extensions/**",
+    "docs/design-system.md",
     "lib/**",
     "skills/**",
     "themes/**",

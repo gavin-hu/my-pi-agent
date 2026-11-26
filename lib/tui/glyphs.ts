@@ -6,18 +6,10 @@
  * the glyph and the `ctx.ui.setStatus` key must agree across both sides. Keep
  * the literals here and import them, never re-type them.
  *
- * Four rules, and each is a gate rather than a wish:
- *
- * - **One column.** Never wide, fullwidth, or emoji, which are two columns in
- *   every profile; East-Asian *ambiguous* glyphs are allowed, and a CJK-width
- *   profile draws those two, so the class is recorded rather than assumed.
- * - **One meaning.** No two glyphs may say the same thing, which is what a
- *   distinctness test on the literals cannot see: `⏵` and `▶` were two shapes
- *   that both said "go".
- * - **One ink per family.** A slot's glyphs read as one weight, because a
- *   filled mark and a hairline one beside each other look like two vocabularies.
- * - **One shape may serve several jobs.** The literal is spelled once with
- *   `also`, the way {@link ARROW} is both a join and a cue.
+ * The rules — one column with its class recorded, one meaning, one ink per family,
+ * one shape allowed to serve several jobs — are [`docs/design-system.md`](../../docs/design-system.md#a-glyph-is-one-column-and-one-meaning),
+ * and each is a gate here rather than a wish: `glyphs.test.ts` holds the recorded
+ * class and the meaning, `test/conventions.test.ts` fails a re-typed literal.
  *
  * `GLYPHS` owns each literal; {@link GLYPH_SPECS} the facts about it, and its
  * mapped type holds the two together — a glyph without a record, or a record

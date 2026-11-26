@@ -4,8 +4,9 @@
  *
  * The cases sit together because the rule does, not the code: a sender's id arrives
  * in a polled message, an account's id in a login response, and a status or URL in a
- * QR poll, and each one reaches a different surface. `lib/tui/README.md` is the
- * contract they hold — untrusted text goes through `sanitizeLine` before a widget.
+ * QR poll, and each one reaches a different surface. `docs/design-system.md` is the
+ * rule they hold — untrusted text never reaches a widget — and `lib/tui/README.md`
+ * names the function, `sanitizeLine`.
  *
  * The bridge, the login context, and the host turn are doubles, so no case needs a
  * network, a real session, or a timer.

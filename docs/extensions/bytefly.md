@@ -77,11 +77,10 @@ with a rule naming its number, duration, tools, and outcome. Every tool block le
 with its call line and hangs its result on the rail. Notices from any extension draw
 at the transcript margin with a severity rail.
 
-**Updates.** Once per session a check names the packages that are behind and marks
-the header with this package's marker and Pi's own, replacing Pi's startup update
-blocks with the one themed notice. The result is cached in
-`~/.pi/agent/bytefly/update.json`. `PI_OFFLINE` skips it, and nothing about the
-session is sent: [security](../security.md) says what leaves the machine.
+**Updates.** Once per session a check names the packages that are behind and marks the header with this
+package's marker and Pi's own, replacing Pi's startup update blocks with the one themed notice. The result is
+cached in `~/.pi/agent/bytefly/update.json`. `PI_OFFLINE` skips it, and nothing about the session is sent:
+[security](../security.md) says what leaves the machine.
 
 ## Limits
 
@@ -115,5 +114,6 @@ footer, and tool blocks take over, and every other extension keeps working.
   [`price`](../configuration-reference.md#price--cost-calculation), [`notify`](../configuration-reference.md#notify--os-notifications), and [`doctor`](../configuration-reference.md#doctor--diagnostics).
 - [`serve`](../extensions/serve.md) — the chip in the footer while a page is open.
 - [`plan`](../extensions/plan.md) — the `Shift+Tab` chord the editor binds.
+- [Design system](../design-system.md) — the vocabulary these blocks and screens are drawn with.
 - [Install](../install.md) — `/bytefly doctor` after a fresh install.
 - [Troubleshooting](../troubleshooting.md) — what a `doctor` row means when it says `env disabled`.

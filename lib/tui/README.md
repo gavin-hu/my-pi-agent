@@ -2,47 +2,18 @@
 
 The primitives every interactive surface in this package draws with: rules,
 rows, columns, gauges, panes, glyphs, color roles, and the tool-transcript kit.
-The module-by-module inventory is the `tui/` row of [`../README.md`](../README.md);
-this file is the conventions those modules exist to make easy.
+The module-by-module inventory is the `tui/` row of [`../README.md`](../README.md).
 
-Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/tui.md)
+**The rules are not here.** What a mark means when you read a screen, and what a
+surface must do when you write one, is
+[`docs/design-system.md`](../../docs/design-system.md), which also states the
+hierarchy: Pi's own design system first, that rule set second, and this file as the
+map — which primitive carries which rule, which member a screen subclasses, and which
+gate holds the number. Pi's
+[Terminal UI](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/tui.md)
 and [Themes](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/themes.md)
-docs are normative. Follow Pi's built-in design system and do not invent a
-private visual language; a surface that re-derives chrome, glyphs, or scroll math
-instead of importing it is the bug this directory exists to prevent.
-
-## Host before custom code
-
-Reach down the ladder in order and stop at the first rung that works:
-`ctx.ui.select` / `confirm` / `input` / `editor`, then `notify` / `setStatus` /
-`setWidget`, then the pi-tui components. Reach for `ctx.ui.custom()` or a
-tool/entry renderer only when a surface needs its own layout or input, and never
-build a second terminal renderer.
-
-## Block grammar
-
-- Match the built-in block grammar: one leading blank line per transcript block,
-  nothing trailing (the host owns spacing).
-- Frame screens with a plain `─` rule, not box corners.
-- Compact by default, expand for detail: label-first one-line widgets, with more
-  revealed on demand or on a dedicated screen.
-
-A collapsed tool block is the call line and one body row, and a third row has to
-earn itself. `test/tool-render.test.ts` owns the numbers: every package fixture's
-height at 80 columns is a ceiling in `COLLAPSED_ROWS`, and an entry is debt rather
-than a blessing, so it may only fall. It reads 2.6 rows on average across 39 blocks,
-with `web_search` the tallest at 7 — a listing whose rows are the answer. Every row
-above the rule is a row still to earn.
-
-- The call line carries the outcome, so a success that adds no fact draws no body row.
-- Rows the person did not ask for are either the answer itself — a listing whose
-  items are the subject — or they are behind the expand hint.
-- A block never prints what a widget, a footer status, or a dedicated screen already
-  shows; the person read it there.
-- The block shows the person's line, while the result's `content` keeps the model's
-  prose: an error's instructions belong behind the expand hint, not in every rejection.
-- No blank row inside a block, not even above a section heading, and a row that only
-  restates the row above it is noise.
+docs are normative above both, and a surface that re-derives chrome, glyphs, or scroll
+math instead of importing it is the bug this directory exists to prevent.
 
 ## Primitives
 
@@ -54,6 +25,17 @@ Reach for a `lib/tui/` primitive before composing your own: `plainRule` /
 `DockListScreen` for a list that opens a pane, `TailResult` for a tool result
 that lists rows, heads several row sections, or tails output, `screenFooter` for a
 screen's own last three rows, and `ConfirmState` before a destructive action.
+
+## The block frame
+
+A block's shape is [`docs/design-system.md#reading-the-screen`](../../docs/design-system.md#reading-the-screen);
+what this module spends is its height. `test/tool-render.test.ts` owns the numbers:
+every package fixture's height at 80 columns is a ceiling in `COLLAPSED_ROWS`, and an
+entry is debt rather than a blessing, so it may only fall. It reads 2.6 rows on
+average across 39 blocks, with `web_search` the tallest at 7.
+
+`plainRule` / `titleRule` draw the rule a block or a screen is framed with, and a
+renderer composes its body from the kit rather than printing rows of its own.
 
 ## Docked list screens
 
@@ -118,104 +100,78 @@ A destructive action asks through [`confirm.ts`](./confirm.ts):
 other key so a stray arrow cannot cancel the question. The prompt ends in
 `? y/N`.
 
-The block carries footnotes about the focused row: what the row does not already
-say. Never repeat its label, verdict, or duration — the row is one line above,
-and a second copy is noise the reader has to compare. Prose that the hint row
-already says with keys does not belong there either; a sentence that long is
+The detail block carries footnotes about the focused row: what the row does not
+already say. Never repeat its label, verdict, or duration — the row is one line
+above, and a second copy is noise the reader has to compare. Prose that the hint
+row already says with keys does not belong there either; a sentence that long is
 clipped mid-word at the widths the screen runs at.
 
-## Color is a role
+## Color roles
 
-Resolve colors through a [`tokens.ts`](./tokens.ts) role
-(`paint(theme, role, text)`), never a literal ANSI sequence, hex value, or Pi
-token named inline; a theme swap must re-skin every surface. The role table is
-the one place a Pi token is named, its tool vocabulary (`toolTitle`,
-`toolOutput`) included, so a renderer draws a tool block the way it draws a
-list. Use the shared `selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS`
-instead of retyping their literals, `screenHint` / Pi's `keyHint` for the hint
-row, and `screenFooter` for the hint row with its blank and closing rule.
+The rule — a role, never a literal, and what a reader may conclude from a color — is
+[`docs/design-system.md#color-is-a-role`](../../docs/design-system.md#color-is-a-role).
+`paint(theme, role, text)` resolves a `TuiRole` through `TUI_TOKENS`, the one place
+the kit names a Pi token, its tool vocabulary (`toolTitle`, `toolOutput`) included, so
+a renderer draws a tool block the way it draws a list. Use the shared
+`selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` instead of retyping their
+literals, `screenHint` / Pi's `keyHint` for the hint row, and `screenFooter` for the
+hint row with its blank and closing rule.
 
-A list accents the focused row's label (`labelRole: selected ? "accent" :
-"label"`); the `❯` marker alone is not enough to tell which row is live. The
-hint row colors by role, not by taste — `ScreenHint.color` is a `TuiRole`:
-`accent` for the screen's primary action, `warn` for one that discards state (a
-revert, a kill, a stop, a clear, a forget), and `bad` for one that ends the
-session. Keys that navigate, scroll, or select stay `faint`, so a colored key is
-one worth a second thought.
+A list accents the focused row's label (`labelRole: selected ? "accent" : "label"`).
+`ScreenHint.color` is a `TuiRole`, so a key is painted by the page's rule rather than
+by taste.
 
-## A glyph is a vocabulary
+## Glyph records
 
-Every glyph comes from [`glyphs.ts`](./glyphs.ts): `GLYPHS` owns the literal and
-`GLYPH_SPECS` the facts about it, one record per name — the `ink` class, the
-measured East-Asian `width`, and the one thing it `says`. Four rules, each held by
-`glyphs.test.ts` and `test/conventions.test.ts`:
+The vocabulary and its four rules are
+[`docs/design-system.md#a-glyph-is-one-column-and-one-meaning`](../../docs/design-system.md#a-glyph-is-one-column-and-one-meaning),
+and the table there is held against `GLYPHS` by `glyphs.test.ts`. This file
+owns the record: `GLYPHS` holds the literal and `GLYPH_SPECS` the facts about it, one
+record per name — the `ink` class, the measured East-Asian `width`, and the one thing
+it `says`. A glyph without a record, or a record without a glyph, does not compile, and
+one shape that serves several jobs declares them with `also`.
 
-- **One column, and the class is recorded.** Never wide, fullwidth, or emoji;
-  `ambiguous` is allowed and costs a second column under a CJK-width profile, so
-  the record says which class it is instead of leaving it to the font.
-- **One meaning.** No two glyphs may say the same thing. `⏵` and `▶` were two
-  distinct characters that both read "go", which a distinctness test on the
-  literals cannot see and a unique `says` refuses.
-- **One ink per family.** A slot's glyphs share a weight: a filled mark beside a
-  hairline one reads as two vocabularies, not one.
-- **One shape may serve several jobs**, declared with `also` — `→` is a join and a
-  cue, `▸` a running job and a closed fold.
-
-A re-typed literal in shipped source fails `test/conventions.test.ts`. A browser
-surface is out of its reach: a mark inside `content:"▸"` is a font glyph with no
+`glyphs.test.ts` holds the recorded class against the measured one, and
+`test/conventions.test.ts` fails a literal re-typed in shipped source. A browser
+surface is out of that reach: a mark inside `content:"▸"` is a font glyph with no
 column to spend. Where a line must spell one, it says why — `reasonFor`'s body is
 serialized for the page, where an import would not exist, so its glyph carries
 `allow:glyph`, and a fixture quoting a process's output is data rather than a chip.
 
-## A hue identifies, a verdict judges
+## Width utilities
 
-`ok` / `warn` / `bad` say how something *is*, and a surface that shows them is
-making a judgement. `hue1`…`hue5` — blue, purple, pink, green, amber — say only
-which category a row belongs to, which is what a table or a bar needs to be
-told apart at a glance. They are the same tokens in places (green is `success`,
-amber is `warning`), so the two vocabularies do not mix on one surface: a screen
-that paints hues keeps its verdicts to the gauge, a status word, or a feedback
-line, and a hue never lands in a slot that also carries a judgement. Color is
-redundant there — the label, the order, and the printed number already say what
-the hue repeats — so nothing may be encoded by hue alone.
+The rule is [`docs/design-system.md#width-is-columns`](../../docs/design-system.md#width-is-columns).
+Use `visibleWidth`, `truncateToWidth`, and `wrapTextWithAnsi`, and start the
+arithmetic from `Math.max(1, width)`. `fitCells` prices the clipped cell itself, so a
+caller passes a width and gets a line that fits. Size from the live viewport — `titleRule`, `viewportRows`,
+`fitRows`, and `ListCursor`, fed by a `ViewportRowsSource` (number or getter) with a
+sensible fallback — so a resize is picked up. List screens stay docked; only the plan
+review uses `FULL_SCREEN_OVERLAY`.
 
-## Width is columns
+## Sanitizing text
 
-Width is terminal columns, not string length. Use `visibleWidth`,
-`truncateToWidth`, and `wrapTextWithAnsi`; every returned line must fit the
-width, and width arithmetic starts from `Math.max(1, width)`. A summary that
-could not keep a cell says so: `fitCells` ends the line with `…`, priced into
-the width, so a narrow screen never reads as the whole summary. Size from the live
-viewport — `titleRule`, `viewportRows`, `fitRows`, and `ListCursor`, fed by a
-`ViewportRowsSource` (number or getter) with a sensible fallback — so a resize is
-picked up. List screens stay docked; only the plan review uses
-`FULL_SCREEN_OVERLAY`.
-
-## Sanitize at the boundary
-
-Run model- or file-authored text through `sanitizeLine` before it reaches a
-widget or the terminal: it neutralizes control characters and then collapses the
-text to one line. `stripControlChars` alone is for multi-line text that must keep
-its newlines.
+The rule is [`docs/design-system.md#text-you-did-not-type`](../../docs/design-system.md#text-you-did-not-type),
+and what is trusted is [`docs/security.md`](../../docs/security.md)'s. The choice this
+file makes is which function: `sanitizeLine` for anything bound for a widget or the
+terminal, and `stripControlChars` alone for multi-line text that must keep its
+newlines.
 
 Program output — a log file, a child's stdout, a tailed file — goes through
-`sanitizeUntrustedLine` instead. It removes OSC, CSI, and single-character
-escapes whole (so the printable tail of an escape never reaches the terminal),
-then resolves `\r` the way a terminal would, squeezes whitespace, and clips.
-`sanitizeLine` would leave `[31m` behind, because it turns ESC into a space.
+`sanitizeUntrustedLine` instead. It removes OSC, CSI, and single-character escapes
+whole (so the printable tail of an escape never reaches the terminal), then resolves
+`\r` the way a terminal would, squeezes whitespace, and clips. `sanitizeLine` would
+leave `[31m` behind, because it turns ESC into a space.
 
-## Keyboard first
+## Keys
 
-Use `matchesKey` / `Key`, give every mouse interaction a keyboard path, and keep
-the shared bindings: Esc closes, `j` / `k` and arrows scroll, `g` / `G` and
-Home/End jump.
+`matchesKey` / `Key` match a binding, and the bindings the page lists are the ones
+every surface answers.
 
-## Components are derived and cheap
+## Components
 
 Implement `Component` with `invalidate()`, update an instance in place, read live
 state on each render, and call `requestRender()` only after state changes. Never
-hold themed strings in state unless `invalidate()` rebuilds them. A widget is
-derived from state, never authoritative.
+hold themed strings in state unless `invalidate()` rebuilds them.
 
 Pi renders the whole tree every frame, so a component that derives its lines from
 another one memoizes them with `RenderCache` — `lines()` keyed on width and the
@@ -223,7 +179,8 @@ source lines' identity, or `keyed()` for a component with no inner component (a
 header's view, a footer's snapshot), keyed on the parts it read: primitives by
 value, an object such as the theme by identity — and drops the memo in
 `invalidate()`. Re-deriving every line per frame is what makes a long transcript
-feel slow.
+feel slow. The rule the memo serves — a widget is derived from state, never
+authoritative — is [`docs/design-system.md#building-a-surface`](../../docs/design-system.md#building-a-surface).
 
 ## Focus
 
