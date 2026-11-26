@@ -17,6 +17,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a `/new` no longer takes a session's name off the bar. The reset kept the bus record
+  but the footer's chip went blank, because the label channel published the record's id while its only
+  reader compares its own transcript's, and Pi's title — an entry in the transcript's file a reset
+  begins — was never written again, so a `/resume` of that id started from the repository's name. The
+  channel names the transcript now, a served start writes the row's name back onto it, and a footer
+  that re-installs after a reset drops the listener it replaces rather than adding one.
+
+- `board`: a `/compact` re-injects the line naming the cards a session holds. The reset that covers a
+  replaced transcript handled `/new` and `/tree` but not compaction, so a session that compacted kept its
+  reading and worked a card the summary no longer named — the next turn reads again, through the path the
+  jump already uses, and the seat's own per-turn line is untouched.
+
 - `code-review`: four things the page said that were not true now say what the state is. A focused page's
   Commented view blamed a filter nobody typed — `No files match ""` — where the file simply has no comments, so it
   names that and the control that shows the file again; an unmark told a file it was back to "commented" when it
@@ -32,6 +44,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `code-review`: a scope change is one reversible rule. The page's tabs, `/review <scope>` and `code_review` all refuse it on the drafts and marks a replacement would destroy — never on sent comments, which the session keeps — with one sentence built in `review/scope-work.ts`, and a refusal from the command or the tool now names the address the page is still open at.
 
 - `code-review`: a `base` review that cannot use its base says which fault it hit. A configured `code-review.base` that does not resolve is named with the key to check, one longer than 200 characters names its length and the bound instead of being cut to a different ref, and only a repository with no default branch at all gets the "set `base`" advice — in the `/review` notice, in `code_review`'s new `problem` field, and on the page. The default-branch chain is `lib/git`'s `defaultBranch` now, read through its `origin/` ref, rather than a second copy that had drifted from it; a stored page also stops treating an unresolved base as one it knows.
+
+- `team`: `/team who` and `/team join` offer no labels when the board store cannot open, instead of throwing out of the completer — the editor awaits that promise with no catch, so the one rejection used to cost every later Tab in the process, which the host's share of is filed as `earendil-works/pi#12566`.
 
 ## [0.31.0] - 2026-11-25
 

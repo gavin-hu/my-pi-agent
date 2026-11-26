@@ -78,6 +78,9 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/subagent/extension.test.ts": 760,
 	"extensions/subagent/render.test.ts": 599,
 	"extensions/subagent/run.test.ts": 917,
+	// #921's case — a store that cannot open answers the completer with nothing — sits beside the
+	// completions it guards, which is where the word list is asserted.
+	"extensions/team/commands.test.ts": 421,
 	"extensions/web-access/fetch/fetch.test.ts": 1097,
 	"extensions/web-access/search/search.test.ts": 975,
 	"extensions/worktree/flow.test.ts": 825,
@@ -100,7 +103,7 @@ const LONG_SUITES: Record<string, number> = {
 	// The root contracts, measured from #746 on. Each grew while the bar read only the suites
 	// beside an extension, and `tool-render` reaching 503 is the proof that silence was not safe:
 	// this card split it, which is why there is no entry for it here.
-	"test/dependencies.test.ts": 637,
+	"test/dependencies.test.ts": 632,
 	"test/release.test.ts": 633,
 	"test/settings-coverage.test.ts": 492,
 	"test/shared-helpers.test.ts": 628,

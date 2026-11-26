@@ -158,6 +158,13 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		if (leadRuntime !== undefined) await lead(ctx);
 	});
 
+	// A compaction replaces the history behind the line with a summary, so the line a branch carried
+	// is gone with it: reading again is what puts it back, exactly as a jump does. No reconcile comes
+	// with it — a compaction appends a record and leaves the seat the branch named in force.
+	pi.on("session_compact", () => {
+		read = false;
+	});
+
 	// What a session is told about its own cards, once, before its first turn: which they are, and
 	// what each owes next. One read, because every later write reports itself — the claim, the
 	// move, and the sign each say their own next step — and a board already parsed every turn on

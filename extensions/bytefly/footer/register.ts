@@ -63,22 +63,30 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 	let rosterLabel: string | null = null;
 	/** Whether this session's label is being followed: a tree change re-installs, it is not new. */
 	let followed = false;
+	/** The live subscription's way out, and which install made it: a load that lands late drops its own. */
+	let stopLabel: (() => void) | undefined;
+	let installSeq = 0;
 	const followLabel = (ctx: ExtensionContext): void => {
 		if (followed) return;
 		followed = true;
+		const seq = ++installSeq;
 		// Loaded where it is used: the follower walks the bus's layout on disk and subscribes to
 		// its label, and the registration graph is a budget that may only fall.
 		void import("./collect/label.ts")
-			.then(({ followRosterLabel }) =>
-				followRosterLabel({
+			.then(({ followRosterLabel }) => {
+				const follower = followRosterLabel({
 					pi,
 					ctx,
 					agentDir: getAgentDir(),
 					sink: (label) => {
 						rosterLabel = label;
 					},
-				}),
-			)
+				});
+				// A reset that landed while the module was loading has already asked for the listener it
+				// wants: this one would be a second, and nothing would ever drop it.
+				if (seq === installSeq) stopLabel = follower.stop;
+				else follower.stop();
+			})
 			.catch(() => {});
 	};
 
@@ -113,6 +121,10 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 		// A new session in this process starts from zero: the ledger is not branch state, the
 		// label belongs to the session, and the team is re-read at this install.
 		delegation.reset();
+		// The transcript this install belongs to is not the one the listener was made for, so the
+		// listener goes first: a `/new` reuses the process, and one subscription is the number.
+		stopLabel?.();
+		stopLabel = undefined;
 		followed = false;
 		rosterLabel = null;
 		resolveTeammate = () => null;

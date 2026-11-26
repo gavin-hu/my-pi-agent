@@ -233,13 +233,6 @@ describe("dependency budget", () => {
 });
 
 /**
- * A surface that loads on first use, with the sentence that says when.
- *
- * The entry modules are what Pi calls on every start, so a static import here is
- * the regression: the feature is registered, but its page, server, or screen is
- * not needed until a command or a TUI branch asks for it.
- */
-/**
  * The surfaces a rule keeps out, rather than a list that keeps growing.
  *
  * A full-screen surface lives under `view/` — the `wechat` doc's "`view/` draws a
@@ -265,10 +258,11 @@ function ruleOf(path: string): string {
 }
 
 /**
- * The deferrals a rule cannot express, each with the sentence that says when it loads.
- *
- * A row here is an exception to `DEFERRED_BY_RULE`'s filing rule: a module that is
- * not a screen but still must not be paid at start.
+ * The deferrals a rule cannot express, each with the sentence that says when it loads: the entry
+ * modules are what Pi calls on every start, so a static import here is the regression — the feature
+ * is registered, but its page, server, or screen is not needed until a command or a TUI branch asks
+ * for it. A row here is an exception to `DEFERRED_BY_RULE`'s filing rule: a module that is not a
+ * screen but still must not be paid at start.
  */
 const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/wechat/bridge.ts": "the bridge loads when a bound session starts it",
@@ -279,6 +273,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/board/page.ts": "the board page loads on the first /board",
 	"lib/workflow/proven-remove.ts": "the proven removal loads with the first lock release or takeover",
 	"extensions/session-bus/cursor.ts": "the record's cursor loads when the bus starts, never at registration",
+	"extensions/session-bus/labels.ts": "the name a join settles loads with the join, never at registration",
 	"extensions/session-bus/status.ts": "the rows load on the first status, board, or snapshot read",
 	"extensions/subagent/background.ts": "the background runtime loads on the first background run or /agents",
 	"extensions/subagent/commands.ts": "the /agents command body loads when the command first runs",
