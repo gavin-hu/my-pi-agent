@@ -269,7 +269,7 @@ describe("presenceOf", () => {
 	test("does not borrow a record a later session holds under the same label", () => {
 		// The bus pruned the owner's id and a later session took the name. A card's identity is the
 		// id `holds` compares, so the reused label is not this owner's record: `absent` is the fact,
-		// and the turn-start sweep decides whether this session may re-seat it.
+		// and the turn-start sweep leaves the card where it is, because no record is not a stoppage.
 		expect(presenceOf([{ ...core, id: "s-new" }], { id: "s-old", label: "billing-core" }, NOW)).toBe("absent");
 	});
 
