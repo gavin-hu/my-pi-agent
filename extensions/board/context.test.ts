@@ -313,6 +313,26 @@ describe("the factory's turn", () => {
 		});
 	});
 
+	test("reads again after a compaction, which replaces the history behind the line", async () => {
+		await withEnv(ENABLED, async () => {
+			const harness = boardHarness({ now: NOW, lead: LEAD, track: temps.track });
+			board(harness.fake.pi, { session: harness.runtime, page: pageWithNoRecording(), claims: claims() });
+			const tool = harness.fake.pi.tools.get("board");
+			if (!tool) throw new Error("the board tool was not registered");
+			const call = (args: Record<string, unknown>) => tool.execute("call-1", args, undefined, undefined, harness.ctx);
+			await call({ action: "add", title: "One", paths: [] });
+			await call({ action: "claim", card: "1" });
+			const starters = harness.fake.handlers.get("before_agent_start") ?? [];
+			expect(await starters[0]?.({}, harness.ctx)).toBeDefined();
+			expect(await starters[0]?.({}, harness.ctx)).toBeUndefined();
+
+			const compact = harness.fake.handlers.get("session_compact") ?? [];
+			expect(compact).toHaveLength(1);
+			await compact[0]?.({}, harness.ctx);
+			expect(await starters[0]?.({}, harness.ctx)).toBeDefined();
+		});
+	});
+
 	test("keeps only the newest injected line, so a resume cannot stack them", async () => {
 		const contexts = [
 			{ customType: "board-context", content: "old" },
