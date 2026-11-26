@@ -11,9 +11,9 @@ import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, win32 } from "node:path";
+import { join } from "node:path";
 import { createChildSupervisor } from "../child.ts";
-import type { SpawnFn, SpawnedProcess } from "../spawn.ts";
+import type { SpawnedProcess, SpawnFn } from "../spawn.ts";
 import type { Card } from "./card.ts";
 import type { Verification } from "./contract.ts";
 import {
@@ -21,9 +21,8 @@ import {
 	MAX_VERIFY_OUTPUT,
 	missingSizeGates,
 	outputLine,
-	SIZE_GATES,
 	SIZE_GATE_FILES,
-	treeOf,
+	SIZE_GATES,
 	VERIFY_TIMEOUT_MS,
 	verifiedCommand,
 	verifySpotCheck,
@@ -194,61 +193,6 @@ describe("outputLine", () => {
 	});
 });
 
-describe("treeOf", () => {
-	/** A `pi` whose git answers are the map: the joined args, then what git says. */
-	const piAnswering = (answers: Record<string, { stdout: string; code: number }>) => ({
-		exec: async (_command: string, args: string[]) => ({
-			...(answers[args.join(" ")] ?? { stdout: "", code: 128 }),
-			stderr: "",
-			killed: false,
-			truncated: false,
-		}),
-	});
-
-	test("names the checkout, its branch, and the commit when git answers", async () => {
-		const pi = piAnswering({
-			"rev-parse HEAD": { stdout: "1d3a8ce3\n", code: 0 },
-			"rev-parse --abbrev-ref HEAD": { stdout: "main\n", code: 0 },
-			"rev-parse --path-format=absolute --git-common-dir": { stdout: `${CWD}/.git\n`, code: 0 },
-		});
-		expect(await treeOf(pi)(CWD)).toEqual({ sha: "1d3a8ce3", branch: "main", checkout: true });
-	});
-
-	test("a forward-slash git path and a backslashed cwd name one tree", async () => {
-		// Git for Windows prints `--git-common-dir` with forward slashes while a cwd arrives native, so
-		// `dirname` keeps one separator and `resolve` answers the other: the checkout was never named
-		// there at all. No Windows machine runs this, so the case hands in `win32`'s own two functions.
-		const pi = piAnswering({
-			"rev-parse HEAD": { stdout: "1d3a8ce3\n", code: 0 },
-			"rev-parse --abbrev-ref HEAD": { stdout: "main\n", code: 0 },
-			"rev-parse --path-format=absolute --git-common-dir": { stdout: "D:/a/x/.git\n", code: 0 },
-		});
-		expect(await treeOf(pi, win32)("D:\\a\\x")).toEqual({ sha: "1d3a8ce3", branch: "main", checkout: true });
-	});
-
-	test("a worktree is the same git directory under another root, so it is no checkout", async () => {
-		// The whole derivation: every tree of one repository shares the git directory, and only the
-		// checkout sits where that directory's parent is the root itself.
-		const worktree = `${CWD}/.pi/worktrees/x`;
-		const pi = piAnswering({
-			"rev-parse HEAD": { stdout: "6c1e9a02\n", code: 0 },
-			"rev-parse --abbrev-ref HEAD": { stdout: "worktree-x\n", code: 0 },
-			"rev-parse --path-format=absolute --git-common-dir": { stdout: `${CWD}/.git\n`, code: 0 },
-		});
-		expect(await treeOf(pi)(worktree)).toEqual({ sha: "6c1e9a02", branch: "worktree-x" });
-	});
-
-	test("a detached HEAD is a commit with no branch, and a repository git cannot name is neither", async () => {
-		const detached = piAnswering({
-			"rev-parse HEAD": { stdout: "1d3a8ce3\n", code: 0 },
-			"rev-parse --abbrev-ref HEAD": { stdout: "HEAD\n", code: 0 },
-		});
-		expect(await treeOf(detached)(CWD)).toEqual({ sha: "1d3a8ce3" });
-		// Nothing answers: the record keeps the run and claims no tree, rather than guessing one.
-		expect(await treeOf(piAnswering({}))(CWD)).toEqual({});
-	});
-});
-
 describe("the size gates before the card's line", () => {
 	const now = () => 900;
 	const VERIFY = "bun run check";
@@ -355,5 +299,57 @@ describe("the size gates before the card's line", () => {
 		expect(await verifySpotCheck(undefined, CWD, run, now)).toBeUndefined();
 		expect(await verifySpotCheck(spotCard(undefined), CWD, run, now)).toBeUndefined();
 		expect(calls).toEqual([]);
+	});
+});
+
+describe("a tree with no work of its own", () => {
+	const now = () => 900;
+	const VERIFY = "bun run check";
+	const green = { exit: 0, output: "", killed: false };
+	const card = {
+		id: "941",
+		contract: { goal: "G", acceptance: "A", scopeOut: "S", verify: VERIFY },
+	} as unknown as Card;
+	const tree = (carries: boolean) => async () => ({ sha: "1d3a8ce3", branch: "main", carries, base: "main" });
+
+	test("refuses before anything runs, and names each door out of it", async () => {
+		const attempted: string[] = [];
+		const refused = await verifySpotCheck(
+			card,
+			CWD,
+			async (command) => {
+				attempted.push(command);
+				return green;
+			},
+			now,
+			tree(false),
+			() => [],
+		);
+		// Neither the gate nor the card's line starts: a sign that will be refused costs no process.
+		expect(attempted).toEqual([]);
+		const sentence = (refused as { error: string }).error;
+		for (const part of [CWD, "no commit past main", "`root`", "`done`", "`override`"]) {
+			expect(sentence, part).toContain(part);
+		}
+	});
+
+	test("signs a tree that carries work, and one whose reader cannot place it", async () => {
+		for (const answer of [tree(true), async () => ({ carries: undefined as boolean | undefined })]) {
+			const attempted: string[] = [];
+			const signed = await verifySpotCheck(
+				card,
+				CWD,
+				async (command) => {
+					attempted.push(command);
+					return green;
+				},
+				now,
+				answer,
+				() => [],
+			);
+			// Both shapes run what they always ran; only a tree git placed on the base is refused.
+			expect(attempted).toEqual([SIZE_GATES, VERIFY]);
+			expect("verified" in (signed ?? {})).toBe(true);
+		}
 	});
 });

@@ -81,6 +81,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the kit — so a roster that had fallen seven modules behind `lib/tui/` cannot drift again. The heading,
   and the anchor `AGENTS.md` links, stay as they were.
 
+- `board`: `review` refuses a tree that carries no work of its own. A seat could sign a spot-check from
+  the checkout at `main`, where the contract's command passes by construction and the signature attested
+  nothing; the door asks the landing line for the base and `merge-base --is-ancestor`, and refuses
+  before either size gate starts — naming the tree, `root` for the card's worktree, and `done` with an
+  `override` for work already in the base. The sign keeps recording the tree it ran in, not the question.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached
