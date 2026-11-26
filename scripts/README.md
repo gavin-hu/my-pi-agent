@@ -91,6 +91,12 @@ window. `examples/` differs in kind: it holds an input a command is given, not a
 fixture the code imports. A new fixture goes in the directory of the mechanism
 that draws it.
 
+A fixture's root is taken literally. A shot that routes a directory through
+`effectiveRealCwd` — `capture:code-review` does, because the review page's place
+resolves its root — must withhold the session's `PI_WORKTREE_ROOT` while it builds,
+or the picture is whatever checkout the session was in. The fixture's own builder
+is the place for that, not the capture loop.
+
 ## When an asset is recaptured
 
 - When its surface changed, or when a version it prints is behind. Nothing else.
