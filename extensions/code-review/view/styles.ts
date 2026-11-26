@@ -110,7 +110,7 @@ export const REVIEW_CSS = `
 .rv-diff .bf-diff-line--meta{color:var(--muted)}
 .rv-diff .bf-diff-line--note{color:var(--muted);font-style:italic}
 .rv-diff[data-wrap="true"] .bf-diff-line{white-space:pre-wrap;overflow-wrap:anywhere}
-.rv-diff .bf-diff-line[data-picked="true"]{box-shadow:inset 2px 0 0 var(--accent);background:var(--accent-soft)}
+.rv-diff .bf-diff-line[data-picked="true"]{box-shadow:inset 2px 0 0 var(--accent);background:var(--accent-soft);z-index:1}
 /* A thread is the page's width, not the diff's: it ends the row it follows. It names its own face
    because it sits inside that row's <code>, whose browser rule is a generic monospace — prose in a
    thread has to read like the composer it was typed in. */
