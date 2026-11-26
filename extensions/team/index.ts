@@ -6,7 +6,8 @@
  * peer's turn, and the page and the docs say so — `offer` broadcasts one to whoever is
  * free, and `ask` puts a question to one peer. The three are the verbs that reach another
  * session; a card's own state is `board`'s. Its one command, `/team`, prints the round the
- * board's Team tab draws, without a browser.
+ * board's Team tab draws without a browser, and takes the three words that change this session's
+ * own membership or answer a question about it: `join`, `exit`, and `who`.
  *
  * Either extension works without the other: `board` is the work list, and `team` is
  * the lead's half of it. The factory only registers; the store opens on first use, so a
