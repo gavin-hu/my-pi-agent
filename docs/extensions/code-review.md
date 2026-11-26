@@ -65,19 +65,19 @@ is the `base` key, else the default branch — `origin/HEAD`'s, else local `main
 `master`, through its `origin/` ref — and a ref that does not resolve, one over 200
 characters, or no default branch at all is refused by name.
 
-**The page.** One page per session, at `/review/`. Its id is minted by the first
-write, so looking costs nothing; the token rides the query and the id the address. A
-comment is a draft until **Send feedback** marks it sent, which also writes the one
-you are typing; **reply** keeps a comment under its comment, one level deep, and one
-whose comment was deleted reads as one. The files are the shell's sidebar — a search,
-**All** / **Commented**, one row per file — folding below 900px; `wrap` wraps at any
-width, and narrowing hides rows, never sections. The rail's head carries the facts and
-the progress; the footer the comparison. It follows its own stream: a write in one tab
-repaints the others, and a frame under an open composer is held. A frame under the
-send dialog re-reads the list it is about to send; an emptied dialog stays open
-saying there is nothing left to send rather than closing under the reader. The last tab
-leaving ends it 1.5 s later so a reload fits. Nothing watches the tree: **comment** asks
-the revision the page would render now, so a moved diff opens no box; the write refuses.
+**The page.** One page per session, at `/review/`. Its id is minted by the first write, so
+looking costs nothing; the token rides the query and the id the address. A comment is a draft
+until **Send feedback** marks it sent, which also writes the one you are typing; **reply**
+keeps a comment under its comment, one level deep, and one whose comment was deleted reads as
+one. The files are the shell's sidebar — a search, **All** / **Commented**, one row per file
+— folding below 900px; `wrap` wraps at any width, and narrowing hides rows, never sections.
+Picking a line opens the bar, and the diff reserves its measured height until the bar closes.
+The rail's head carries the facts and the progress; the footer the comparison. It follows its
+own stream: a write in one tab repaints the others, and a frame under an open composer is
+held. A frame under the send dialog re-reads the list it is about to send; an emptied dialog
+stays open saying there is nothing left to send rather than closing under the reader. The
+last tab leaving ends it 1.5 s later so a reload fits. Nothing watches the tree: **comment**
+asks the revision the page would render now, so a moved diff opens no box; the write refuses.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff: the
 rail shows that file and an **all files** link back, while the count and the progress

@@ -115,11 +115,11 @@ ${PATH_REF_JS}
   function toast(message) {
     var el = byId("rv-toast");
     if (!el) return;
-    // The bar owns the bottom slot while it is open, so a toast shown then sits above it — measured,
-    // because the bar's height follows its content. A closed bar leaves the sheet's 64px.
-    var bar = byId("rv-selbar");
-    var lifted = bar !== null && bar.getAttribute("data-open") === "true";
-    el.style.bottom = lifted ? window.innerHeight - bar.getBoundingClientRect().top + 8 + "px" : "";
+    // The bar owns the bottom slot while it is open, so a toast shown then sits above it. The
+    // clearance is the bar's own measurement, shared with the diff's inset (#930); a closed bar
+    // answers 0 and leaves the sheet's 64px alone.
+    var clearance = barClearance(window.innerHeight);
+    el.style.bottom = clearance > 0 ? clearance + "px" : "";
     el.textContent = message;
     el.setAttribute("data-open", "true");
     clearTimeout(toastTimer);
@@ -144,7 +144,7 @@ ${REVIEW_LIVE_JS}
   restorePlace();
   var reviewMain = byId("rv-main");
   if (reviewMain) reviewMain.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("resize", measureHeads);
+  window.addEventListener("resize", remeasure);
   restoreDrafts();
 ${THEME_TOGGLE_JS}
 ${dialogScript({ dialogId: "rv-send-dialog", closeId: "rv-send-close", globalName: "rvSend" })}

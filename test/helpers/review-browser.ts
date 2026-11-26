@@ -395,7 +395,7 @@ export interface ReviewDom {
 	};
 	location: { hash: string };
 	/** A rule as the browser computed it, for a case that proves a stylesheet rather than markup. */
-	getComputedStyle(node: ReviewNode): { borderLeftWidth: string; borderTopWidth: string };
+	getComputedStyle(node: ReviewNode): { borderLeftWidth: string; borderTopWidth: string; paddingBottom: string };
 }
 
 /** A node's box: the four edges, and the two sizes a layout case measures. */
