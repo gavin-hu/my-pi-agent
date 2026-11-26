@@ -14,6 +14,7 @@
  */
 
 import { messageOf } from "../errors.ts";
+import { posixPath } from "../path.ts";
 import type { RunGit } from "../git/runner.ts";
 import type { Card } from "./card.ts";
 
@@ -95,10 +96,34 @@ const TITLE_SCOPE = /^([\w-]+\([^)]*\)|[\w-]+):\s*/;
 /** The extension a path names: `extensions/<name>/<file>`, or the bare directory `extensions/<name>`. */
 const EXTENSION_PATH = /^extensions\/([^/]+)(?:\/|$)/;
 
-/** A path's top-level directory, unless that directory is `extensions` — a container, not an area. */
-function areaOf(path: string): string | undefined {
+/** The extension a path names, if it names one. */
+function extensionOf(path: string): string | undefined {
+	return EXTENSION_PATH.exec(path)?.[1];
+}
+
+/** A path's top-level directory, or `undefined` for a file at the repository root. */
+function topOf(path: string): string | undefined {
 	const [top, ...rest] = path.split("/");
-	return rest.length === 0 || top === "extensions" ? undefined : top;
+	return rest.length === 0 ? undefined : top;
+}
+
+/** The area a path is in: its top-level directory, unless that is `extensions` — a container, not an area. */
+function areaOf(path: string): string | undefined {
+	const top = topOf(path);
+	return top === "extensions" ? undefined : top;
+}
+
+/**
+ * The surface a path names when it is not `name`'s: another extension, or a top-level area other
+ * than `lib`. The shared tree, the extension's own page, and a root file are part of the card's
+ * work, so they are not something else.
+ */
+function namedElsewhere(path: string, name: string): string | undefined {
+	const other = extensionOf(path);
+	if (other !== undefined) return other === name ? undefined : other;
+	const top = topOf(path);
+	if (top === undefined || top === "lib" || path === `docs/extensions/${name}.md`) return undefined;
+	return top;
 }
 
 /**
@@ -106,24 +131,33 @@ function areaOf(path: string): string | undefined {
  * the area its first path is in, else `board`.
  *
  * Paths win, because a card that moves a module and its extension is the extension's work (#853
- * was `merge(plan)` with `lib/mode-state.ts` among its paths). The title is next, because a card
- * whose work lives in `lib/` names no extension at all and its title already says which surface
- * it belongs to — `#868` would otherwise land `merge(board)` under a `session-bus:` title, and a
- * landed sha cannot be repaired. The area is the rung after that (`lib`, `docs`, `test`), so a
+ * was `merge(plan)` with `lib/mode-state.ts` among its paths) — but only when that extension is
+ * where the card's work is. It holds while the paths in it are not outnumbered by the paths that
+ * name something else, an area other than `lib` or a second extension, and a tie stays with the
+ * extension. #931 is what the count is for: one corrected docstring in another extension's suite,
+ * against three `docs/` paths, landed `merge(wechat)` over a card that changed no wechat
+ * behaviour, and a landed sha cannot be repaired. `lib/`, the extension's own page
+ * (`docs/extensions/<name>.md`), and a root file never count against it.
+ *
+ * The title is next, because a card whose work lives in `lib/` names no extension at all and its
+ * title already says which surface it belongs to — `#868` would otherwise land `merge(board)`
+ * under a `session-bus:` title. The area is the rung after that (`lib`, `docs`, `test`), so a
  * lib-only card is not the landing tool's work either; `board` is left for a card that names
  * nothing, which is the one case where the door's own name is the only one left.
  *
- * A path is data: backslashes are normalised first, so one card earns one scope whatever machine
- * typed it, and a bare `extensions/<name>` counts as that extension because a card whose paths
- * are directories names it just as clearly as one whose paths are files.
+ * A path is data: `posixPath` normalises the spelling before anything reads it, so one card earns
+ * one scope whatever machine typed it, and a bare `extensions/<name>` counts as that extension
+ * because a card whose paths are directories names it just as clearly as one whose paths are files.
  */
 export function landScope(card: Pick<Card, "title" | "paths">): string {
-	const paths = card.paths.map((path) => path.replace(/\\/g, "/"));
-	const names = paths
-		.map((path) => EXTENSION_PATH.exec(path)?.[1])
-		.filter((name): name is string => name !== undefined);
+	const paths = card.paths.map(posixPath);
+	const names = paths.map(extensionOf).filter((name): name is string => name !== undefined);
 	const [first] = names;
-	if (first !== undefined && names.every((name) => name === first)) return first;
+	if (first !== undefined && names.every((name) => name === first)) {
+		// #853's card and #931's sweep are told apart by what the rest of the paths name.
+		const elsewhere = paths.filter((path) => namedElsewhere(path, first) !== undefined).length;
+		if (names.length >= elsewhere) return first;
+	}
 
 	const titled = TITLE_SCOPE.exec(card.title)?.[1];
 	if (titled !== undefined) return titled;
