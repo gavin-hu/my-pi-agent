@@ -13,7 +13,7 @@ import { escapeHtml } from "../../../lib/escape.ts";
 import { detectLanguage } from "../../../lib/highlight.ts";
 import { appHead, baseAttribute, docHead, pageFooter, pageSheet, tabTitle } from "../../../lib/web/index.ts";
 import { newHref } from "../links.ts";
-import type { ReviewScope } from "../scope.ts";
+import type { ReviewPreset, ReviewScope } from "../scope.ts";
 import { REVIEW_CSS } from "./styles.ts";
 
 /** What the file view knows: the path it shows, and the text the reader read. */
@@ -22,6 +22,8 @@ export interface ReviewFileView {
 	base: string;
 	/** The comparison the review is showing, for the way back. */
 	scope: ReviewScope;
+	/** The preset naming that scope, so the way back lands on the same tab. */
+	preset?: ReviewPreset;
 	rel: string;
 	lines: DiffLine[];
 	/** The bytes are not text, so there is nothing to draw. */
@@ -52,7 +54,7 @@ ${docHead({ title: tabTitle("review", rel), css: pageSheet(REVIEW_CSS), base })}
 <h1 class="sr-only">review — ${escapeHtml(rel)}</h1>
 ${appHead({ product: "review", subject: { label: rel, title: rel }, facts: "" })}
 <main class="bf-app__main" id="rv-main">
-  <p class="rv-side__back"><a class="bf-btn" id="rv-back" href="${escapeHtml(newHref(input.scope))}">back to the review</a></p>
+  <p class="rv-side__back"><a class="bf-btn" id="rv-back" href="${escapeHtml(newHref(input.scope, input.preset))}">back to the review</a></p>
 ${notes.length === 0 ? "" : `  ${notes.join("\n  ")}\n`}  ${body}
 </main>
 ${pageFooter({ facts: "review" })}

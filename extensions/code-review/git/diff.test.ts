@@ -1,10 +1,10 @@
 /**
- * The reader: a branch against its base, the last commit, the index, and the tree.
+ * The reader: a scope's two sides read against each other.
  *
- * A real repository is built per case, because everything this module decides is
- * an answer git gives — the range's file list, a rename's letter, an untracked
- * file's all-add body — and a stub would only restate the parser. The seam is
- * the suite's own `git` process, which is what the page hands it in production.
+ * A real repository is built per case, because everything this module decides is an answer
+ * git gives — a range's file list, a rename's letter, an untracked file's all-add body — and
+ * a stub would only restate the parser. The seam is the suite's own `git` process, which is
+ * what the page hands it in production.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RunGit } from "../../../lib/git/index.ts";
 import { execP, makeRepo, makeRepoWithRemote, makeTempTracker } from "../../../test/helpers/git.ts";
+import { comparisonOf } from "../../../test/helpers/review-scope.ts";
 import { MAX_BASE_LENGTH } from "../scope.ts";
 import {
 	baseTooLong,
@@ -23,6 +24,7 @@ import {
 	NO_PARENT,
 	NO_TEXT,
 	NOT_A_REPOSITORY,
+	noSuchSide,
 	parseNameStatusZ,
 } from "./diff.ts";
 
@@ -57,29 +59,69 @@ describe("parseNameStatusZ", () => {
 	});
 });
 
-describe("a base review", () => {
-	test("reads the branch's commits against its base, and counts what it shows", async () => {
+describe("a branch review", () => {
+	test("reads the commits against the base, and counts what it shows", async () => {
 		const repo = await featureRepo();
-		const outcome = await createReviewReaderFrom(run, repo, { base: "main" }).snapshot("base");
+		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("branch"));
 		expect(outcome.kind).toBe("snapshot");
 		if (outcome.kind !== "snapshot") return;
 		const { snapshot } = outcome;
 		expect(snapshot.label).toBe("main...HEAD");
-		expect(snapshot.base).toBe("main");
 		expect(snapshot.files.map((file) => [file.rel, file.status])).toEqual([["a.ts", "A"]]);
-		expect(snapshot.files[0].add).toBe(2);
+		expect(snapshot.files[0]?.add).toBe(2);
 		expect(snapshot.insertions).toBe(2);
 		expect(snapshot.deletions).toBe(0);
-		expect(snapshot.files[0].lines.some((line) => line.kind === "add" && line.text === "const a = 1;")).toBe(true);
+		expect(snapshot.files[0]?.lines.some((line) => line.kind === "add" && line.text === "const a = 1;")).toBe(true);
+		expect(snapshot.fromSha).toBeDefined();
+		expect(snapshot.toSha).toBeDefined();
 	});
 
+	test("reads the whole change, uncommitted work and untracked files included", async () => {
+		const repo = await featureRepo();
+		writeFileSync(join(repo, "README.md"), "hello\nstaged\n");
+		await execP("git", ["add", "README.md"], { cwd: repo });
+		writeFileSync(join(repo, "note.txt"), "new\n");
+		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("change"));
+		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(outcome.snapshot.label).toBe("main → working tree");
+		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
+		expect([...byPath.keys()].sort()).toEqual(["README.md", "a.ts", "note.txt"]);
+		expect(byPath.get("README.md")?.add).toBe(1);
+		expect(byPath.get("note.txt")?.status).toBe("?");
+	});
+
+	test("answers the same fingerprint for the same tree, and a new one after a commit", async () => {
+		const repo = await featureRepo();
+		const reader = createReviewReaderFrom(run, repo);
+		const first = await reader.snapshot(comparisonOf("branch"));
+		const second = await reader.snapshot(comparisonOf("branch"));
+		if (first.kind !== "snapshot" || second.kind !== "snapshot") throw new Error("expected snapshots");
+		expect(first.snapshot.fingerprint).toBe(second.snapshot.fingerprint);
+		writeFileSync(join(repo, "b.ts"), "export const b = 2;\n");
+		await execP("git", ["add", "b.ts"], { cwd: repo });
+		await execP("git", ["commit", "-qm", "add b"], { cwd: repo });
+		const third = await reader.snapshot(comparisonOf("branch"));
+		if (third.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(third.snapshot.fingerprint).not.toBe(first.snapshot.fingerprint);
+	});
+
+	test("keeps two scopes over one tree apart, even showing the same diff", async () => {
+		const repo = await featureRepo();
+		const reader = createReviewReaderFrom(run, repo);
+		const branch = await reader.snapshot(comparisonOf("branch"));
+		const change = await reader.snapshot(comparisonOf("change"));
+		if (branch.kind !== "snapshot" || change.kind !== "snapshot") throw new Error("expected snapshots");
+		// A clean tree means the two draw the same lines; the fingerprint still names the
+		// comparison a write is graded against.
+		expect(branch.snapshot.files.map((file) => file.rel)).toEqual(change.snapshot.files.map((file) => file.rel));
+		expect(branch.snapshot.fingerprint).not.toBe(change.snapshot.fingerprint);
+	});
+});
+
+describe("the default ref", () => {
 	test("detects the base when the section names none", async () => {
 		const repo = await featureRepo();
 		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "ref", ref: "main" });
-		// `""` is what a page holds before anything resolved, so it asks again rather than
-		// standing in for a base nobody found.
-		const blank = await createReviewReaderFrom(run, repo).snapshot("base", "");
-		expect(blank.kind).toBe("snapshot");
 	});
 
 	test("reads the default branch through its origin ref, as lib/git names it", async () => {
@@ -100,14 +142,12 @@ describe("a base review", () => {
 		const repo = await featureRepo();
 		const reader = createReviewReaderFrom(run, repo, { base: "no-such-branch" });
 		expect(await reader.baseRef()).toEqual({ kind: "failed", message: baseUnresolved("no-such-branch") });
-		expect(await reader.snapshot("base")).toEqual({ kind: "failed", message: baseUnresolved("no-such-branch") });
 	});
 
 	test("names the bound a configured ref passed, rather than cutting it to another ref", async () => {
 		const repo = await featureRepo();
 		const reader = createReviewReaderFrom(run, repo, { base: "x".repeat(MAX_BASE_LENGTH + 1) });
 		expect(await reader.baseRef()).toEqual({ kind: "failed", message: baseTooLong(MAX_BASE_LENGTH + 1) });
-		expect(await reader.snapshot("base")).toEqual({ kind: "failed", message: baseTooLong(MAX_BASE_LENGTH + 1) });
 	});
 
 	test("refuses when the repository names no default branch", async () => {
@@ -115,32 +155,18 @@ describe("a base review", () => {
 		await execP("git", ["branch", "-m", "main", "develop"], { cwd: repo });
 		expect(await createReviewReaderFrom(run, repo).baseRef()).toEqual({ kind: "failed", message: NO_BASE });
 	});
-
-	test("answers the same fingerprint for the same tree, and a new one after a commit", async () => {
-		const repo = await featureRepo();
-		const reader = createReviewReaderFrom(run, repo, { base: "main" });
-		const first = await reader.snapshot("base");
-		const second = await reader.snapshot("base");
-		if (first.kind !== "snapshot" || second.kind !== "snapshot") throw new Error("expected snapshots");
-		expect(first.snapshot.fingerprint).toBe(second.snapshot.fingerprint);
-		writeFileSync(join(repo, "b.ts"), "export const b = 2;\n");
-		await execP("git", ["add", "b.ts"], { cwd: repo });
-		await execP("git", ["commit", "-qm", "add b"], { cwd: repo });
-		const third = await reader.snapshot("base");
-		if (third.kind !== "snapshot") throw new Error("expected a snapshot");
-		expect(third.snapshot.fingerprint).not.toBe(first.snapshot.fingerprint);
-	});
 });
 
-describe("the other four scopes", () => {
-	test("the last commit reads HEAD~1...HEAD, and refuses before HEAD has a parent", async () => {
+describe("the other presets", () => {
+	test("the last commit reads HEAD^...HEAD, and refuses before HEAD has a parent", async () => {
 		const repo = await featureRepo();
-		const outcome = await createReviewReaderFrom(run, repo).snapshot("last");
+		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("last"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(outcome.snapshot.label).toBe("HEAD^...HEAD");
 		expect(outcome.snapshot.files.map((file) => file.rel)).toEqual(["a.ts"]);
 
 		const fresh = temps.track(await makeRepo());
-		expect(await createReviewReaderFrom(run, fresh).snapshot("last")).toEqual({
+		expect(await createReviewReaderFrom(run, fresh).snapshot(comparisonOf("last"))).toEqual({
 			kind: "failed",
 			message: NO_PARENT,
 		});
@@ -151,8 +177,9 @@ describe("the other four scopes", () => {
 		writeFileSync(join(repo, "README.md"), "hello\nstaged\n");
 		await execP("git", ["add", "README.md"], { cwd: repo });
 		writeFileSync(join(repo, "note.txt"), "new\n");
-		const outcome = await createReviewReaderFrom(run, repo).snapshot("staged");
+		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("staged"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(outcome.snapshot.label).toBe("HEAD → index");
 		expect(outcome.snapshot.files.map((file) => [file.rel, file.status])).toEqual([["README.md", "M"]]);
 		expect(outcome.snapshot.insertions).toBe(1);
 	});
@@ -161,8 +188,9 @@ describe("the other four scopes", () => {
 		const repo = await featureRepo();
 		writeFileSync(join(repo, "a.ts"), "const a = 1;\nconst b = 3;\n");
 		writeFileSync(join(repo, "note.txt"), "one\ntwo\n");
-		const outcome = await createReviewReaderFrom(run, repo).snapshot("worktree");
+		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("worktree"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(outcome.snapshot.label).toBe("index → working tree");
 		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
 		expect([...byPath.keys()].sort()).toEqual(["a.ts", "note.txt"]);
 		expect(byPath.get("a.ts")?.add).toBe(1);
@@ -171,15 +199,15 @@ describe("the other four scopes", () => {
 		expect(byPath.get("note.txt")?.lines.map((line) => line.text)).toEqual(["one", "two"]);
 	});
 
-	test("head reads the index and the tree together, with an untracked file", async () => {
+	test("uncommitted reads the index and the tree together, with an untracked file", async () => {
 		const repo = await featureRepo();
 		writeFileSync(join(repo, "README.md"), "hello\nstaged\n");
 		await execP("git", ["add", "README.md"], { cwd: repo });
 		writeFileSync(join(repo, "a.ts"), "const a = 1;\nconst b = 3;\n");
 		writeFileSync(join(repo, "note.txt"), "one\n");
-		const outcome = await createReviewReaderFrom(run, repo).snapshot("head");
+		const outcome = await createReviewReaderFrom(run, repo).snapshot(comparisonOf("uncommitted"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
-		expect(outcome.snapshot.label).toBe("uncommitted");
+		expect(outcome.snapshot.label).toBe("HEAD → working tree");
 		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
 		expect([...byPath.keys()].sort()).toEqual(["README.md", "a.ts", "note.txt"]);
 		expect(byPath.get("README.md")?.add).toBe(1);
@@ -193,15 +221,59 @@ describe("the other four scopes", () => {
 		writeFileSync(join(repo, "big.txt"), Array.from({ length: 40 }, (_, index) => `line ${index}`).join("\n"));
 		writeFileSync(join(repo, "second.txt"), "s\n");
 		const reader = createReviewReaderFrom(run, repo, { maxFiles: 1, maxLines: 5 });
-		const outcome = await reader.snapshot("worktree");
+		const outcome = await reader.snapshot(comparisonOf("worktree"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(outcome.snapshot.files).toHaveLength(1);
 		expect(outcome.snapshot.omitted).toBeGreaterThan(0);
-		const big = await createReviewReaderFrom(run, repo, { maxLines: 5 }).snapshot("worktree");
+		const big = await createReviewReaderFrom(run, repo, { maxLines: 5 }).snapshot(comparisonOf("worktree"));
 		if (big.kind !== "snapshot") throw new Error("expected a snapshot");
 		const file = big.snapshot.files.find((entry) => entry.rel === "big.txt");
 		expect(file?.truncated).toBe(true);
 		expect(file?.lines.length).toBeLessThanOrEqual(5);
+	});
+});
+
+describe("a pair a reader names", () => {
+	test("reads the change as staged so far, leaving the working tree out", async () => {
+		const repo = await featureRepo();
+		writeFileSync(join(repo, "README.md"), "hello\nstaged\n");
+		await execP("git", ["add", "README.md"], { cwd: repo });
+		writeFileSync(join(repo, "a.ts"), "const a = 1;\nconst b = 3;\n");
+		const outcome = await createReviewReaderFrom(run, repo).snapshot({
+			from: { kind: "rev", ref: "main" },
+			to: { kind: "index" },
+		});
+		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(outcome.snapshot.label).toBe("main → index");
+		const byPath = new Map(outcome.snapshot.files.map((file) => [file.rel, file]));
+		expect([...byPath.keys()].sort()).toEqual(["README.md", "a.ts"]);
+		// The unstaged edit to a.ts is not in the index, so it is not in this comparison.
+		expect(byPath.get("a.ts")?.add).toBe(2);
+	});
+
+	test("reads a branch nobody has checked out", async () => {
+		const repo = await featureRepo();
+		await execP("git", ["checkout", "-q", "main"], { cwd: repo });
+		const outcome = await createReviewReaderFrom(run, repo).snapshot({
+			from: { kind: "rev", ref: "main" },
+			to: { kind: "rev", ref: "feature" },
+		});
+		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(outcome.snapshot.label).toBe("main...feature");
+		expect(outcome.snapshot.files.map((file) => file.rel)).toEqual(["a.ts"]);
+	});
+
+	test("refuses one side read twice, and a side the repository does not have", async () => {
+		const repo = await featureRepo();
+		const reader = createReviewReaderFrom(run, repo);
+		expect(await reader.snapshot({ from: { kind: "rev", ref: "HEAD" }, to: { kind: "rev", ref: "HEAD" } })).toEqual({
+			kind: "failed",
+			message: expect.stringContaining("same side"),
+		});
+		expect(await reader.snapshot({ from: { kind: "rev", ref: "no-such-branch" }, to: { kind: "tree" } })).toEqual({
+			kind: "failed",
+			message: noSuchSide("no-such-branch"),
+		});
 	});
 });
 
@@ -236,7 +308,7 @@ describe("a whole file's text", () => {
 describe("a tree with no answer", () => {
 	test("refuses outside a repository", async () => {
 		const outside = temps.track(mkdtempSync(join(tmpdir(), "pi-review-plain-")));
-		expect(await createReviewReaderFrom(run, outside).snapshot("base")).toEqual({
+		expect(await createReviewReaderFrom(run, outside).snapshot(comparisonOf("branch"))).toEqual({
 			kind: "failed",
 			message: NOT_A_REPOSITORY,
 		});
@@ -244,9 +316,9 @@ describe("a tree with no answer", () => {
 });
 
 /**
- * A fresh repository: an index and a working tree, and no HEAD to name. This is the only door
- * to the page's absent-sha footer, so both halves of the refusal live in one describe: the two
- * scopes that need a commit refuse, the two that read the index and tree render without one.
+ * A fresh repository: an index and a working tree, and no HEAD to name. The sides that read
+ * the index and the tree render against the empty tree git compares them with; the sides
+ * naming a commit refuse, and say which commit they are missing.
  */
 describe("a repository with no commits", () => {
 	async function unborn(): Promise<string> {
@@ -257,29 +329,31 @@ describe("a repository with no commits", () => {
 		return repo;
 	}
 
-	test("renders the index and the working tree, with no commit to name", async () => {
+	test("renders the index and the tree, with no commit to name", async () => {
 		const repo = await unborn();
-		const staged = await createReviewReaderFrom(run, repo).snapshot("staged");
+		const reader = createReviewReaderFrom(run, repo);
+		const staged = await reader.snapshot(comparisonOf("staged"));
 		if (staged.kind !== "snapshot") throw new Error("expected a snapshot");
-		expect(staged.snapshot.head).toBeUndefined();
-		expect(staged.snapshot.baseSha).toBeUndefined();
-		expect(staged.snapshot.label).toBe("staged");
+		expect(staged.snapshot.fromSha).toBeUndefined();
+		expect(staged.snapshot.label).toBe("HEAD → index");
 		expect(staged.snapshot.files.map((file) => [file.rel, file.add])).toEqual([["a.ts", 1]]);
 
 		writeFileSync(join(repo, "note.txt"), "new\n");
-		const worktree = await createReviewReaderFrom(run, repo).snapshot("worktree");
+		const worktree = await reader.snapshot(comparisonOf("worktree"));
 		if (worktree.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(worktree.snapshot.files.map((file) => file.rel)).toContain("note.txt");
-		expect(worktree.snapshot.head).toBeUndefined();
+
+		// `HEAD` names the empty tree only where `--cached` already reads it: everything
+		// uncommitted would need a diff against nothing, so it says which commit is missing.
+		expect(await reader.snapshot(comparisonOf("uncommitted"))).toEqual({ kind: "failed", message: NO_COMMITS });
 	});
 
 	test("still refuses the comparisons that need a commit", async () => {
 		const repo = await unborn();
-		const reader = createReviewReaderFrom(run, repo, { base: "main" });
-		expect(await reader.snapshot("base")).toEqual({ kind: "failed", message: NO_COMMITS });
-		expect(await reader.snapshot("last")).toEqual({ kind: "failed", message: NO_COMMITS });
-		// `git diff HEAD` has no HEAD to compare against, and git answers the refusal by
-		// returning nothing, which would read as "these files changed, here is no change".
-		expect(await reader.snapshot("head")).toEqual({ kind: "failed", message: NO_COMMITS });
+		const reader = createReviewReaderFrom(run, repo);
+		// No default branch resolves, so the two scopes built on it have no left end.
+		expect(await reader.snapshot(comparisonOf("branch"))).toEqual({ kind: "failed", message: NO_COMMITS });
+		expect(await reader.snapshot(comparisonOf("change"))).toEqual({ kind: "failed", message: NO_COMMITS });
+		expect(await reader.snapshot(comparisonOf("last"))).toEqual({ kind: "failed", message: NO_COMMITS });
 	});
 });

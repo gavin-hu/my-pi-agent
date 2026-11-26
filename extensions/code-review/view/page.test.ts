@@ -2,14 +2,16 @@ import { describe, expect, test } from "bun:test";
 import type { ReviewSnapshot } from "../git/diff.ts";
 import { fileHref } from "../links.ts";
 import type { Review } from "../review/store.ts";
-import { REVIEW_SCOPES } from "../scope.ts";
+import { comparisonOf } from "../../../test/helpers/review-scope.ts";
+import { REVIEW_PRESETS } from "../scope.ts";
 import { comparisonLine, renderReviewPage, renderReviewProblem, reviewData } from "./page.ts";
 
 /** A two-file snapshot with a hunk, a context row, and a deleted line. */
 function snapshot(overrides: Partial<ReviewSnapshot> = {}): ReviewSnapshot {
 	return {
-		scope: "base",
-		base: "origin/main",
+		scope: comparisonOf("branch", "origin/main"),
+		fromSha: "3f9c21a",
+		toSha: "a5efbb9",
 		label: "origin/main...HEAD",
 		files: [
 			{
@@ -48,9 +50,7 @@ function snapshot(overrides: Partial<ReviewSnapshot> = {}): ReviewSnapshot {
 function review(overrides: Partial<Review> = {}): Review {
 	return {
 		id: "r7c1",
-		scope: "base",
-		base: "origin/main",
-		label: "origin/main...HEAD",
+		scope: comparisonOf("branch", "origin/main"),
 		rev: "abc123",
 		comments: [
 			{
@@ -75,6 +75,7 @@ const input = (over: { review?: Review; snapshot?: ReviewSnapshot } = {}) => ({
 	repo: "my-pi-agent",
 	root: "/Users/someone/my-pi-agent",
 	token: "tok-123",
+	preset: "branch" as const,
 	snapshot: over.snapshot ?? snapshot(),
 	...(over.review === undefined ? {} : { review: over.review }),
 });
@@ -201,23 +202,23 @@ describe("the review page", () => {
 		expect(html).not.toContain('class="rv-file"');
 	});
 
-	test("offers every scope as a link, with the current one selected and its title saying what it compares", () => {
+	test("offers every preset as a link, with the page's own selected and its title saying what it compares", () => {
 		const html = renderReviewPage(input());
-		for (const scope of REVIEW_SCOPES) {
-			expect(html).toContain(`/review/new?scope=${scope}`);
+		for (const preset of REVIEW_PRESETS) {
+			expect(html).toContain(`/review/new?scope=${preset}`);
 		}
 		// The segment says the word the URL, the command and the tool say.
-		expect(html).toContain('aria-selected="true" title="the branch against its base">base</a>');
-		expect(html).toContain('title="HEAD~1...HEAD — the last commit">last</a>');
+		expect(html).toContain('aria-selected="true" title="the branch against its base">branch</a>');
+		expect(html).toContain(
+			'aria-selected="false" title="the whole change — the branch and everything uncommitted">change</a>',
+		);
+		expect(html).toContain('title="HEAD^...HEAD — the last commit, its first parent on a merge">last</a>');
 	});
 
 	test("names what the footer holds, and never a sha it does not have", () => {
-		expect(comparisonLine(snapshot())).toBe("origin/main...HEAD");
-		expect(comparisonLine({ ...snapshot(), head: "a5efbb9" })).toBe("origin/main...HEAD · HEAD a5efbb9");
-		expect(comparisonLine({ ...snapshot(), head: "a5efbb9", baseSha: "3f9c21a" })).toBe(
-			"origin/main 3f9c21a → HEAD a5efbb9",
-		);
-		const html = renderReviewPage(input({ snapshot: snapshot({ head: undefined, baseSha: undefined }) }));
+		expect(comparisonLine(snapshot())).toBe("3f9c21a → a5efbb9");
+		expect(comparisonLine({ ...snapshot(), toSha: undefined })).toBe("origin/main...HEAD");
+		const html = renderReviewPage(input({ snapshot: snapshot({ fromSha: undefined, toSha: undefined }) }));
 		expect(html).not.toContain("undefined");
 	});
 
@@ -292,7 +293,7 @@ describe("the review page", () => {
 		expect(html).not.toContain("docs/serve.md");
 		// The way back is the comparison alone: the file is what is being left behind.
 		expect(html).toContain('id="rv-all-files"');
-		expect(html).toContain('href="/review/new?scope=base"');
+		expect(html).toContain('href="/review/new?scope=branch"');
 		expect(html).not.toContain("file=lib/http/mount.ts");
 		// The count still names the scope, not the one file drawn from it.
 		expect(html).toContain("1 of 2 files");
@@ -327,8 +328,8 @@ describe("the review page", () => {
 		const url = new URL(href, "http://127.0.0.1");
 		expect(url.pathname).toBe("/review/file");
 		expect(url.searchParams.get("path")).toBe("lib/http/mount.ts");
-		expect(url.searchParams.get("scope")).toBe("base");
-		expect(href).toBe(fileHref("lib/http/mount.ts", "base"));
+		expect(url.searchParams.get("scope")).toBe("branch");
+		expect(href).toBe(fileHref("lib/http/mount.ts", comparisonOf("branch", "origin/main"), "branch"));
 		expect(html).not.toContain('href="/files');
 		expect(html).not.toContain(" download");
 	});

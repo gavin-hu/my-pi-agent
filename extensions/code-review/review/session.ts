@@ -15,7 +15,18 @@ import { isRemoteTurn } from "../../../lib/interaction.ts";
 import type { MountOutcome, MountSpec } from "../../../lib/http/mount.ts";
 import { loadServeConfig } from "../../../lib/serve-config.ts";
 import { loadReviewConfig } from "../config/config.ts";
-import { parseScope, type ReviewScope } from "../scope.ts";
+import { NO_BASE } from "../git/diff.ts";
+import {
+	comparesNothing,
+	NO_COMPARISON,
+	parsePreset,
+	parseSide,
+	presetScope,
+	type ReviewPreset,
+	type ReviewScope,
+	sameScope,
+	scopeLabel,
+} from "../scope.ts";
 import { createReviewPage, type ReviewServer } from "../transport/server.ts";
 import { createReviewCurrent } from "./current.ts";
 import { scopeRefusal, scopeWork } from "./scope-work.ts";
@@ -24,7 +35,10 @@ import { createReviewStore, type ReviewComment } from "./store.ts";
 /** What a review page is showing, as a tool or a command reports it. */
 export interface ReviewStatus {
 	url?: string;
-	scope: ReviewScope;
+	/** The comparison the page is on, when one is open. */
+	scope?: ReviewScope;
+	/** The preset that names it, when a preset does. */
+	preset?: ReviewPreset;
 	label: string;
 	files: number;
 	comments: number;
@@ -44,7 +58,7 @@ export type OpenOutcome =
 /** The page a session holds. */
 export interface ReviewSession {
 	/** Open the page, or report the one already open. */
-	open(input: { scope?: ReviewScope; base?: string }, ctx: ExtensionContext): Promise<OpenOutcome>;
+	open(input: { scope?: string; from?: string; to?: string }, ctx: ExtensionContext): Promise<OpenOutcome>;
 	/** What the page shows, reading the tree once. */
 	status(): Promise<ReviewStatus>;
 	/** Every comment a reviewer sent this session, oldest first. */
@@ -95,7 +109,8 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 		const held = page?.store.current();
 		const base: ReviewStatus = {
 			...(page === undefined ? {} : { url: page.url }),
-			scope: page?.scope() ?? "base",
+			...(held === undefined ? {} : { scope: held.scope }),
+			...(held?.preset === undefined ? {} : { preset: held.preset }),
 			label: "",
 			files: 0,
 			comments: held?.review?.comments.length ?? 0,
@@ -136,20 +151,53 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 		await page?.close();
 	};
 
+	/**
+	 * The comparison an open names: a preset's pair, or the pair its two words spell.
+	 *
+	 * A preset's left end is the repository's default branch, so `change` and `branch` follow
+	 * whatever a project lands on. A pair defaults its right end to HEAD and its left to that
+	 * same branch, so `{ to: "index" }` is the change as staged so far without a second
+	 * vocabulary; a pair that reads one side twice is refused before a page is minted.
+	 */
+	const resolveScope = async (
+		input: { scope?: string; from?: string; to?: string },
+		preset: ReviewPreset | undefined,
+	): Promise<{ kind: "scope"; scope: ReviewScope; preset?: ReviewPreset } | { kind: "refused"; reason: string }> => {
+		if (input.scope !== undefined && preset === undefined)
+			return { kind: "refused", reason: `"${input.scope}" is not a comparison this page offers` };
+		const from = parseSide(input.from);
+		const to = parseSide(input.to);
+		let defaultRef: string | undefined;
+		if (preset !== undefined || from === undefined) {
+			const answered = await current.reader().baseRef();
+			if (answered.kind === "failed") return { kind: "refused", reason: answered.message };
+			defaultRef = answered.ref;
+		}
+		const scope =
+			preset === undefined
+				? {
+						from: from ?? { kind: "rev" as const, ref: defaultRef ?? "" },
+						to: to ?? { kind: "rev" as const, ref: "HEAD" },
+					}
+				: presetScope(preset, defaultRef);
+		if (scope === undefined) return { kind: "refused", reason: NO_BASE };
+		if (comparesNothing(scope)) return { kind: "refused", reason: NO_COMPARISON };
+		return { kind: "scope", scope, ...(preset === undefined ? {} : { preset }) };
+	};
+
 	return {
 		async open(input) {
 			const { repo } = current.place();
-			const config = loadReviewConfig(ctx.cwd);
-			const scope = parseScope(input.scope) ?? "base";
-			const configured = input.base === undefined ? config : { ...config, base: input.base };
-			// An open's own `base` replaces the configured one for the reader this opening reads.
-			current.configure(configured);
+			const named = parsePreset(input.scope);
+			const scope = await resolveScope(input, named);
+			if (scope.kind === "refused") {
+				ctx.ui.notify(`review: ${scope.reason}`, "error");
+				return { kind: "refused", reason: scope.reason };
+			}
 
 			const held = running?.store.current();
 			if (running !== undefined && held !== undefined) {
-				const sameScope = held.scope === scope;
-				const sameBase = scope !== "base" || input.base === undefined || held.base === input.base;
-				if (sameScope && sameBase) {
+				if (sameScope(held.scope, scope.scope)) {
 					ctx.ui.notify(`review: ${running.url} (already open)`, "info");
 					await openTab(running.url);
 					return { kind: "open", status: await describe() };
@@ -160,7 +208,7 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 						// The address is appended here rather than at each door, so a notice, a tool's
 						// failure text and a page's 409 cannot disagree about where the reader still is.
 						const still = running.url === undefined ? "" : ` — still open at ${running.url}`;
-						const reason = `${scopeRefusal(held.review, held.label)}${still}`;
+						const reason = `${scopeRefusal(held.review, scopeLabel(held.scope))}${still}`;
 						ctx.ui.notify(`review: ${reason}`, "error");
 						return { kind: "refused", reason };
 					}
@@ -188,7 +236,7 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 			}
 			running = outcome.page;
 			// The mount only routes; the page this opening names is minted by the seam's one rule.
-			await current.openPage(scope);
+			await current.openPage(scope.scope, scope.preset);
 			const status = await describe();
 			// The page's own reason, so a base that cannot be used is named here rather than only
 			// behind the address: the sentence is the whole point of asking git for it.

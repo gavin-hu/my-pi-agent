@@ -1,99 +1,139 @@
 /**
  * What a review compares, and the git arguments one comparison is taken with.
  *
- * A review reads a branch, which `file-browse`'s modes do not: its scopes are the
- * base line the branch left, the last commit, everything uncommitted against
- * HEAD, the index, and the working tree. Pure: the reader runs git, this only
- * says what to ask it.
+ * A scope is a pair of sides — `from → to` — and each side is a revision, the index, or
+ * the working tree. Six presets name the pairs a reader asks for by habit; the pair is
+ * what the snapshot, the fingerprint and a scope change read, so a name can never drift
+ * from what it drew.
+ *
+ * Three rules are derived, not declared per preset: a commit-to-commit scope reads
+ * `merge-base(from, to)` against `to`; untracked files join exactly when `to` is the
+ * working tree; and a scope whose ends read the same thing is refused rather than drawn
+ * empty. Pure: the reader runs git, this says what to ask it and what to call the answer.
  */
 
-/** The five comparisons a review page offers. */
-export type ReviewScope = "base" | "last" | "head" | "staged" | "worktree";
+import type { DiffSide } from "../../lib/diff/modes.ts";
+
+/** One comparison: the two sides of a single diff. */
+export interface ReviewScope {
+	from: DiffSide;
+	to: DiffSide;
+}
 
 /** Longest base ref accepted; a ref longer than this is a mistake, not a branch. */
 export const MAX_BASE_LENGTH = 200;
 
-/** Every scope, in the segmented control's order. */
-export const REVIEW_SCOPES: readonly ReviewScope[] = ["base", "last", "head", "staged", "worktree"];
+/** The comparisons a reader asks for by name, in the segmented control's order. */
+export const REVIEW_PRESETS = ["change", "branch", "last", "uncommitted", "staged", "worktree"] as const;
 
-/** Whether an untrusted word names a scope. */
-export function isReviewScope(value: unknown): value is ReviewScope {
-	return value === "base" || value === "last" || value === "head" || value === "staged" || value === "worktree";
+/** One of those names. */
+export type ReviewPreset = (typeof REVIEW_PRESETS)[number];
+
+/**
+ * A preset's left end before the default branch is known: `default` is the ref the
+ * configured base or the repository's own branch resolves to, so `change` and `branch`
+ * follow whatever a project lands on.
+ */
+type PresetFrom = DiffSide | "default";
+
+/** The sides one preset compares. */
+const PRESETS: Record<ReviewPreset, { from: PresetFrom; to: DiffSide }> = {
+	// The default is the whole change: what would land if every uncommitted thing were committed.
+	change: { from: "default", to: { kind: "tree" } },
+	branch: { from: "default", to: { kind: "rev", ref: "HEAD" } },
+	last: { from: { kind: "rev", ref: "HEAD^" }, to: { kind: "rev", ref: "HEAD" } },
+	uncommitted: { from: { kind: "rev", ref: "HEAD" }, to: { kind: "tree" } },
+	staged: { from: { kind: "rev", ref: "HEAD" }, to: { kind: "index" } },
+	worktree: { from: { kind: "index" }, to: { kind: "tree" } },
+};
+
+/** What each preset's tab says it compares. */
+const PRESET_TITLES: Record<ReviewPreset, string> = {
+	change: "the whole change — the branch and everything uncommitted",
+	branch: "the branch against its base",
+	last: "HEAD^...HEAD — the last commit, its first parent on a merge",
+	uncommitted: "HEAD → working tree — everything not committed",
+	staged: "HEAD → index — what the next commit carries",
+	worktree: "index → working tree — what is not staged",
+};
+
+/** Whether an untrusted word names a preset. */
+export function isReviewPreset(value: unknown): value is ReviewPreset {
+	return typeof value === "string" && (REVIEW_PRESETS as readonly string[]).includes(value);
 }
 
-/** The word a scope is typed as, or `undefined` when it is not one. */
-export function parseScope(value: string | null | undefined): ReviewScope | undefined {
-	return isReviewScope(value) ? value : undefined;
+/** The preset a word names, or `undefined` when it names none. */
+export function parsePreset(value: string | null | undefined): ReviewPreset | undefined {
+	return isReviewPreset(value) ? value : undefined;
 }
 
-/** One scope as the reader runs it. */
-export interface ScopeArgs {
-	/** Revision arguments for `git diff`, placed before `--`. */
-	args: string[];
-	/** What the page's header names the comparison by. */
-	label: string;
-	/** True when untracked files join the change list. */
-	untracked: boolean;
-	/** True when the scope cannot answer before HEAD's first commit. */
-	needsParent: boolean;
-	/** What the scope's segmented-control title says it compares. */
-	title: string;
+/** What a preset's tab says it compares. */
+export function presetTitle(preset: ReviewPreset): string {
+	return PRESET_TITLES[preset];
 }
 
 /**
- * The git arguments for a scope.
- *
- * `base` and `last` read a committed range, so a file changed and then reverted
- * is absent — that is what a branch review asks. `head`, `staged` and `worktree`
- * read the tree against a ref, the index, and the tree alone: `head` is the three
- * `file-browse` modes' union, and the two beneath it are what `file-browse` calls
- * its staged and worktree modes, so the working tree is reviewable before a
- * commit exists.
+ * The scope a preset names. A preset whose left end is the default resolves to
+ * `defaultRef`; with none resolved it answers `undefined`, since there is no scope to
+ * draw and the reader owes the sentence saying why.
  */
-export function scopeArgs(scope: ReviewScope, base: string): ScopeArgs {
-	if (scope === "last") {
-		return {
-			args: ["HEAD~1...HEAD"],
-			label: "HEAD~1...HEAD",
-			untracked: false,
-			needsParent: true,
-			title: "HEAD~1...HEAD — the last commit",
-		};
-	}
-	// Only HEAD has to exist, which the reader checks for this scope, so it needs no
-	// parent commit: `git diff HEAD` compares against the commit itself.
-	if (scope === "head") {
-		return {
-			args: ["HEAD"],
-			label: "uncommitted",
-			untracked: true,
-			needsParent: false,
-			title: "uncommitted — the index and the tree against HEAD",
-		};
-	}
-	if (scope === "staged") {
-		return {
-			args: ["--cached"],
-			label: "staged",
-			untracked: false,
-			needsParent: false,
-			title: "staged — the index against HEAD",
-		};
-	}
-	if (scope === "worktree") {
-		return {
-			args: [],
-			label: "worktree",
-			untracked: true,
-			needsParent: false,
-			title: "worktree — the working tree against the index",
-		};
-	}
-	return {
-		args: [`${base}...HEAD`],
-		label: `${base}...HEAD`,
-		untracked: false,
-		needsParent: false,
-		title: "the branch against its base",
-	};
+export function presetScope(preset: ReviewPreset, defaultRef: string | undefined): ReviewScope | undefined {
+	const { from, to } = PRESETS[preset];
+	if (from !== "default") return { from, to };
+	return defaultRef === undefined ? undefined : { from: { kind: "rev", ref: defaultRef }, to };
+}
+
+/** The preset a scope names, or `undefined` when a reader typed the pair itself. */
+export function presetOf(scope: ReviewScope, defaultRef: string | undefined): ReviewPreset | undefined {
+	return REVIEW_PRESETS.find((preset) => {
+		const named = presetScope(preset, defaultRef);
+		return named !== undefined && sameSide(named.from, scope.from) && sameSide(named.to, scope.to);
+	});
+}
+
+/** Whether two scopes compare the same two sides. */
+export function sameScope(a: ReviewScope, b: ReviewScope): boolean {
+	return wireSide(a.from) === wireSide(b.from) && wireSide(a.to) === wireSide(b.to);
+}
+
+/** Whether two sides read the same thing. */
+function sameSide(a: DiffSide, b: DiffSide): boolean {
+	return wireSide(a) === wireSide(b);
+}
+
+/** The sentence a scope whose ends read the same thing owes. */
+export const NO_COMPARISON = "this comparison reads the same side at both ends — pick a different scope";
+
+/** The side a word names — a revision, `index`, or `tree` — or `undefined` for nothing. */
+export function parseSide(word: string | null | undefined): DiffSide | undefined {
+	const trimmed = word?.trim() ?? "";
+	if (trimmed === "") return undefined;
+	if (trimmed === "index") return { kind: "index" };
+	if (trimmed === "tree") return { kind: "tree" };
+	return { kind: "rev", ref: trimmed };
+}
+
+/** The word a side is typed as, so a link and a tool call say the same thing. */
+export function wireSide(side: DiffSide): string {
+	return side.kind === "rev" ? side.ref : side.kind;
+}
+
+/** Whether a scope compares anything at all. */
+export function comparesNothing(scope: ReviewScope): boolean {
+	if (scope.from.kind === "tree") return true;
+	if (scope.from.kind === "index") return scope.to.kind !== "tree";
+	return scope.to.kind === "rev" && scope.from.ref === scope.to.ref;
+}
+
+/** What the page calls a scope: the range it reads, or the two sides with an arrow. */
+export function scopeLabel(scope: ReviewScope): string {
+	if (scope.from.kind === "rev" && scope.to.kind === "rev") return `${scope.from.ref}...${scope.to.ref}`;
+	return `${sideLabel(scope.from)} → ${sideLabel(scope.to)}`;
+}
+
+/** One side as a person reads it. */
+export function sideLabel(side: DiffSide): string {
+	if (side.kind === "index") return "index";
+	if (side.kind === "tree") return "working tree";
+	return side.ref;
 }

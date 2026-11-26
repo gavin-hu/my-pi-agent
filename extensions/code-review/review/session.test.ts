@@ -18,7 +18,9 @@ import { createFakePi } from "../../../test/helpers/fakes.ts";
 import { useEnv } from "../../../test/helpers/env.ts";
 import { TOOL_NAME } from "../schema.ts";
 import { registerReviewTool } from "../tools.ts";
+import { comparisonOf } from "../../../test/helpers/review-scope.ts";
 import { createReviewSession } from "./session.ts";
+
 import { scopeRefusal } from "./scope-work.ts";
 import { SNAPSHOT_MOVED, type Review } from "./store.ts";
 
@@ -126,7 +128,7 @@ describe("opening the page", () => {
 		const staged = await session.open({ scope: "staged" }, ctx);
 		expect(staged.kind).toBe("open");
 		if (staged.kind !== "open") return;
-		expect(staged.status.scope).toBe("staged");
+		expect(staged.status.preset).toBe("staged");
 		expect(mounted.state.specs).toHaveLength(2);
 		await session.close();
 	});
@@ -273,9 +275,7 @@ describe("opening the page", () => {
 function held(drafts: number, marks: number): Review {
 	return {
 		id: "r1",
-		scope: "base",
-		base: "main",
-		label: "main...HEAD",
+		scope: comparisonOf("branch"),
 		rev: "rev-1",
 		createdAt: 1,
 		updatedAt: 1,

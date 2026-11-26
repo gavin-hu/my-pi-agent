@@ -14,7 +14,7 @@
 
 import { tokenMatches } from "../../../lib/http/token.ts";
 import { mintToken as defaultMint } from "../../../lib/http/token.ts";
-import type { ReviewScope } from "../scope.ts";
+import type { ReviewPreset, ReviewScope } from "../scope.ts";
 
 /** One comment a reviewer wrote on a line. */
 export interface ReviewComment {
@@ -43,8 +43,8 @@ export interface Review {
 	id: string;
 	/** The comparison the comments were written on, fixed for the review's life. */
 	scope: ReviewScope;
-	base: string;
-	label: string;
+	/** The preset that names it, when one does; a pair a reader typed has none. */
+	preset?: ReviewPreset;
 	comments: ReviewComment[];
 	/** Paths the reviewer marked read. */
 	reviewed: string[];
@@ -59,8 +59,8 @@ export interface Review {
 /** One session's page, as the router reads it. */
 export interface ReviewPageState {
 	scope: ReviewScope;
-	base: string;
-	label: string;
+	/** The preset the page was opened by, when it was opened by one. */
+	preset?: ReviewPreset;
 	/** The page's write credential, minted when the page opened. */
 	token: string;
 	review?: Review;
@@ -110,7 +110,7 @@ export interface ReviewStore {
 	/** The session's page, or undefined when none is open. */
 	current(): ReviewPageState | undefined;
 	/** Start a page for a scope, replacing whatever the session held. */
-	open(scope: ReviewScope, base: string, label: string): ReviewPageState;
+	open(scope: ReviewScope, preset?: ReviewPreset): ReviewPageState;
 	/** The page a review id and token name, or undefined when they do not. */
 	resume(id: string, token: string): ReviewPageState | undefined;
 	/**
@@ -164,8 +164,8 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 
 	return {
 		current: () => page,
-		open(scope, base, label) {
-			page = { scope, base, label, token: mint() };
+		open(scope, preset) {
+			page = { scope, ...(preset === undefined ? {} : { preset }), token: mint() };
 			return page;
 		},
 		resume(id, token) {
@@ -187,8 +187,7 @@ export function createReviewStore(options: ReviewStoreOptions = {}): ReviewStore
 			const review: Review = held.review ?? {
 				id: "",
 				scope: held.scope,
-				base: held.base,
-				label: held.label,
+				...(held.preset === undefined ? {} : { preset: held.preset }),
 				comments: [],
 				reviewed: [],
 				createdAt: now(),

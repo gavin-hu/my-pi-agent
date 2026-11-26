@@ -30,8 +30,8 @@ import {
 import type { ReviewSnapshot } from "../git/diff.ts";
 import type { Review, ReviewComment } from "../review/store.ts";
 import { MAX_COMMENT_LENGTH, MAX_COMMENTS, MAX_QUOTE_LENGTH } from "../review/store.ts";
-import { fileHref, newHref } from "../links.ts";
-import { REVIEW_SCOPES, scopeArgs, type ReviewScope } from "../scope.ts";
+import { fileHref, newHref, presetHref } from "../links.ts";
+import { REVIEW_PRESETS, presetTitle, type ReviewPreset, type ReviewScope } from "../scope.ts";
 import { REVIEW_CSS, REVIEW_NARROW_PX } from "./styles.ts";
 
 /** What the client is told about the page; the island carries it as one value. */
@@ -43,6 +43,8 @@ export interface ReviewData {
 	/** The review's id, or `""` before the first write. */
 	id: string;
 	scope: ReviewScope;
+	/** The preset naming that scope, when one does. */
+	preset?: ReviewPreset;
 	rev: string;
 	label: string;
 	comments: ReviewComment[];
@@ -69,6 +71,8 @@ export interface ReviewPageInput {
 	root: string;
 	token: string;
 	snapshot: ReviewSnapshot;
+	/** The preset the page was opened by, when one names it; a pair a reader typed has none. */
+	preset?: ReviewPreset;
 	/**
 	 * One file to draw, by root-relative path: the whole scope is still read and its
 	 * fingerprint still covers every file, so a focused page and the full page accept each
@@ -157,8 +161,8 @@ function railRow(
  * page that still names the file. It is not a `.rv-rail` row: the client's rail helpers are
  * keyed on those, and a link among them that names no file would be counted as one.
  */
-function backToAll(scope: ReviewScope, total: number): string {
-	return `<p class="rv-side__back"><a class="bf-btn" id="rv-all-files" href="${escapeHtml(newHref(scope))}">all ${total} file${total === 1 ? "" : "s"}</a></p>`;
+function backToAll(current: { scope: ReviewScope; preset?: ReviewPreset }, total: number): string {
+	return `<p class="rv-side__back"><a class="bf-btn" id="rv-all-files" href="${escapeHtml(newHref(current.scope, current.preset))}">all ${total} file${total === 1 ? "" : "s"}</a></p>`;
 }
 
 /** One file's head, its diff, and the two notes a cap leaves. */
@@ -168,6 +172,7 @@ function fileSection(
 	comments: readonly ReviewComment[],
 	reviewed: ReadonlySet<string>,
 	scope: ReviewScope,
+	preset: ReviewPreset | undefined,
 ): string {
 	const state = fileState(file.rel, comments, reviewed);
 	const count = comments.filter((comment) => comment.rel === file.rel).length;
@@ -177,7 +182,7 @@ function fileSection(
   <span class="rv-file__path"><span class="rv-file__dir">${escapeHtml(dir ? `${dir}/` : "")}</span>${escapeHtml(name)}</span>
   <span class="rv-file__stats"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
   <span class="rv-file__acts">
-    <a class="bf-btn" href="${escapeHtml(fileHref(file.rel, scope))}" title="Read this file's whole text">view file</a>
+    <a class="bf-btn" href="${escapeHtml(fileHref(file.rel, scope, preset))}" title="Read this file's whole text">view file</a>
     <span class="bf-tag" data-count>${count === 0 ? escapeHtml(stateWord(state)) : `${count} comment${count === 1 ? "" : "s"}`}</span>
     <label class="rv-file__check"><input type="checkbox" data-reviewed="${escapeHtml(file.rel)}" aria-label="Mark ${escapeHtml(file.rel)} reviewed"${reviewed.has(file.rel) ? " checked" : ""}> reviewed</label>
   </span>
@@ -209,26 +214,22 @@ function languageOf(rel: string): HighlightLanguage | undefined {
 	return detectLanguage(rel);
 }
 
-/** The scope switch: one link per comparison, the current one pressed. */
-function scopeSegments(scope: ReviewScope): string {
-	return `<div class="bf-tabs" role="group" aria-label="What the diff compares">${REVIEW_SCOPES.map(
-		(option) =>
-			`<a class="bf-tabs__item" href="${escapeHtml(newHref(option))}" role="tab" aria-selected="${option === scope}" title="${escapeHtml(scopeArgs(option, "").title)}">${option}</a>`,
+/** The scope switch: one tab per preset, the one this page was opened by pressed. */
+function scopeSegments(current: { scope: ReviewScope; preset?: ReviewPreset }): string {
+	return `<div class="bf-tabs" role="group" aria-label="What the diff compares">${REVIEW_PRESETS.map(
+		(preset) =>
+			`<a class="bf-tabs__item" href="${escapeHtml(presetHref(preset))}" role="tab" aria-selected="${preset === current.preset}" title="${escapeHtml(presetTitle(preset))}">${preset}</a>`,
 	).join("")}</div>`;
 }
 
 /**
- * The footer's comparison clause, from whatever commits the snapshot holds: both shas name the
- * two ends, a head alone names the side it has, and neither leaves the comparison's own label.
- * Never `undefined` — the absent form is a scope with no commit to name (a fresh repository's
- * staged or working tree), not a hole in the sentence.
+ * The footer's comparison clause: both shas when both ends name a commit, the label alone
+ * otherwise. Never `undefined` — the absent form is a comparison with no commit at one end
+ * (the index or the working tree), not a hole in the sentence.
  */
-export function comparisonLine(snapshot: Pick<ReviewSnapshot, "label" | "head" | "baseSha">): string {
-	const head = snapshot.head === undefined ? "" : `HEAD ${snapshot.head}`;
-	const base = snapshot.baseSha === undefined ? "" : `${snapshot.label.split("...")[0] ?? ""} ${snapshot.baseSha}`;
-	if (base && head) return `${base} → ${head}`;
-	if (head) return `${snapshot.label} · ${head}`;
-	return snapshot.label;
+export function comparisonLine(snapshot: Pick<ReviewSnapshot, "label" | "fromSha" | "toSha">): string {
+	if (snapshot.fromSha === undefined || snapshot.toSha === undefined) return snapshot.label;
+	return `${snapshot.fromSha} → ${snapshot.toSha}`;
 }
 
 /** The island: the review as data, with `<` escaped so a body cannot end the script. */
@@ -238,6 +239,7 @@ export function reviewData(input: ReviewPageInput): ReviewData {
 		token: input.token,
 		id: input.review?.id ?? "",
 		scope: input.snapshot.scope,
+		...(input.preset === undefined ? {} : { preset: input.preset }),
 		rev: input.snapshot.fingerprint,
 		label: input.snapshot.label,
 		comments: input.review?.comments ?? [],
@@ -270,7 +272,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	// would be a row for a fact this row already holds.
 	const facts = `${liveChip({ id: "rv-live", label: "connecting…" })}${reloadChip({ title: "The diff moved — reload the page" })}`;
 	const controls = `<div class="bf-app__group">
-    ${scopeSegments(snapshot.scope)}
+    ${scopeSegments({ scope: snapshot.scope, preset: input.preset })}
   </div>
   <div class="bf-app__actions">
     ${button({ label: "wrap", id: "rv-wrap", pressed: false, title: "Toggle line wrapping" })}
@@ -280,7 +282,9 @@ export function renderReviewPage(input: ReviewPageInput): string {
 	const main =
 		files.length === 0
 			? `<div class="bf-empty"><p class="bf-empty__title">No changes in this scope.</p><p class="bf-empty__sub">Nothing differs between ${escapeHtml(snapshot.label)} and the tree. Switch the scope, or edit something first.</p></div>`
-			: files.map((file, index) => fileSection(file, index, comments, reviewed, snapshot.scope)).join("\n");
+			: files
+					.map((file, index) => fileSection(file, index, comments, reviewed, snapshot.scope, input.preset))
+					.join("\n");
 	const omitted =
 		snapshot.omitted > 0
 			? `<p class="rv-banner" role="status"><b>${snapshot.omitted} more file${snapshot.omitted === 1 ? "" : "s"}</b> changed in this scope — the page lists the first ${all.length}. Review the rest in a narrower scope.</p>`
@@ -316,7 +320,7 @@ ${appHead({
         <span class="bf-tag bf-tag--mono rv-count" id="rv-file-count" aria-live="polite">${files.length} of ${all.length} files</span>
       </div>
       <div class="rv-side-scroll">
-        ${focused === undefined ? "" : backToAll(snapshot.scope, all.length)}
+        ${focused === undefined ? "" : backToAll({ scope: snapshot.scope, preset: input.preset }, all.length)}
         <div class="rv-side-head"><span>${focused === undefined ? "changed" : "changed in scope"}</span><span class="rv-progress" id="rv-progress" aria-live="polite">${done} of ${all.length} reviewed</span><span id="rv-totals">+${snapshot.insertions} −${snapshot.deletions}</span></div>
         <nav class="rv-files" id="rv-rail" aria-label="Changed files">${files.map((file, index) => railRow(file, index, comments, reviewed)).join("\n")}</nav>
         <p class="bf-note" id="rv-rail-empty" hidden><span id="rv-rail-empty-text"></span> <button type="button" class="bf-btn bf-btn--sm" id="rv-rail-clear">Clear filter</button></p>

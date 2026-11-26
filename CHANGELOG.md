@@ -30,6 +30,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   differently. The only text that changes is the usage line, whose words now come in the table's order: the
   two signs before `status`, `stop` and `team`.
 
+- `code-review`: a scope is two ends now — `from → to`, each a revision, the index, or the
+  working tree — and six presets name the pairs a reader asks for: `change` (the default: the
+  branch and everything uncommitted as one change), `branch`, `last`, `uncommitted`, `staged`,
+  `worktree`. The words `base` and `head` go — `/review base` is `/review branch` now, and
+  `head` was already shown as uncommitted — and `code_review`'s `base` parameter is replaced by
+  `from`/`to`, which also open a comparison no preset names: `{ "to": "index" }` is the change
+  as staged so far, `origin/feature` against `origin/main` a branch nobody checked out. Two
+  commits compare from the line they share, so a merged-in base no longer shows as the
+  branch's own work, and untracked files join exactly when the right side is the working tree.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached

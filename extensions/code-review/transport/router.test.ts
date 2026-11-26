@@ -27,7 +27,7 @@ describe("the page's GETs", () => {
 		const result = await reply(harnessed.handler, request("GET", "/new?scope=staged"));
 		expect(result.status).toBe(200);
 		expect(result.body).toContain('id="rv-data"');
-		expect(harnessed.store.current()?.scope).toBe("staged");
+		expect(harnessed.store.current()?.preset).toBe("staged");
 	});
 
 	test("draws one file when the address names it, on both page routes", async () => {
@@ -80,11 +80,11 @@ describe("the page's GETs", () => {
 
 	test("accepts a write a focused page posts about a file it does not draw", async () => {
 		const harnessed = harness({ files: [stubFile("a.ts"), stubFile("b.ts")] });
-		await reply(harnessed.handler, request("GET", "/new?scope=base"));
+		await reply(harnessed.handler, request("GET", "/new?scope=branch"));
 		const token = pageToken(harnessed.store);
 		// The rev a focused page carries is the scope's, so the request it posts is the same
 		// one the full page would have posted — which is what keeps a hidden file writable.
-		const focused = await reply(harnessed.handler, request("GET", "/new?scope=base&file=a.ts"));
+		const focused = await reply(harnessed.handler, request("GET", "/new?scope=branch&file=a.ts"));
 		const island = typeof focused.body === "string" ? focused.body : "";
 		const rev = /"rev":"([^"]+)"/.exec(island)?.[1];
 		if (rev === undefined) throw new Error("no rev in the island");
@@ -110,7 +110,7 @@ describe("the page's GETs", () => {
 		const result = await reply(harnessed.handler, request("GET", "/new?scope=staged"));
 		expect(result.status).toBe(409);
 		expect(result.body).toContain("1 draft comment");
-		expect(harnessed.store.current()?.scope).toBe("base");
+		expect(harnessed.store.current()?.preset).toBe("branch");
 	});
 
 	test("refuses a scope change for marks alone, and keeps them", async () => {
@@ -124,7 +124,7 @@ describe("the page's GETs", () => {
 		const result = await reply(harnessed.handler, request("GET", "/new?scope=staged"));
 		expect(result.status).toBe(409);
 		expect(result.body).toContain("1 file marked reviewed");
-		expect(harnessed.store.current()?.scope).toBe("base");
+		expect(harnessed.store.current()?.preset).toBe("branch");
 		expect(harnessed.store.current()?.review?.reviewed).toEqual(["a.ts"]);
 	});
 
@@ -166,7 +166,7 @@ describe("the page's GETs", () => {
 		await reply(harnessed.handler, request("POST", "/api/send", { token, rev: "rev-1" }));
 		const result = await reply(harnessed.handler, request("GET", "/new?scope=staged"));
 		expect(result.status).toBe(200);
-		expect(harnessed.store.current()?.scope).toBe("staged");
+		expect(harnessed.store.current()?.preset).toBe("staged");
 		expect(harnessed.store.current()?.review).toBeUndefined();
 		expect(harnessed.sent).toHaveLength(1);
 	});
