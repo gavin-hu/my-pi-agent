@@ -17,6 +17,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/mount.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import { BOARD_TOOL, SESSION_TOOL, TEAM_TOOL } from "../../lib/tool-names.ts";
+import type { Card } from "../../lib/workflow/card.ts";
 import type { Claims } from "../../lib/workflow/claims.ts";
 import { type LeadDoor, registerCommands } from "./commands.ts";
 import type { LeadRuntime } from "./runtime.ts";
@@ -135,6 +137,59 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 
 	/** Whether the first turn has read this session's cards, so later turns do not read them again. */
 	let read = false;
+	/**
+	 * The cards this session holds, as the write gate reads them: one scan for the part of a turn
+	 * that judges writes.
+	 *
+	 * The turn line reads them once per session, and every later turn's line is already in the
+	 * transcript — but the gate needs them per turn, because a `board`, `team`, or `session` call
+	 * moves the set and a turn boundary is where a move behind it (the page) is picked up. The
+	 * cards are read together with the line's first read, and the cache is reset rather than
+	 * invalidated: a second scan is cheap next to a stale allow.
+	 */
+	let heldNow: Card[] | undefined;
+	let gateModule: Promise<typeof import("./write-gate.ts")> | undefined;
+	let policyModule: Promise<typeof import("../../lib/policy.ts")> | undefined;
+
+	/** The held cards, read at most once per part of a turn; a board that cannot be read gates nothing. */
+	const heldForGate = async (ctx: ExtensionContext): Promise<Card[] | undefined> => {
+		if (heldNow !== undefined) return heldNow;
+		const context = await (contextModule ??= import("./context.ts"));
+		const cards = await context.heldCards(session, ctx);
+		if (cards !== undefined) heldNow = cards;
+		return cards;
+	};
+
+	/** The calls that can move the set of cards this session holds: the board, a handoff, a claim. */
+	const MOVING_TOOLS: readonly string[] = [BOARD_TOOL, TEAM_TOOL, SESSION_TOOL];
+
+	/**
+	 * Why the lane refuses this call, or `undefined` when it has no card of this session's to judge.
+	 *
+	 * The seat answers first in the handler, so a refused lead never sees a card's sentence. Plan
+	 * mode is second: its own block is stricter on every tool this gate judges and it words its own
+	 * refusal, so standing down keeps exactly one sentence answering a call whatever the extension
+	 * load order is.
+	 */
+	const laneRefusal = async (ctx: ExtensionContext, toolName: string, input: unknown): Promise<string | undefined> => {
+		if (MOVING_TOOLS.includes(toolName)) heldNow = undefined;
+		const { isPlanModeEnabled } = await (branchState ??= import("../../lib/mode-state.ts"));
+		if (isPlanModeEnabled(ctx.sessionManager.getBranch())) return undefined;
+		const held = await heldForGate(ctx);
+		if (held === undefined || held.length === 0) return undefined;
+		const store = await session.store(ctx.cwd);
+		const { writeRefusal } = await (gateModule ??= import("./write-gate.ts"));
+		// The pin is `lib/policy.ts`'s body, the one plan mode also runs; the gate only decides when.
+		const { pinReadOnlySubagent } = await (policyModule ??= import("../../lib/policy.ts"));
+		return writeRefusal(
+			held,
+			{ tool: toolName, input },
+			{
+				root: store.root(),
+				pinSubagent: (value) => pinReadOnlySubagent(pi, value),
+			},
+		);
+	};
 
 	pi.on("session_start", async (_event, ctx) => {
 		const next = ctx.sessionManager.getSessionId();
@@ -143,6 +198,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		if (sessionId !== "" && next !== sessionId) session.serve(undefined);
 		sessionId = next;
 		read = false;
+		heldNow = undefined;
 		// A branch this session starts on may already hold the seat, or may have lost it: a runtime
 		// that is loaded reconciles now rather than at the next turn, so the chip cannot describe a
 		// mode that is not on. Nothing loads for a branch that never named the seat.
@@ -153,6 +209,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	// behind is gone from the transcript: reading again is what puts it back, once.
 	pi.on("session_tree", async (_event, ctx) => {
 		read = false;
+		heldNow = undefined;
 		// The tree landed on another branch, which may or may not hold the seat: reconcile now, so
 		// the tool set and the chip follow the branch actually in force rather than the one left.
 		if (leadRuntime !== undefined) await lead(ctx);
@@ -170,6 +227,9 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	// move, and the sign each say their own next step — and a board already parsed every turn on
 	// every session's behalf is a cost nobody chose.
 	pi.on("before_agent_start", async (_event, ctx) => {
+		// A new turn: the gate's read is refreshed before it judges anything, so a page-driven move
+		// and a peer's handoff both land by the time the first write asks.
+		heldNow = undefined;
 		// The seat's line is paid every turn, because the round moves and the hatch has to be
 		// in front of the model before it meets a refusal. It replaces the once-per-session
 		// line rather than stacking with it: one `board-context` message is kept.
@@ -189,7 +249,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		// the line, which is the one turn a resumed session gets. It is also safe to run first — it
 		// catches its own failures — because the held read is the one a failure has to come from.
 		const swept = await (endedModule ??= import("./ended.ts")).then((ended) => ended.releaseEnded(session, ctx));
-		const held = await context.heldCards(session, ctx);
+		const held = await heldForGate(ctx);
 		// A board that could not be read is asked again on the next turn: that is a failure, not
 		// an empty session, and only an answer is worth remembering.
 		if (held === undefined) return undefined;
@@ -213,12 +273,16 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 			: { message: { customType: context.BOARD_CONTEXT_TYPE, content, display: false } };
 	});
 
-	// The seat's gate. The active set hides what the policy does not allow; this is the second
-	// layer for a call already in flight and the guard for a tool registered after the load. It
-	// denies by default: `runtime.ts` allows a list, so a tool nobody anticipated is refused.
+	// The seat's gate, then the card's lane. The active set hides what the seat's policy does not
+	// allow; this is the second layer for a call already in flight and the guard for a tool
+	// registered after the load, and it denies by default: `runtime.ts` allows a list, so a tool
+	// nobody anticipated is refused. The lane's gate comes after it because a seat holds no card:
+	// whatever the seat refused already has the sharper sentence.
 	pi.on("tool_call", async (event, ctx) => {
 		const holding = await seatHeld(ctx);
-		const reason = holding === undefined ? undefined : await holding.refusal(event.toolName, event.input);
+		const seated = holding === undefined ? undefined : await holding.refusal(event.toolName, event.input);
+		if (seated !== undefined) return { block: true, reason: seated };
+		const reason = await laneRefusal(ctx, event.toolName, event.input);
 		return reason === undefined ? undefined : { block: true, reason };
 	});
 

@@ -88,6 +88,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `team`: a label completion writes the whole argument back, so Tab keeps the word it was typed after — `/team who <TAB>` used to leave `/team gavin`, a bare name the command then refused — and the list now completes a name with a space in it and a word typed in any case.
 
+- `board`: a file write is refused unless the session holds its card in `execute`. The rule lived as
+  prose and as plan mode, which ends at approval — so between that approval and `board move <id>
+  execute`, and in every session that never entered plan mode, a `plan` or `blocked` card could
+  write. The board's `tool_call` guard now reads the lane the session actually holds: `write`,
+  `edit`, and every shell but a read-only git command are refused outside `execute`; an `execute`
+  card's `paths` bound the two file tools, a card naming none being unscoped; a delegated child is
+  pinned read-only; and each refusal names the card, the lane, and the one line that ends it. A
+  session holding no card writes exactly as it did, and plan mode's own gate answers first while it
+  is on.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added

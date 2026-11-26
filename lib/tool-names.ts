@@ -56,9 +56,27 @@ export const RUN_DOCTOR_TOOL = "run_doctor";
 /**
  * Parameter on the `subagent` tool that forces every spawned agent to a
  * read-only tool set. Plan mode sets it on every call while planning, and
- * refuses a `subagent` whose schema does not declare it.
+ * refuses a `subagent` whose schema does not declare it. The board's write gate
+ * pins it the same way while the session holds no card in `execute`.
  */
 export const SUBAGENT_READ_ONLY_PARAM = "readOnly";
+
+/**
+ * The `write` tool. Plan mode hides it, and the board's write gate refuses it by the
+ * lane of the card the session holds — two guards, one name, so a rename cannot leave
+ * one of them judging a tool that no longer exists.
+ */
+export const WRITE_TOOL = "write";
+
+/** The `edit` tool, judged by both the same way as {@link WRITE_TOOL}. */
+export const EDIT_TOOL = "edit";
+
+/**
+ * The `bash` tool. Both modes keep it only so read-only git stays possible, and
+ * `lib/git/read-command.ts` is the one body that decides — so the name is here rather
+ * than spelled once per guard.
+ */
+export const BASH_TOOL = "bash";
 
 /**
  * The `board` tool: the shared feature list. Plan mode keeps it active because its

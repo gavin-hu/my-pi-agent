@@ -1,8 +1,8 @@
 # session-bus — coordinate sessions on one repository
 
-Two Pi sessions on the same repository can get in each other's way. The bus is
-the local channel that prevents it: sessions discover each other, exchange short
-messages, consume an inbox, and claim paths before editing them.
+Two sessions on one repository can block each other. The bus is the local channel
+that prevents it: each discovers the other, exchanges messages, claims paths before
+editing — and the board refuses a write outside the card's `paths` in `execute`.
 
 <img src="../../assets/screens/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, and the focused session's working directory, claims, and identity" width="1840" height="476">
 

@@ -37,13 +37,35 @@ export function isBoardRead(call: unknown): boolean {
  * Whether the registered `subagent` tool declares the read-only parameter a mode
  * pins. A mode that only reads must not start a writing child, and a `subagent`
  * that cannot honour the flag is refused rather than run read-write — which is why
- * the probe and the parameter name agree here, beside the classification both modes
- * already share, instead of in the extension that happened to need it first.
+ * the probe, the pin, and the parameter name agree here, beside the classification
+ * both modes already share, instead of in the extension that happened to need it
+ * first. Two callers: plan mode pins every call while planning, and the board's
+ * write gate pins one while the session holds no card in `execute`.
  */
 export function supportsReadOnlyDelegation(pi: Pick<ExtensionAPI, "getAllTools">): boolean {
 	const info = pi.getAllTools().find((tool) => tool.name === SUBAGENT_TOOL);
 	const properties = (info?.parameters as { properties?: Record<string, unknown> } | undefined)?.properties;
 	return properties !== undefined && Object.prototype.hasOwnProperty.call(properties, SUBAGENT_READ_ONLY_PARAM);
+}
+
+/**
+ * Pin a `subagent` call to read-only delegation, or say why it cannot be pinned.
+ *
+ * The pair plan mode used to hold alone — probe the tool, refuse when it cannot honour the
+ * parameter, then set the parameter in place so the model cannot forget it — is one body, because
+ * the board's write gate pins the same flag while the session holds no card in `execute`. The
+ * sentence comes back bare: the caller prefixes its own mode and appends its own guidance.
+ *
+ * `undefined` is the ordinary answer, and the call now runs read-only.
+ */
+export function pinReadOnlySubagent(pi: Pick<ExtensionAPI, "getAllTools">, input: unknown): string | undefined {
+	if (!supportsReadOnlyDelegation(pi)) {
+		return `the registered "${SUBAGENT_TOOL}" tool does not support read-only delegation; explore with the structured tools instead.`;
+	}
+	if (typeof input === "object" && input !== null) {
+		(input as Record<string, unknown>)[SUBAGENT_READ_ONLY_PARAM] = true;
+	}
+	return undefined;
 }
 
 /**

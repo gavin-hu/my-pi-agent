@@ -16,13 +16,16 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createReadOnlyPolicy, WORKSPACE_READERS, type ReadOnlyPolicy } from "../../lib/policy.ts";
 import {
+	BASH_TOOL,
 	BOARD_TOOL,
+	EDIT_TOOL,
 	GOAL_TOOL,
 	QUESTION_TOOL,
 	SUBAGENT_TOOL,
 	TODO_TOOL,
 	WEB_FETCH_TOOL,
 	WEB_SEARCH_TOOL,
+	WRITE_TOOL,
 } from "../../lib/tool-names.ts";
 
 /**
@@ -34,7 +37,7 @@ export const PLAN_SAFE_TOOLS = [
 	...WORKSPACE_READERS,
 	TODO_TOOL,
 	GOAL_TOOL,
-	"bash",
+	BASH_TOOL,
 	QUESTION_TOOL,
 	WEB_SEARCH_TOOL,
 	WEB_FETCH_TOOL,
@@ -55,7 +58,7 @@ export const PLAN_ALLOWED_TOOLS = [...PLAN_SAFE_TOOLS, SUBAGENT_TOOL, BOARD_TOOL
  * tool is not one of them: plan mode keeps it active in both modes, because its
  * actions are the mode's own verbs and each one refuses outside its mode.
  */
-const ALWAYS_BLOCKED_TOOLS = ["write", "edit"];
+const ALWAYS_BLOCKED_TOOLS = [WRITE_TOOL, EDIT_TOOL];
 
 /** Shown when a tool call is refused while planning. */
 export const BLOCKED_GUIDANCE = "Call `plan` action `exit` and get approval before using it.";
