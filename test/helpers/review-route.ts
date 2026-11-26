@@ -93,7 +93,7 @@ export function reviewRoute(options: ReviewRouteOptions = {}) {
 		fingerprint: state.rev,
 	});
 	const reader: ReviewReader = {
-		baseRef: async () => "main",
+		baseRef: async () => ({ kind: "ref", ref: "main" }),
 		text:
 			options.text ??
 			(async () => ({

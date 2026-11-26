@@ -8,10 +8,11 @@ describe("the code-review config", () => {
 		expect(DEFAULT_REVIEW_CONFIG).toEqual({ base: "", diffContext: 3, maxDiffLines: 4000, maxFiles: 200 });
 	});
 
-	test("takes a base ref, trimmed and capped, and an absent one means detect", () => {
+	test("takes a base ref trimmed, whole, and an absent one means detect", () => {
 		expect(normalizeReviewConfig({ base: "  origin/develop  " }).base).toBe("origin/develop");
 		expect(normalizeReviewConfig({ base: "   " }).base).toBe("");
-		expect(normalizeReviewConfig({ base: "x".repeat(MAX_BASE_LENGTH + 50) }).base).toHaveLength(MAX_BASE_LENGTH);
+		// The bound is the reader's: a ref this long is refused by name there, not cut here.
+		expect(normalizeReviewConfig({ base: "x".repeat(MAX_BASE_LENGTH + 50) }).base).toHaveLength(MAX_BASE_LENGTH + 50);
 		expect(normalizeReviewConfig({ base: 42 }).base).toBe("");
 	});
 

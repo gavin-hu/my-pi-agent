@@ -184,7 +184,7 @@ export async function mountReviewPage(
 		}
 	}
 	const reader = {
-		baseRef: async () => "main",
+		baseRef: async () => ({ kind: "ref" as const, ref: "main" }),
 		text: async () => ({ kind: "text" as const, lines: [], binary: false, truncated: false }),
 		snapshot: async () => ({ kind: "snapshot" as const, snapshot: reviewSnapshot(fingerprint, shape) }),
 	};

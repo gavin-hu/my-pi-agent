@@ -32,6 +32,8 @@ export interface ReviewStatus {
 	drafts: number;
 	sent: number;
 	reviewed: number;
+	/** Why the page has no diff, when the snapshot it read failed; absent when it has one. */
+	problem?: string;
 }
 
 /** What opening the page answered. */
@@ -103,7 +105,7 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 		};
 		if (page === undefined) return base;
 		const outcome = await page.snapshot();
-		if (outcome.kind !== "snapshot") return base;
+		if (outcome.kind !== "snapshot") return { ...base, problem: outcome.message };
 		return {
 			...base,
 			label: outcome.snapshot.label,
@@ -188,7 +190,9 @@ export function createReviewSession(deps: ReviewSessionDeps): ReviewSession {
 			// The mount only routes; the page this opening names is minted by the seam's one rule.
 			await current.openPage(scope);
 			const status = await describe();
-			const problem = status.label === "" ? "the review page has no diff to show — open it for the reason" : undefined;
+			// The page's own reason, so a base that cannot be used is named here rather than only
+			// behind the address: the sentence is the whole point of asking git for it.
+			const problem = status.problem;
 			ctx.ui.notify(
 				problem === undefined
 					? `review: ${repo} vs ${status.label} — ${status.files} file${status.files === 1 ? "" : "s"}`
