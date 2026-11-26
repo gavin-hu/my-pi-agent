@@ -21,10 +21,9 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type ChildSink, type ChildSlot, createChildSupervisor } from "../child.ts";
 import { messageOf } from "../errors.ts";
 import { sanitizeLine } from "../format.ts";
-import { createExecRunner, currentBranch, gitCommonDir, headSha } from "../git/index.ts";
+import { createExecRunner, currentBranch, defaultBranch, gitCommonDir, headSha, type RunGit } from "../git/index.ts";
 import type { Card } from "./card.ts";
-import type { SizeGatesOutcome, Verification } from "./contract.ts";
-import type { Lead } from "./contract.ts";
+import type { Lead, SizeGatesOutcome, Verification } from "./contract.ts";
 import { failedSpotCheck, killedSpotCheck, reviewGate } from "./lead.ts";
 import type { Actor } from "./rules.ts";
 
@@ -115,6 +114,16 @@ export interface TreeFacts {
 	branch?: string;
 	/** `true` when the tree is the repository's checkout rather than one of its worktrees. */
 	checkout?: true;
+	/**
+	 * Whether the tree carries a commit the base branch does not already have.
+	 *
+	 * The spot-check's own question, asked before it runs anything: a tree that is the base runs a
+	 * contract's `verify` on the base, where it passes by construction and the sign attests nothing.
+	 * Absent when git cannot name the base or cannot place the commit, which refuses nothing.
+	 */
+	carries?: boolean;
+	/** The branch that answer was taken against, so a refusal can name both ends. */
+	base?: string;
 }
 
 /**
@@ -194,7 +203,11 @@ export async function verifiedCommand(
 		(error: unknown): VerifyOutcome => ({ exit: -1, output: messageOf(error), killed: false }),
 	);
 	if (outcome.killed || outcome.exit !== 0) return { failure: outcome };
-	const facts = await tree?.(cwd).catch(() => undefined);
+	const read = await tree?.(cwd).catch(() => undefined);
+	// The record names the tree the run finished in, and nothing else: `carries` and `base` are the
+	// gate's question, asked before the process started, so a sign that stored them would describe a
+	// moment the run had already moved past.
+	const { carries: _carries, base: _base, ...facts } = read ?? {};
 	// The tree is the run's own: the directory the command was started in, which is what the facts
 	// beside it were read from. A reader can then tell a branch's evidence from the checkout's, and
 	// a checkout's from the worktree the work was made in.
@@ -229,11 +242,15 @@ const PLATFORM_PATHS: TreePaths = { dirname, resolve };
 export function treeOf(pi: Pick<ExtensionAPI, "exec">, paths: TreePaths = PLATFORM_PATHS): TreeReader {
 	const runGit = createExecRunner(pi);
 	return async (cwd) => {
-		const [sha, branch, common] = await Promise.all([
+		const [sha, branch, common, base] = await Promise.all([
 			headSha(runGit, cwd).catch(() => undefined),
 			currentBranch(runGit, cwd).catch(() => undefined),
 			gitCommonDir(runGit, cwd).catch(() => undefined),
+			defaultBranch(runGit, cwd, { fallback: true }).catch(() => undefined),
 		]);
+		// Both ends, or no answer: a tree whose commit git cannot name has nothing to compare, and a
+		// base it cannot name is no evidence either — the same rule as a roster that would not read.
+		const carries = base === undefined || sha === undefined ? undefined : await carriedPast(runGit, cwd, base);
 		// Resolved, because the two sides do not arrive in one spelling: git for Windows prints the
 		// common directory with forward slashes while a cwd is native, and a POSIX literal under a
 		// Windows cwd disagrees the same way. `dirname` alone compares bytes, and never matched there.
@@ -242,8 +259,24 @@ export function treeOf(pi: Pick<ExtensionAPI, "exec">, paths: TreePaths = PLATFO
 			...(sha === undefined ? {} : { sha }),
 			...(branch === undefined ? {} : { branch }),
 			...(checkout ? { checkout: true as const } : {}),
+			...(carries === undefined ? {} : { carries }),
+			...(base === undefined ? {} : { base }),
 		};
 	};
+}
+
+/**
+ * Whether HEAD holds a commit `base` does not already have: git's own `--is-ancestor` answer.
+ *
+ * Exit 0 is "already in the base", so no work of its own; 1 is a commit past it. Anything else is
+ * a read that failed — the module's rule for a question git will not answer is that it refuses
+ * nothing, because a tree nobody can place is not evidence of an empty one.
+ */
+async function carriedPast(runGit: RunGit, cwd: string, base: string): Promise<boolean | undefined> {
+	const answer = await runGit(["merge-base", "--is-ancestor", "HEAD", base], { cwd }).catch(() => undefined);
+	if (answer === undefined) return undefined;
+	if (answer.code === 0) return false;
+	return answer.code === 1 ? true : undefined;
 }
 
 /**
@@ -264,6 +297,11 @@ export async function verifySpotCheck(
 ): Promise<{ verified: Verification } | { error: string } | undefined> {
 	const cmd = card?.contract?.verify;
 	if (card === undefined || cmd === undefined) return undefined;
+	// The tree first, before any process: a tree that carries no commit past the base *is* the base,
+	// so the contract's line would pass there by construction and the sign would attest nothing about
+	// the work. A tree git cannot place is no evidence of an empty one, so it signs as it always has.
+	const asked = await tree?.(cwd).catch(() => undefined);
+	if (asked?.carries === false) return { error: noWorkSentence(cwd, asked) };
 	// The gates first, and to their own outcome: two runs on one checkout collide over `.pi/cache` and
 	// the board store (#804), so the card's line does not start until this one has settled. No tree
 	// read for the gate: the facts belong to the run the sign records, and that is the card's line.
@@ -285,6 +323,25 @@ export async function verifySpotCheck(
 		: failedSpotCheck(card, cmd, answer.failure.exit);
 	// The tail is what says why, and it rides the sentence as one clip rather than a second line.
 	return { error: tail === undefined ? sentence : `${sentence} — ${tail}` };
+}
+
+/**
+ * What a sign is refused with when its tree carries nothing of its own.
+ *
+ * It names the directory, because the seat's fix is usually a different tree — the card's worktree,
+ * through `root` — and it names the other door, because a card whose work is already in the base
+ * cannot be reviewed at all: the landing carried the commit, so the merged tree is refused by the
+ * same rule, and the close is `done` with an override.
+ */
+function noWorkSentence(cwd: string, facts: TreeFacts): string {
+	const at = [facts.sha, facts.branch === undefined ? undefined : `on ${facts.branch}`]
+		.filter((part): part is string => part !== undefined)
+		.join(" ");
+	const where = at === "" ? "at its HEAD" : `at ${at}`;
+	return (
+		`the tree at ${cwd} is ${where} and carries no commit past ${facts.base ?? "the base branch"}: ` +
+		"a spot-check there would sign the base — name the card's worktree with `root`, or close the card with `done` and an `override` if its work is already in."
+	);
 }
 
 /** What a spot-check is asked with: the card, the gate it must pass, and the tree to run in. */

@@ -433,6 +433,7 @@ export const LIB_SUITES: readonly string[] = [
 	"workflow/store",
 	"workflow/tone",
 	"workflow/verify",
+	"workflow/verify-tree",
 	"workflow/view",
 	"workflow/who",
 	"bus-request",
