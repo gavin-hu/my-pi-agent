@@ -51,7 +51,7 @@ Run `code_review` action "comments" for all of them.
 | Action | What it does |
 |---|---|
 | `open` | Serve the page and hand back its address; `scope` and `base` choose the comparison |
-| `status` | What the page shows: its address, scope, files, and comment counts |
+| `status` | What the page shows: its address, scope, files, comment counts, and the reason when it has no diff |
 | `comments` | Every comment the reviewer sent, with file, line, and side |
 | `close` | End the page; refused while comments are still drafts |
 
@@ -59,9 +59,10 @@ Run `code_review` action "comments" for all of them.
 line it left; `last` reads `HEAD~1...HEAD`; `head` (shown as **uncommitted**)
 reads the tree against `HEAD`, so the index and the working tree arrive together
 with untracked files; `staged` reads the index; and `worktree` reads the working
-tree alone, untracked files included. The base ref is `code-review.base`, else
-`origin/HEAD`, else `main` or `master`; a repository where none resolves is
-refused, naming the key to set.
+tree alone, untracked files included. The base ref is the `base` key, else the default
+branch — `origin/HEAD`'s, else a local `main` or `master` — read through its `origin/`
+ref. A ref that does not resolve, one over 200 characters, and no default branch at all
+are each refused by name, by `/review` and the page.
 
 **The page.** One page per session, at `/review/`. Its id is minted by the first
 write, so looking costs nothing; the token rides the query and the id the address. A
@@ -101,16 +102,15 @@ anyway. A surviving row anchors to its marked new number; a deleted line's ref s
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
   diff lines per file; the page says what a cap left out.
 - In a repository with no commits yet, `staged` and `worktree` still render a page;
-  `base`, `last` and `head` say the commit they compare is missing — `head` too,
-  since `git diff HEAD` needs one where `git diff --cached` does not.
+  `base`, `last` and `head` say the commit they compare is missing — `head` too, since
+  `git diff HEAD` needs one and `--cached` does not.
 - The page needs `git`, `serve`, and a local browser; without `serve` the tool says
   the session has no port, and a launcher that cannot start is reported with the address.
 
 ## Settings
 
-`base`, `diffContext`, `maxDiffLines`, and `maxFiles` are read from the
-`code-review` section of `bytefly.json` — see
-[Configuration reference](../configuration-reference.md#code-review--what-a-review-compares).
+`base`, `diffContext`, `maxDiffLines`, and `maxFiles` come from the `code-review` section of
+`bytefly.json` — see [Configuration reference](../configuration-reference.md#code-review--what-a-review-compares).
 
 ## Learn more
 

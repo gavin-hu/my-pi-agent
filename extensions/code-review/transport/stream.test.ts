@@ -97,7 +97,7 @@ function readerOf(state: { rev: string }): ReviewReader {
 		fingerprint: state.rev,
 	});
 	return {
-		baseRef: async () => "main",
+		baseRef: async () => ({ kind: "ref", ref: "main" }),
 		text: async () => ({ kind: "text", lines: [], binary: false, truncated: false }),
 		snapshot: async () => ({ kind: "snapshot", snapshot: snapshot() }),
 	};

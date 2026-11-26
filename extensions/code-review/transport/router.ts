@@ -166,9 +166,6 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		// A page is mounted with a scope, so a same-scope read renders the page it already
 		// has — its token, its review, and its comments — rather than minting a second one.
 		const page = held !== undefined && held.scope === scope ? held : store.open(scope, "", "");
-		if (scope === "base" && page.base === "") {
-			page.base = (await current.reader().baseRef()) ?? "";
-		}
 		const outcome = await current.snapshotOf(page);
 		if (outcome.kind === "failed") {
 			return {
@@ -177,6 +174,10 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 				body: renderReviewProblem(base, "No diff to review", outcome.message),
 			};
 		}
+		// The comparison the first read resolved is the page's: a write then names the ref it is
+		// graded against, and a refusal leaves `""` so the next request asks git again.
+		page.base = outcome.snapshot.base;
+		page.label = outcome.snapshot.label;
 		const { repo, root } = current.place();
 		return {
 			status: 200,

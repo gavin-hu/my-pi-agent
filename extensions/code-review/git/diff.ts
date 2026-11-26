@@ -17,9 +17,16 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type DiffLine, parseUnifiedDiff } from "../../../lib/diff/parse.ts";
 import { inMode, parseStatusZ, statusLetter } from "../../../lib/diff/status.ts";
-import { createExecRunner, hasCommits, repoRoot, revParse, type RunGit } from "../../../lib/git/index.ts";
+import {
+	createExecRunner,
+	defaultBranch,
+	hasCommits,
+	repoRoot,
+	revParse,
+	type RunGit,
+} from "../../../lib/git/index.ts";
 import { mapConcurrent } from "../../../lib/pool.ts";
-import { type ReviewScope, scopeArgs } from "../scope.ts";
+import { MAX_BASE_LENGTH, type ReviewScope, scopeArgs } from "../scope.ts";
 
 /** One changed file in a snapshot. */
 export interface ReviewFile {
@@ -67,10 +74,19 @@ export type TextOutcome =
 	| { kind: "text"; lines: DiffLine[]; binary: boolean; truncated: boolean }
 	| { kind: "failed"; message: string };
 
+/**
+ * The ref a `base` review compares against, or the sentence naming why there is none.
+ *
+ * The fault is part of the answer because the three faults owe different sentences: a
+ * repository with no default branch has a key to set, and a configured ref that does not
+ * resolve has one to correct.
+ */
+export type BaseOutcome = { kind: "ref"; ref: string } | { kind: "failed"; message: string };
+
 /** The reader a page holds for one root. */
 export interface ReviewReader {
-	/** The ref a `base` review compares against, or undefined when none resolves. */
-	baseRef(): Promise<string | undefined>;
+	/** The ref a `base` review compares against, or the sentence naming the fault. */
+	baseRef(): Promise<BaseOutcome>;
 	/**
 	 * One path's whole text as context lines — both gutter numbers the same — capped by
 	 * `maxFileBytes` and `maxLines`. The file view's reader, and no second one.
@@ -103,6 +119,16 @@ export const NO_COMMITS = "this repository has no commits yet";
 export const NO_PARENT = "HEAD has no parent commit to review";
 export const NO_BASE = 'no base branch found — set "base" in the bytefly.json code-review section';
 export const NO_TEXT = "that file could not be read — it may have been deleted";
+
+/** The sentence a configured ref that does not resolve owes, so the key is not blamed for nothing. */
+export function baseUnresolved(ref: string): string {
+	return `the code-review base "${ref}" does not resolve — check that key in bytefly.json`;
+}
+
+/** The sentence a configured ref past the bound owes; it names the length, not 200 characters of ref. */
+export function baseTooLong(length: number): string {
+	return `the code-review base is ${length} characters; the longest accepted is ${MAX_BASE_LENGTH}`;
+}
 
 /**
  * A file's lines under a byte cap, with the two facts a view owes: whether the bytes are
@@ -145,18 +171,31 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 	const maxFileBytes = options.maxFileBytes ?? 1024 * 1024;
 	const width = Math.max(1, options.width ?? 6);
 
-	/** The branch a `base` review lands on: configured, then origin/HEAD, then main/master. */
-	async function baseRef(): Promise<string | undefined> {
-		if (configured) return (await revParse(run, root, configured)) ? configured : undefined;
-		const remote = await run(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], { cwd: root });
-		if (remote.code === 0) {
-			const ref = remote.stdout.trim();
-			if (ref && (await revParse(run, root, ref))) return ref;
+	/**
+	 * The branch a `base` review compares against: the configured ref, else the repository's
+	 * default branch, read through its `origin/` ref when that resolves.
+	 *
+	 * The chain is `lib/git`'s, and only the chain is: which line a change lands on is a
+	 * different question from which line a branch is cut from, so the `origin/` preference
+	 * and the three fault sentences live here rather than in `defaultBranch`.
+	 */
+	async function baseRef(): Promise<BaseOutcome> {
+		if (configured !== "") {
+			// A configured ref never falls through to detection: a typo would otherwise review
+			// against the default branch and nobody would learn the key is wrong.
+			if (configured.length > MAX_BASE_LENGTH) return { kind: "failed", message: baseTooLong(configured.length) };
+			if (await revParse(run, root, configured)) return { kind: "ref", ref: configured };
+			return { kind: "failed", message: baseUnresolved(configured) };
 		}
-		for (const ref of ["main", "master", "origin/main", "origin/master"]) {
-			if (await revParse(run, root, ref)) return ref;
+		const name = await defaultBranch(run, root, { fallback: true });
+		if (name !== undefined) {
+			// The shared chain names a branch, not a ref that resolves: `origin/HEAD` can point at
+			// a deleted remote branch, and a base that does not resolve is a diff git refuses.
+			const tracked = `origin/${name}`;
+			if (await revParse(run, root, tracked)) return { kind: "ref", ref: tracked };
+			if (await revParse(run, root, name)) return { kind: "ref", ref: name };
 		}
-		return undefined;
+		return { kind: "failed", message: NO_BASE };
 	}
 
 	return {
@@ -187,8 +226,14 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 			}
 			let base = "";
 			if (scope === "base") {
-				base = effectiveBase ?? (await baseRef()) ?? "";
-				if (!base) return { kind: "failed", message: NO_BASE };
+				// `""` is a value a page carries before anything resolved, so it asks the chain again
+				// rather than standing in for an answer: a failure is never frozen into the page.
+				if (effectiveBase !== undefined && effectiveBase !== "") base = effectiveBase;
+				else {
+					const answered = await baseRef();
+					if (answered.kind === "failed") return answered;
+					base = answered.ref;
+				}
 			}
 			const planned = scopeArgs(scope, base);
 			const listing = await listFiles(repo, scope, planned.args, planned.untracked);

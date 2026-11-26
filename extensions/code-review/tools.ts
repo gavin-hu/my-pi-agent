@@ -36,6 +36,7 @@ function resultOf(status: ReviewStatus, list?: ReviewResult["list"]): ReviewResu
 		sent: status.sent,
 		reviewed: status.reviewed,
 		...(status.url === undefined ? {} : { url: status.url }),
+		...(status.problem === undefined ? {} : { problem: status.problem }),
 		...(list === undefined ? {} : { list }),
 	};
 }
@@ -54,6 +55,7 @@ export function statusLine(status: ReviewStatus): string {
 		`${status.sent} sent this session`,
 		`${status.reviewed} reviewed`,
 	].filter((part) => part !== "");
+	if (status.problem !== undefined) return `${status.url} — no diff to show: ${status.problem}.`;
 	return `${status.url} — ${parts.join(", ")}.`;
 }
 
