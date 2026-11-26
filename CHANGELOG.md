@@ -132,6 +132,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the changelog is unchanged. The rung also normalises through `posixPath` rather than a hand-written
   `replace`, and `areaOf` shares one reader for a path's top level.
 
+- `board`: a card whose subject is a documented root file lands `merge(docs)`, not the area of the one
+  directory path beside it. #932 — `CONTRIBUTING.md`'s roster, trimmed and repointed — listed the
+  changelog, that file, and `test/drift.test.ts`, where the word ceiling is measured, so the area rung
+  took `test`: the first path with a directory to name. `areaOf` now answers `docs` for the four
+  documentation files at the root — `AGENTS.md`, `CONTRIBUTING.md`, `README.md`, `README.zh-CN.md` —
+  and keeps answering nothing for `package.json` and `CHANGELOG.md`, which ride another card's work and
+  would otherwise let a rider outvote it.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
