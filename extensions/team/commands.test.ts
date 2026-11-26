@@ -7,23 +7,11 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { boardHarness } from "../../test/helpers/board.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
-import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
+import { teamCommandHarness } from "../../test/helpers/team.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
-import { openBoardSession } from "../../lib/workflow/session.ts";
-import {
-	MAX_ROUND_LINES,
-	type PresenceRow,
-	registerCommands,
-	roundText,
-	TEAM_COMMAND,
-	TEAM_USAGE,
-	whoIsHere,
-	whoText,
-} from "./commands.ts";
+import { MAX_ROUND_LINES, type PresenceRow, roundText, TEAM_USAGE, whoIsHere, whoText } from "./commands.ts";
 import { LEAD_ROUND } from "../../lib/workflow/round-text.ts";
 
 const temps = makeTempTracker();
@@ -331,15 +319,9 @@ describe("whoText", () => {
 });
 
 /** The command mounted over a harness, with the notifications it writes. */
-function mount(options: Parameters<typeof boardHarness>[0] = {}) {
-	const board = boardHarness({ now: NOW, track: temps.track, ...options });
-	const fake = createFakePi();
-	registerCommands(fake.pi, board.runtime);
-	const command = fake.commands.get(TEAM_COMMAND);
-	if (!command) throw new Error("the team command was not registered");
-	const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
-	return { fake, command, ctx, notifications };
-}
+/** The command on a board of this suite's; the wiring is `test/helpers/team.ts`, shared with the
+ * completer's suite. */
+const mount = teamCommandHarness(NOW, temps.track);
 
 describe("the command", () => {
 	test("is registered under its own name, and prints the board it reads", async () => {
@@ -375,47 +357,5 @@ describe("its words", () => {
 		const { command, ctx, notifications } = mount();
 		await command.handler("help", ctx);
 		expect(notifications.at(-1)).toBe(TEAM_USAGE);
-	});
-
-	test("completes the words, and the team's names after the two that take a label", async () => {
-		const { fake, command, ctx } = mount({ teammates: ["billing-core", "ops-core"] });
-		// The words are static, so they complete before a session has started; a label is read from the
-		// repository, and a completion with no root to read has nothing to offer.
-		expect(await command.getArgumentCompletions?.("j")).toEqual([{ value: "join ", label: "join" }]);
-		expect(await command.getArgumentCompletions?.("join ")).toBeNull();
-		await emit(fake.pi, "session_start", {}, ctx);
-		expect(await command.getArgumentCompletions?.("w")).toEqual([{ value: "who ", label: "who" }]);
-		expect(await command.getArgumentCompletions?.("h")).toEqual([{ value: "help", label: "help" }]);
-		expect(await command.getArgumentCompletions?.("x")).toBeNull();
-		// The labels are the project's team: the list a bare join draws a name from, so a completion is a
-		// name the join will take.
-		expect(await command.getArgumentCompletions?.("join ")).toEqual([
-			{ value: "billing-core", label: "billing-core" },
-			{ value: "ops-core", label: "ops-core" },
-		]);
-		expect(await command.getArgumentCompletions?.("join o")).toEqual([{ value: "ops-core", label: "ops-core" }]);
-		// `help` takes no argument, so a completion after it stops rather than offering names.
-		expect(await command.getArgumentCompletions?.("help ")).toBeNull();
-	});
-
-	test("answers nothing when the store cannot open, rather than throwing at the editor", async () => {
-		// The editor awaits a completer with no catch, so a rejection here is the whole process's
-		// autocomplete; a store that cannot open is a repository this command cannot name.
-		const fake = createFakePi();
-		const unreachable = openBoardSession(fake.pi, {
-			open: async () => {
-				throw new Error("git is not on PATH");
-			},
-		});
-		registerCommands(fake.pi, unreachable);
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx } = fakeCtx({ cwd: "/repo" });
-		await emit(fake.pi, "session_start", {}, ctx);
-		// `resolves` rather than a null read off a settled call: without the guard this promise
-		// rejects, so the case fails on the rejection the editor would have met, not on a shape.
-		await expect(command.getArgumentCompletions?.("who ")).resolves.toBeNull();
-		// The words are static and read no store: the keystroke after a failed one still completes.
-		expect(await command.getArgumentCompletions?.("w")).toEqual([{ value: "who ", label: "who" }]);
 	});
 });
