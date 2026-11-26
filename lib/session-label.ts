@@ -181,7 +181,13 @@ export const SESSION_LABEL_CHANNEL = "my-pi-agent/session-label";
  * named here is the reader's own.
  */
 export interface SessionLabelEvent {
-	/** Pi session id the label belongs to. */
+	/**
+	 * The Pi id of the transcript the label is drawn on — the id its own footer compares against.
+	 *
+	 * Not the bus record's: a `/new` replaces the transcript inside the process, and the record it
+	 * serves keeps the id the previous one minted, while the reader has only what `sessionIdOf`
+	 * answers now.
+	 */
 	id: string;
 	/** The name another session addresses this one by. */
 	label: string;

@@ -182,9 +182,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// is that session: adopting its cursor keeps its old mail out of the count. A `/new` reads
 			// the row it serves, which is the row the previous transcript wrote.
 			// The name this session holds: one module for who else has it, yielding it, publishing it,
-			// and the refusal's wording, built on the record and the store this start just resolved.
+			// and the refusal's wording, built on the record and the store this start just resolved. The
+			// transcript's id goes with it: a served `/new` keeps the row's older one, and the channel
+			// names the transcript the reader is drawing.
 			const { createLabels } = await import("./labels.ts");
-			labels = createLabels({ pi, store, record, stateOf, now, sessionTtlMs });
+			labels = createLabels({ pi, store, record, sessionId: id, stateOf, now, sessionTtlMs });
 			const { createMailCursor } = await import("./cursor.ts");
 			cursor = createMailCursor({ store: () => store, record: () => record });
 			await cursor.adopt();

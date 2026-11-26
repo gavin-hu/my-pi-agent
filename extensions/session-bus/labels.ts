@@ -33,6 +33,13 @@ export interface LabelSeams {
 	store: BusStore;
 	/** The record this process serves: the row a `/new` keeps. */
 	record: SessionRecord;
+	/**
+	 * The Pi id of the transcript on screen, which is what the channel names.
+	 *
+	 * Not `record.id`: a served `/new` keeps the row the previous transcript minted, and the footer
+	 * that draws the name has only its own id to match against.
+	 */
+	sessionId: string;
 	/** What one record says about its session, for a refusal's wording. */
 	stateOf: (session: SessionRecord) => RosterState;
 	now: () => number;
@@ -53,7 +60,7 @@ export interface SessionLabels {
 }
 
 export function createLabels(seams: LabelSeams): SessionLabels {
-	const { pi, store, record, stateOf, now, sessionTtlMs } = seams;
+	const { pi, store, record, sessionId, stateOf, now, sessionTtlMs } = seams;
 
 	async function taken(mine: string): Promise<Map<string, SessionRecord>> {
 		const sessions = await store.sessions();
@@ -102,10 +109,13 @@ export function createLabels(seams: LabelSeams): SessionLabels {
 	 * Nothing else can say what a label is: the bus settles it, yields it on a collision, and
 	 * gives it to a caller that asked for a name. The footer draws it in place of Pi's own
 	 * session name, which the terminal knows but a card, a handoff, and `/team` do not.
+	 *
+	 * The id is the transcript's, because that is the only one the reader has: the far side of a
+	 * `/new` is a new transcript over the same row, and a reader keyed on the row drops its own name.
 	 */
 	function publish(): void {
 		// A host with no event bus has no listener: the footer it would feed keeps Pi's own name.
-		pi.events?.emit(SESSION_LABEL_CHANNEL, { id: record.id, label: record.label });
+		pi.events?.emit(SESSION_LABEL_CHANNEL, { id: sessionId, label: record.label });
 	}
 
 	/**
