@@ -25,7 +25,7 @@ import { messageOf } from "../../lib/errors.ts";
 import { createPendingReporter, registerPendingChannel } from "../../lib/report.ts";
 import { registerClaimRequests } from "./claim-request.ts";
 import { registerCommands } from "./commands.ts";
-import { registerJoinRequests } from "./join-request.ts";
+import { registerMembershipRequests } from "./membership-request.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
 import { registerSendRequests } from "./send-request.ts";
 import { registerTools } from "./tools.ts";
@@ -67,9 +67,10 @@ export default function sessionBus(pi: ExtensionAPI, deps: SessionBusDeps = {}):
 
 	registerTools(pi, bus);
 	registerCommands(pi, bus);
-	// `board` and `team` join this session through one request: their commands cannot call
-	// a tool, and the user's surface for the team is theirs, not this extension's.
-	registerJoinRequests(pi, bus);
+	// `board` and `team` change this session's membership through one request module: their
+	// commands cannot call a tool, and the user's surface for the team is theirs, not this
+	// extension's. Joining and leaving are the two doors of it.
+	registerMembershipRequests(pi, bus);
 	// The same limit, for the one thing a command has to say: `/board approve` tells the
 	// card's owner its gate was signed.
 	registerSendRequests(pi, bus);

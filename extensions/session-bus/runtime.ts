@@ -50,6 +50,15 @@ const DEFAULT_HEARTBEAT_MS = 10_000;
 const NO_MAIL: InboxPeek = { mail: [], unread: new Set(), unreadable: [] };
 const DEFAULT_WATCH_MS = 2_000;
 const DEFAULT_MESSAGE_TTL_MS = 24 * 60 * 60_000;
+
+/**
+ * What a pane that does not own its session's row is told when it asks to leave with it.
+ *
+ * `/resume` in a second pane registers one session id twice, and the pane that is leaving must not
+ * strip the row — or the claims — of the one still working under it. The sentence names whose the
+ * row is, because the door that works is the other pane's.
+ */
+const OTHER_PANE = "another pane holds this session's record, so this one has nothing to give up";
 function messageId(now: number): string {
 	return `${now}-${randomBytes(4).toString("hex")}`;
 }
@@ -397,6 +406,42 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		markReported: (ids) => mailWatch.markReported(ids),
 		set onWake(callback: (() => void) | undefined) {
 			mailWatch.onWake = callback;
+		},
+
+		// Leaving is the session's own door to what `stop` does at the end of a process: the row, its
+		// claims and the watch that would speak for it all go — while the start, its store, and the
+		// row's id stay, so the next join re-adds the same id (a card is owned by it) rather than
+		// minting a stranger's.
+		async leave() {
+			// Not `prepare()`: that joins first, which is the one thing a leave must not do.
+			await ensureReady();
+			if (!store || !record) return { released: [] };
+			const me = record;
+			// Whose row it is, read before anything is touched: a `/resume` in a second pane registers
+			// one session id twice, and this pane must not strip the row and the claims of the one
+			// still working under it — `own-record.ts` owns that rule, and `stop` asks it too.
+			const { ownsRow } = await import("./own-record.ts");
+			if (!ownsRow(await store.session(me.id).catch(() => undefined), pid)) {
+				throw new Error(OTHER_PANE);
+			}
+			const wasOnBus = joined;
+			// The heartbeat goes first because it is the one writer that would put the row back between
+			// the two calls below; a write that fails re-arms it, so a leave that cannot land leaves the
+			// session exactly as it was rather than as a row nobody beats or watches.
+			stopHeartbeat?.();
+			stopHeartbeat = undefined;
+			let released: string[];
+			try {
+				released = await store.releaseAll(me.id);
+				await store.removeSession(me.id);
+			} catch (error) {
+				if (wasOnBus) armHeartbeat();
+				throw error;
+			}
+			mailWatch.stop();
+			joined = false;
+			labels?.withdraw();
+			return { ...(wasOnBus ? { label: me.label } : {}), released };
 		},
 
 		async status() {

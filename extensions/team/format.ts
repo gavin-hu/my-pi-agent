@@ -42,6 +42,42 @@ export function formatNotJoined(reason: string): string {
 }
 
 /**
+ * What `/team exit` gave up: the name it was addressed by, and the claims that went back.
+ *
+ * The label is said to be free, because that is the fact a session comes back for: nothing else on
+ * the bus holds the name it just left.
+ */
+export function formatLeft(label: string, released: readonly string[]): string {
+	const line = `team: ${sanitizeLine(label)} is off the team — its record is gone and the label is free.`;
+	return released.length === 0 ? line : `${line} Released: ${namesOf(released)}.`;
+}
+
+/** `/team exit` did not land, and the bus's own sentence says why. */
+export function formatNotLeft(reason: string): string {
+	return `team: still on the team — ${sanitizeLine(reason)}`;
+}
+
+/**
+ * What still holds a session on the team, and the door that would free it.
+ *
+ * A pair rather than a sentence because `formatStillOn` joins the reasons into one head and prints
+ * the doors under it: a reader who leaves twice with the same card is owed the verb, not the
+ * reasoning that led to it.
+ */
+export interface LeaveBlocker {
+	/** The fact, as the head sentence joins it: `#935 execute is yours`. */
+	reason: string;
+	/** The verb that frees it, with the one clause a reader needs beside it. */
+	door: string;
+}
+
+/** `/team exit` refused: the session is still on the team, and each door under it says why not. */
+export function formatStillOn(blockers: readonly LeaveBlocker[]): string {
+	const head = `team: still on the team — ${blockers.map((blocker) => blocker.reason).join(" and ")}.`;
+	return [head, ...blockers.map((blocker) => `  ${blocker.door}`)].join("\n");
+}
+
+/**
  * What the join line says after the name: the bar's verdict on a typed label, else where a bare
  * join's name came from.
  *

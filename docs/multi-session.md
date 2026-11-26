@@ -36,7 +36,7 @@ files      board's Team tab ───► ~/.pi/agent/repos/<repo-id>/session-bus
 requests   board, team ───► lib/session-tool.ts
                               ├─ a tool context: a nested `session` call
                               └─ any other: `pi.events`, bounded by lib/bus-request.ts
-           ───► join-request.ts · claim-request.ts · send-request.ts ───► runtime
+           ───► membership-request.ts · claim-request.ts · send-request.ts ───► runtime
 ```
 
 - **Only the bus writes the bus.** A card's paths, a join, and a handoff all reach

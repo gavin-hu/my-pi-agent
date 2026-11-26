@@ -116,6 +116,20 @@ export function wasServed(started: SessionRecord, sessionId: string): boolean {
 }
 
 /**
+ * Whether this process may end `owner`'s row: it wrote it, or there is none to end.
+ *
+ * The one rule behind it: a `/resume` in a second pane registers the same session id twice, so a pane
+ * that is leaving or stopping must not strip the row — and the claims — of the pane still working
+ * under it. `endRecord` and the runtime's `leave` both ask this, so the two doors cannot disagree
+ * about who owns a row. A row from another machine carries a coincident number often enough that
+ * `own-record.ts`'s start guards `host` too; ending one is the same mistake with the same answer, and
+ * the machine check is the start's because that is where a row is adopted.
+ */
+export function ownsRow(owner: SessionRecord | undefined, pid: number): boolean {
+	return owner === undefined || owner.pid === pid;
+}
+
+/**
  * Release the record this process served, or keep it, as the shutdown says.
  *
  * A `/new` replaces the transcript, not the session: a peer addresses the record and a card is
@@ -132,7 +146,7 @@ export async function endRecord(facts: EndFacts): Promise<void> {
 		if (owner !== undefined) await facts.store.writeSession({ ...owner, lastSeen: facts.now }).catch(() => {});
 		return;
 	}
-	if (owner !== undefined && owner.pid !== facts.pid) return;
+	if (!ownsRow(owner, facts.pid)) return;
 	await facts.store.releaseAll(facts.record.id).catch(() => {});
 	await facts.store.removeSession(facts.record.id).catch(() => {});
 }

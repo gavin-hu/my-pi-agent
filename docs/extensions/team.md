@@ -9,15 +9,15 @@ A card's own state — `claim`, `reclaim`, the moves, the contract, the two sign
 
 <img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; NEEDS YOU as one list of the moves only the seat can finish, each a title line with its pill, kind, reason, owner and age under it, over The board label and the BLOCKED, EXECUTE, PLAN and BACKLOG swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="1220">
 
-The board's Team tab is the same round as a page, in three columns that each count themselves and
-scroll as one. **AGENTS** holds a card per session, the lead pinned first: a monogram, its state
-and age at the edge, `lead` and `you` chips with the mail and needs-you counts, and a mission line
-per card. **NEEDS YOU** is the seat's own queue over the `blocked`, `execute`, `plan` and `backlog` swimlanes, counting only
-what the seat can finish: `approval`, `untold`, `gone`, and `unwritten` — a card nobody has written to, its holder
-idle. One list, folded at five; `The board · N open` counts the lanes, and a large pool is one line and a door.
-**ACTIVITY** draws unread mail as a block — a fill and an accent edge — above a flat recent
-history; reading consumes nothing. `WAITING` counts sends,
-one row each however many inboxes it reached; a card's chip counts its own inbox's files, not a sum.
+The board's Team tab is the same round as a page: three columns that count themselves and scroll as
+one. **AGENTS** gives each session a card, the lead pinned first — a monogram, its state and age at
+the edge, `lead` and `you` chips with the mail and needs-you counts, and one mission line.
+**NEEDS YOU** is the seat's queue over `blocked`, `execute`, `plan` and `backlog`, counting only what the
+seat can finish: `approval`, `untold`, `gone`, `unwritten`; folded at five, with `The board · N open`
+counting the lanes and a large pool reduced to one line and a door. **ACTIVITY** draws unread mail as a
+block — a fill and an accent edge — above a flat recent history; reading consumes nothing, and
+`WAITING` counts sends, one row each however many inboxes it reached, while a card's chip counts its
+own inbox's files.
 
 ## What you can do
 
@@ -31,6 +31,7 @@ one row each however many inboxes it reached; a card's chip counts its own inbox
 | See the round | `/team` in the terminal, or the board's Team tab |
 | See who is here, and what each holds | `/team who` — one row per session, `- none` for an empty group; `/team who billing-core` for one |
 | Join the team | `/team join billing-core` names yourself, `/team join` for a `team.teammates` name, `/team help` for the words |
+| Leave the team | `/team exit` — drops this session's bus record and its claims, refusing while a card or the page's seat is yours |
 
 ## Try it
 
@@ -46,8 +47,7 @@ It joins as the lead; in the second, `board claim` joins it under its own name. 
 team assign 4 to billing-core
 ```
 
-The peer is told at its next turn; the card's owner is `billing-core`, and the
-lead's round now shows it as held.
+The peer is told at its next turn; the card's owner is `billing-core`, and the lead's round shows it held.
 
 ## Reference
 
@@ -61,22 +61,19 @@ offered, so the first peer to claim it wins; `ask` (`to`, `question?`) sends one
 nothing else: its own ask id, and the answering session by id, so a reply sets `replyTo "<id>"` and the
 bus prints it as `re: <id>`.
 
-A card's own verbs are not here: `claim` takes a pool card into `plan`, `reclaim` returns it to
-Backlog with its notes and contract (the lead from anyone, a peer only from a stopped owner), and
-the lane moves, the contract and the two signs are the rest — all [`board`](board.md)'s, one door.
-`/team`'s stalled line names it: `board reclaim 1, 2 — api-core stopped`. A flat parameter object refuses a
-field an action does not read, naming the verb that takes it — `offer` takes no `to`, and `assign` and `ask`
-refuse `*`: it is `offer`'s broadcast.
+`/team`'s stalled line names the door: `board reclaim 1, 2 — api-core stopped`. A field an action does
+not read is refused, naming the verb that takes it — `offer` takes no `to`, and `assign` and `ask` refuse
+`*`, which is `offer`'s broadcast.
 
 **Who is who.** `/team` lists who is live, who is live but not listening, who is quiet (a heartbeat past ten
-minutes), and who is absent from the bus — an owner a card names that no record answers, and a label nobody
-answers to cannot be handed a card. A rename is one row: a card is named by the record its owner's **id** names.
-A handoff the bus could not name records the owner `unresolved`: mail reaches the label, but only the lead moves
-the card. A quiet owner's card is reclaimable; one held by a session with no record is not — a live session
-that never joined looks the same. A message to a quiet or not-listening peer says so: written is not heard.
-`/team who` prints that answer as rows — `live (n)`, `quiet (n)`, `not on the bus (n)`, `gone (n)`, nothing elided —
-and `/team who <label>` answers for one. The round closes with `2 of 4 sessions live — /team who lists them`.
-
+minutes), and who is absent from the bus — an owner a card names that no record answers. A label nobody
+answers to cannot be handed a card, and a rename is one row: a card is named by the record its owner's **id**
+names. A handoff the bus could not name records the owner `unresolved`: mail reaches the label, but only the
+lead moves the card. A quiet owner's card is reclaimable; one held by a session with no record is not — a
+live session that never joined looks the same. A message to a quiet or not-listening peer says so: written
+is not heard. `/team who` prints that answer as rows — `live (n)`, `quiet (n)`, `not on the bus (n)`,
+`gone (n)`, nothing elided — and `/team who <label>` answers for one. The round closes with
+`2 of 4 sessions live — /team who lists them`.
 **Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own name — `/team
 join <label>`, or a bare one for the first free `team.teammates` name, the id-derived `team-agent-` name when
 none is free. A recordless board session is named the same way, so card and join agree. An assign or an ask
@@ -84,14 +81,19 @@ joins once, and a typed label also joins `team.teammates`; a bare join writes no
 A board/team join asks for `wake`, so a handoff, an ask, or a sign starts an idle teammate's turn;
 `session join listen:false` is the opt-out, and an armed record without wake is upgraded.
 
-`assign` and `ask` join **before** they send, because the message names this session as the way
-back, and send nothing when the join is refused. The door is not always `/team join`: with no bus
-loaded it names the extension to turn on, and with the label held by another record it says whose
-it is — joining under another name costs a lead its signature, because the gates compare `team.lead`
-by label.
+`assign` and `ask` join **before** they send, because the message names this session as the way back, and
+send nothing when the join is refused. The door is not always `/team join`: with no bus loaded it names
+the extension to turn on, and with the label held by another record it says whose it is — joining under
+another name costs a lead its signature, because the gates compare `team.lead` by label.
 
-**Plan mode.** Neither `team` nor `session` is read-only, so plan mode refuses both
-by name; `board list` still reads. Assign after the plan is approved.
+**Leaving.** `/team exit` is the inverse: the record goes, the claims it holds are released, the watch
+stops and the bar stops drawing the name. Two facts hold it back, each on its own line with the door that
+frees it: a card this session holds (`board release 935`), which with no record a peer could never take
+back, and the page's seat (`/board stop`), which the next sign would put back on the bus. The next send,
+claim, or card write puts the session back on the bus under the same id; delivered mail stays until
+`/sessions drop` clears it.
+
+**Plan mode.** Neither `team` nor `session` is read-only, so plan mode refuses both by name; `board list` still reads, and assign waits for the approval.
 
 ## Limits
 
@@ -106,14 +108,12 @@ by name; `board list` still reads. Assign after the plan is approved.
 ## Settings
 
 The team is `bytefly.json`'s `team` section — `team.lead`, whose signature the two gates take, and
-`team.teammates`, the names a session draws from, five by default
-([configuration](../configuration-reference.md#team--the-projects-own-team)). Toggle `team` in
-`/bytefly` to switch the extension off; `board` alone still moves cards.
+`team.teammates`, the names a session draws from, five by default ([configuration](../configuration-reference.md#team--the-projects-own-team)).
+Toggle `team` in `/bytefly` to switch it off; `board` alone still moves cards.
 
 ## Learn more
 
-- [Several sessions](../multi-session.md) — the whole round, from the first claim
-  to the second signature.
+- [Several sessions](../multi-session.md) — the whole round, from the first claim to the second signature.
 - [`board`](../extensions/board.md) — the cards this round moves.
 - [`session-bus`](../extensions/session-bus.md) — the bus every message travels on.
 - [Work a board](../tutorials/first-board.md) — one card through both signs.

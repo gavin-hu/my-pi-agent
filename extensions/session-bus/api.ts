@@ -47,6 +47,19 @@ export interface SessionBusOptions {
 	messageTtlMs?: number;
 }
 
+/**
+ * What leaving the bus gave up: the name this session was addressed by, and the claims it held.
+ *
+ * Both are answers rather than nulls because a caller reports them: a person who left should read
+ * which paths went back, and no label is a session that was on no bus to leave.
+ */
+export interface LeaveOutcome {
+	/** The label peers addressed it by; absent when it was on no bus to leave. */
+	label?: string;
+	/** The paths that went back to nobody. */
+	released: string[];
+}
+
 export interface SessionBus {
 	/**
 	 * Load this session's records, serving the row a `/new` left behind.
@@ -63,6 +76,18 @@ export interface SessionBus {
 	 * new transcript; every other reason ends the session and removes what it held.
 	 */
 	stop(event?: SessionShutdownEvent): Promise<void>;
+	/**
+	 * Leave the team without ending the process: the row goes, its claims go, the watch stops.
+	 *
+	 * The answer says what was given up. The start is kept — the store, the record's id, and what a
+	 * card names — so a later `join` re-adds the same row under the same id rather than a stranger's;
+	 * `stop` stays the host's door and does this at the end of a process.
+	 *
+	 * Refused when another pane with this session id owns the row — a `/resume` in a second pane
+	 * registers one id twice, and the one leaving must not strip the one still working — and a failed
+	 * write leaves the session as it was rather than as a row nobody beats.
+	 */
+	leave(): Promise<LeaveOutcome>;
 	status(): Promise<SessionStatus>;
 	/** The live bus, read only: no record refresh, no prune. */
 	snapshot(): Promise<SessionStatus>;

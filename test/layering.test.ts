@@ -139,7 +139,13 @@ describe("the dependency layers", () => {
 
 describe("the request matrix", () => {
 	/** Every channel the caller side exports: each is a question asked downward. */
-	const CHANNELS = ["TEAM_JOIN_REQUEST", "SESSION_SEND_REQUEST", "SESSION_CLAIM_REQUEST", "SESSION_RELEASE_REQUEST"];
+	const CHANNELS = [
+		"TEAM_JOIN_REQUEST",
+		"TEAM_LEAVE_REQUEST",
+		"SESSION_SEND_REQUEST",
+		"SESSION_CLAIM_REQUEST",
+		"SESSION_RELEASE_REQUEST",
+	];
 
 	/** The bus's own source, joined once: the one place a channel may be answered. */
 	function busText(): string {

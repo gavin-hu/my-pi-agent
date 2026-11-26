@@ -55,6 +55,8 @@ export interface SessionLabels {
 	settle(): Promise<boolean>;
 	/** Tell the footer what peers address this session by. */
 	publish(): void;
+	/** Tell the footer that peers address this session by nothing: it has left the bus. */
+	withdraw(): void;
 	/** The holder as a refusal names it: which session, and what it is now. */
 	heldBy(holder: SessionRecord): string;
 	/** Write this session's name onto the transcript Pi holds, which a `/new` replaced. */
@@ -121,6 +123,17 @@ export function createLabels(seams: LabelSeams): SessionLabels {
 	}
 
 	/**
+	 * Take the name off the footer, because the session it named is on no bus now.
+	 *
+	 * The channel carries the empty label rather than nothing: the reader draws a chip only for a name
+	 * the team holds, so `""` is the one answer that clears one, and a leave needs no second
+	 * vocabulary in the footer.
+	 */
+	function withdraw(): void {
+		pi.events?.emit(SESSION_LABEL_CHANNEL, { id: sessionId, label: "" });
+	}
+
+	/**
 	 * The label's holder as a refusal names it: which session, and what it is now.
 	 *
 	 * A label held by a record that cannot answer reads as a bug unless the sentence says so —
@@ -152,5 +165,5 @@ export function createLabels(seams: LabelSeams): SessionLabels {
 		}
 	}
 
-	return { taken, settle, publish, heldBy, nameTranscript };
+	return { taken, settle, publish, withdraw, heldBy, nameTranscript };
 }
