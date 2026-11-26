@@ -16,7 +16,7 @@ import type { ExtensionAPI, ExtensionContext, SessionStartEvent } from "@earendi
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { BUS_DIR_NAME, ensureHostIdentity, type HostIdentity } from "../../lib/session-files.ts";
-import { labelKey, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
+import { labelKey } from "../../lib/session-label.ts";
 import {
 	peerRowOf,
 	type RosterSeams,
@@ -29,17 +29,16 @@ import { isPidAlive, startTokenOf } from "../../lib/spawn.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import type { SessionBus, SessionBusOptions } from "./api.ts";
 import type { MailCursor } from "./cursor.ts";
+import type { SessionLabels } from "./labels.ts";
 import { createMailWatch, recordWatch, storedWatchMode } from "./mail-watch.ts";
 import { createTurn } from "./presence.ts";
 import {
-	MAX_LABEL,
 	MAX_LIMIT,
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
 	resolveRecipients,
 	settleSend,
-	shortId,
 } from "./protocol.ts";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { type BusStore, createBusStore, releaseClaimed } from "./store.ts";
@@ -53,12 +52,6 @@ const DEFAULT_WATCH_MS = 2_000;
 const DEFAULT_MESSAGE_TTL_MS = 24 * 60 * 60_000;
 function messageId(now: number): string {
 	return `${now}-${randomBytes(4).toString("hex")}`;
-}
-
-/** A label with this session's short id appended, inside the label budget. */
-function suffixLabel(label: string, id: string): string {
-	const suffix = `-${shortId(id)}`;
-	return `${label.slice(0, MAX_LABEL - suffix.length)}${suffix}`;
 }
 
 export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = {}): SessionBus {
@@ -87,6 +80,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	let identity: HostIdentity | undefined;
 	let store: BusStore | undefined;
 	let record: SessionRecord | undefined;
+	let labels: SessionLabels | undefined;
 	let joined = false;
 	let stopHeartbeat: (() => void) | undefined;
 	let starting: Promise<void> | undefined;
@@ -187,6 +181,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// A record that outlived its process still says what that session was told, and a resume
 			// is that session: adopting its cursor keeps its old mail out of the count. A `/new` reads
 			// the row it serves, which is the row the previous transcript wrote.
+			// The name this session holds: one module for who else has it, yielding it, publishing it,
+			// and the refusal's wording, built on the record and the store this start just resolved.
+			const { createLabels } = await import("./labels.ts");
+			labels = createLabels({ pi, store, record, stateOf, now, sessionTtlMs });
 			const { createMailCursor } = await import("./cursor.ts");
 			cursor = createMailCursor({ store: () => store, record: () => record });
 			await cursor.adopt();
@@ -210,15 +208,15 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	}
 
 	async function joinBus(): Promise<void> {
-		if (!store || !record) throw new Error("session bus is not started.");
+		if (!store || !record || !labels) throw new Error("session bus is not started.");
 		if (joined) return;
-		const used = await takenLabels(store, record.id);
-		if (used.has(labelKey(record.label))) record.label = suffixLabel(record.label, record.id);
 		record.lastSeen = now();
 		await store.writeSession(record);
 		if (identity) await store.writeHost(identity, now());
-		await settleLabel();
-		publishLabel();
+		// A name a rival already holds is yielded here, by the one body that knows the rule: the row
+		// this writes and the row the settle rewrites are the same record, a moment apart.
+		await labels.settle();
+		labels.publish();
 		joined = true;
 		armHeartbeat();
 	}
@@ -231,7 +229,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (heartbeatMs <= 0 || stopHeartbeat) return;
 		stopHeartbeat = interval(heartbeatMs, () => {
 			void (async () => {
-				if (!record || !store) return;
+				if (!record || !store || !labels) return;
 				record.lastSeen = now();
 				// The cursor names mail the inbox may have lost since the last poll, and a session that
 				// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
@@ -242,70 +240,13 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				if (identity) await store.writeHost(identity, now());
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
-				if (await settleLabel()) publishLabel();
+				if (await labels.settle()) labels.publish();
 				// The one prune that opens inbox files rides the clock the message TTL is measured in,
 				// so no action pays for mail nobody is waiting on. It takes this session's inbox and
 				// the ones no record holds; a peer's mail is that peer's to end.
 				await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
 			})().catch(() => {});
 		});
-	}
-
-	/** The labels other sessions hold, and the record holding each. */
-	async function takenLabels(bus: BusStore, mine: string): Promise<Map<string, SessionRecord>> {
-		const sessions = await bus.sessions();
-		const taken = new Map<string, SessionRecord>();
-		// Every record the bus is still keeping, not only a live one. A label is what a session
-		// is addressed by, and `team.lead` is a name whose signature decides whether a card may
-		// be executed or finished — so a name stays its taker's while the bus remembers the
-		// session, which is the same window `store.pruneRecords` keeps the record for. A session that
-		// crashed a minute ago therefore holds its name instead of leaving it to whoever joins
-		// next.
-		//
-		// The window is the pruner's own, asked here rather than read off `stateOf`: a record
-		// past the TTL holds nothing, because the next read deletes it — and a session that
-		// yielded to one would spend its life suffixed by a row that no longer exists.
-		const at = now();
-		for (const session of sessions) {
-			if (session.id !== mine && at - session.lastSeen <= sessionTtlMs) taken.set(labelKey(session.label), session);
-		}
-		return taken;
-	}
-
-	/**
-	 * A collision is settled by yielding, never by comparing session ids: a session
-	 * that keeps the label does not look again, and two of them can each decide that.
-	 * Every writer that observes a rival yields, and the record written last always
-	 * observes the other, so a collision ends with two distinct labels.
-	 *
-	 * Answers whether this call yielded, which is the only thing that can change a label
-	 * after it is settled — the heartbeat tick is where that happens.
-	 */
-	async function settleLabel(): Promise<boolean> {
-		if (!store || !record) return false;
-		const me = record;
-		let yields = 0;
-		while (yields < 3 && (await takenLabels(store, me.id)).has(labelKey(me.label))) {
-			me.label = suffixLabel(me.label, me.id);
-			yields += 1;
-		}
-		if (yields === 0) return false;
-		me.lastSeen = now();
-		await store.writeSession(me);
-		return true;
-	}
-
-	/**
-	 * Tell the footer what peers address this session by.
-	 *
-	 * Nothing else can say what a label is: the bus settles it, yields it on a collision, and
-	 * gives it to a caller that asked for a name. The footer draws it in place of Pi's own
-	 * session name, which the terminal knows but a card, a handoff, and `/team` do not.
-	 */
-	function publishLabel(): void {
-		if (!record) return;
-		// A host with no event bus has no listener: the footer it would feed keeps Pi's own name.
-		pi.events?.emit(SESSION_LABEL_CHANNEL, { id: record.id, label: record.label });
 	}
 
 	/**
@@ -382,35 +323,20 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return store;
 	}
 
-	/**
-	 * The label's holder as a refusal names it: which session, and what it is now.
-	 *
-	 * A label held by a record that cannot answer reads as a bug unless the sentence says so —
-	 * the name is kept because the bus still remembers the session, and it gives the name back
-	 * when the heartbeat ages out and a read prunes the record.
-	 */
-	function heldBy(holder: SessionRecord): string {
-		// Only two states can arrive: `takenLabels` reserves a record inside the TTL the prune
-		// goes by, so a holder is live or its process is gone.
-		return stateOf(holder) === "gone"
-			? `held by session ${holder.id}, which is not running — the bus forgets it when its heartbeat ages out`
-			: `already in use by session ${holder.id}`;
-	}
-
 	async function rename(label: string): Promise<string> {
-		if (!store || !record) throw new Error("session bus is not started.");
+		if (!store || !record || !labels) throw new Error("session bus is not started.");
 		const candidate = normalizeLabel(label, record.label);
 		// The bus's own answer to "who has it": the session record, named by its id, because
 		// the label it holds is the one the caller just asked for.
-		const holder = (await takenLabels(store, record.id)).get(labelKey(candidate));
-		if (holder) throw new Error(`the label "${candidate}" is ${heldBy(holder)}.`);
+		const holder = (await labels.taken(record.id)).get(labelKey(candidate));
+		if (holder) throw new Error(`the label "${candidate}" is ${labels.heldBy(holder)}.`);
 		record.label = candidate;
 		record.lastSeen = now();
 		await store.writeSession(record);
 		// A rename that raced another one ends on the label the bus settled on, which
 		// is what the caller hands to Pi as this session's name.
-		await settleLabel();
-		publishLabel();
+		await labels.settle();
+		labels.publish();
 		joined = true;
 		armHeartbeat();
 		return record.label;
@@ -433,6 +359,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			}
 			joined = false;
 			starting = undefined;
+			labels = undefined;
 			store = undefined;
 			record = undefined;
 		},

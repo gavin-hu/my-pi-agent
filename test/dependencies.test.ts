@@ -279,6 +279,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/board/page.ts": "the board page loads on the first /board",
 	"lib/workflow/proven-remove.ts": "the proven removal loads with the first lock release or takeover",
 	"extensions/session-bus/cursor.ts": "the record's cursor loads when the bus starts, never at registration",
+	"extensions/session-bus/labels.ts": "the name a join settles loads with the join, never at registration",
 	"extensions/session-bus/status.ts": "the rows load on the first status, board, or snapshot read",
 	"extensions/subagent/background.ts": "the background runtime loads on the first background run or /agents",
 	"extensions/subagent/commands.ts": "the /agents command body loads when the command first runs",
