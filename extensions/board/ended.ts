@@ -10,15 +10,18 @@
  * One roster read for the whole board: the fact is one directory of records, so it is read once and
  * asked per owner rather than a directory read per card. `quiet` is deliberately not swept — a long
  * turn looks exactly like it — and that decision stays a person's, as `#396` left it.
+ *
+ * One verb, because one fact is what a sweep has: the owner's record reads `gone`. A name is not an
+ * identity — two sessions wear one in a row — so nothing here reads a label to decide whose a card
+ * is; the owner id `holds` compares is the whole question (#918).
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { cardRef, holds } from "../../lib/workflow/card.ts";
 import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
-import { listOf, sanitizeLine } from "../../lib/format.ts";
+import { listOf } from "../../lib/format.ts";
 import { presenceOf } from "../../lib/session-roster.ts";
-import { sameLabel } from "../../lib/session-label.ts";
 
 /** What a sweep needs of the session, so a suite drives it without a bus. */
 export type SweepSession = Pick<BoardSession, "store" | "who" | "roster" | "now">;
@@ -29,14 +32,13 @@ function listed(items: readonly string[]): string {
 }
 
 /**
- * Hand a stopped session's cards on, and say which: the seat first, then the pool.
+ * Hand a stopped session's cards back to the pool, and say which.
  *
- * Two verbs, because the caller is the fact that tells them apart. A card whose owner wears this
- * session's name is one a `/resume` in another process left behind — the id it was owned by is gone
- * with that process, and the name is the same work — so it is re-seated: the owner id moves and the
- * lane, plan and slot stay. (A `/new` needs none of this: the record keeps its id, so the card was
- * never anybody else's — #915.) Every other card an owner stopped on is released into the pool,
- * which is what the reclaim gate already lets a peer do.
+ * The owner's record is the fact, and it is the bus's: a card whose owner stopped is one nobody is
+ * holding, so it goes back to the pool — which is what the reclaim gate already lets a peer do.
+ * A card this session holds is not its to release, and the id `holds` compares is the one that
+ * answers that: a `/resume` keeps the id it carries, and a `/new` keeps the record (#915), so the
+ * session that just came back already owns its own cards.
  *
  * Refusals are skipped rather than reported: a refusal is a race (another session swept the same
  * card) or a record that changed between the read and the write, and the store's locked
@@ -53,15 +55,6 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 		const { cards } = await store.scan();
 		const now = session.now();
 		const released: string[] = [];
-		const reseated: string[] = [];
-		// Cards whose owner the sweep could not vouch for: a card that names only a label is matched by
-		// name (`recordOf`), and a name is what a seat hands over — so a dead record under a live
-		// session's label is a fact about the wrong session (#836). Left alone, and said.
-		const unvouched: string[] = [];
-		// True when any card in that list was a record the bus had pruned rather than one it watched stop:
-		// the weaker fact, said in the clause a session acts on. Two seats of one name in one sweep is the
-		// only way the qualifier can cover more than it should, and that is a case the bus does not make.
-		let pruned = false;
 		for (const card of cards) {
 			if (card.owner === undefined || LANE_RULES[card.lane].terminal) continue;
 			// A card this session holds is not its to release. A `/resume` that kept the id is already the
@@ -69,41 +62,19 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 			// which runs right after the re-claim of those same paths, would take back what it just resumed.
 			if (holds(card, me)) continue;
 			const state = presenceOf(roster, card.owner, now);
-			if (state === "gone" && card.owner.id === undefined) {
-				unvouched.push(`${cardRef(card.id)} under ${sanitizeLine(card.owner.label)}`);
-				continue;
-			}
-			// The seat: this session wears the owner's label and the bus says that session stopped, so the
-			// card is one a `/resume` left behind and is handed back rather than pooled. `absent` counts
-			// here and nowhere else — a pruned record is the weaker fact, and the clause says which one.
-			const seat = sameLabel(card.owner.label, me.label);
-			const mine = seat && (state === "gone" || state === "absent");
-			if (!mine && state !== "gone") continue;
+			if (state !== "gone") continue;
 			const holder = { owner: card.owner, state };
 			const result = await store
-				.mutate(card.id, mine ? { kind: "reseat", holder } : { kind: "reclaim", holder, swept: true }, me, now)
+				.mutate(card.id, { kind: "reclaim", holder, swept: true }, me, now)
 				.catch(() => undefined);
 			if (result?.ok !== true || !result.changed) continue;
-			if (mine) {
-				reseated.push(cardRef(card.id));
-				if (state === "absent") pruned = true;
-			} else released.push(cardRef(card.id));
+			released.push(cardRef(card.id));
 		}
-		if (released.length === 0 && reseated.length === 0 && unvouched.length === 0) return undefined;
+		if (released.length === 0) return undefined;
 		// `a and b`, never `a, and b`: a bullet in the first turn is one sentence, and two cards is
 		// the common case. The clause is the same shape `stray-fields` uses for the same reason.
-		const parts: string[] = [];
-		if (reseated.length > 0) {
-			parts.push(`re-seated ${listed(reseated)} in this session${pruned ? " (owner record pruned)" : ""}`);
-		}
-		if (released.length > 0) {
-			const from = released.length === 1 ? "a session that ended" : "sessions that ended";
-			parts.push(`released ${listed(released)} from ${from}`);
-		}
-		if (unvouched.length > 0) {
-			parts.push(`left ${listed(unvouched)} alone: an owner named only by label is not one this sweep can vouch for`);
-		}
-		return parts.join(", ");
+		const from = released.length === 1 ? "a session that ended" : "sessions that ended";
+		return `released ${listed(released)} from ${from}`;
 	} catch {
 		// A board that cannot be read is not a reason to fail the turn it was read for.
 		return undefined;

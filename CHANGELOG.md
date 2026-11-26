@@ -15,7 +15,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a start whose reason is `new` serves the row the one before it left, and every other reason — a
   quit, a reload, a `/resume`, a fork — ends the membership as it did.
 
+- `board`: `/board next` starts the next session at a card boundary, so finishing a card and starting the
+  next is one word rather than a `/new` plus a read of what is still yours. It asks first: a card of this
+  session's in `plan` or `execute` refuses and is named, while a `blocked` one — parked on somebody else's
+  decision — goes through and is listed on the next transcript's own line. A board that cannot be read
+  refuses too, naming `/new` as the door that skips the check, and a cancelled replacement is said. The
+  page and the seat end with the session it replaces; the record does not, because the teardown carries
+  the reason #915 keeps it by.
+
 ### Changed
+
+- `board`: `/board`'s help is rendered from one table — the word, whether it takes a card, its flags — so
+  the command's description, the line a mistyped word gets and the completer cannot spell the vocabulary
+  differently. The only text that changes is the usage line, whose words now come in the table's order: the
+  two signs before `status`, `stop` and `team`.
 
 - `code-review`: a scope is two ends now — `from → to`, each a revision, the index, or the
   working tree — and six presets name the pairs a reader asks for: `change` (the default: the
@@ -26,6 +39,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   as staged so far, `origin/feature` against `origin/main` a branch nobody checked out. Two
   commits compare from the line they share, so a merged-in base no longer shows as the
   branch's own work, and untracked files join exactly when the right side is the working tree.
+
+### Removed
+
+- `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached
+  it. Its premise was a `/resume` that mints a new id under the same name, which no longer happens: a
+  resume keeps the id it carries, and a `/new` keeps the record. A card whose owner's record reads `gone`
+  is pooled instead, whether the card names that owner by id or by a label alone, so nothing here is
+  re-owned by a name; the session that wants the card claims it again from the pool.
 
 ### Fixed
 
@@ -58,6 +79,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `code-review`: a `base` review that cannot use its base says which fault it hit. A configured `code-review.base` that does not resolve is named with the key to check, one longer than 200 characters names its length and the bound instead of being cut to a different ref, and only a repository with no default branch at all gets the "set `base`" advice — in the `/review` notice, in `code_review`'s new `problem` field, and on the page. The default-branch chain is `lib/git`'s `defaultBranch` now, read through its `origin/` ref, rather than a second copy that had drifted from it; a stored page also stops treating an unresolved base as one it knows.
 
 - `team`: `/team who` and `/team join` offer no labels when the board store cannot open, instead of throwing out of the completer — the editor awaits that promise with no catch, so the one rejection used to cost every later Tab in the process, which the host's share of is filed as `earendil-works/pi#12566`.
+
+- `team`: a label completion writes the whole argument back, so Tab keeps the word it was typed after — `/team who <TAB>` used to leave `/team gavin`, a bare name the command then refused — and the list now completes a name with a space in it and a word typed in any case.
 
 ## [0.31.0] - 2026-11-25
 

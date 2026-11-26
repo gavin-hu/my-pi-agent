@@ -38,8 +38,8 @@ export function normalizeLabel(raw: string | undefined, fallback: string): strin
 /**
  * A short, display-only tail of a session id: its last six characters, neutralized.
  *
- * The one body for "how an id reads" — a session row, a claim's owner, a re-seat note and the
- * team's name for a session all take their tail from here, so a card note and a terminal row
+ * The one body for "how an id reads" — a session row, a claim's owner, a yielded label's suffix and
+ * the team's name for a session all take their tail from here, so a card note and a terminal row
  * cannot disagree. Neutralized and closed up, because the same tail both reaches a terminal and
  * ends a name: an id is another session's text, and a break in one would split a label.
  */
