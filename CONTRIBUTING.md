@@ -125,13 +125,9 @@ names `/skill:<name>` and how the skill starts instead of a tool table — liste
 
 ## Conventions
 
-Pi's built-in design system and `lib/tui/` are the kit a TUI surface is built from:
-[`tokens.ts`](./lib/tui/tokens.ts) roles, [`chrome.ts`](./lib/tui/chrome.ts),
-[`rules.ts`](./lib/tui/rules.ts), [`rows.ts`](./lib/tui/rows.ts),
-[`columns.ts`](./lib/tui/columns.ts), [`gauge.ts`](./lib/tui/gauge.ts),
-[`glyphs.ts`](./lib/tui/glyphs.ts), and [`cursor.ts`](./lib/tui/cursor.ts). Colors come
-from a role, never a literal; width is terminal columns; model- or file-authored text is
-sanitized at the boundary.
+A TUI surface is built from Pi's built-in design system and `lib/tui/`, and neither
+keeps its list here: [`docs/design-system.md`](./docs/design-system.md) is what a screen
+must do, and [`lib/README.md`](./lib/README.md)'s `tui/` row is every module in the kit.
 
 ## Tool and prompt surface
 

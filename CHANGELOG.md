@@ -47,6 +47,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   commits compare from the line they share, so a merged-in base no longer shows as the
   branch's own work, and untracked files join exactly when the right side is the working tree.
 
+- `docs`: `CONTRIBUTING.md`'s `#conventions` points at the two homes instead of keeping a third copy —
+  `docs/design-system.md` for what a screen must do, `lib/README.md`'s `tui/` row for every module in
+  the kit — so a roster that had fallen seven modules behind `lib/tui/` cannot drift again. The heading,
+  and the anchor `AGENTS.md` links, stay as they were.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached
