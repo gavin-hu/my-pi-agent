@@ -117,6 +117,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   session holding no card writes exactly as it did, and plan mode's own gate answers first while it
   is on.
 
+- `board`: a landing's merge scope is derived from where the card's work is, not from one path it happened
+  to touch. `landScope` gave the scope to any extension the paths named, so #931 — a design system page,
+  three `docs/` paths, and one corrected docstring in another extension's suite — landed `merge(wechat)`,
+  and a landed sha cannot be repaired. The extension now holds only while the paths in it are not
+  outnumbered by the paths that name another surface; `lib/`, the extension's own page, and a root file
+  never count against it, and a tie stays with the extension, so a behaviour card that also edits its guide
+  and the changelog is unchanged. The rung also normalises through `posixPath` rather than a hand-written
+  `replace`, and `areaOf` shares one reader for a path's top level.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
