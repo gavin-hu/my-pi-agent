@@ -30,6 +30,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   either end. The page ships with the package, its glyph table is held to `GLYPHS` by
   `lib/tui/glyphs.test.ts`, and both entry READMEs' Documentation tables list it.
 
+- `team`: `/team exit` takes this session off the team — the bus record, the claims it holds and its inbox
+  watch all go, and the name leaves the bar — and refuses while a card is still yours (`board release 935`)
+  or while the session holds the page's seat (`/board stop`), because a card whose owner the bus has no
+  record of waits for a person. The next send, claim, or card write puts the session back on the bus under
+  the id a card names, and mail already delivered stays until `/sessions drop` clears it.
+
 ### Changed
 
 - `board`: `/board`'s help is rendered from one table — the word, whether it takes a card, its flags — so
