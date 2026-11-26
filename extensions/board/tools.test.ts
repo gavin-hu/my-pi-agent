@@ -12,23 +12,22 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { advance, TEST_CONTRACT } from "../../test/helpers/board-flow.ts";
-import { boardHarness } from "../../test/helpers/board.ts";
-import { writeJoinedRecord } from "../../test/helpers/bus.ts";
-import { resultText } from "../../test/helpers/fixtures/board.ts";
-import type { FakePiOptions } from "../../test/helpers/fakes.ts";
-import { tempDir } from "../../test/helpers/env.ts";
-import { type FakeCtxOptions } from "../../test/helpers/context.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
 import { agentLabel } from "../../lib/session-label.ts";
+import { BOARD_ACTIONS as LIB_BOARD_ACTIONS } from "../../lib/workflow/actions.ts";
 import { MAX_NOTES } from "../../lib/workflow/card.ts";
 import { MAX_CONTRACT } from "../../lib/workflow/contract.ts";
+import { NOT_ON_TEAM } from "../../lib/workflow/join.ts";
 import { buildRound } from "../../lib/workflow/round.ts";
-import type { JoinResult } from "../../lib/session-tool.ts";
-import type { TeamJoin } from "./join.ts";
+import { boardHarness } from "../../test/helpers/board.ts";
+import { advance, TEST_CONTRACT } from "../../test/helpers/board-flow.ts";
+import { writeJoinedRecord } from "../../test/helpers/bus.ts";
+import { type FakeCtxOptions } from "../../test/helpers/context.ts";
+import { tempDir } from "../../test/helpers/env.ts";
+import type { FakePiOptions } from "../../test/helpers/fakes.ts";
+import { resultText } from "../../test/helpers/fixtures/board.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
 import { registerTools } from "./tools.ts";
 import { ACTION_FIELDS, BOARD_ACTION_DOCS, BOARD_ACTIONS, type BoardDetails } from "./types.ts";
-import { BOARD_ACTIONS as LIB_BOARD_ACTIONS } from "../../lib/workflow/actions.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -41,39 +40,25 @@ const PEER_ID = "s-peer";
 const LEAD = agentLabel(LEAD_ID);
 const PEER = agentLabel(PEER_ID);
 
-/** A team join that records every call and the label it asked for, and answers with `answer`. */
-function recordingTeam(
-	answer: () => JoinResult = () => ({ ok: true, label: LEAD, watching: { armed: true, wake: false } }),
-) {
-	const calls: number[] = [];
-	const labels: Array<string | undefined> = [];
-	const team: TeamJoin = {
-		join: async (_ctx, input) => {
-			calls.push(calls.length + 1);
-			labels.push(input?.label);
-			return answer();
-		},
-	};
-	return { team, calls, labels };
-}
-
 /**
  * A registered tool plus the context it will be called with.
  *
  * `lead` is the project's `team.lead`: the reviewer a seed signs as by default, so the seeded
  * fixtures reach a lane through the gate; a case about the gate names the session it means.
+ *
+ * `bus` declares the `session` tool, which is the one way a loaded bus is known (`busLoaded`), so
+ * the default harness is a solo board: a claim there has no team to be on and writes as it always
+ * has. A case about membership asks for the bus and seeds the record it wants.
  */
 function harness(
-	options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin; exec?: FakePiOptions["exec"]; lead?: string } = {},
+	options: FakeCtxOptions & { agentDir?: string; exec?: FakePiOptions["exec"]; lead?: string; bus?: boolean } = {},
 ) {
-	const { agentDir, team, exec, lead = REVIEWER.label, ...ctxOptions } = options;
+	const { agentDir, exec, lead = REVIEWER.label, bus, ...ctxOptions } = options;
 	const board = boardHarness({ agentDir, exec, lead, now: NOW, track: temps.track, ...ctxOptions });
+	if (bus === true) board.fake.pi.allTools = [{ name: "session" }];
 	// A contract names a command, so the tool's `review` runs one: this answers without starting a
 	// process, and a case about the run passes its own.
-	registerTools(board.fake.pi, board.runtime, {
-		verify: async () => ({ exit: 0, output: "", killed: false }),
-		...(team === undefined ? {} : { team }),
-	});
+	registerTools(board.fake.pi, board.runtime, { verify: async () => ({ exit: 0, output: "", killed: false }) });
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
 	return {
@@ -210,11 +195,13 @@ describe("a field the action does not act on", () => {
 		expect(lane.details.error).toBe("add does not act on lane: `list` and `move` take it.");
 	});
 
-	test("does not reach for the board, so a refused call enlists nobody", async () => {
-		const { team, calls } = recordingTeam();
-		const { call } = harness({ team });
-		await call({ action: "add", title: "x", dependsOn: ["1"] });
-		expect(calls).toEqual([]);
+	test("refuses a stray field before it asks anything, so a refused call enlists nobody", async () => {
+		const { call } = harness({ bus: true });
+		const refused = await call({ action: "add", title: "x", dependsOn: ["1"] });
+		// The bus is loaded and this session is on no team: a call that reached the board would say
+		// so, and this one says the argument is wrong instead.
+		expect(refused.isError).toBe(true);
+		expect(refused.details.error).toContain("does not act on dependsOn");
 	});
 
 	test("leaves a field the action does read alone", async () => {
@@ -1169,69 +1156,56 @@ describe("the details a refusal carries", () => {
 });
 
 describe("the team", () => {
-	test("a claim joins once, under this session's own name", async () => {
-		const { team, calls, labels } = recordingTeam();
-		const { call, runtime, ctx } = harness({ team });
+	test("a claim on a session the bus holds writes under the record's name", async () => {
+		const { call, runtime, ctx } = harness({ bus: true });
 		await call({ action: "add", title: "One" });
-		await call({ action: "add", title: "Two" });
-		const claimed = await call({ action: "claim", card: "1" });
-		// The record a join leaves is what the next claim reads: the roster answers for the team.
-		await joinBus(runtime, ctx, LEAD_ID, LEAD);
-		await call({ action: "claim", card: "2" });
-		expect(calls).toHaveLength(1);
-		// The label is the card's owner label, so the bus, the roster and the card agree.
-		expect(labels).toEqual([LEAD]);
-		expect(claimed.details.card?.owner).toEqual({ id: LEAD_ID, label: LEAD });
-		// A session the bus has no record of writes as the name its id derives.
-		expect(LEAD).toBe(agentLabel(LEAD_ID));
-	});
-
-	test("a claim writes as the name the bus already holds, and asks nothing", async () => {
-		const { team, labels } = recordingTeam();
-		const { call, runtime, ctx } = harness({ team });
-		// `/team join core-claims` is the one door that renames a session, and with that record on
-		// the bus the claim asks nothing: the join is the state the record already holds.
-		await call({ action: "add", title: "One" });
+		// `/team join core-claims` is the one door that renames a session, and the card then writes
+		// as the name the record holds, so the card, the roster and the bus agree.
 		await joinBus(runtime, ctx, LEAD_ID, "core-claims");
 		const claimed = await call({ action: "claim", card: "1" });
+		expect(claimed.isError).toBeFalsy();
 		expect(claimed.details.card?.owner).toEqual({ id: LEAD_ID, label: "core-claims" });
-		expect(labels).toEqual([]);
 	});
 
-	test("no other action joins: a read, a new card, a note or an edit enlists nobody", async () => {
-		const { team, calls } = recordingTeam();
-		const { call } = harness({ team });
+	test("a claim on a bus that holds no record of this session refuses and writes nothing", async () => {
+		const { call } = harness({ bus: true });
+		await call({ action: "add", title: "One" });
+		const refused = await call({ action: "claim", card: "1" });
+		expect(refused.isError).toBe(true);
+		expect(resultText(refused)).toContain(NOT_ON_TEAM);
+		// The card is as it was: still in the backlog, and nobody's.
+		const listed = await call({ action: "list", card: "1" });
+		expect(listed.details.card?.owner).toBeUndefined();
+		expect(listed.details.card?.lane).toBe("backlog");
+	});
+
+	test("a refused claim leaves the card alone, so the next door is the team and not a retry", async () => {
+		const { call } = harness({ bus: true });
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		const retried = await call({ action: "claim", card: "1" });
+		// Still the same refusal: nothing about the first attempt landed.
+		expect(retried.isError).toBe(true);
+		expect(resultText(retried)).toContain(NOT_ON_TEAM);
+	});
+
+	test("a solo board claims as it always has: with no bus loaded there is no team to be on", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		const claimed = await call({ action: "claim", card: "1" });
+		expect(claimed.isError).toBeFalsy();
+		// The name its id derives, which is what a session with no record writes as.
+		expect(claimed.details.card?.owner).toEqual({ id: LEAD_ID, label: LEAD });
+	});
+
+	test("no other action asks the bus: a read, a new card, a note or an edit", async () => {
+		const { call } = harness({ bus: true });
 		await call({ action: "list" });
 		await call({ action: "list", round: true });
 		await call({ action: "add", title: "One" });
 		await call({ action: "note", card: "1", note: "looked at it" });
-		await call({ action: "edit", card: "1", title: "One, renamed" });
-		expect(calls).toEqual([]);
-	});
-
-	test("a refused claim wrote nothing, so it enlists nobody", async () => {
-		const { team, calls } = recordingTeam();
-		const board = harness({ team });
-		const { call } = board;
-		await call({ action: "add", title: "One" });
-		await call({ action: "claim", card: "1" });
-		await seed(board, "1", "done");
-		// A done card cannot be claimed, so the refusal is not a second join.
-		const refused = await call({ action: "claim", card: "1" });
-		expect(refused.isError).toBe(true);
-		expect(calls).toHaveLength(1);
-	});
-
-	test("a join that did not land is a clause on the claim, not a failed claim", async () => {
-		const { team, calls } = recordingTeam(() => ({ ok: false, error: "the session bus is not loaded" }));
-		const { call, runtime } = harness({ team });
-		await call({ action: "add", title: "One" });
-		await call({ action: "add", title: "Two" });
-		const first = await call({ action: "claim", card: "1" });
-		expect(first.isError).toBeFalsy();
-		expect(resultText(first)).toContain("Not on the team: the session bus is not loaded.");
-		expect(runtime.team.last()).toEqual({ ok: false, error: "the session bus is not loaded" });
-		await call({ action: "claim", card: "2" });
-		expect(calls).toHaveLength(2);
+		const edited = await call({ action: "edit", card: "1", title: "One, renamed" });
+		// These write no owner, so a session on no team can still do them.
+		expect(edited.isError).toBeFalsy();
 	});
 });

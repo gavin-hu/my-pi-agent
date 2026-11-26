@@ -7,8 +7,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { Deliver, TeamJoin } from "../../lib/session-tool.ts";
-import { createTeamJoin } from "../../lib/session-tool.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import { runAction } from "./actions.ts";
@@ -56,14 +55,14 @@ export const BOARD_SNIPPET = `The shared feature list for this repository: ${BOA
 export function registerTools(
 	pi: ExtensionAPI,
 	runtime: BoardSession,
-	deps: { team?: TeamJoin; notify?: Deliver; verify?: VerifyRun } = {},
+	deps: { notify?: Deliver; verify?: VerifyRun } = {},
 ): void {
-	// The team is resolved once, here, and travels into every call: a claim joins through the same
-	// one, and a registration that resolved it per call would ask the bus again for each.
-	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerTool({
 		name: BOARD_TOOL,
 		label: "Board",
+		// Offered only while this session is on the team, or with no bus loaded: the entry's sync
+		// decides, and a registration that activated it would put the tool in every session's list.
+		defaultActive: false,
 		description: BOARD_DESCRIPTION,
 		promptSnippet: BOARD_SNIPPET,
 		promptGuidelines: BOARD_GUIDELINES,
@@ -71,7 +70,7 @@ export function registerTools(
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			return runAction({ pi, runtime, ctx, deps: { ...deps, team }, args: params as BoardArgs });
+			return runAction({ pi, runtime, ctx, deps, args: params as BoardArgs });
 		},
 		renderCall: renderBoardCall,
 		renderResult: renderBoardResult,

@@ -22,7 +22,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | Put a feature on it | `board({ action: "add", title, paths })` — a call, because `add` takes a title rather than a card id |
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
-| Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back — the lead from anyone, a peer only once that owner's record says it stopped. The claims it took stay with the session that took them: only that session's `session release` frees them, or its stopping, and a release inside `execute` waits only for the next turn, so `paths: []` and the lane are the exits that last |
+| Take a card | `board claim 4` — into `plan`, owned by this session, and only while the bus holds a live record of it; `board reclaim 4` takes one back — the lead from anyone, a peer only once that owner's record says it stopped. The claims it took stay with the session that took them: only that session's `session release` frees them, or its stopping, and a release inside `execute` waits only for the next turn, so `paths: []` and the lane are the exits that last |
 | Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut … verify …` — all four lines, and the `verify` command is required |
 | Approve the contract | `/board approve 4` in the lead's session, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
@@ -56,8 +56,8 @@ lane of 24 folds. The pane is the one scroll box: a lane is as tall as the board
 Team tab raises what needs the seat: one list of the moves only it can finish — sign a contract nobody read, send a notice that never landed, free a card whose owner is gone, chase one nobody has written to — each a two-line row that says its own reason, folded at five. Under it, `The board · N open` counts the four lanes it draws: `blocked`, `execute`, `plan`, and `backlog`, whose cards appear while the pool is small and become one line and a door past twelve. The terminal's rollup keeps its own counts (`9 unassigned · 5 unplanned`), because it answers what the board holds rather than what the seat owes.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`, `approve`,
-`review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while a lane is full; `assign` is `team`'s verb under that
-rule, and one session holds one card in flight by default (`board.wip.perOwner`). `reclaim` takes a card back: the person and
+`review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while a lane is full; `claim` is also refused while the bus
+holds no live record of this session — the fact that decides whether the tool is offered at all — so it wrote nothing and names `/team join` or `/board`, while a run with no bus claims as it always has. `assign` is `team`'s verb under that rule, and one session holds one card in flight by default (`board.wip.perOwner`). `reclaim` takes a card back: the person and
 the lead always, a peer only while its owner is quiet or gone. `move` into `execute` or `done` re-reads the plan and refuses a
 card whose plan is gone. An `execute` card claims the `paths` nobody else holds; `edit` claims added paths and releases removed
 ones, claiming first so a conflict releases nothing. A contract names a `verify` command — the card's own check, not the
@@ -88,13 +88,13 @@ the pool's three ids and a count, who is listening. A seated session lands a rev
 
 ## Limits
 
-- `done` is terminal: a card finished by mistake is dropped and re-added at a new number. Nothing prunes
-  itself: `archive` takes a card nothing waits on, and `--older-than 30d` bounds it, naming what it kept.
+- `done` is terminal: a card finished by mistake is dropped and re-added at a new number. Nothing prunes itself: `archive` takes a card nothing waits on, and `--older-than 30d` bounds it, naming what it kept.
 - The lead is a name, not an authority: any session can join it, and a lead holding a card can release it, sign it and
   claim it again. A lead holding no card may still move it `plan` → `execute`, or close a signed card whose holder the
   bus lost — a close, not a signature; every other verb is the holder's. A gate is a reading.
 - Settle title, paths and contract before the sign: a write after the spot-check stops it speaking, and a branch is proved against `main` as cut. Restart when board code lands — a `/reload` keeps a `lib/` module another extension loaded.
 - Ownership is a session id, not a lock: a card in `execute` holds its `paths` as the bus's claims and as the tree's write boundary, and a lane change frees only the writer's. While the session's only card sits in `plan`, `blocked`, or the pool, `write`, `edit`, and every shell but a read-only git command are refused, naming `board move <id> execute` — or `board release <id>`, for work that is not the card's. The `paths` bound the two file tools and the shell is judged by lane, not by path, so a card whose work grows widens them with `board edit <id> paths [...]`; the refusal names that door, which is how the file list keeps up with the work. A session holding no card writes as it always did, and a card a page moves mid-turn is read again by the next `board` call rather than by the write it interrupts. A card whose owner's record reads `gone` is pooled by the next start's sweep, whatever the card calls that owner: the sweep reads the id `holds` compares, never the name, so nothing on the board is re-owned by a name — a pruned record waits for a person, because no record is not a session that stopped. A sweep also keeps the spot-check it finds: holding the seat is not withdrawing a judgement, so only the signer's own reclaim takes a sign back.
+- The `board` tool is also the seat's signing surface, so it goes with the team: `/team exit` refuses while the seat is served, and a record that goes without a leave takes the tool at the next turn.
 - The page asks the bus for a stamp every second — mail waiting, a peer's state, a turn starting — and sweeps every five for what no file announces; a page with no watch scans every second. The reader is the stream, not the tab: while one is open the tick reads, and with none it reads nothing at all — no stamp, no frame — and no timer waits for a closed tab to come back, so the session outlives its page.
 
 ## Settings

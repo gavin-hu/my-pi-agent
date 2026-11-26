@@ -9,30 +9,31 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
-import { boardHarness, cardFile } from "../../test/helpers/board.ts";
-import { pageWithNoRecording } from "../../test/helpers/board-command.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
-import { withEnv } from "../../test/helpers/env.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
-import { billingCard, numberedCard } from "../../test/helpers/fixtures/board.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import type { Card } from "../../lib/workflow/card.ts";
 import {
 	type ClaimPathsResult,
 	type ReleasePathsResult,
 	SESSION_CLAIM_REQUEST,
 	type SessionClaimRequest,
 } from "../../lib/session-tool.ts";
+import type { Card } from "../../lib/workflow/card.ts";
 import type { Claims } from "../../lib/workflow/claims.ts";
+import { boardHarness, cardFile } from "../../test/helpers/board.ts";
+import { pageWithNoRecording } from "../../test/helpers/board-command.ts";
+import { writeJoinedRecord } from "../../test/helpers/bus.ts";
+import { fakeCtx } from "../../test/helpers/context.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { billingCard, numberedCard } from "../../test/helpers/fixtures/board.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
 import {
 	BOARD_CONTEXT_MARKER,
 	BOARD_CONTEXT_TYPE,
 	buildBoardContext,
-	MAX_CONTEXT_CARDS,
-	MAX_CONTEXT_CHARS,
-	MAX_BULLET_CHARS,
 	heldCards,
 	isBoardContext,
+	MAX_BULLET_CHARS,
+	MAX_CONTEXT_CARDS,
+	MAX_CONTEXT_CHARS,
 } from "./context.ts";
 import board from "./index.ts";
 
@@ -233,6 +234,14 @@ describe("the factory's turn", () => {
 			// The bus is loaded, as it is in a session that has one; what it is asked for is recorded
 			// here rather than written, because this case is about the transport.
 			harness.fake.pi.registerTool({ name: "session" });
+			// A claim belongs to a session the bus holds, so the record a `/team join` would leave is
+			// written first: this case is about the turn start, not about the gate that keeps a claim
+			// out of a team this session is not on.
+			writeJoinedRecord(await harness.runtime.busDir(harness.ctx.cwd), {
+				id: harness.ctx.sessionManager.getSessionId(),
+				label: LEAD,
+				lastSeen: NOW,
+			});
 			const asked: string[][] = [];
 			harness.fake.pi.events.on(SESSION_CLAIM_REQUEST, (data: unknown) => {
 				const request = data as SessionClaimRequest;

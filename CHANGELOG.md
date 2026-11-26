@@ -47,6 +47,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the tool arrives with the team. A session the bus holds no live record of is offered no
+  `board` tool at all — it registers inactive, and a turn start offers it once the record lands, so a
+  join reaches the model on the next turn and a leave takes it away — while a run with no bus keeps
+  it, because a solo board is still a work list. `claim` stops joining on the way: it refuses a session
+  with no record, naming `/team join` or `/board` as the door, so a card's owner is always a name a
+  peer resolves. Breaking: a session that used to claim cold must join first.
+
 - `board`: `/board`'s help is rendered from one table — the word, whether it takes a card, its flags — so
   the command's description, the line a mistyped word gets and the completer cannot spell the vocabulary
   differently. The only text that changes is the usage line, whose words now come in the table's order: the

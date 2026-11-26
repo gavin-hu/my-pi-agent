@@ -20,11 +20,12 @@ import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { BOARD_TOOL, SESSION_TOOL, TEAM_TOOL } from "../../lib/tool-names.ts";
 import type { Card } from "../../lib/workflow/card.ts";
 import type { Claims } from "../../lib/workflow/claims.ts";
+import type { MemberTools } from "../../lib/workflow/join.ts";
+import { type BoardSession, openBoardSession } from "../../lib/workflow/session.ts";
 import { type LeadDoor, registerCommands } from "./commands.ts";
-import type { LeadRuntime } from "./runtime.ts";
 import { createLazyBoardPage } from "./lazy-page.ts";
 import type { BoardPage } from "./page.ts";
-import { type BoardSession, openBoardSession } from "../../lib/workflow/session.ts";
+import type { LeadRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 
 export interface BoardDeps {
@@ -132,8 +133,23 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 			return was;
 		},
 	};
-	registerTools(pi, session, { team });
+	registerTools(pi, session);
 	registerCommands(pi, session, page, { team, lead: leadDoor });
+
+	/**
+	 * The model's tool list, as the team's own question: `board` is offered while this session is on
+	 * the team, and with no bus loaded it is offered anyway — a solo board is still a work list, which
+	 * is what `solo` says. `lib/workflow/join.ts` is outside this entry's static graph and is loaded on
+	 * the first turn that asks, because a registration that always offered the tool would put it in
+	 * every session's list, and `test/dependencies.test.ts` holds what this entry pays at load.
+	 */
+	let memberModule: Promise<typeof import("../../lib/workflow/join.ts")> | undefined;
+	let memberTools: MemberTools | undefined;
+	const offerTools = async (ctx: ExtensionContext): Promise<void> => {
+		const module = await (memberModule ??= import("../../lib/workflow/join.ts"));
+		memberTools ??= module.createMemberTools(pi, session, [BOARD_TOOL], { solo: true });
+		await memberTools.sync(ctx);
+	};
 
 	/** Whether the first turn has read this session's cards, so later turns do not read them again. */
 	let read = false;
@@ -203,6 +219,9 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		// that is loaded reconciles now rather than at the next turn, so the chip cannot describe a
 		// mode that is not on. Nothing loads for a branch that never named the seat.
 		if (leadRuntime !== undefined) await lead(ctx);
+		// Then the tool list, from the same record the round reads, so a resumed process offers what
+		// the bus says rather than what the last process wrote.
+		await offerTools(ctx);
 	});
 
 	// A tree jump rebuilds the history from the branch it landed on, so the line a jump went back
@@ -234,6 +253,10 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		// in front of the model before it meets a refusal. It replaces the once-per-session
 		// line rather than stacking with it: one `board-context` message is kept.
 		const holding = await seatHeld(ctx);
+		// After the seat's reconcile and before its early return: the reconcile writes the active set,
+		// so a sync that ran first would be overwritten, and one after the return would never run for
+		// a lead — those are the two ways this ordering goes wrong.
+		await offerTools(ctx);
 		if (holding !== undefined) {
 			const context = await (contextModule ??= import("./context.ts"));
 			const facts = await context.leadFacts(session, ctx);
