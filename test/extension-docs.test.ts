@@ -68,8 +68,13 @@ describe("the extension doc set", () => {
  */
 const USER_SECTIONS = ["What you can do", "Try it", "Reference", "Limits", "Settings", "Learn more"];
 
-/** A page stays short; the walkthrough belongs in `docs/tutorials/`. */
-const USER_PAGE_LINES = 120;
+/**
+ * A page stays short; the walkthrough belongs in `docs/tutorials/`.
+ *
+ * 140 rather than 120: eight of 23 pages reached the old bar with no line to spare, a card paying
+ * for two wrapped paragraphs with a `Limits` bullet, and the bar had not moved in 19 days.
+ */
+const USER_PAGE_LINES = 140;
 
 describe("the end-user template", () => {
 	for (const name of names) {
