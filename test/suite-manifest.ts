@@ -152,6 +152,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"transport/stream",
 		"transport/write",
 		"view/file",
+		"view/file-chrome",
 		"view/page",
 		"view/client",
 		"view/face",

@@ -80,7 +80,14 @@ export type SnapshotOutcome = { kind: "snapshot"; snapshot: ReviewSnapshot } | {
 
 /** A whole file as context lines, or the sentence that says why it has no text to show. */
 export type TextOutcome =
-	| { kind: "text"; lines: DiffLine[]; binary: boolean; truncated: boolean }
+	| {
+			kind: "text";
+			lines: DiffLine[];
+			binary: boolean;
+			truncated: boolean;
+			/** The file's whole line count, or nothing when `maxFileBytes` cut the read. */
+			totalLines?: number;
+	  }
 	| { kind: "failed"; message: string };
 
 /**
@@ -156,7 +163,7 @@ export function baseTooLong(length: number): string {
 async function readTextFile(
 	abs: string,
 	cap: number,
-): Promise<{ lines: string[]; binary: boolean; truncated: boolean } | undefined> {
+): Promise<{ lines: string[]; binary: boolean; truncated: boolean; totalLines?: number } | undefined> {
 	let buffer: Buffer;
 	let cut = false;
 	try {
@@ -177,7 +184,9 @@ async function readTextFile(
 	if (text.includes("\0")) return { lines: [], binary: true, truncated: false };
 	const lines = text.split("\n");
 	if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
-	return { lines, binary: false, truncated: cut };
+	// A read the byte cap cut knows how much it showed and not how much there is, so the total
+	// is absent rather than a partial count read as the whole file.
+	return { lines, binary: false, truncated: cut, ...(cut ? {} : { totalLines: lines.length }) };
 }
 
 /** A reader over an injected git seam: what a suite drives. */
@@ -226,7 +235,13 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 			const lines: DiffLine[] = read.lines
 				.slice(0, maxLines)
 				.map((body, index) => ({ kind: "ctx", text: body, oldNo: index + 1, newNo: index + 1 }));
-			return { kind: "text", lines, binary: false, truncated };
+			return {
+				kind: "text",
+				lines,
+				binary: false,
+				truncated,
+				...(read.totalLines === undefined ? {} : { totalLines: read.totalLines }),
+			};
 		},
 		async snapshot(scope) {
 			const repo = await repoRoot(run, root);

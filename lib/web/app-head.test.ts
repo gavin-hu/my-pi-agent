@@ -74,4 +74,14 @@ describe("the app head", () => {
 		expect(brand).toContain("bytefly");
 		expect(brand).toContain("&lt;plan&gt;");
 	});
+
+	test("leaves the key sheet's trigger out for a page that serves no sheet", () => {
+		// The file view and the problem page ship no client and no sheet: a trigger for a dialog
+		// neither includes is a control that does nothing.
+		const bare = appHead({ ...ROW, keys: false });
+		expect(bare).not.toContain('id="keys-open"');
+		expect(bare).toContain('id="theme-toggle"');
+		// Absent is the ordinary page: every other served page keeps its trigger.
+		expect(appHead(ROW)).toContain('id="keys-open"');
+	});
 });

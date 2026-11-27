@@ -70,7 +70,8 @@ band has one job:
   no control row is one row and gets no rule. `.bf-app__id`
   carries the lockup, the subject (`pageSubject`: mono, grows, truncates its head so a path keeps
   the folder being read), the live line and the reload, with `.bf-app__chrome` (key sheet, theme
-  toggle) at the end; `.bf-app__ctl` is the page's own controls and nothing else, and a page adds
+  toggle) at the end — a page that serves no key sheet passes `keys: false` and the chrome zone
+  draws the toggle alone; `.bf-app__ctl` is the page's own controls and nothing else, and a page adds
   its own class to either row with `identityClass` / `controlsClass`.
 - `.bf-app__main` is the only scroller, so a lane's head or a column's caption pins to it.
 - `.bf-app__foot` is one `.bf-footer__facts` line naming where the content came from and
@@ -289,7 +290,9 @@ choice. Neither page reloads for a theme.
 `docHead`, `appHead`, `markIcon`, `tabTitle`, `themeToggle`, `chip`, `button`,
 `keysSheet`, `keysButton`, `liveChip`, `reloadChip`, and `pageFooter` return strings.
 `appHead` is the header's one entry: the lockup, the subject and the chrome zone are its own
-parts, so a page names its product and subject rather than drawing the rows. `docHead` links the
+parts, so a page names its product and subject rather than drawing the rows. The chrome zone
+draws the key sheet's trigger unless the page passes `keys: false` — a page that includes no
+sheet has no control to draw, and the file view and a refusal are both such pages. `docHead` links the
 mark as the tab icon — two SVG
 data URIs from the same blocks the lockup draws, the dark one plain and the light
 one behind `prefers-color-scheme` — because an icon is its own document and

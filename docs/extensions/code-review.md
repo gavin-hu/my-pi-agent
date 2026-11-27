@@ -82,7 +82,11 @@ rail shows that file and an **all files** link back, while the count and the pro
 still name the whole scope — `1 of 2 files` for a page drawing one of two — and the
 snapshot and its token stay the whole scope's. The head's **view file** serves the
 whole file at `/review/file?<the comparison>&path=<rel>`: only a listed path, read under the
-reviewed checkout, on the diff's gutter, with a way back. `n` and `p` step this file's
+reviewed checkout, on its own one-number gutter — a file's two sides are the same number, so
+the second column and the sign would be blanks — wrapping by default, with the diff's own
+**wrap** button, the comparison in its footer and a way back. A file past the line cap says how
+many of how many lines it showed, when the read was whole; a binary or empty file says so.
+`n` and `p` step this file's
 hunks and `[` and `]` the whole review's, each moving the place to the hunk's first
 changed line, a third down the diff so the lines above it are read too; a deep link
 to a line lands the same way.
@@ -100,7 +104,8 @@ anyway. A surviving row anchors to its marked new number; a deleted line's ref s
 - A focused page (`?file=`) hides the other files without forgetting them; a moved diff can
   strand a comment or a draft on a line no hunk shows — it still sends, and is listed to delete.
 - At most 200 comments of 2,000 characters each, 200 changed files, and 4,000
-  diff lines per file; the page says what a cap left out. A conflicted file is listed and
+  diff lines per file — which is also the whole-file view's cap, and it names the total when
+  the read was whole. The page says what a cap left out. A conflicted file is listed and
   says it is unmerged — there are no rows to comment on until it is resolved.
 - In a repository with no commits yet, `staged` and `worktree` still render a page;
   `change`, `branch`, `last` and `uncommitted` name the commit they are missing.
@@ -110,7 +115,8 @@ anyway. A surviving row anchors to its marked new number; a deleted line's ref s
 ## Settings
 
 `base`, `diffContext`, `maxDiffLines`, and `maxFiles` come from the `code-review` section of
-`bytefly.json` — see [Configuration reference](../configuration-reference.md#code-review--what-a-review-compares).
+`bytefly.json` — `maxDiffLines` caps the diff and the whole-file view alike. See
+[Configuration reference](../configuration-reference.md#code-review--what-a-review-compares).
 
 ## Learn more
 

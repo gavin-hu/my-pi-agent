@@ -11,8 +11,9 @@
  * read, not an empty one.
  */
 
-import { renderDiffLines } from "../../../lib/diff/render.ts";
-import { detectLanguage, type HighlightLanguage } from "../../../lib/highlight.ts";
+import { renderDiffLines, type DiffGutter } from "../../../lib/diff/render.ts";
+import type { DiffLine } from "../../../lib/diff/parse.ts";
+import { detectLanguage } from "../../../lib/highlight.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
 import { plural } from "../../../lib/format.ts";
 import {
@@ -33,6 +34,8 @@ import { MAX_COMMENT_LENGTH, MAX_COMMENTS, MAX_QUOTE_LENGTH } from "../review/st
 import { fileHref, newHref, presetHref } from "../links.ts";
 import { REVIEW_PRESETS, presetTitle, type ReviewPreset, type ReviewScope } from "../scope.ts";
 import { REVIEW_CSS, REVIEW_NARROW_PX } from "./styles.ts";
+import { FILE_CLIENT_JS_PATH } from "./file-client.ts";
+import { wrapButton } from "./wrap.ts";
 
 /** What the client is told about the page; the island carries it as one value. */
 export interface ReviewData {
@@ -201,10 +204,7 @@ function fileSection(
 	} else if (file.truncated) {
 		notes.push(`<p class="rv-file__note">Showing the first ${rows.length} diff lines for this file.</p>`);
 	}
-	const body =
-		rows.length === 0
-			? ""
-			: `<pre class="bf-code bf-diff rv-diff" data-path="${escapeHtml(file.rel)}"><code>${renderDiffLines(rows, languageOf(file.rel))}</code></pre>`;
+	const body = rows.length === 0 ? "" : diffPre({ rel: file.rel, lines: rows });
 	// The last section carries the room a row in the last screenful needs to reach the reading
 	// line. It is the section's own child, not a sibling, so the file stays `:last-child` — the
 	// bar's inset rule and the cases that query it keep the box they measure (#930).
@@ -216,9 +216,31 @@ ${body}${tail}
 </section>`;
 }
 
-/** The language a path's diff is highlighted in, when the tokenizer knows it. */
-function languageOf(rel: string): HighlightLanguage | undefined {
-	return detectLanguage(rel);
+/**
+ * The `<pre>` a diff or a whole file is drawn in.
+ *
+ * One body for the classes the renderer's rules and the page's stylesheet both read, and for
+ * the one `<code>` the rendered rows go inside. A page that draws rows supplies those rules,
+ * so a second copy of the opening tag is how the class list drifts from them — and the file
+ * view is that second page.
+ */
+export function diffPre(options: {
+	rel: string;
+	lines: DiffLine[];
+	/** One column for a whole file, two sides for a comparison. */
+	gutter?: DiffGutter;
+	/** Extra attributes for the pre, their values escaped here. */
+	attrs?: Readonly<Record<string, string>>;
+	/** One extra class, after the three every diff pre wears. */
+	className?: string;
+}): string {
+	const extra = Object.entries(options.attrs ?? {})
+		.map(([key, value]) => ` ${key}="${escapeHtml(value)}"`)
+		.join("");
+	const klass =
+		options.className === undefined ? "bf-code bf-diff rv-diff" : `bf-code bf-diff rv-diff ${options.className}`;
+	const inner = renderDiffLines(options.lines, detectLanguage(options.rel), { gutter: options.gutter ?? "diff" });
+	return `<pre class="${klass}" data-path="${escapeHtml(options.rel)}"${extra}><code>${inner}</code></pre>`;
 }
 
 /** The scope switch: one tab per preset, the one this page was opened by pressed. */
@@ -282,7 +304,7 @@ export function renderReviewPage(input: ReviewPageInput): string {
     ${scopeSegments({ scope: snapshot.scope, preset: input.preset })}
   </div>
   <div class="bf-app__actions">
-    ${button({ label: "wrap", id: "rv-wrap", pressed: false, title: "Toggle line wrapping" })}
+    ${wrapButton({ pressed: false })}
     ${button({ label: "copy all", id: "rv-copy", title: "Copy every comment as Markdown" })}
     ${button({ label: `Send feedback ${drafts.length}`, variant: "primary", id: "rv-send", title: "Send these comments back to the session", attrs: { "data-count": String(drafts.length) } })}
   </div>`;
@@ -381,24 +403,63 @@ ${keysSheet(REVIEW_KEYS)}
 </html>`;
 }
 
-/** The document a scope with no answer serves: the reason, and how to leave it. */
-export function renderReviewProblem(base: string, title: string, message: string): string {
+/**
+ * The document a review-served page without a rail renders: the file view, and a refusal.
+ *
+ * One envelope, because the two pages carry the same head, footer and one script, and neither
+ * serves the key sheet. The zones the header and footer draw stay the page's own: what this
+ * owns is the pair of facts those two pages must not disagree about — `keys: false` for a
+ * sheet they do not include, and the file view's client, which is what makes the theme toggle
+ * on either page a control that does something.
+ */
+export function renderReviewDocument(options: {
+	base: string;
+	/** The page's subject: the tab title's, the heading's, and the identity row's one label. */
+	subject: string;
+	/** The header's facts zone, as trusted markup. */
+	facts: string;
+	/** The footer's one line. */
+	footer: string;
+	/** The page's own control row, when it has one. */
+	controls?: string;
+	/** The page's main content, already markup. */
+	main: string;
+}): string {
+	const { base, subject } = options;
 	return `<!doctype html>
 <html lang="en"${baseAttribute(base)}>
 <head>
-${docHead({ title: tabTitle("review", title), css: pageSheet(REVIEW_CSS), base })}
+${docHead({ title: tabTitle("review", subject), css: pageSheet(REVIEW_CSS), base })}
 </head>
 <body class="bf-app">
-<h1 class="sr-only">review — ${escapeHtml(title)}</h1>
-${appHead({ product: "review", subject: { label: title, title }, facts: "" })}
+<h1 class="sr-only">review — ${escapeHtml(subject)}</h1>
+${appHead({
+	product: "review",
+	subject: { label: subject, title: subject },
+	facts: options.facts,
+	keys: false,
+	...(options.controls === undefined ? {} : { controls: options.controls }),
+})}
 <main class="bf-app__main" id="rv-main">
-  <div class="bf-empty">
+${options.main}
+</main>
+${pageFooter({ facts: options.footer })}
+<script src="${escapeHtml(base)}${FILE_CLIENT_JS_PATH}" defer></script>
+</body>
+</html>`;
+}
+
+/** The document a scope with no answer serves: the reason, and how to leave it. */
+export function renderReviewProblem(base: string, title: string, message: string): string {
+	return renderReviewDocument({
+		base,
+		subject: title,
+		facts: "",
+		footer: "review",
+		main: `  <div class="bf-empty">
     <p class="bf-empty__title">${escapeHtml(title)}</p>
     <p class="bf-empty__sub">${escapeHtml(message)}</p>
     <p class="bf-empty__sub"><a href="${escapeHtml(base)}/new">Back to the review</a></p>
-  </div>
-</main>
-${pageFooter({ facts: "review" })}
-</body>
-</html>`;
+  </div>`,
+	});
 }

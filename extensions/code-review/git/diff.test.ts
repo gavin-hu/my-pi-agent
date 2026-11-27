@@ -290,14 +290,34 @@ describe("a whole file's text", () => {
 			],
 			binary: false,
 			truncated: false,
+			// A file read whole knows how much it holds, which is what the file view's cap names.
+			totalLines: 2,
 		});
 		expect(await reader.text("blob.bin")).toEqual({ kind: "text", lines: [], binary: true, truncated: false });
 		const long = await reader.text("long.txt");
 		if (long.kind !== "text") throw new Error("expected text");
 		expect(long.truncated).toBe(true);
 		expect(long.lines.length).toBeLessThan(40);
+		// The byte cap cut the read, so the whole file's line count is not known and is not guessed at.
+		expect(long.totalLines).toBeUndefined();
 		// A path the diff lists may be gone by the time the view asks for it.
 		expect(await reader.text("gone.ts")).toEqual({ kind: "failed", message: NO_TEXT });
+	});
+
+	test("names the total a line cap left out, and the one a byte cap cannot", async () => {
+		const repo = temps.track(await makeRepo());
+		writeFileSync(join(repo, "five.txt"), "1\n2\n3\n4\n5\n");
+		// The line cap shows the first two of five: the file was read whole, so the total is known.
+		const capped = await createReviewReaderFrom(runGit, repo, { maxLines: 2 }).text("five.txt");
+		if (capped.kind !== "text") throw new Error("expected text");
+		expect(capped.lines).toHaveLength(2);
+		expect(capped.truncated).toBe(true);
+		expect(capped.totalLines).toBe(5);
+		// No cap at all: nothing is missing, so the total is still the file's own count.
+		const whole = await createReviewReaderFrom(runGit, repo).text("five.txt");
+		if (whole.kind !== "text") throw new Error("expected text");
+		expect(whole.truncated).toBe(false);
+		expect(whole.totalLines).toBe(5);
 	});
 });
 
