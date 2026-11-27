@@ -226,8 +226,8 @@ export function keysButton(): string {
 }
 
 /** The app's chrome, in the identity row's last zone: the key sheet, then the theme toggle. */
-function toolbarChrome(): string {
-	return `<div class="bf-app__chrome">${keysButton()}${themeToggle()}</div>`;
+function toolbarChrome(keys: boolean): string {
+	return `<div class="bf-app__chrome">${keys ? keysButton() : ""}${themeToggle()}</div>`;
 }
 
 /** Options for {@link appHead}: the page's name, what it is of, and its own two rows. */
@@ -247,6 +247,14 @@ export interface AppHeadOptions {
 	identityClass?: string;
 	/** A page's own class on the control row, code-authored. */
 	controlsClass?: string;
+	/**
+	 * Whether the chrome zone carries the key sheet's `?`; the default is yes.
+	 *
+	 * A page that serves no sheet passes `false`: a trigger for a dialog the page never
+	 * includes is a control that does nothing, and the file view and the problem page are
+	 * both such pages.
+	 */
+	keys?: boolean;
 }
 
 /**
@@ -259,7 +267,7 @@ export interface AppHeadOptions {
  */
 export function appHead(options: AppHeadOptions): string {
 	const identity = options.identityClass === undefined ? "" : ` ${options.identityClass}`;
-	const row = `<header class="bf-app__head"><div class="bf-app__id${identity}">${brandLockup(options.product)}${pageSubject(options.subject)}<div class="bf-app__facts">${options.facts}</div>${toolbarChrome()}</div>`;
+	const row = `<header class="bf-app__head"><div class="bf-app__id${identity}">${brandLockup(options.product)}${pageSubject(options.subject)}<div class="bf-app__facts">${options.facts}</div>${toolbarChrome(options.keys !== false)}</div>`;
 	if (options.controls === undefined) return `${row}</header>`;
 	const controls = options.controlsClass === undefined ? "" : ` ${options.controlsClass}`;
 	return `${row}<div class="bf-app__rule"></div><div class="bf-app__ctl${controls}">${options.controls}</div></header>`;

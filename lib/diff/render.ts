@@ -71,9 +71,33 @@ function highlightDiffText(lines: DiffLine[], language?: HighlightLanguage): str
 	return out;
 }
 
-/** Render unified-diff lines with a two-column gutter and per-kind styling. */
-export function renderDiffLines(lines: DiffLine[], language?: HighlightLanguage): string {
+/**
+ * How a row's numbers are drawn: the diff's two sides, or the one column a whole file has.
+ *
+ * A whole file's old and new number are the same number, and its rows carry no sign, so the
+ * second column and the sign would be a gutter of blanks. The choice is the caller's because
+ * only it knows whether it is drawing a comparison or a file.
+ */
+export type DiffGutter = "diff" | "file";
+
+/** Options for {@link renderDiffLines}; absent is the diff's two-column gutter. */
+export interface DiffRenderOptions {
+	gutter?: DiffGutter;
+}
+
+/**
+ * Render unified-diff lines with a gutter and per-kind styling.
+ *
+ * The gutter is two number columns and a sign by default; `gutter: "file"` is the whole-file
+ * reading, one number and no sign, for a caller that is not drawing a comparison.
+ */
+export function renderDiffLines(
+	lines: DiffLine[],
+	language?: HighlightLanguage,
+	options: DiffRenderOptions = {},
+): string {
 	const html = highlightDiffText(lines, language);
+	const file = options.gutter === "file";
 	// Every hunk is a section so its sticky header is bounded by its own body;
 	// the section also gives the keyboard a stable, non-sticky scroll target.
 	const out: string[] = [];
@@ -87,8 +111,10 @@ export function renderDiffLines(lines: DiffLine[], language?: HighlightLanguage)
 			open = true;
 		}
 		const sign = line.kind === "add" ? "+" : line.kind === "del" ? "-" : line.kind === "ctx" ? " " : "";
-		const gutter = `<span class="browse-diff-no" aria-hidden="true">${line.oldNo ?? ""}</span><span class="browse-diff-no" aria-hidden="true">${line.newNo ?? ""}</span>`;
-		const marker = `<span class="browse-diff-sign" aria-hidden="true">${sign}</span>`;
+		const gutter = file
+			? `<span class="browse-diff-no" aria-hidden="true">${line.newNo ?? ""}</span>`
+			: `<span class="browse-diff-no" aria-hidden="true">${line.oldNo ?? ""}</span><span class="browse-diff-no" aria-hidden="true">${line.newNo ?? ""}</span>`;
+		const marker = file ? "" : `<span class="browse-diff-sign" aria-hidden="true">${sign}</span>`;
 		out.push(
 			`<span class="bf-code__line bf-diff-line bf-diff-line--${line.kind}">${gutter}${marker}${html[index]}</span>`,
 		);

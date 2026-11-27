@@ -166,6 +166,8 @@ export interface SeedComment {
 export async function mountReviewPage(
 	options: SnapshotOptions = {},
 	seed: readonly SeedComment[] = [],
+	/** The whole-file answer the file view reads; empty by default, as a review page never asks. */
+	fileText: DiffLine[] = [],
 ): Promise<ReviewPageFixture> {
 	let fingerprint = "rev-1";
 	let shape = options;
@@ -185,7 +187,7 @@ export async function mountReviewPage(
 	}
 	const reader = {
 		baseRef: async () => ({ kind: "ref" as const, ref: "main" }),
-		text: async () => ({ kind: "text" as const, lines: [], binary: false, truncated: false }),
+		text: async () => ({ kind: "text" as const, lines: fileText, binary: false, truncated: false }),
 		snapshot: async () => ({ kind: "snapshot" as const, snapshot: reviewSnapshot(fingerprint, shape) }),
 	};
 	const current: ReviewCurrent = {
@@ -356,14 +358,50 @@ export async function withReviewPage(
 	options: SnapshotOptions = {},
 	seed: readonly SeedComment[] = [],
 	live = false,
+	fileText: DiffLine[] = [],
 ): Promise<void> {
-	const fixture = await mountReviewPage(options, seed);
+	const fixture = await mountReviewPage(options, seed, fileText);
 	const page = await openReviewPage(browser, fixture, { stream: live });
 	try {
 		await run(page, fixture);
 	} finally {
 		await fixture.close();
 	}
+}
+
+/** The address of one file's whole text, on the origin the review page was served from. */
+export function fileAddress(pageUrl: string, rel: string): string {
+	const url = new URL(pageUrl);
+	url.pathname = `${REVIEW_MOUNT}/file`;
+	url.search = `?path=${encodeURIComponent(rel)}`;
+	return url.toString();
+}
+
+/**
+ * The fixture's file view: the page opened, the file address drawn, and the case run.
+ *
+ * The review page is opened first, because the file view reads the review that is open on the
+ * session — an address on its own answers "no review page is open". The ownership is
+ * `withReviewPage`'s, so a case cannot leave a fixture or a listener behind.
+ */
+export async function withFilePage(
+	browser: TestBrowser,
+	run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
+	fileText: DiffLine[],
+	rel = "a.ts",
+): Promise<void> {
+	await withReviewPage(
+		browser,
+		async (page, fixture) => {
+			await page.goto(fileAddress(fixture.url, rel), { waitUntil: "load" });
+			await page.waitForSelector("pre.rv-diff, .rv-file__note", { timeout: REVIEW_PAINT_MS });
+			await run(page, fixture);
+		},
+		{},
+		[],
+		false,
+		fileText,
+	);
 }
 
 /** Comment on the added line and leave the composer open with `text`. */
