@@ -45,15 +45,15 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/bytefly/block/block.test.ts": 561,
 	"extensions/bytefly/chrome.test.ts": 1185,
 	"extensions/bytefly/doctor/doctor.test.ts": 511,
-	"extensions/bytefly/footer/footer.test.ts": 2032,
-	"extensions/bytefly/notify/notify.test.ts": 461,
+	"extensions/bytefly/footer/footer.test.ts": 2031,
+	"extensions/bytefly/notify/notify.test.ts": 424,
 	"extensions/bytefly/panel/model.test.ts": 428,
-	"extensions/bytefly/update/update.test.ts": 1176,
+	"extensions/bytefly/update/update.test.ts": 1171,
 	"extensions/file-browse/files/files.test.ts": 731,
 	"extensions/file-browse/transport/router.test.ts": 850,
 	"extensions/file-browse/view/pages.test.ts": 1205,
 	"extensions/plan/web-page.test.ts": 408,
-	"extensions/file-read/tool.test.ts": 696,
+	"extensions/file-read/tool.test.ts": 678,
 	"extensions/goal/extension.test.ts": 724,
 	"extensions/goal/tools.test.ts": 792,
 	"extensions/memory/store.test.ts": 655,
@@ -62,20 +62,20 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/plan/extension.test.ts": 493,
 	"extensions/plan/feedback.test.ts": 499,
 	"extensions/plan/plans.test.ts": 1359,
-	"extensions/plan/tools.test.ts": 1472,
+	"extensions/plan/tools.test.ts": 1457,
 	"extensions/plan/tui.test.ts": 469,
 	"extensions/plan/web-behaviour.test.ts": 412,
 	"extensions/plan/web-session.test.ts": 417,
 	"extensions/question/view/question-screen.test.ts": 665,
-	"extensions/rewind/state/runtime.test.ts": 929,
+	"extensions/rewind/state/runtime.test.ts": 909,
 	"extensions/rewind/transport/store.test.ts": 628,
-	"extensions/session-bus/extension.test.ts": 411,
+	"extensions/session-bus/extension.test.ts": 403,
 	// #799's cases — the mark, the unmarked quiet, and the pair that holds the listing and the refusal
 	// together — took this suite past the bar, and they belong with the listing they assert.
 	"extensions/session-bus/format.test.ts": 437,
 	"extensions/session-bus/runtime.test.ts": 959,
 	"extensions/subagent/agents.test.ts": 438,
-	"extensions/subagent/extension.test.ts": 760,
+	"extensions/subagent/extension.test.ts": 740,
 	"extensions/subagent/render.test.ts": 599,
 	"extensions/subagent/run.test.ts": 917,
 	"extensions/web-access/fetch/fetch.test.ts": 1097,
@@ -117,9 +117,11 @@ const LONG_SUITES: Record<string, number> = {
  * ledger measures 42,268 + 4,274 = 46,542 against it, because the declared half carried 1,217
  * lines of headroom when the root half joined. The gap is history rather than permission — a
  * split lowers the ceiling, and nothing raises it again. `extensions/plan/commands.test.ts` came
- * down 48 that way when its runtime double moved to `test/helpers/plan-command.ts` (#862).
+ * down 48 that way when its runtime double moved to `test/helpers/plan-command.ts` (#862). The
+ * `any` ban's pass moved eight suites' doubles into `test/helpers/` for the same reason and took
+ * 124 more off it.
  */
-const LONG_SUITE_TOTAL = 47460;
+const LONG_SUITE_TOTAL = 47336;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 

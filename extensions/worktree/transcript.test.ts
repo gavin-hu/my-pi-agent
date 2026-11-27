@@ -12,9 +12,17 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import type { TSchema } from "typebox";
 import { createFakePi, fakeTheme as theme, toolRenderContext } from "../../test/helpers/fakes.ts";
 import { registerTools } from "./tools.ts";
+
+/**
+ * The registered `worktree` tool: a case passes the arguments an action reads, and the
+ * details the host hands the renderer, which the registration types as `unknown`.
+ */
+type WorktreeTool = ToolDefinition<TSchema> & Required<Pick<ToolDefinition, "renderCall" | "renderResult">>;
 
 /** The widths a transcript is drawn at: wide, split, and narrow. */
 const WIDTHS = [80, 48, 40];
@@ -32,24 +40,24 @@ const STATE = {
 };
 
 /** The `worktree` tool as Pi registers it, with no session and no git. */
-function worktreeTool(): any {
+function worktreeTool(): WorktreeTool {
 	const fake = createFakePi();
-	registerTools(fake.pi as any);
+	registerTools(fake.pi);
 	const tool = fake.tools.get("worktree");
 	if (!tool) throw new Error("the worktree tool was not registered");
 	return tool;
 }
 
 /** One result, drawn collapsed or expanded at a width. */
-function draw(tool: any, details: unknown, width: number, expanded = false): string[] {
-	const result = { content: [{ type: "text", text: "the model's copy" }], details };
+function draw(tool: WorktreeTool, details: unknown, width: number, expanded = false): string[] {
+	const result = { content: [{ type: "text" as const, text: "the model's copy" }], details };
 	return tool
 		.renderResult(result, { expanded, isPartial: false }, theme, toolRenderContext({ expanded }))
 		.render(width);
 }
 
 /** One call line at a width. */
-function call(tool: any, args: Record<string, unknown>, width: number): string[] {
+function call(tool: WorktreeTool, args: Record<string, unknown>, width: number): string[] {
 	return tool.renderCall(args, theme, toolRenderContext()).render(width);
 }
 

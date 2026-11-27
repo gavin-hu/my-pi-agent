@@ -5,6 +5,7 @@ import pkg from "../../../package.json";
 import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { tempDir } from "../../../test/helpers/env.ts";
+import { noticeOf } from "../../../test/helpers/fixtures/update.ts";
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { makeFakePi } from "../../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
@@ -511,12 +512,6 @@ function boot(options: BootOptions = {}) {
 		start,
 		shutdown,
 	};
-}
-
-/** The notice the surface posted, when there is exactly one. */
-function noticeOf(customMessages: unknown[]): { customType: string; content: string; details: any } {
-	expect(customMessages).toHaveLength(1);
-	return (customMessages[0] as { message: any }).message;
 }
 
 /** The cache key the default test context produces. */

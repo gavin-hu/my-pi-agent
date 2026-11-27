@@ -12,9 +12,16 @@ import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { onRailsSuppressed } from "../../lib/rails.ts";
 import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
-import { createFakePi, emit, emitFirst, fakeTheme, type AnyHandler } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit, emitFirst, type AnyHandler, recordSent } from "../../test/helpers/fakes.ts";
+import { mountCustom } from "../../test/helpers/context.ts";
 import { makeCtx, jobRecord, makeHarnessSuite, save } from "../../test/helpers/fixtures/job.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
+
+/** A context message as the notices case reads it: its source tag and its text. */
+interface NoticeMessage {
+	content: string;
+	details?: { source?: string };
+}
 
 const suite = makeHarnessSuite();
 const temps = makeTempTracker();
@@ -169,8 +176,7 @@ describe("jobs extension", () => {
 
 	test("announces and wakes a job killed as an orphan at load", async () => {
 		const { h, pi, ctx } = setup();
-		const sent: Array<{ message: any; options: any }> = [];
-		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
+		const sent = recordSent(pi);
 		const seen: unknown[] = [];
 		pi.events.on(JOB_FINISHED_CHANNEL, (data: unknown) => seen.push(data));
 		// A dead session's non-detached job: `session_start` starts the load, which kills it and
@@ -199,18 +205,17 @@ describe("jobs extension", () => {
 		const result = await emitFirst(pi, "context", { messages }, ctx);
 		expect(result.messages).toHaveLength(3);
 		// Another source's notice is left alone.
-		expect(result.messages.some((message: any) => message.details?.source === "watch")).toBe(true);
+		expect(result.messages.some((message: NoticeMessage) => message.details?.source === "watch")).toBe(true);
 		expect(
 			result.messages
-				.filter((message: any) => message.details?.source === "job")
-				.map((message: any) => message.content),
+				.filter((message: NoticeMessage) => message.details?.source === "job")
+				.map((message: NoticeMessage) => message.content),
 		).toEqual(["new"]);
 	});
 
 	test("wakes the agent when a wake job finishes while idle", async () => {
 		const { h, pi, ctx } = setup();
-		const sent: Array<{ message: any; options: any }> = [];
-		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
+		const sent = recordSent(pi);
 
 		await emit(pi, "session_start", {}, ctx);
 		await h.runtime.start({ command: "sleep 1", wake: true }, ctx);
@@ -223,8 +228,7 @@ describe("jobs extension", () => {
 
 	test("a wake job that finishes during a turn wakes once at settle", async () => {
 		const { h, pi, ctx } = setup();
-		const sent: Array<{ message: any; options: any }> = [];
-		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
+		const sent = recordSent(pi);
 
 		await emit(pi, "session_start", {}, ctx);
 		await emit(pi, "agent_start", {}, ctx);
@@ -250,8 +254,7 @@ describe("jobs extension", () => {
 
 	test("an aborted run leaves a wake job for the next turn", async () => {
 		const { h, pi, ctx } = setup();
-		const sent: Array<{ message: any; options: any }> = [];
-		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
+		const sent = recordSent(pi);
 
 		await emit(pi, "session_start", {}, ctx);
 		await emit(pi, "agent_start", {}, ctx);
@@ -267,8 +270,7 @@ describe("jobs extension", () => {
 
 	test("wake reports other pending completions instead of dropping them", async () => {
 		const { h, pi, ctx } = setup();
-		const sent: Array<{ message: any }> = [];
-		pi.sendMessage = (message: any) => sent.push({ message });
+		const sent = recordSent(pi);
 
 		await emit(pi, "session_start", {}, ctx);
 		// j1 finishes first and is not yet reported; j2 wakes the agent.
@@ -284,8 +286,7 @@ describe("jobs extension", () => {
 
 	test("wakes once when two wake jobs finish in the same tick", async () => {
 		const { h, pi, ctx } = setup();
-		const sent: Array<{ message: any; options: any }> = [];
-		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
+		const sent = recordSent(pi);
 
 		await emit(pi, "session_start", {}, ctx);
 		await h.runtime.start({ command: "a", wake: true }, ctx);
@@ -378,10 +379,7 @@ describe("jobs command", () => {
 		await h.runtime.load(ctx);
 		await h.runtime.start({ command: "sleep 1" }, ctx);
 
-		let component: JobListComponent | undefined;
-		ctx.ui.custom = async (factory: any) => {
-			component = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
-		};
+		const screen = mountCustom(ctx, { rows: 24 });
 		const suppressed: boolean[] = [];
 		onRailsSuppressed(pi, (value) => suppressed.push(value));
 
@@ -392,8 +390,9 @@ describe("jobs command", () => {
 			jest.useRealTimers();
 		}
 
+		const component = screen.component();
 		expect(component).toBeInstanceOf(JobListComponent);
-		expect(component?.render(60).join("\n")).toContain("j1");
+		expect(component.render(60).join("\n")).toContain("j1");
 		expect(suppressed).toEqual([true, false]);
 	});
 });

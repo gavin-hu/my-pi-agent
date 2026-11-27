@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { fakeTheme as theme } from "../../../test/helpers/fakes.ts";
+import { fakeTheme as theme, mouseEvent } from "../../../test/helpers/fakes.ts";
 import { formatCallText, formatTodoList, formatTodoText, progressSummary, todoRailLines } from "../format.ts";
 import { TodoResult } from "../render.ts";
 import { TodoWidget } from "../widget.ts";
@@ -228,10 +228,10 @@ describe("TodoListComponent", () => {
 			() => renders++,
 		);
 		component.render(60);
-		expect(component.handleMouse({ type: "wheel", wheelDelta: 2 } as any)).toEqual({ handled: true });
+		expect(component.handleMouse(mouseEvent({ type: "wheel", wheelDelta: 2 }))).toEqual({ handled: true });
 		expect(renders).toBe(1);
 		expect(component.render(60).join("\n")).toContain("item 2");
-		expect(component.handleMouse({ type: "click", button: "left" } as any)).toBeUndefined();
+		expect(component.handleMouse(mouseEvent({ type: "click", button: "left" }))).toBeUndefined();
 	});
 
 	test("drops the title instead of ellipsizing the border when very narrow", () => {

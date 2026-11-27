@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { callTool } from "../../test/helpers/tools.ts";
@@ -14,12 +15,14 @@ import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
+import { fakeCtx, mountCustom } from "../../test/helpers/context.ts";
 import { tempDir, useEnv, withEnv } from "../../test/helpers/env.ts";
 import { emit, fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
 import {
 	assistantMessage,
 	fakeToolCtx,
+	headlessToolCtx,
+	projectToolCtx,
 	registerSubagentTool as register,
 } from "../../test/helpers/fixtures/subagent.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -51,7 +54,7 @@ function failure(agent: string, message: string): SingleResult {
 	};
 }
 
-function call(tool: any, params: unknown, ctx = fakeToolCtx()): Promise<any> {
+function call(tool: unknown, params: unknown, ctx: unknown = fakeToolCtx()) {
 	return callTool(tool, params, ctx);
 }
 
@@ -258,22 +261,6 @@ describe("subagent project agents", () => {
 		return root;
 	}
 
-	function projectCtx(root: string, trusted: boolean, onConfirm: () => void): any {
-		return {
-			cwd: root,
-			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
-			thinkingLevel: "medium",
-			hasUI: true,
-			isProjectTrusted: () => trusted,
-			ui: {
-				confirm: async () => {
-					onConfirm();
-					return false;
-				},
-			},
-		};
-	}
-
 	test("asks before running a project agent and cancels on decline", async () => {
 		const root = projectRepo();
 		let confirmed = 0;
@@ -281,7 +268,7 @@ describe("subagent project agents", () => {
 		const result = await call(
 			tool,
 			{ agent: "auditor", task: "x", agentScope: "both" },
-			projectCtx(root, false, () => confirmed++),
+			projectToolCtx(root, false, () => confirmed++),
 		);
 		expect(confirmed).toBe(1);
 		expect(result.content[0].text).toContain("not approved");
@@ -290,14 +277,7 @@ describe("subagent project agents", () => {
 	test("refuses project agents without a UI for an untrusted project", async () => {
 		const root = projectRepo();
 		const tool = register(async (options) => success(options.agentName, "ok"));
-		const headless: any = {
-			cwd: root,
-			model: { provider: "anthropic", id: "claude-sonnet-4-5" },
-			thinkingLevel: "medium",
-			hasUI: false,
-			isProjectTrusted: () => false,
-			ui: { confirm: async () => true },
-		};
+		const headless = headlessToolCtx(root);
 		const result = await call(tool, { agent: "auditor", task: "x", agentScope: "both" }, headless);
 		expect(result.content[0].text).toContain("Refusing");
 	});
@@ -309,7 +289,7 @@ describe("subagent project agents", () => {
 		const result = await call(
 			tool,
 			{ agent: "auditor", task: "x", agentScope: "both" },
-			projectCtx(root, true, () => confirmed++),
+			projectToolCtx(root, true, () => confirmed++),
 		);
 		expect(confirmed).toBe(0);
 		expect(result.content[0].text).toBe("ok");
@@ -372,7 +352,7 @@ describe("subagent accounting", () => {
 	}
 
 	/** Record every event a tool emits, by wrapping its `pi.events.emit`. */
-	function recordEvents(tool: any): unknown[] {
+	function recordEvents(tool: { pi: ExtensionAPI }): unknown[] {
 		const seen: unknown[] = [];
 		tool.pi.events.on(SUBAGENT_FINISHED_CHANNEL, (event: unknown) => seen.push(event));
 		return seen;
@@ -532,13 +512,13 @@ describe("/agents", () => {
 		const { runtime, calls } = runtimeFor();
 		const { fake, command } = commandFor(runtime);
 		const ctx = fakeCtx({ mode: "tui", hasUI: true, branch: [] }).ctx;
-		ctx.ui.custom = async (factory: any) => {
-			await new Promise((resolve) => {
-				const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, ctx.ui.theme, {}, resolve);
+		mountCustom(ctx, {
+			rows: 40,
+			mounted: (component) => {
 				component.handleInput("j");
 				component.handleInput("c");
-			});
-		};
+			},
+		});
 
 		await command.handler("", ctx);
 
@@ -550,13 +530,13 @@ describe("/agents", () => {
 		const { runtime, calls } = runtimeFor();
 		const { command } = commandFor(runtime);
 		const ctx = fakeCtx({ mode: "tui", hasUI: true, branch: [] }).ctx;
-		ctx.ui.custom = async (factory: any) => {
-			await new Promise((resolve) => {
-				const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, ctx.ui.theme, {}, resolve);
+		mountCustom(ctx, {
+			rows: 40,
+			mounted: (component) => {
 				component.handleInput("x");
 				component.handleInput("\u001b");
-			});
-		};
+			},
+		});
 
 		await command.handler("", ctx);
 

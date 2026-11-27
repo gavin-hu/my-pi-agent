@@ -10,6 +10,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { NOTICE_TYPE } from "../../../lib/notice.ts";
@@ -19,6 +20,7 @@ import { scratchDir, withAgentDir } from "../../../test/helpers/env.ts";
 import { fakeTheme, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
 import {
 	fullSnapshot,
+	readerFooterData,
 	usageOf,
 	usdPrice,
 	withRegisteredFooter,
@@ -44,7 +46,7 @@ import type { ByteflyConfig, ModelRates } from "./price/types.ts";
 import { createFooter } from "./render/footer.ts";
 import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, truncateLabel } from "./render/format.ts";
 import { RenderCache } from "../../../lib/tui/render-cache.ts";
-import type { StatusSnapshot } from "./types.ts";
+import type { FooterData, StatusSnapshot } from "./types.ts";
 import { snapshotKey } from "./render/key.ts";
 import { renderLine } from "./render/layout.ts";
 import { buildLines } from "./render/lines.ts";
@@ -819,7 +821,7 @@ describe("snapshot reader", () => {
 	});
 	const assistant = (usage: unknown) => ({ type: "message", message: { role: "assistant", usage } });
 
-	function makeCtx(overrides: Record<string, unknown> = {}): any {
+	function makeCtx(overrides: Record<string, unknown> = {}): ExtensionContext {
 		return {
 			cwd: "/home/u/repo/project",
 			model: { id: "opus-4.5", provider: "anthropic", contextWindow: 200000, reasoning: true },
@@ -832,17 +834,12 @@ describe("snapshot reader", () => {
 				getEntries: () => [assistant(u(100, 50, 100, 0, 0.01))],
 			},
 			...overrides,
-		};
+		} as unknown as ExtensionContext;
 	}
 
-	const footerData: any = {
-		getGitBranch: () => "main",
-		getExtensionStatuses: () => new Map([["worktree", "⑂ smoke"]]),
-		getAvailableProviderCount: () => 2,
-		onBranchChange: () => () => {},
-	};
+	const footerData = readerFooterData;
 
-	const millionTokens = (): any =>
+	const millionTokens = (): ExtensionContext =>
 		makeCtx({
 			sessionManager: {
 				getSessionId: () => "sess",
@@ -948,7 +945,9 @@ describe("snapshot reader", () => {
 		read(ctx, footerData);
 		expect(estimates).toBe(2);
 
-		ctx.model = { ...ctx.model, id: "sonnet-4.5" };
+		// The reader prices by the model's id and draws its provider and reasoning flag, which
+		// are the three the double carries.
+		ctx.model = { ...ctx.model, id: "sonnet-4.5" } as ExtensionContext["model"];
 		read(ctx, footerData);
 		expect(estimates).toBe(3);
 	});
@@ -1179,7 +1178,7 @@ describe("footer segments", () => {
 		expect(branchSegment(fullSnapshot({ branch: null }), fakeTheme)).toBeNull();
 		expect(branchSegment(fullSnapshot(), fakeTheme)?.forms).toEqual([`${GLYPHS.branch} main`]);
 
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		const detached = branchSegment(fullSnapshot({ branch: "detached" }), theme);
 		expect(detached?.forms).toEqual([`${GLYPHS.detached} detached`]);
 		expect(theme.calls).toContainEqual(["warning", GLYPHS.detached]);
@@ -1207,7 +1206,7 @@ describe("footer segments", () => {
 	});
 
 	test("paints the glyph as success and the port as accent", () => {
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		const statuses = new Map([[STATUS_KEYS.http, `${GLYPHS.http} 4780`]]);
 		portsSegment(fullSnapshot({ statuses }), theme);
 
@@ -1251,7 +1250,7 @@ describe("footer segments", () => {
 	});
 
 	test("draws the plan mode in warning, whatever the chip carries", () => {
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		const themed = `\x1b[33m${GLYPHS.plan} plan · add-rate-limiting\x1b[39m`;
 		const plan = modeSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }), theme);
 		expect(plan?.forms).toEqual([`${GLYPHS.plan} plan`, GLYPHS.plan]);
@@ -1265,7 +1264,7 @@ describe("footer segments", () => {
 	});
 
 	test("names auto in meta when no plan chip is published", () => {
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		expect(modeSegment(fullSnapshot({ statuses: new Map() }), fakeTheme)?.forms).toEqual([`${GLYPHS.autoMode} auto`]);
 
 		modeSegment(fullSnapshot({ statuses: new Map() }), theme);
@@ -1293,7 +1292,7 @@ describe("footer segments", () => {
 		);
 		expect(unknown.forms).toEqual(["?"]);
 
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		contextSegment(fullSnapshot({ context: { tokens: 190000, contextWindow: 200000, percent: 95 } }), theme);
 		expect(theme.calls).toContainEqual(["error", "95%"]);
 	});
@@ -1311,7 +1310,7 @@ describe("footer segments", () => {
 		expect(costSegment(fullSnapshot({ currency: { code: "CNY", decimals: 2 } }), fakeTheme)?.forms).toEqual(["¥0.31"]);
 		// What the session spent is a reading, not a warning: only the unpriced count
 		// turns `warn`.
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		costSegment(fullSnapshot(), theme);
 		expect(theme.calls).toContainEqual(["muted", "$0.31"]);
 	});
@@ -1415,22 +1414,22 @@ describe("footer segments", () => {
 			thinkingSegment(fullSnapshot({ model: { id: "gpt-4o", provider: "openai", reasoning: false } }), fakeTheme),
 		).toBeNull();
 
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		const off = thinkingSegment(fullSnapshot({ thinkingLevel: null }), theme);
 		expect(off?.forms).toEqual(["off"]);
 		expect(theme.calls).toContainEqual(["thinkingOff", "off"]);
 
-		const high = makeRecordingTheme() as any;
+		const high = makeRecordingTheme();
 		thinkingSegment(fullSnapshot(), high);
 		expect(high.calls).toContainEqual(["thinkingHigh", "high"]);
 	});
 
 	test("colors a missing model as muted and the model as accent", () => {
-		const missing = makeRecordingTheme() as any;
+		const missing = makeRecordingTheme();
 		modelSegment(fullSnapshot({ model: undefined }), missing);
 		expect(missing.calls).toContainEqual(["muted", "no model"]);
 
-		const model = makeRecordingTheme() as any;
+		const model = makeRecordingTheme();
 		modelSegment(fullSnapshot(), model);
 		expect(model.calls).toContainEqual(["accent", "opus-4.5"]);
 	});
@@ -1819,11 +1818,11 @@ describe("line layout", () => {
 describe("footer component", () => {
 	test("renders two lines from a fresh snapshot and follows the live theme", () => {
 		let snapshot = fullSnapshot();
-		let theme: any = makeRecordingTheme();
+		let theme: Theme = makeRecordingTheme();
 		let renders = 0;
 		let branchChanged: (() => void) | undefined;
 		let unsubscribed = 0;
-		const footerData: any = {
+		const footerData: FooterData = {
 			getGitBranch: () => snapshot.branch,
 			getExtensionStatuses: () => snapshot.statuses,
 			getAvailableProviderCount: () => snapshot.providerCount,

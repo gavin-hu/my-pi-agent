@@ -9,6 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { mouseEvent } from "../../../test/helpers/fakes.ts";
 import { buildPanel, enabledItem, focusPanel, selectedLine } from "../../../test/helpers/fixtures/panel.ts";
 import { fakeSettingsSurface, settingsSnapshot } from "../../../test/helpers/fixtures/settings.ts";
 import { settle } from "../../../test/helpers/process.ts";
@@ -213,7 +214,7 @@ describe("PanelComponent settings review", () => {
 		const before = selectedLine(component);
 
 		for (const y of [rangeY, hintY]) {
-			expect(component.handleMouse({ type: "click", button: "left", x: 10, y } as any)).toBeUndefined();
+			expect(component.handleMouse(mouseEvent({ type: "click", button: "left", x: 10, y }))).toBeUndefined();
 		}
 		expect(selectedLine(component)).toBe(before);
 	});

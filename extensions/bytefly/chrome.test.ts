@@ -13,7 +13,7 @@ import {
 import type { NoticeDetails, NoticeSeverity } from "../../lib/notice.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
-import { coloringTheme, createFakePi, emit, fakeMarkdownTheme, fakeTheme } from "../../test/helpers/fakes.ts";
+import { coloringTheme, createFakePi, emit, fakeMarkdownTheme, fakeTheme, fakeTui } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import {
@@ -360,7 +360,7 @@ describe("ByteflyHeader", () => {
 	});
 
 	test("reads the live theme on every render", () => {
-		let theme: any = fakeTheme;
+		let theme = fakeTheme;
 		const component = new ByteflyHeader(
 			() => theme,
 			() => view(),
@@ -493,7 +493,7 @@ describe("bytefly header factory", () => {
 		);
 
 		expect(typeof factory).toBe("function");
-		expect(factory({ requestRender: () => {} } as any, fakeTheme).render(80)).toHaveLength(7);
+		expect(factory(fakeTui(), fakeTheme).render(80)).toHaveLength(7);
 	});
 
 	test("reads the terminal height from the host", () => {
@@ -501,7 +501,7 @@ describe("bytefly header factory", () => {
 			() => fakeTheme,
 			(rows) => view({ rows }),
 		);
-		const host = { requestRender: () => {}, terminal: { rows: 18 } } as any;
+		const host = fakeTui(18);
 
 		expect(factory(host, fakeTheme).render(80)).toHaveLength(5);
 	});

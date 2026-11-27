@@ -58,6 +58,19 @@ interface Ban {
 	reason: string;
 }
 
+/**
+ * `any` in a suite is a double that stops checking: a fake still answers a member that moved and
+ * nothing fails (`as unknown as` reaches the same place, which is why the ban below reads the cast
+ * too). `test/` is out of this scan on purpose — its helpers *are* the seams and the doubles, and
+ * `process.ts` arms the real timer the ban above forbids in a test — so what this reaches is a
+ * suite over shipped code, which is where a host interface moves under a fake.
+ */
+const ANY_BAN: Ban = {
+	name: "any",
+	matches: (line) => /\bas\s+any\b|:\s*any\b|<any>/.test(line),
+	reason: "name the host type, or `Partial<Iface>`/`Pick<>` on the interface; one helper owns the double",
+};
+
 const BANS: Ban[] = [
 	{
 		name: "mock.module",
@@ -92,6 +105,7 @@ const BANS: Ban[] = [
 		matches: (line) => /\bfg\s*:/.test(line),
 		reason: "use fakeTheme from test/helpers/fakes.ts",
 	},
+	ANY_BAN,
 	{
 		// A double is the one place a moved interface can hide: `as unknown as` skips every member, so
 		// a fake that still answers the old shape typechecks forever (jack, #859/#860). The ban reads
@@ -208,6 +222,17 @@ function scanBans(file: string, bans: Ban[] = BANS, exempt: Set<string> = EXEMPT
 }
 
 describe("test conventions", () => {
+	test("the any case catches a cast, a typed fake, and a generic, and not prose", () => {
+		// A ban that fires on nothing is the failure this case refuses: the sweep below reads green
+		// with or without the rule.
+		expect(ANY_BAN.matches("const ctx = fakeCtx() as any;")).toBe(true);
+		expect(ANY_BAN.matches("\tlet component: any;")).toBe(true);
+		expect(ANY_BAN.matches("function call(tool: unknown): Promise<any> {")).toBe(true);
+		expect(ANY_BAN.matches("\tconst xs: any[] = [];")).toBe(true);
+		expect(ANY_BAN.matches("\t// `any` at a boundary is never right")).toBe(false);
+		expect(ANY_BAN.matches("\tconst anything = unknown;")).toBe(false);
+	});
+
 	test("test files avoid the banned test patterns", () => {
 		const offenders: string[] = [];
 		for (const dir of SCANNED_DIRS) {

@@ -7,22 +7,14 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { fakeCtx } from "../../../test/helpers/context.ts";
-import { fakeTheme, makeFakePi } from "../../../test/helpers/fakes.ts";
+import { fakeCtx, mountCustom } from "../../../test/helpers/context.ts";
+import { makeFakePi } from "../../../test/helpers/fakes.ts";
 import { bootPanel, commandDiscovery, fakeDoctor, fakeUpdate, pathRow } from "../../../test/helpers/fixtures/panel.ts";
 import { fakeSettings } from "../../../test/helpers/fixtures/settings.ts";
 import { makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeDiscovery, makeStore } from "../../../test/helpers/fixtures/picker.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import { registerPanel } from "./commands.ts";
-
-/** The host's custom-UI factory, narrowed to what these tests drive. */
-type ScreenFactory = (
-	tui: { requestRender: () => void; terminal: { rows: number } },
-	theme: typeof fakeTheme,
-	keybindings: Record<string, never>,
-	done: (result?: void) => void,
-) => { render: (width: number) => string[]; handleInput: (data: string) => void };
 
 describe("bytefly panel refresh", () => {
 	test("re-probes when refresh is asked for", async () => {
@@ -61,11 +53,10 @@ describe("bytefly panel probing", () => {
 			settings: () => fakeSettings(),
 		});
 		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
-		ctx.ui.custom = async (factory: any) => {
-			events.push("mount");
-			factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			return undefined;
-		};
+		mountCustom(ctx, {
+			rows: 40,
+			opening: () => events.push("mount"),
+		});
 
 		await commands.get("bytefly").handler("", ctx);
 
@@ -82,13 +73,10 @@ describe("bytefly panel probing", () => {
 			settings: () => fakeSettings(),
 		});
 		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
-		let component: any;
-		ctx.ui.custom = async (factory: any) => {
-			component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			return undefined;
-		};
+		const screen = mountCustom(ctx, { rows: 40 });
 
 		await commands.get("bytefly").handler("settings", ctx);
+		const component = screen.component();
 		expect(refreshes).toEqual([]);
 
 		component.handleInput("\u001b[D");
@@ -108,11 +96,12 @@ describe("bytefly panel probing", () => {
 		});
 		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
 		let rendered = "";
-		ctx.ui.custom = async (factory: any) => {
-			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			rendered = component.render(80).join("\n");
-			return undefined;
-		};
+		mountCustom(ctx, {
+			rows: 40,
+			mounted: (component) => {
+				rendered = component.render(80).join("\n");
+			},
+		});
 
 		await commands.get("bytefly").handler("", ctx);
 
@@ -136,14 +125,15 @@ describe("bytefly panel probing", () => {
 			settings: () => fakeSettings(),
 		});
 		const { ctx, notifications } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
-		let component: any;
-		ctx.ui.custom = async (factory: any) => {
-			component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			await settle();
-			return undefined;
-		};
+		const screen = mountCustom(ctx, {
+			rows: 40,
+			mounted: async () => {
+				await settle();
+			},
+		});
 
 		await commands.get("bytefly").handler("", ctx);
+		const component = screen.component();
 
 		expect(component.render(80).join("\n")).toContain("Could not refresh: probe exploded");
 		expect(notifications).toEqual([]);
@@ -165,13 +155,10 @@ describe("bytefly panel probing", () => {
 			settings: () => fakeSettings(),
 		});
 		const { ctx, notifications } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
-		let component: any;
-		ctx.ui.custom = async (factory: any) => {
-			component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			return undefined;
-		};
+		const screen = mountCustom(ctx, { rows: 40 });
 
 		await commands.get("bytefly").handler("", ctx);
+		const component = screen.component();
 		component.render(80);
 		component.handleInput(" ");
 		await settle();
@@ -190,10 +177,7 @@ describe("bytefly panel probing", () => {
 			settings: () => fakeSettings(),
 		});
 		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
-		ctx.ui.custom = async (factory: any) => {
-			factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			return undefined;
-		};
+		mountCustom(ctx, { rows: 40 });
 
 		await commands.get("bytefly").handler("refresh", ctx);
 
@@ -210,10 +194,7 @@ describe("bytefly panel probing", () => {
 			settings: () => fakeSettings(),
 		});
 		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
-		ctx.ui.custom = async (factory: any) => {
-			factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			return undefined;
-		};
+		mountCustom(ctx, { rows: 40 });
 
 		await commands.get("bytefly").handler("refresh", ctx);
 
@@ -247,20 +228,21 @@ describe("bytefly panel reload", () => {
 				},
 			},
 		});
-		ctx.ui.custom = async (factory: ScreenFactory) => {
-			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			component.render(80);
-			component.handleInput(" ");
-			await settle();
-			await settle();
-			component.handleInput("R");
-			await settle();
-			// The press goes through the screen's own seam: one confirm, one reload.
-			expect(confirms).toHaveLength(1);
-			expect(confirms[0].title).toContain("Reload to apply changes?");
-			expect(reloaded).toBe(1);
-			return undefined;
-		};
+		mountCustom(ctx, {
+			rows: 40,
+			mounted: async (component) => {
+				component.render(80);
+				component.handleInput(" ");
+				await settle();
+				await settle();
+				component.handleInput("R");
+				await settle();
+				// The press goes through the screen's own seam: one confirm, one reload.
+				expect(confirms).toHaveLength(1);
+				expect(confirms[0].title).toContain("Reload to apply changes?");
+				expect(reloaded).toBe(1);
+			},
+		});
 
 		await commands.get("bytefly").handler("", ctx);
 	});
@@ -285,13 +267,14 @@ describe("bytefly panel reload", () => {
 				},
 			},
 		});
-		ctx.ui.custom = async (factory: ScreenFactory) => {
-			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			component.render(80);
-			component.handleInput("R");
-			expect(component.render(80).join("\n")).toContain("Nothing to apply; change something first.");
-			return undefined;
-		};
+		mountCustom(ctx, {
+			rows: 40,
+			mounted: (component) => {
+				component.render(80);
+				component.handleInput("R");
+				expect(component.render(80).join("\n")).toContain("Nothing to apply; change something first.");
+			},
+		});
 
 		await commands.get("bytefly").handler("", ctx);
 
@@ -343,11 +326,12 @@ describe("bytefly panel reload", () => {
 				},
 			},
 		});
-		ctx.ui.custom = async (factory: any) => {
-			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
-			component.handleInput("\u001b");
-			return undefined;
-		};
+		mountCustom(ctx, {
+			rows: 40,
+			mounted: (component) => {
+				component.handleInput("\u001b");
+			},
+		});
 
 		await commands.get("bytefly").handler("settings", ctx);
 

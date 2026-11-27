@@ -131,7 +131,7 @@ describe("/team join", () => {
 		// Naming the session is the point of this door: a typed label is also Pi's own name.
 		expect(naming).toEqual([true]);
 		// The name a session joins under is the bar's vocabulary now, so the join is what puts it on
-		// the team: any label a person types is one the footer can draw.
+		// the team: the label a person types is one the footer can draw.
 		expect(notifications.at(-1)).toBe(
 			"team: on the team as billing-core, listening. team.teammates now holds it, so the bar names you.",
 		);

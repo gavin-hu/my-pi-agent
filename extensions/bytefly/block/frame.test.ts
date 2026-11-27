@@ -8,17 +8,23 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import type { ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import bytefly from "../index.ts";
 import { createFakePi, fakeTheme, toolRenderContext } from "../../../test/helpers/fakes.ts";
 
+/** A frame's two renderers, both of which the fallback installs. */
+type Frame = Required<Pick<ToolRenderers, "renderCall" | "renderResult">>;
+
 /** The resolver bytefly registers, with no tool behind a name it does not know. */
-function frame(): any {
+function frame(): (toolName: string, next: () => ToolRenderers | undefined) => Frame {
 	const fake = createFakePi();
-	bytefly(fake.pi as any);
-	const resolver: any = fake.toolRenderers[0];
+	bytefly(fake.pi);
+	const resolver = fake.toolRenderers[0];
 	if (!resolver) throw new Error("bytefly registered no tool frame");
-	return resolver;
+	// The fallback draws a call and a result for every name, so the resolver's optional
+	// halves are both installed on the path this suite takes.
+	return resolver as unknown as (toolName: string, next: () => ToolRenderers | undefined) => Frame;
 }
 
 /** What a block draws, without the SGR a real theme would carry. */

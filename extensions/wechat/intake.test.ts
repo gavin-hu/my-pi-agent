@@ -222,7 +222,7 @@ describe("what a waiting prompt may read", () => {
 describe("the chat's own commands", () => {
 	test("/new is not one, so it reaches the agent as a turn", async () => {
 		// The chat is this session, so the registry has no way to start a fresh one. Left
-		// unregistered, `/new` takes the same route as any other unknown spelling: it is
+		// unregistered, `/new` takes the route every other unknown spelling takes: it is
 		// queued as a turn and the model answers it, instead of a notice from the bridge.
 		const { queue, sent, intake } = harness({ slashCommands: SLASH_COMMANDS });
 		intake.handleMessage(inbound("/new"));
