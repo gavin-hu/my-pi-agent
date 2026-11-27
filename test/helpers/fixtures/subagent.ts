@@ -1,3 +1,4 @@
+import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Message } from "@earendil-works/pi-ai";
 import subagent, { TOOL_NAME } from "../../../extensions/subagent/index.ts";
 import type { RunOptions } from "../../../extensions/subagent/run.ts";
@@ -67,4 +68,33 @@ export function fakeToolCtx(
 		model: overrides.model === undefined ? { provider: "anthropic", id: "claude-sonnet-4-5" } : overrides.model,
 		thinkingLevel: "medium",
 	};
+}
+
+/**
+ * A tool context inside a project: the root, the model, and one confirmation.
+ *
+ * `onConfirm` records that the surface asked; it always declines, because the cases that ask
+ * are the ones asserting a refusal reaches the model.
+ */
+export function projectToolCtx(root: string, trusted: boolean, onConfirm: () => void): ExtensionToolContext {
+	return {
+		cwd: root,
+		model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+		thinkingLevel: "medium",
+		hasUI: true,
+		isProjectTrusted: () => trusted,
+		ui: { confirm: async () => (onConfirm(), false) },
+	} as unknown as ExtensionToolContext;
+}
+
+/** The same context with no UI at all, in an untrusted project. */
+export function headlessToolCtx(root: string): ExtensionToolContext {
+	return {
+		cwd: root,
+		model: { provider: "anthropic", id: "claude-sonnet-4-5" },
+		thinkingLevel: "medium",
+		hasUI: false,
+		isProjectTrusted: () => false,
+		ui: { confirm: async () => true },
+	} as unknown as ExtensionToolContext;
 }
