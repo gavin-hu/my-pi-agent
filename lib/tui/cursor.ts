@@ -59,14 +59,19 @@ type NavIntent = "up" | "down" | "pageUp" | "pageDown" | "home" | "end";
  *
  * Screens handle their own Escape/Enter/action keys first and then look here,
  * so a screen-specific letter (`d`, `u`, `l`, …) is never swallowed.
+ *
+ * `home` and `end` name the ends of an index range, which is why `g`/`G` belong
+ * here: they are the vim spelling of `Home`/`End`, not a screen's verb. A screen
+ * whose first row is not index 0 — a list with headings among its rows — handles
+ * the pair itself before asking, because its end is the first *selectable* row.
  */
 export function navIntent(data: string): NavIntent | undefined {
 	if (matchesKey(data, Key.up) || data === "k") return "up";
 	if (matchesKey(data, Key.down) || data === "j") return "down";
 	if (matchesKey(data, Key.pageUp)) return "pageUp";
 	if (matchesKey(data, Key.pageDown)) return "pageDown";
-	if (matchesKey(data, Key.home)) return "home";
-	if (matchesKey(data, Key.end)) return "end";
+	if (matchesKey(data, Key.home) || data === "g") return "home";
+	if (matchesKey(data, Key.end) || data === "G") return "end";
 	return undefined;
 }
 

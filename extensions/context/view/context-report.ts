@@ -289,11 +289,6 @@ export class ContextComponent implements Component {
 			this.requestRender();
 			return;
 		}
-		if (data === "g" || data === "G") {
-			this.scroll = data === "g" ? 0 : Math.max(0, this.body.length - this.visible);
-			this.requestRender();
-			return;
-		}
 		const next = navigateScroll(data, this.scroll, this.body.length, this.visible);
 		if (next !== undefined) {
 			this.scroll = next;

@@ -216,6 +216,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and keeps answering nothing for `package.json` and `CHANGELOG.md`, which ride another card's work and
   would otherwise let a rider outvote it.
 
+- `lib`: `g`/`G` reaches the ends of every docked list. The shared matcher `navIntent` binds
+  the pair once, so `/jobs`, `/watch`, `/agents`, `/worktree` and the session-bus list answer
+  it where only `Home`/`End` worked — and the five screens that had each bound it by hand
+  (todos, the plan index, the memory picker, the context report, a log pane) inherit it
+  instead of keeping a copy. The bytefly panel and the plan review keep their own pair,
+  because the panel's first row is not index 0 and the review's keys are a table rather
+  than the matcher's.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
