@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { DiffLine } from "../../../lib/diff/parse.ts";
+import { liveStream } from "../../../lib/web/client-runtime.ts";
+import { duplicateDeclarations, duplicateFunctions, unfilledPlaceholders } from "../../../test/helpers/bundle.ts";
 import { comparisonOf } from "../../../test/helpers/review-scope.ts";
+import { FILE_CLIENT_JS } from "./file-client.ts";
 import { renderReviewFile } from "./file.ts";
 
 /** One file's context lines, numbered the way `ReviewReader.text` hands them over. */
@@ -87,5 +90,23 @@ describe("the file view", () => {
 		expect(html).toContain("a&lt;b&gt;.ts");
 		expect(html).toContain("a &lt; b");
 		expect(html).not.toContain("<b>");
+	});
+
+	test("its script parses as one bundle, with the shared stream spliced rather than copied", () => {
+		// A served bundle is a template literal no type checker reads, so the parse is the gate — and
+		// the stream must be the one implementation every page carries, which is why the body appears
+		// exactly once and no second EventSource is built.
+		expect(() => new Function(FILE_CLIENT_JS)).not.toThrow();
+		expect(FILE_CLIENT_JS.split(String(liveStream)).length).toBe(2);
+		expect(FILE_CLIENT_JS).not.toContain("new EventSource");
+		expect(unfilledPlaceholders(FILE_CLIENT_JS)).toEqual([]);
+		expect(duplicateFunctions(FILE_CLIENT_JS)).toEqual([]);
+		expect(duplicateDeclarations(FILE_CLIENT_JS)).toEqual([]);
+	});
+
+	test("holds the page only when the address names one", () => {
+		// The token is the page's; a token-less view still reads the file, it just attaches nothing.
+		expect(FILE_CLIENT_JS).toContain('get("token")');
+		expect(FILE_CLIENT_JS).toContain('if (token !== "")');
 	});
 });

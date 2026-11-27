@@ -115,6 +115,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: reading a file no longer ends the review. **view file** now holds the page open by
+  attaching the same stream the diff page has — it is that page in the same tab — so the closed-tab
+  grace does not run out while a file is on screen, and the way back lands on the page the reader
+  left, drafts included, instead of a mount released and a fresh review minted over it. The
+  view-file link carries the page's token for that; an address without one still reads the file and
+  simply holds nothing. The file client splices the shared `liveStream` rather than a second
+  `EventSource`, so the one stream state machine stays one body.
+
 - `docs`: the design page's colour table is the mapping now. One row for each of the eighteen roles,
   with the token it paints, so the six that alias another's colour are visible instead of hidden —
   and a case in `lib/tui/design-page.test.ts` holds the table to `TUI_TOKENS` role for role, which

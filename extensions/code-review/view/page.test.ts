@@ -346,7 +346,9 @@ describe("the review page", () => {
 		expect(url.pathname).toBe("/review/file");
 		expect(url.searchParams.get("path")).toBe("lib/http/mount.ts");
 		expect(url.searchParams.get("scope")).toBe("branch");
-		expect(href).toBe(fileHref("lib/http/mount.ts", comparisonOf("branch", "origin/main"), "branch"));
+		// The page's own token rides along, so the view it opens can hold the page's stream.
+		expect(url.searchParams.get("token")).toBe("tok-123");
+		expect(href).toBe(fileHref("lib/http/mount.ts", comparisonOf("branch", "origin/main"), "branch", "tok-123"));
 		expect(html).not.toContain('href="/files');
 		expect(html).not.toContain(" download");
 	});
