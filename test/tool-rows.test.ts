@@ -12,12 +12,14 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import { initTheme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { FIXTURES, type ToolFixture } from "../scripts/tools/fixtures/index.ts";
 import { fixtureState } from "../scripts/tools/fixtures/state.ts";
 import { fakeTheme } from "./helpers/fakes.ts";
 import { ALL_EXTENSIONS_ENV, useEnv } from "./helpers/env.ts";
+import { textOf } from "./helpers/scan.ts";
 import { BUDGET_WIDTH, COLLAPSED_ROWS, blockHarness, toolBlockContext } from "./helpers/tool-block.ts";
 
 /** Every tool here is rendered, so the fake session loads the whole pack. */
@@ -153,5 +155,21 @@ describe("collapsed block height", () => {
 			if (rows > ceiling) over.push(`${fixture.name} drew ${rows} rows at ${BUDGET_WIDTH}, ceiling ${ceiling}`);
 		}
 		expect(over, "trim the block, or raise its entry in COLLAPSED_ROWS and write the reason beside it").toEqual([]);
+	});
+
+	test("the kit README states the budget this ledger holds", () => {
+		// The page a designer reads and the ledger a renderer is measured against are one fact, so the
+		// numbers they both quote are held together here, where the ledger is owned: how many blocks the
+		// ceiling covers, and which is the tallest. A block added or trimmed moves one of them, and the
+		// README is then red rather than quietly out of date. Two integers and one name, never a
+		// sentence, so a rewrite that keeps the facts passes.
+		const readme = textOf(join(import.meta.dir, "../lib/tui/README.md"));
+		const count = /(\d+) blocks/.exec(readme)?.[1];
+		const tallest = /`(\w+)` is the tallest at (\d+)/.exec(readme);
+		expect(count, "the kit README no longer says how many blocks the ledger covers").toBeDefined();
+		expect(tallest, "the kit README no longer names the tallest block").not.toBeNull();
+		const ranked = Object.entries(COLLAPSED_ROWS).sort(([, left], [, right]) => right - left);
+		expect(Number(count), "the kit README's block count").toBe(ranked.length);
+		expect([tallest?.[1], Number(tallest?.[2])], "the kit README's tallest block").toEqual(ranked[0]);
 	});
 });
