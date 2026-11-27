@@ -134,8 +134,10 @@ export const REVIEW_KEYS_JS = String.raw`  function setWrap(on) {
     if (event.key === "w") { toggleWrap(); return; }
     if (event.key === "j" || event.key === "ArrowDown") { event.preventDefault(); moveCursor(1, event.shiftKey); return; }
     if (event.key === "k" || event.key === "ArrowUp") { event.preventDefault(); moveCursor(-1, event.shiftKey); return; }
-    if (event.key === "]" || event.key === "n") { moveHunk(1); return; }
-    if (event.key === "[" || event.key === "p") { moveHunk(-1); return; }
+    if (event.key === "]") { moveHunk(1, false); return; }
+    if (event.key === "[") { moveHunk(-1, false); return; }
+    if (event.key === "n") { moveHunk(1, true); return; }
+    if (event.key === "p") { moveHunk(-1, true); return; }
     if (event.key === "Enter" && cursor && actsOnCursor(event.target)) {
       event.preventDefault();
       commentOnSelection();

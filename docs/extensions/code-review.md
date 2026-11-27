@@ -6,11 +6,9 @@ A branch, an uncommitted change, or the index, served as a page you can read
 line by line and comment on. The comments are the model's next turn — nothing
 is written to your tree.
 
-- **Use it for** the change you would otherwise review in a terminal with
-  `git diff`, where the note you want to leave has nowhere to go.
+- **Use it for** the change you would review in a terminal, where no note fits.
 - **`/review`** serves the page and opens it; **`code_review`** is the model's
   side of it — open, read, and close.
-- The page is loopback-only and carries a token, so nothing else can post.
 
 ## What you can do
 
@@ -84,8 +82,10 @@ rail shows that file and an **all files** link back, while the count and the pro
 still name the whole scope — `1 of 2 files` for a page drawing one of two — and the
 snapshot and its token stay the whole scope's. The head's **view file** serves the
 whole file at `/review/file?<the comparison>&path=<rel>`: only a listed path, read under the
-reviewed checkout, on the diff's gutter, with a way back. `n` and `p` step its hunks;
-`[` and `]` step the whole review's, each landing below the pinned head.
+reviewed checkout, on the diff's gutter, with a way back. `n` and `p` step this file's
+hunks and `[` and `]` the whole review's, each moving the place to the hunk's first
+changed line, a third down the diff so the lines above it are read too; a deep link
+to a line lands the same way.
 
 **What a comment anchors to.** A path, a side, and a line the comparison draws — a span's end and the rows
 it quotes — checked against the snapshot, refused once the tree moves; a send, a delete and a mark land

@@ -3,13 +3,14 @@
  * the rail's filter.
  *
  * A fragment of the same IIFE `client.ts` ships — `REVIEW_PLACE_JS` is interpolated into
- * `REVIEW_CLIENT_JS`. These are one capability because they share one state: `cursor` and
- * `anchor` say which rows the keys act on, `currentFile` says which file the rail marks and
- * the spy writes, `restoring` keeps the first paints from overwriting the place the URL
- * names, and `expectedScroll` tells a scroll this page made from the reader's own. The
- * filter is here rather than beside the keys that call it because it hides the rail's rows
- * that `visibleFiles` crosses and that `paintRail` marks — split apart, the two halves of
- * "the rail's rows" would answer differently.
+ * `REVIEW_CLIENT_JS` after the reveal. These are one capability because they share one state:
+ * `cursor` and `anchor` say which rows the keys act on, `currentFile` says which file the rail
+ * marks and the spy writes, and `restoring` keeps the first paints from overwriting the place
+ * the URL names. Where a row lands is the reveal's; `expectedScroll` and the tail live there,
+ * because placement and the spy that names the file measure one line. The filter is here rather
+ * than beside the keys that call it because it hides the rail's rows that `visibleFiles`
+ * crosses and that `paintRail` marks — split apart, the two halves of "the rail's rows" would
+ * answer differently.
  */
 export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ────────────────────────────────────────────────────────────
   // A cursor is a row, not a guessed number: 'row' indexes the numbered rows of its file, so
@@ -141,28 +142,6 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     }
   }
 
-  /** Paint the cursor (and its range), the rail's current file, and the bar's ref. */
-  /**
-   * Bring a row into the main's viewport, just below the pinned head. The row lives inside the
-   * diff's own overflow box, so scrollIntoView stops at that box; scrolling the main by the
-   * measured delta is the one path that lands where the reader looks.
-   */
-  function scrollMainTo(row) {
-    var main = byId("rv-main");
-    if (!main || !row) return;
-    var section = row.closest(".rv-file");
-    var head = section ? section.querySelector(".rv-file__head") : null;
-    var offset = head ? head.offsetHeight : 0;
-    var delta = row.getBoundingClientRect().top - (main.getBoundingClientRect().top + offset);
-    main.scrollTop += delta;
-    // A scroll the page made is not a scroll the reader made: the spy must not repaint the
-    // rail from the position a jump just set.
-    expectedScroll = main.scrollTop;
-  }
-
-  /** The scroll this page just set, so the spy can tell it from the reader's own. */
-  var expectedScroll = null;
-
   /** The rail's own scroll follows the place: a key move brings its row into the rail's box. */
   function scrollRailTo(path) {
     var row = railFor(path);
@@ -206,10 +185,11 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     else main.style.removeProperty("--rv-bar-inset");
   }
 
-  /** Both measurements follow the viewport: the heads' height, and how far the bar reaches. */
+  /** Both measurements follow the viewport: the heads' height, how far the bar reaches, and the tail. */
   function remeasure() {
     measureHeads();
     fitBarInset();
+    fitTail();
   }
 
   /** Each head's measured height, so a hunk jump lands below the pinned head at any width. */
@@ -292,41 +272,12 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     }
     restoring = false;
     paintSelection(Boolean(cursor));
-    scrollMainTo(cursorRow());
+    reveal(cursorRow());
     scrollRailTo(currentFile);
     writePlace();
   }
 
-  // The reading line is the scrollport's own top: the last section whose head reached it is
-  // the file the reader is in.
-  var spyFrame = 0;
-  function spy() {
-    if (restoring) return;
-    var main = byId("rv-main");
-    if (!main) return;
-    if (expectedScroll !== null && Math.abs(main.scrollTop - expectedScroll) < 2) return;
-    expectedScroll = null;
-    var line = main.getBoundingClientRect().top + 1;
-    var list = sections();
-    var inView = list[0] || null;
-    for (var index = 0; index < list.length; index++) {
-      var head = list[index].querySelector(".rv-file__head");
-      var top = head ? head.getBoundingClientRect().top : list[index].getBoundingClientRect().top;
-      if (top <= line) inView = list[index];
-      else break;
-    }
-    if (!inView) return;
-    var path = inView.getAttribute("data-path");
-    if (path !== currentFile) {
-      currentFile = path;
-      paintRail();
-    }
-  }
-  function onScroll() {
-    if (spyFrame) return;
-    spyFrame = requestAnimationFrame(function () { spyFrame = 0; spy(); });
-  }
-
+  /** Paint the cursor (and its range), the rail's current file, and the bar's ref. */
   function paintSelection(focus) {
     sections().forEach(function (section) {
       var path = section.getAttribute("data-path");
@@ -377,13 +328,13 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     }
   }
 
-  /** Put the cursor on one row, clearing or keeping the range anchor. */
-  function placeCursor(path, row, extend) {
+  /** Put the cursor on one row, clearing or keeping the range anchor; place on the reading line. */
+  function placeCursor(path, row, extend, place) {
     if (!extend) anchor = null;
     else if (!anchor && cursor && cursor.path === path) anchor = { path: path, row: cursor.row };
     cursor = { path: path, row: row };
     currentFile = path;
-    followCursor(path);
+    followCursor(path, place);
   }
 
   /**
@@ -391,11 +342,12 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
    *
    * One tail for every cursor change: a caller that moves the cursor and paints it by hand — the
    * shift-click in the keys module — would otherwise skip the hash, and a reload would land on
-   * the line the reader had before the click.
+   * the line the reader had before the click. A hunk jump places the row on the reading line; a
+   * key move or a click keeps it where it is while it stays inside its band.
    */
-  function followCursor(path) {
+  function followCursor(path, place) {
     paintSelection(true);
-    scrollMainTo(cursorRow());
+    reveal(cursorRow(), !place);
     scrollRailTo(path);
     writePlace();
   }
@@ -525,26 +477,89 @@ export const REVIEW_PLACE_JS = String.raw`  // ── the cursor ─────
     byId("rv-filter").focus();
   }
 
-  /**
-   * Step to the next or previous hunk, measuring the floor a jump lands on rather than a fixed
-   * offset: the hunk already at the pin is the one the reader has reached, so the pick is the
-   * first row strictly below that file's head — the same geometry scrollMainTo uses.
-   */
-  function moveHunk(step) {
-    var heads = nodeList(".bf-diff-line--hunk");
-    if (heads.length === 0) return;
-    var main = byId("rv-main");
-    var top = main ? main.getBoundingClientRect().top : 0;
-    var at = -1;
-    heads.forEach(function (head, index) {
-      if (at >= 0) return;
-      var section = head.closest(".rv-file");
-      var fileHead = section ? section.querySelector(".rv-file__head") : null;
-      if (head.getBoundingClientRect().top > top + (fileHead ? fileHead.offsetHeight : 0)) at = index;
+  /** The visible files' hunk heads, in the order the page draws them — the same universe a move crosses. */
+  function hunks() {
+    var out = [];
+    visibleFiles().forEach(function (path) {
+      var section = sectionFor(path);
+      if (!section) return;
+      var heads = section.querySelectorAll(".bf-diff-line--hunk");
+      for (var index = 0; index < heads.length; index++) out.push(heads[index]);
     });
-    if (at < 0) at = heads.length;
-    var target = heads[Math.min(heads.length - 1, Math.max(0, at + (step > 0 ? 0 : -1)))];
-    scrollMainTo(target);
+    return out;
+  }
+
+  /** The row a hunk lands on: its first changed line, else its first numbered row. */
+  function hunkRow(head) {
+    var first = null;
+    var node = head.nextElementSibling;
+    while (node && !(node.classList && node.classList.contains("bf-diff-line--hunk"))) {
+      if (node.classList && node.classList.contains("bf-diff-line") && rowAnchor(node)) {
+        if (!first) first = node;
+        if (node.classList.contains("bf-diff-line--add") || node.classList.contains("bf-diff-line--del")) return node;
+      }
+      node = node.nextElementSibling;
+    }
+    return first;
+  }
+
+  /**
+   * The hunk the place is in: the cursor's when there is one, else the last hunk above the reading
+   * line. A remembered place is what makes the next press monotonic — a jump the viewport cannot
+   * complete would otherwise re-pick the same hunk forever.
+   */
+  function hunkIndex(heads) {
+    var row = cursorRow();
+    var index;
+    if (row) {
+      var at = -1;
+      for (index = 0; index < heads.length; index++) {
+        if (heads[index].compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING) at = index;
+        else break;
+      }
+      return at;
+    }
+    var main = byId("rv-main");
+    var section = sectionFor(currentFile) || sections()[0] || null;
+    if (!main || !section) return heads.length - 1;
+    var line = readingLine(main, section);
+    var above = -1;
+    for (index = 0; index < heads.length; index++) {
+      if (heads[index].getBoundingClientRect().top <= line) above = index;
+      else break;
+    }
+    return above;
+  }
+
+  /**
+   * Step to the next or previous hunk and move the place with it: the cursor lands on the hunk's
+   * first changed row, so the hash, a reload and the rail all follow the jump and Enter comments on
+   * the change the reader just reached. Within one file when the caller asks for it; a press past
+   * either end says so rather than leaving a dead key.
+   */
+  function moveHunk(step, inFile) {
+    var heads = hunks();
+    if (heads.length === 0) return;
+    var path = (cursor && cursor.path) || currentFile;
+    if (inFile) {
+      var section = sectionFor(path);
+      heads = heads.filter(function (head) { return head.closest(".rv-file") === section; });
+      if (heads.length === 0) {
+        toast("No changes in " + splitPath(path).name);
+        return;
+      }
+    }
+    var target = hunkIndex(heads) + step;
+    if (target < 0 || target >= heads.length) {
+      toast(inFile ? "No more changes in " + splitPath(path).name : "No more changes");
+      return;
+    }
+    var row = hunkRow(heads[target]);
+    if (!row) return;
+    var home = row.closest(".rv-file");
+    var index = numberedRows(home).indexOf(row);
+    if (index < 0) return;
+    placeCursor(home.getAttribute("data-path"), index, false, true);
   }
 
 `;
