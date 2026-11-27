@@ -30,15 +30,14 @@
  */
 
 import type { ArtifactProof } from "./artifact.ts";
-import type { CardBlock } from "./block.ts";
+import type { CardBlock } from "./lanes.ts";
 import type { LandingVerdict } from "./landing.ts";
-import { type Card, CARD_VERSION, type CardOwner, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
+import { type Card, CARD_VERSION, type CardOwner, cardRef, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
 import type { CardType } from "./kind.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG } from "./config.ts";
 import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
-import { archive, assign, claim, closedArchive, drop, edit, move, note, offer, release } from "./steps.ts";
-import { shelve, unshelve } from "./shelved.ts";
+import { archive, assign, claim, drop, edit, move, note, offer, release, shelve, unshelve } from "./steps.ts";
 
 import type { NoticeField } from "./contract.ts";
 import { announced, type HolderFact } from "./signs.ts";
@@ -211,6 +210,18 @@ export type CardOp =
  * moved. The caller reads the kind off the result rather than inferring it from a write.
  */
 export type OpResult = { ok: true; card: Card; changed: boolean; notice?: NoticeKind } | { ok: false; error: string };
+
+/**
+ * What a card set aside answers to a write, wherever the call came from.
+ *
+ * The archive is one way, so a card in it is history rather than work: `drop` is the only
+ * operation that still applies, and it exists because a card archived by mistake has to have
+ * some way out. The sentence is stated once, here, because `prepare` is the one place the closed
+ * pile is asked about — before any step runs.
+ */
+export function closedArchive(card: Card): string {
+	return `${cardRef(card.id)} is archived: its record is read-only, and \`drop\` removes it for good.`;
+}
 
 /** What one operation would write, or why it may not. */
 export type Prepared = { error: string } | { fields: Partial<Card> | null; changed: boolean; notice?: NoticeKind };

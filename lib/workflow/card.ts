@@ -15,11 +15,9 @@
  */
 
 import { EMPTY_PATH, outsideRepository, overLimit, pageSource, sanitizeLine, tooManyPaths } from "../format.ts";
-import { type CardBlock, isBlock } from "./block.ts";
 import { type Contract, isContract, isHandoff, type Handoff, isSign, type Sign } from "./contract.ts";
 import { CARD_TYPES, type CardType } from "./kind.ts";
-import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
-import { type CardShelved, isShelved } from "./shelved.ts";
+import { type CardBlock, isBlock, LANE_RULES, LANES, type Lane, MAX_BLOCKED } from "./lanes.ts";
 /** The schema version this build writes. A file with another value is refused, never migrated in place. */
 export const CARD_VERSION = 2;
 
@@ -126,6 +124,26 @@ export interface CardTransition {
 	 * as long as the transition lives, which is the same bounded history as every other transition.
 	 */
 	block?: CardBlock;
+}
+
+/**
+ * A pool card set aside: when, by whom, why, and — when the caller said so — until when.
+ *
+ * The shelf stays here beside `offeredAt`, the other fact a pool card can carry, because it is a
+ * decision about the pool rather than a place a card can be: no lane owns it, nobody holds it, and
+ * the operations that write it are the pool's. `at` is when it went aside and keeps its moment when
+ * a repeat fixes the reason; `until` is a moment, computed by the write from the caller's `30d`,
+ * never a spelling. Nothing wakes a card — a passed `until` is a sentence the card's own line prints.
+ */
+export interface CardShelved {
+	/** When it went aside, on the board's clock; kept when a repeat `shelve` fixes the reason. */
+	at: number;
+	/** The label of whoever set it aside. */
+	by: string;
+	/** Why, in one line: the reason a reader acts on, and what the round prints. */
+	note: string;
+	/** The moment it was bounded to, when the caller gave one; a passed moment moves nothing. */
+	until?: number;
 }
 
 /** One feature on the board. */
@@ -382,6 +400,36 @@ export function normalizePlanPath(raw: unknown): { path: string } | FieldError {
 	if (path === "") return { error: "path is required." };
 	if (path.length > MAX_PLAN) return { error: overLimit("path", path.length, MAX_PLAN) };
 	return { path };
+}
+
+/**
+ * The reason a shelf records, as stored: one line, or the sentence saying why it cannot be.
+ *
+ * The cap is {@link MAX_BLOCKED} rather than a second 200: both are the one-line reason a lane row
+ * holds, and two constants with one number is two answers to one question.
+ */
+export function normalizeShelfNote(raw: unknown): { note: string } | FieldError {
+	if (typeof raw !== "string") return { error: "note is required: say why the card is set aside." };
+	const note = sanitizeLine(raw).trim();
+	if (note === "") return { error: "note is required: say why the card is set aside." };
+	if (note.length > MAX_BLOCKED) return { error: overLimit("note", note.length, MAX_BLOCKED) };
+	return { note };
+}
+
+/**
+ * Whether `value` is a shelf this build can read: a moment, an author, and a why.
+ *
+ * A hand-edited file that lost any of the three is not a shelf. The reason is the whole point of the
+ * record, and a card that reads as "set aside for no reason" is worse than one that reads as pool
+ * work nobody has picked up yet.
+ */
+export function isShelved(value: unknown): value is CardShelved {
+	if (typeof value !== "object" || value === null) return false;
+	const shelved = value as Record<string, unknown>;
+	if (!Number.isInteger(shelved.at)) return false;
+	if (typeof shelved.by !== "string" || shelved.by === "") return false;
+	if (typeof shelved.note !== "string" || shelved.note === "" || shelved.note.length > MAX_BLOCKED) return false;
+	return shelved.until === undefined || Number.isInteger(shelved.until);
 }
 
 /** A card id without the file name's padding: the record carries `4`, its file is `0004.json`. */

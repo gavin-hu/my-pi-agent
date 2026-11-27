@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { MAX_BLOCKED } from "../lib/workflow/block.ts";
+import { MAX_BLOCKED } from "../lib/workflow/lanes.ts";
 import { MAX_DEPENDS, MAX_NOTE, MAX_PATH, MAX_PATHS, MAX_PLAN, MAX_TITLE } from "../lib/workflow/card.ts";
 import { MAX_CONTRACT } from "../lib/workflow/contract.ts";
 import { HEADER_MAX_WIDTH } from "../extensions/question/schema.ts";

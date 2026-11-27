@@ -11,8 +11,8 @@
  * The rollup's text is `lib/workflow/round-text.ts`, because `team` prints it too.
  */
 
-import type { CardBlock } from "../../lib/workflow/block.ts";
 import { type Card, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/workflow/card.ts";
+import { type CardBlock } from "../../lib/workflow/lanes.ts";
 import type { Sign } from "../../lib/workflow/contract.ts";
 import { CONTRACT_LINE_OWED } from "../../lib/workflow/contract.ts";
 import { gateOf } from "../../lib/workflow/round.ts";

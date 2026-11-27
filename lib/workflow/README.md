@@ -24,8 +24,8 @@ The one-line index of the same modules is the `workflow/` block of [`../README.m
 The shape one card file holds, the caps a write is held to, and the parser that decides
 whether a file on disk is still a card. `CARD_VERSION` with `SUPPORTED_VERSIONS` and
 `ENDED_VERSION` say which builds wrote what; `Card`, `CardOwner`, `CardNote`,
-`CardBlock` (from [`block.ts`](./block.ts)), `CardShelved` (from [`shelved.ts`](./shelved.ts)),
-`CardTransition`, `CardLanded`, and the `EndedCard` a finished card becomes
+`CardBlock` (from [`lanes.ts`](./lanes.ts)), `CardShelved`, `CardTransition`,
+`CardLanded`, and the `EndedCard` a finished card becomes
 are the record, and `MAX_TITLE` / `MAX_PATHS` / `MAX_PATH` / `MAX_PLAN` / `MAX_NOTE` /
 `MAX_NOTES` / `MAX_LOG` / `MAX_DEPENDS` are its caps. Ownership, priority
 (`PRIORITIES`, `DEFAULT_PRIORITY`, `priorityOf`, `priorityRank`) are part of the same
@@ -33,11 +33,21 @@ record, so a lane's `ownerless` invariant can be read off the lane table rather 
 
 The `normalize*` boundary is what the model's arguments pass: `normalizeTitle`,
 `normalizePathHints` (repo-relative hints, never claims), `normalizeNote`,
-`normalizePlanPath`, `normalizePriority`, `normalizeCardId`. Each answers
-`{ error }` instead of throwing, because a bad argument is a refusal a reader can act on.
+`normalizePlanPath`, `normalizePriority`, `normalizeCardId`, and `normalizeShelfNote`, which
+is the one-line reason a shelf records — at `MAX_BLOCKED`, because a shelf's sentence and a
+block's are the same one-liner in a row. Each answers `{ error }` instead of throwing,
+because a bad argument is a refusal a reader can act on.
 `isCard` is the shape every read is held to and `isEndedCard` the older finished record —
 `read.ts` maps a past shape onto this one, so the router, the tool, and the page see the
 same record or none.
+
+`CardShelved` is a pool card set aside: when, by whom, why, and an optional `until`, with
+`isShelved` as its guard. It stays in this module beside `offeredAt`, the other fact a pool
+card can carry, because a shelf is a decision about the pool rather than a place a card can
+be — no lane owns it — and it arrived here because the block's record left for
+[`lanes.ts`](./lanes.ts) when this module reached its line bar. `at` keeps its moment when a
+repeat `shelve` fixes the reason, and a passed `until` is a sentence the card's own line
+prints rather than a move, because nothing on this board wakes a card.
 
 Three rules live here because two surfaces need each and a second copy would be a second
 answer. `matchesQuery` is the rule `list`'s `query` and the page's filter box both answer,
@@ -46,28 +56,6 @@ one) with `cardRef` and `signatureOf` names a card and notices it changed; `depe
 reads a card's own links. `laneSince` says
 when the card entered the lane it is in, computed from the lane log because a stored clock
 would be one more field to keep true.
-
-### block.ts
-
-Why a card sits in `blocked`: `CardBlock` (the kind, and the one line a person reads),
-`BLOCKERS` / `BlockerKind`, the `MAX_BLOCKED` cap a one-line reason is held to,
-`normalizeBlock` for a `move`'s two parameters (`blocker`, `blockedBy`), and `isBlock`, the
-guard `isCard` applies. Split out of [`card.ts`](./card.ts) with
-[`shelved.ts`](./shelved.ts) — the card's two set-aside records — because that module reached
-the module bar, and because the two are one family: a card nobody is working, with the one
-sentence a lane row can hold.
-
-### shelved.ts
-
-A pool card set aside: `CardShelved` (when, by whom, why, and an optional `until`),
-`normalizeShelfNote` — one sanitized line at the `MAX_BLOCKED` cap, because a shelf's
-sentence and a block's are the same one-liner — and `isShelved`, the guard `isCard` applies.
-`shelve` and `unshelve` live here beside the record rather than in `steps.ts`, the way
-`lead.ts` owns `reclaim`: the shelf is one job, and the step and the field arrive together.
-A shelf is a decision about the pool, never a lane: the card stays in `backlog`, nobody holds
-it, no offer may take it, and the round counts it apart from `unassigned`. `at` keeps its
-moment when a repeat `shelve` fixes the reason, and a passed `until` is a sentence rather
-than a move, because nothing here wakes a card.
 
 ### kind.ts
 
@@ -105,6 +93,13 @@ asked about one move — `targetsFrom` is the list a refusal prints. The tool's 
 description names `movableLanes()` instead: which targets exist depends on the card's own
 lane and a schema has no card, so it offers every lane but `backlog` and leaves the route to
 the refusal. `laneIndex` and `isLane` are the questions left.
+
+The `blocked` lane's own record lives here too: `CardBlock` (the kind, and the one line a
+person reads), `BLOCKERS` / `BlockerKind`, the `MAX_BLOCKED` cap, `normalizeBlock` for a
+`move`'s two parameters (`blocker`, `blockedBy`), `blockFields`, the fields that move writes,
+and `isBlock`, the guard `isCard` applies. A block is what entering this lane records, and
+this table is one every entry holding a card already pays — which is why the record moved
+here rather than into a module of its own when [`card.ts`](./card.ts) reached its line bar.
 
 ### contract.ts
 

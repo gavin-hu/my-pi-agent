@@ -23,10 +23,9 @@ import {
 	reviewed,
 	stepOf,
 } from "../../test/helpers/fixtures/board-rules.ts";
-import { MAX_BLOCKED } from "./block.ts";
-import { isCard } from "./card.ts";
+import { type CardShelved, isCard, isShelved, normalizeShelfNote } from "./card.ts";
+import { MAX_BLOCKED } from "./lanes.ts";
 import { sortForLane } from "./read.ts";
-import { type CardShelved, isShelved, normalizeShelfNote } from "./shelved.ts";
 
 const SHELF: CardShelved = { at: 5_000, by: "tom", note: "waiting on pi 1.7 to publish" };
 

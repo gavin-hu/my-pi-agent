@@ -9,7 +9,7 @@
 
 import type { Static } from "typebox";
 import { Type } from "typebox";
-import { BLOCKERS, MAX_BLOCKED } from "../../lib/workflow/block.ts";
+import { BLOCKERS, MAX_BLOCKED } from "../../lib/workflow/lanes.ts";
 import {
 	MAX_DEPENDS,
 	MAX_NOTE,

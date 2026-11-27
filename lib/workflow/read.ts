@@ -21,10 +21,9 @@ import { readFile, readdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
 import { mapConcurrent } from "../pool.ts";
-import { BLOCKERS, type BlockerKind, type CardBlock } from "./block.ts";
 import { type Card, CARD_VERSION, canonicalCardId, isCard, priorityRank, SUPPORTED_VERSIONS } from "./card.ts";
 
-import { LANES, type Lane } from "./lanes.ts";
+import { BLOCKERS, type BlockerKind, type CardBlock, LANES, type Lane } from "./lanes.ts";
 
 /**
  * The lane words the four-lane board used, as this build's names.
