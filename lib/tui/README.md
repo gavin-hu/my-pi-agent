@@ -29,10 +29,10 @@ screen's own last three rows, and `ConfirmState` before a destructive action.
 ## The block frame
 
 A block's shape is [`docs/design-system.md#reading-the-screen`](../../docs/design-system.md#reading-the-screen);
-what this module spends is its height. `test/tool-render.test.ts` owns the numbers:
-every package fixture's height at 80 columns is a ceiling in `COLLAPSED_ROWS`, and an
-entry is debt rather than a blessing, so it may only fall. It reads 2.6 rows on
-average across 39 blocks, with `web_search` the tallest at 7.
+what this module spends is its height. `COLLAPSED_ROWS` in `test/helpers/tool-block.ts`
+is the ledger, and `test/tool-rows.test.ts` enforces it: every package fixture's height at
+80 columns is a ceiling, and an entry that rises is a review decision rather than a gate's. It
+covers 41 blocks, and `subagent` is the tallest at 10.
 
 `plainRule` / `titleRule` draw the rule a block or a screen is framed with, and a
 renderer composes its body from the kit rather than printing rows of its own.
