@@ -168,16 +168,23 @@ function backToAll(current: { scope: ReviewScope; preset?: ReviewPreset }, total
 	return `<p class="rv-side__back"><a class="bf-btn" id="rv-all-files" href="${escapeHtml(newHref(current.scope, current.preset))}">all ${total} file${total === 1 ? "" : "s"}</a></p>`;
 }
 
+/** What one file's section needs: the review it is drawn in, and the state it wears. */
+interface FileSectionInput {
+	file: ReviewSnapshot["files"][number];
+	index: number;
+	comments: readonly ReviewComment[];
+	reviewed: ReadonlySet<string>;
+	scope: ReviewScope;
+	preset?: ReviewPreset;
+	/** Whether this is the page's last section, which is the one that carries the tail's room. */
+	last: boolean;
+	/** The page's token, so the whole-file link can hold the page it belongs to. */
+	token: string;
+}
+
 /** One file's head, its diff, the two notes a cap leaves, and — last — the room the tail needs. */
-function fileSection(
-	file: ReviewSnapshot["files"][number],
-	index: number,
-	comments: readonly ReviewComment[],
-	reviewed: ReadonlySet<string>,
-	scope: ReviewScope,
-	preset: ReviewPreset | undefined,
-	last: boolean,
-): string {
+function fileSection(input: FileSectionInput): string {
+	const { file, index, comments, reviewed, scope, preset, last, token } = input;
 	const state = fileState(file.rel, comments, reviewed);
 	const count = comments.filter((comment) => comment.rel === file.rel).length;
 	const { dir, name } = splitPath(file.rel);
@@ -186,7 +193,7 @@ function fileSection(
   <span class="rv-file__path"><span class="rv-file__dir">${escapeHtml(dir ? `${dir}/` : "")}</span>${escapeHtml(name)}</span>
   <span class="rv-file__stats"><span class="rv-add">+${file.add}</span><span class="rv-del">−${file.del}</span></span>
   <span class="rv-file__acts">
-    <a class="bf-btn" href="${escapeHtml(fileHref(file.rel, scope, preset))}" title="Read this file's whole text">view file</a>
+    <a class="bf-btn" href="${escapeHtml(fileHref(file.rel, scope, preset, token))}" title="Read this file's whole text">view file</a>
     <span class="bf-tag" data-count>${count === 0 ? escapeHtml(stateWord(state)) : `${count} comment${count === 1 ? "" : "s"}`}</span>
     <label class="rv-file__check"><input type="checkbox" data-reviewed="${escapeHtml(file.rel)}" aria-label="Mark ${escapeHtml(file.rel)} reviewed"${reviewed.has(file.rel) ? " checked" : ""}> reviewed</label>
   </span>
@@ -313,7 +320,16 @@ export function renderReviewPage(input: ReviewPageInput): string {
 			? `<div class="bf-empty"><p class="bf-empty__title">No changes in this scope.</p><p class="bf-empty__sub">Nothing differs between ${escapeHtml(snapshot.label)} and the tree. Switch the scope, or edit something first.</p></div>`
 			: files
 					.map((file, index) =>
-						fileSection(file, index, comments, reviewed, snapshot.scope, input.preset, index === files.length - 1),
+						fileSection({
+							file,
+							index,
+							comments,
+							reviewed,
+							scope: snapshot.scope,
+							...(input.preset === undefined ? {} : { preset: input.preset }),
+							last: index === files.length - 1,
+							token: input.token,
+						}),
 					)
 					.join("\n");
 	const omitted =

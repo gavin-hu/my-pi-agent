@@ -74,7 +74,8 @@ The rail's head carries the facts and the progress; the footer the comparison. I
 own stream: a write in one tab repaints the others, and a frame under an open composer is
 held. A frame under the send dialog re-reads the list it is about to send; an emptied dialog
 stays open saying there is nothing left to send rather than closing under the reader. The
-last tab leaving ends it 1.5 s later so a reload fits. Nothing watches the tree: **comment**
+last tab leaving ends it 1.5 s later so a reload fits — and the file view is that same page, so
+it holds the same stream and reading a file keeps the review open. Nothing watches the tree: **comment**
 asks the revision the page would render now, so a moved diff opens no box; the write refuses.
 
 **One file at a time.** `?file=<path>` turns the page into that one file's diff: the

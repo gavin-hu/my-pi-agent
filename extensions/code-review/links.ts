@@ -36,7 +36,16 @@ export function newHref(scope: ReviewScope, preset?: ReviewPreset, file?: string
 	return `${REVIEW_BASE}/new?${query.toString()}`;
 }
 
-/** One listed file's whole text, as the view that draws it. */
-export function fileHref(rel: string, scope: ReviewScope, preset?: ReviewPreset): string {
-	return `${REVIEW_BASE}/file?${new URLSearchParams({ ...scopeQuery(scope, preset), path: rel }).toString()}`;
+/**
+ * One listed file's whole text, as the view that draws it.
+ *
+ * The token is the page's, and the view carries it so the page can hold its own stream: a file
+ * view is the same review in the same tab, and a document that attaches nothing would look to
+ * the mount like a tab that left. A link with no token still reads the file; it just holds no
+ * page, which is what a pasted or stale address deserves.
+ */
+export function fileHref(rel: string, scope: ReviewScope, preset?: ReviewPreset, token?: string): string {
+	const query = new URLSearchParams({ ...scopeQuery(scope, preset), path: rel });
+	if (token !== undefined) query.set("token", token);
+	return `${REVIEW_BASE}/file?${query.toString()}`;
 }

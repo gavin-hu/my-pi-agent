@@ -19,6 +19,8 @@ import type { ReviewCurrent } from "../../extensions/code-review/review/current.
 import { comparisonOf } from "./review-scope.ts";
 import { createReviewStore } from "../../extensions/code-review/review/store.ts";
 import { createReviewHandler } from "../../extensions/code-review/transport/router.ts";
+import { createReviewPage } from "../../extensions/code-review/transport/server.ts";
+import type { ArmTimer } from "../../lib/timer.ts";
 import { suiteTab, type TestBrowser } from "./browser.ts";
 import { testMountSource } from "./serve.ts";
 
@@ -142,6 +144,22 @@ export interface ReviewPageFixture {
 	closePage(): void;
 	/** Close the listener; the case owns it, the way `serve` hands one out. */
 	close(): Promise<void>;
+	/**
+	 * How many times the mount decided the page was abandoned.
+	 *
+	 * Only meaningful when the fixture was given a grace: the bare-handler mount has no registry,
+	 * so no tab's departure can end its page, and this stays 0.
+	 */
+	abandoned(): number;
+	/**
+	 * Whether a closed-tab grace is armed and not yet stood down.
+	 *
+	 * The grace's timer is the fixture's own seam, so it never fires on its own: a case waits for
+	 * this fact and then fires it, rather than sleeping for long enough to hope.
+	 */
+	gracePending(): boolean;
+	/** Fire the armed grace now, as the clock would; a stood-down grace does nothing. */
+	fireGrace(): void;
 }
 
 /**
@@ -168,6 +186,14 @@ export async function mountReviewPage(
 	seed: readonly SeedComment[] = [],
 	/** The whole-file answer the file view reads; empty by default, as a review page never asks. */
 	fileText: DiffLine[] = [],
+	/**
+	 * Mount over the shipping path instead of the bare handler, with this closed-tab grace.
+	 *
+	 * Absent is today's fixture: one handler on one prefix, no registry, no grace — the shape
+	 * every review suite mounts. Given, the page is `createReviewPage`'s, so a tab that leaves is
+	 * a grace a case can watch and a stream a page can hold.
+	 */
+	lifetime?: { graceMs: number },
 ): Promise<ReviewPageFixture> {
 	let fingerprint = "rev-1";
 	let shape = options;
@@ -198,16 +224,55 @@ export async function mountReviewPage(
 		snapshot: () => reader.snapshot(),
 		openPage: async (scope, preset) => store.open(scope, preset),
 	};
-	const handler = createReviewHandler({ store, current, base: REVIEW_MOUNT });
-	const mount = await testMountSource()({
-		session: "review-browser",
-		prefix: REVIEW_MOUNT,
-		handler,
-		maxBodyBytes: 256 * 1024,
-	});
-	if (mount.kind !== "mounted") throw new Error("the review page did not mount");
+	let abandoned = 0;
+	let pendingGrace: (() => void) | undefined;
+	// The grace's timer is a seam the case drives: nothing fires until it says so, which is what
+	// makes "the file view held the page" an assertion instead of a race against a real clock.
+	const schedule: ArmTimer = (_ms, run) => {
+		let live = true;
+		pendingGrace = () => {
+			if (!live) return;
+			live = false;
+			pendingGrace = undefined;
+			run();
+		};
+		return () => {
+			live = false;
+			pendingGrace = undefined;
+		};
+	};
+	let url: string;
+	let close: () => Promise<void>;
+	if (lifetime === undefined) {
+		const handler = createReviewHandler({ store, current, base: REVIEW_MOUNT });
+		const mount = await testMountSource()({
+			session: "review-browser",
+			prefix: REVIEW_MOUNT,
+			handler,
+			maxBodyBytes: 256 * 1024,
+		});
+		if (mount.kind !== "mounted") throw new Error("the review page did not mount");
+		url = `${mount.mount.origin}${REVIEW_MOUNT}/new`;
+		close = () => mount.mount.release();
+	} else {
+		// The shipping mount: a real registry, so a page with no stream is a page that left.
+		const page = await createReviewPage({
+			store,
+			current,
+			session: "review-browser",
+			mount: testMountSource(),
+			dropGraceMs: lifetime.graceMs,
+			schedule,
+			onAbandoned: () => {
+				abandoned += 1;
+			},
+		});
+		if (page.kind === "refused") throw new Error(page.reason);
+		url = page.page.url;
+		close = () => page.page.close();
+	}
 	return {
-		url: `${mount.mount.origin}${REVIEW_MOUNT}/new`,
+		url,
 		move: () => {
 			fingerprint = "rev-2";
 		},
@@ -217,7 +282,10 @@ export async function mountReviewPage(
 		},
 		rev: () => fingerprint,
 		closePage: () => store.close(),
-		close: () => mount.mount.release(),
+		close,
+		abandoned: () => abandoned,
+		gracePending: () => pendingGrace !== undefined,
+		fireGrace: () => pendingGrace?.(),
 	};
 }
 
@@ -359,8 +427,10 @@ export async function withReviewPage(
 	seed: readonly SeedComment[] = [],
 	live = false,
 	fileText: DiffLine[] = [],
+	/** Mount over the shipping page with this grace, so a case can watch a tab's departure. */
+	lifetime?: { graceMs: number },
 ): Promise<void> {
-	const fixture = await mountReviewPage(options, seed, fileText);
+	const fixture = await mountReviewPage(options, seed, fileText, lifetime);
 	const page = await openReviewPage(browser, fixture, { stream: live });
 	try {
 		await run(page, fixture);
@@ -370,37 +440,68 @@ export async function withReviewPage(
 }
 
 /** The address of one file's whole text, on the origin the review page was served from. */
-export function fileAddress(pageUrl: string, rel: string): string {
+export function fileAddress(pageUrl: string, rel: string, token?: string): string {
 	const url = new URL(pageUrl);
 	url.pathname = `${REVIEW_MOUNT}/file`;
-	url.search = `?path=${encodeURIComponent(rel)}`;
+	const query = new URLSearchParams({ path: rel });
+	// The app's view-file link carries the page's token, and the view holds the review with it; a
+	// case that wants the real address passes it.
+	if (token !== undefined) query.set("token", token);
+	url.search = `?${query.toString()}`;
 	return url.toString();
+}
+
+/** The page's token, as the server wrote it into the island: a case's identity across a visit. */
+export async function islandToken(page: Page): Promise<string> {
+	return page.evaluate(() => {
+		const view = globalThis as unknown as {
+			document: { getElementById(id: string): { textContent: string | null } | null };
+		};
+		const island = view.document.getElementById("rv-data");
+		if (island === null || island.textContent === null) return "";
+		const data = JSON.parse(island.textContent) as { token?: unknown };
+		return typeof data.token === "string" ? data.token : "";
+	});
+}
+
+/** What a file-view case may say about the page it wants. */
+export interface FilePageOptions {
+	/** The whole-file answer the view reads. */
+	fileText: DiffLine[];
+	/** The file the view draws; `a.ts` by default. */
+	rel?: string;
+	/** Mount over the shipping page with this grace, as `withReviewPage` does. */
+	lifetime?: { graceMs: number };
 }
 
 /**
  * The fixture's file view: the page opened, the file address drawn, and the case run.
  *
  * The review page is opened first, because the file view reads the review that is open on the
- * session — an address on its own answers "no review page is open". The ownership is
- * `withReviewPage`'s, so a case cannot leave a fixture or a listener behind.
+ * session — an address on its own answers "no review page is open". Its token rides the file
+ * address exactly as the app's **view file** link does, so the case drives the real thing. The
+ * ownership is `withReviewPage`'s, so a case cannot leave a fixture or a listener behind.
  */
 export async function withFilePage(
 	browser: TestBrowser,
-	run: (page: Page, fixture: ReviewPageFixture) => Promise<void>,
-	fileText: DiffLine[],
-	rel = "a.ts",
+	run: (page: Page, fixture: ReviewPageFixture, token: string) => Promise<void>,
+	options: FilePageOptions,
 ): Promise<void> {
 	await withReviewPage(
 		browser,
 		async (page, fixture) => {
-			await page.goto(fileAddress(fixture.url, rel), { waitUntil: "load" });
+			const token = await islandToken(page);
+			await page.goto(fileAddress(fixture.url, options.rel ?? "a.ts", token === "" ? undefined : token), {
+				waitUntil: "load",
+			});
 			await page.waitForSelector("pre.rv-diff, .rv-file__note", { timeout: REVIEW_PAINT_MS });
-			await run(page, fixture);
+			await run(page, fixture, token);
 		},
 		{},
 		[],
 		false,
-		fileText,
+		options.fileText,
+		options.lifetime,
 	);
 }
 
