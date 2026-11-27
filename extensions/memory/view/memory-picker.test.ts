@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { createFakePi, fakeTheme as theme } from "../../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme as theme, fakeTui, mouseEvent } from "../../../test/helpers/fakes.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import { notesOf } from "../../../test/helpers/fixtures/memory.ts";
 import type { MemoryEntries } from "../format.ts";
@@ -11,7 +11,7 @@ import { createMemoryRuntime } from "../runtime.ts";
 import { type MemoryPickerCallbacks, MemoryPickerComponent } from "./memory-picker.ts";
 import { registerTools, TOOL_NAME } from "../tools.ts";
 
-const tui = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as any;
+const tui = fakeTui(24);
 
 interface RecordedCalls {
 	add: Array<[string, string]>;
@@ -96,7 +96,7 @@ function harness(initial: Fixture, trusted = true, overrides: Partial<MemoryPick
 		render: (width = 70): string[] => component.render(width),
 		text: (width = 70): string => component.render(width).join("\n"),
 		input: (data: string): void => component.handleInput(data),
-		mouse: (delta: number): unknown => component.handleMouse({ type: "wheel", wheelDelta: delta } as any),
+		mouse: (delta: number): unknown => component.handleMouse(mouseEvent({ type: "wheel", wheelDelta: delta })),
 		closeCount: () => closed,
 		calls,
 		entries,

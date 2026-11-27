@@ -29,7 +29,11 @@ const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 /** One session on a shared bus, holding the context a command has rather than a tool's. */
-function commandSession(dir: string, id: string, label: string): { bus: SessionBus; pi: any; ctx: ExtensionContext } {
+function commandSession(
+	dir: string,
+	id: string,
+	label: string,
+): { bus: SessionBus; pi: ExtensionAPI; ctx: ExtensionContext } {
 	const bus = createSessionBus({} as ExtensionAPI, {
 		dir,
 		repo: { root: "/repo", key: "shared" },
@@ -53,7 +57,7 @@ async function peerOn(dir: string, id: string, label: string) {
 }
 
 /** Ask the bus to send, the way `lib/session-tool.ts` asks for a command context. */
-function ask(pi: any, ctx: ExtensionContext, input: SendInput): Promise<SendResult> {
+function ask(pi: ExtensionAPI, ctx: ExtensionContext, input: SendInput): Promise<SendResult> {
 	return new Promise<SendResult>((resolve) => {
 		const request: SessionSendRequest = { ctx, input, respond: resolve };
 		pi.events.emit(SESSION_SEND_REQUEST, request);

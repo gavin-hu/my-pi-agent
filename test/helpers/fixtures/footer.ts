@@ -10,6 +10,7 @@
  * Value-only: every recorder is created per call.
  */
 
+import type { FooterData } from "../../../extensions/bytefly/footer/types.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../../lib/events.ts";
@@ -230,3 +231,16 @@ export async function withRegisteredFooter(
 
 /** `price` configured for dollars. */
 export const usdPrice = (): Record<string, unknown> => ({ currency: { code: "USD" } });
+
+/**
+ * The footer data the snapshot reader's cases read: a branch, two statuses, and two providers.
+ *
+ * The values are what those cases assert on, so they live with the fixture rather than in one
+ * `describe`'s closure.
+ */
+export const readerFooterData: FooterData = {
+	getGitBranch: () => "main",
+	getExtensionStatuses: () => new Map([["worktree", "⑂ smoke"]]),
+	getAvailableProviderCount: () => 2,
+	onBranchChange: () => () => {},
+};

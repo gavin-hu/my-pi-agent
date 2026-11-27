@@ -12,6 +12,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { resetCapabilitiesCache, setCapabilities } from "@earendil-works/pi-tui";
 import { DEFAULT_CONFIG, isFormatEnabled, loadConfig, normalizeConfig } from "./config.ts";
 import { withDeadline } from "./deadline.ts";
@@ -24,15 +25,13 @@ import { registerReadTool } from "./tool.ts";
 import { TOOL_NAME } from "./schema.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
-import { makeReadFixture } from "../../test/helpers/fixtures/file-read.ts";
+import { resultText } from "../../test/helpers/tools.ts";
+import { createFakePi, fakeTheme, type RenderContext, toolRenderContext } from "../../test/helpers/fakes.ts";
+import { docResult, makeReadFixture, type ReadTool } from "../../test/helpers/fixtures/file-read.ts";
 import { buildPdf, legacyDocBytes } from "../../test/helpers/fixtures/documents.ts";
 import { tempDir, useEnv, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { settle } from "../../test/helpers/process.ts";
-
-type AnyFn = (...args: any[]) => any;
-type Tool = { execute: AnyFn; renderCall: AnyFn; renderResult: AnyFn };
 
 const TIMEOUT = "Extraction did not finish within 20 ms (file-read.extractTimeoutMs).";
 
@@ -423,35 +422,18 @@ function fakeExtractor(text: string | Error): FormatExtractor {
 function installTool(
 	extractors: Partial<Record<FormatId, FormatExtractor>> = {},
 	options: { timeoutMs?: number } = {},
-): Tool {
+): ReadTool {
 	const { pi, tools } = createFakePi();
 	registerReadTool(pi, { extractors, timeoutMs: options.timeoutMs });
-	return tools.get(TOOL_NAME) as Tool;
+	return tools.get(TOOL_NAME) as ReadTool;
 }
 
 function ctxFor(cwd: string): unknown {
 	return fakeCtx({ cwd, mode: "print" }).ctx;
 }
 
-function run(tool: Tool, params: Record<string, unknown>, cwd = fixture.root): Promise<any> {
-	return tool.execute("call-1", params, undefined, undefined, ctxFor(cwd));
-}
-
-function docResult(overrides: Record<string, unknown>): any {
-	return {
-		details: {
-			path: "a.pdf",
-			format: "pdf",
-			bytes: 1,
-			chars: 42478,
-			startIndex: 0,
-			nextIndex: 42478,
-			truncated: false,
-			text: "x",
-			...overrides,
-		},
-		content: [{ type: "text", text: "x" }],
-	};
+function run(tool: ReadTool, params: Record<string, unknown>, cwd = fixture.root) {
+	return tool.execute("call-1", params, undefined, undefined, ctxFor(cwd) as ExtensionToolContext);
 }
 
 describe("read_doc extraction", () => {
@@ -459,7 +441,7 @@ describe("read_doc extraction", () => {
 		fixture.write("a.pdf", "bytes");
 		const result = await run(installTool({ pdf: fakeExtractor("hello world") }), { path: "a.pdf" });
 
-		expect(result.content[0].text).toContain("hello world");
+		expect(resultText(result)).toContain("hello world");
 		expect(result.details).toMatchObject({ path: "a.pdf", format: "pdf", bytes: 5, chars: 11, truncated: false });
 		expect(result.structuredContent).toEqual(result.details);
 	});
@@ -485,7 +467,7 @@ describe("read_doc extraction", () => {
 		fixture.write("a.xlsx", "bytes");
 		const result = await run(installTool({ xlsx: fakeExtractor("[Sheet1]\na\tb") }), { path: "a.xlsx" });
 
-		expect(result.content[0].text).toContain("[Sheet1]");
+		expect(resultText(result)).toContain("[Sheet1]");
 		expect(result.details).toMatchObject({ path: "a.xlsx", format: "xlsx", bytes: 5 });
 		expect(result.structuredContent).toEqual(result.details);
 	});
@@ -508,7 +490,7 @@ describe("read_doc extraction", () => {
 		for (const [path, format] of cases) {
 			fixture.write(path, "bytes");
 			const result = await run(tool, { path });
-			expect(result.content[0].text).toContain("body");
+			expect(resultText(result)).toContain("body");
 			expect(result.details).toMatchObject({ path, format, bytes: 5 });
 			expect(result.structuredContent).toEqual(result.details);
 		}
@@ -608,8 +590,8 @@ describe("read_doc deadline", () => {
 // Result rendering
 // ---------------------------------------------------------------------------
 
-function renderContext(overrides: Record<string, unknown> = {}): any {
-	return { cwd: fixture.root, isError: false, ...overrides };
+function renderContext(overrides: Partial<RenderContext> = {}): RenderContext {
+	return toolRenderContext({ cwd: fixture.root, isError: false, ...overrides });
 }
 
 describe("result rendering", () => {

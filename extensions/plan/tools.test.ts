@@ -2,10 +2,12 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { fakeTheme, toolRenderContext } from "../../test/helpers/fakes.ts";
-import { callTool } from "../../test/helpers/tools.ts";
+import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { callTool, resultText } from "../../test/helpers/tools.ts";
+import { type BoundTool, boundPlanAction } from "../../test/helpers/plan-tool.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import type { ExecResult } from "../../test/helpers/git.ts";
 import { planCtx, makePlanPi } from "../../test/helpers/fixtures/plan.ts";
@@ -18,10 +20,9 @@ import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import { createPlanPolicy } from "./policy.ts";
 import { PLAN_REVIEW_TIMEOUT_MS } from "./review.ts";
-import { createPlanRuntime, PLAN_TOOL } from "./runtime.ts";
+import { createPlanRuntime, PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
 import { MAX_STEP_LENGTH, MAX_STEPS } from "./steps.ts";
 import { registerTools } from "./tools.ts";
-import type { PlanAction } from "./types.ts";
 import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
 
 /** One agent directory for this file: plans land outside the project now. */
@@ -53,22 +54,6 @@ function repoExec(root: string) {
 /** The exec seam the fake `pi` calls; `killed` is optional there, so it is left out. */
 type FakeExec = (command: string, args: string[]) => Promise<Omit<ExecResult, "killed">>;
 
-/**
- * One action of the folded `plan` tool, bound the way a test wants to call it.
- *
- * The tool is one registration with an `action` discriminant, so a case that
- * exercises `write` passes `write`'s fields and this adds the verb; the seam is
- * the tool's real `execute` and `renderResult`, not a stand-in for them.
- */
-function bound(plan: any, action: PlanAction): any {
-	return {
-		execute: (toolCallId: string, params: Record<string, unknown> = {}, ...rest: unknown[]) =>
-			plan.execute(toolCallId, { ...params, action }, ...rest),
-		renderResult: (result: unknown, options: { expanded: boolean }, theme: unknown) =>
-			plan.renderResult(result, options, theme, toolRenderContext(options)),
-	};
-}
-
 function setup(web?: PlanWebReview, options: { allTools?: unknown[]; exec?: FakeExec } = {}) {
 	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
 	const fake = makePlanPi({
@@ -86,11 +71,11 @@ function setup(web?: PlanWebReview, options: { allTools?: unknown[]; exec?: Fake
 		runtime,
 		root,
 		plan,
-		enter: bound(plan, "enter"),
-		exit: bound(plan, "exit"),
-		cancel: bound(plan, "cancel"),
-		write: bound(plan, "write"),
-		setSteps: bound(plan, "steps"),
+		enter: boundPlanAction(plan, "enter"),
+		exit: boundPlanAction(plan, "exit"),
+		cancel: boundPlanAction(plan, "cancel"),
+		write: boundPlanAction(plan, "write"),
+		setSteps: boundPlanAction(plan, "steps"),
 	};
 }
 
@@ -169,21 +154,21 @@ function webThatApproves(annotations: PlanAnnotation[]): { web: PlanWebReview; s
 }
 
 /** Enter plan mode through the real tool, in a repository rooted at `cwd`. */
-async function enterPlan(enter: any, runtime: any, cwd: string) {
+async function enterPlan(enter: BoundTool, runtime: PlanRuntime, cwd: string) {
 	const { ctx } = planCtx({ confirm: true, cwd });
 	await callTool(enter, {}, ctx);
 	expect(runtime.isEnabled()).toBe(true);
 }
 
 /** Save a plan file through the real tool and return its path. */
-async function savePlan(write: any, ctx: any, content: string): Promise<string> {
+async function savePlan(write: BoundTool, ctx: ExtensionContext, content: string): Promise<string> {
 	const result = await callTool(write, { title: "Test plan", content }, ctx);
 	expect(result.isError).toBeUndefined();
 	return (result.details as { path: string }).path;
 }
 
 /** Approve a saved plan through the real tool, leaving plan mode. */
-async function approvePlan(exit: any, planPath: string, cwd: string) {
+async function approvePlan(exit: BoundTool, planPath: string, cwd: string) {
 	await callTool(exit, { plan_path: planPath }, planCtx({ select: "approve", cwd }).ctx);
 }
 
@@ -964,8 +949,8 @@ describe("plan exit", () => {
 		const result = await exit.execute("call-1", { plan_path: planPath }, controller.signal, undefined, ctx);
 
 		expect(starts).toEqual([]);
-		expect(result.details.approved).toBe(false);
-		expect(result.content[0].text).toContain("Plan not approved");
+		expect(result.details).toMatchObject({ approved: false });
+		expect(resultText(result)).toContain("Plan not approved");
 		expect(runtime.isEnabled()).toBe(true);
 	});
 

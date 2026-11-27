@@ -97,15 +97,15 @@ The vocabulary a reader meets most:
 | `⑂` | A worktree. |
 | `↺` | A rewind, and the snapshot one restores. |
 
-Four rules hold the vocabulary together, and each is a gate rather than a wish:
+Four rules hold the vocabulary together; `lib/tui/glyphs.test.ts` gates two of them:
 
 - **One column.** Never wide, fullwidth, or emoji, which cost two columns in every
   profile. East-Asian *ambiguous* marks are allowed and are recorded as such, because
   a CJK-width profile draws those two.
 - **One meaning.** No two marks may say the same thing. Two shapes that both read "go"
   are one too many, and only the words a mark says can catch it.
-- **One ink per family.** A slot's marks share a weight; a filled mark beside a
-  hairline one reads as two vocabularies.
+- **One ink per family**, a rule a reviewer holds rather than a gate — no table records a
+  family. A slot's marks share a weight; a filled mark beside a hairline one reads as two.
 - **One shape may serve several jobs**, declared once — an arrow is a join and a cue,
   a caret a running job and an open fold.
 
@@ -145,11 +145,11 @@ Then the rules, in one line each:
   it is invalidated.
 - Keys are matched by the shared matcher, and the shared bindings stay shared.
 
-The ceilings are gates, not prose. `COLLAPSED_ROWS` in `test/tool-render.test.ts`
-holds every shipped block's collapsed height at 80 columns and may only fall;
-`test/dependencies.test.ts` holds the static graph an entry pays for. A new row, a new
-primitive, and a new glyph each spend a budget, and the gate is where you argue for
-it.
+The ceilings are not prose. A gate is a test that fails a change; a ratchet is a ledger
+whose entries rise only when the reason is written beside one. `COLLAPSED_ROWS` is a
+ratchet — an entry per shipped block at 80 columns, its module and suite in the [terminal
+kit's README](https://github.com/gavin-hu/my-pi-agent/blob/main/lib/tui/README.md) — and
+`test/dependencies.test.ts` a gate: a new row, primitive, or glyph is argued at one of them.
 
 ## Related docs
 

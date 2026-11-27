@@ -5,9 +5,10 @@ import { JOB_FINISHED_CHANNEL, type JobFinishedEvent, WATCH_MATCH_CHANNEL } from
 import { tempDir, withAgentDir } from "../../../test/helpers/env.ts";
 import { createFakePi, emit } from "../../../test/helpers/fakes.ts";
 import { fakeFooterCtx } from "../../../test/helpers/fixtures/footer.ts";
+import { deliveryRecorder, type NotifyHarness } from "../../../test/helpers/fixtures/notify.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
 import { DEFAULT_NOTIFY_CONFIG, loadNotifyConfig, MAX_TITLE_LENGTH, normalizeNotifyConfig } from "./config.ts";
-import { resolveMethod, sendNotification, type NotifySeams } from "./dispatch.ts";
+import { resolveMethod, sendNotification } from "./dispatch.ts";
 import {
 	formatInputBody,
 	formatJobBody,
@@ -32,36 +33,6 @@ function projectDir(): string {
 	return temps.track(tempDir("bytefly-notify-"));
 }
 
-interface DeliveryRecorder {
-	seams: NotifySeams;
-	written: string[];
-	ran: Array<{ command: string; args: string[] }>;
-}
-
-/** A seams double that records OSC writes and spawned notifier commands. */
-function deliveryRecorder(
-	options: { platform?: NodeJS.Platform; env?: Record<string, string | undefined>; isTTY?: boolean } = {},
-): DeliveryRecorder {
-	const written: string[] = [];
-	const ran: Array<{ command: string; args: string[] }> = [];
-	return {
-		written,
-		ran,
-		seams: {
-			platform: options.platform ?? "linux",
-			env: options.env ?? {},
-			stdout: {
-				write: (chunk: string) => {
-					written.push(chunk);
-					return true;
-				},
-				isTTY: options.isTTY ?? false,
-			},
-			run: (command, args) => ran.push({ command, args }),
-		},
-	};
-}
-
 /** An enabled config over the defaults. */
 function enabled(overrides: Partial<NotifyConfig> = {}): NotifyConfig {
 	return { ...DEFAULT_NOTIFY_CONFIG, enabled: true, ...overrides };
@@ -69,14 +40,6 @@ function enabled(overrides: Partial<NotifyConfig> = {}): NotifyConfig {
 
 const finished: JobFinishedEvent = { id: "j1", label: "build", status: "exited", exitCode: 0, signal: null };
 const match = { count: 2, watcherId: "w3", label: "build", line: "error: bad thing" };
-
-interface NotifyHarness {
-	pi: any;
-	ctx: any;
-	written: string[];
-	ran: Array<{ command: string; args: string[] }>;
-	handle: { notify: (body: string) => void };
-}
 
 /**
  * Register the capability over recording seams with `notify` in `bytefly.json`,

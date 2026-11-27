@@ -360,8 +360,8 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
 
 ## Banned patterns (enforced)
 
-`test/conventions.test.ts` scans every `*.test.ts` under `extensions/`, `lib/`, and
-`scripts/`, and fails on:
+`test/conventions.test.ts` scans every `*.test.ts` under `extensions/` and `lib/`,
+and fails on:
 
 - `mock.module(` / `mock.restore(`;
 - `process.env.<NAME> =`, `process.env[NAME] =`, or `delete process.env.*`
@@ -373,6 +373,11 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
 - padding assertions — a string literal with three or more consecutive spaces
   passed to an assertion helper;
 - local theme doubles — an object literal with an `fg:` property;
+- `any` — `as any`, `: any`, `<any>`. A fake typed `any` keeps answering a member that moved and
+  nothing fails, and a suite is where a host interface moves under a double: name the host type, or
+  declare the double as `Partial<Iface>` / `Pick<>`. `test/` is outside this scan because its helpers
+  *are* the seams and the doubles — `helpers/process.ts` arms the real timer the ban above forbids in
+  a test — so a double the suites share is written in `test/helpers/` and carries its one cast there;
 - an interface cast at a seam — `as unknown as <Name>Runtime`, which skips every member of the
   interface a double stands in for. Declare the double against the interface instead (`Partial<Iface>`
   with a plain `as` at the return, or a `Pick<>`), so a member that moves fails `check:types` here
@@ -386,6 +391,16 @@ of one ban with an `allow:<name>` comment on that line or in the comment block
 directly above it, when the match is genuine content (for example a
 whitespace-normalisation assertion) and not layout padding. Add to either only
 with a stated reason; do not silently widen a regex.
+
+## Less than a linter (by design)
+
+There is no lint rule set, and the format step is `biome format`, not `biome check`: Biome 2's assist
+would have rewritten 724 `.ts` files on the day it landed, and every rule that matters
+here is a ban in `conventions.test.ts` with a reason and a case proving it fires. Two surfaces no
+tool reaches: Biome has no handler for Markdown or YAML, so a page's links are `doc-links.test.ts` and
+a workflow file is GitHub's to reject, and the served HTML pages are held by their render captures
+rather than by a parser. `@biomejs/biome` is pinned to an exact version because a formatter's minor
+release is its output.
 
 ## Source conventions (enforced)
 

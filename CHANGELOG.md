@@ -55,6 +55,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `test`: the `any` ban reaches the suites. `test/conventions.test.ts` scanned every suite but banned
+  `any` only in source, so 118 casts stood in the suites over shipped code — the one place a fake keeps
+  answering a member that moved while `check:types` stays green. Each now names its type: `test/helpers/`
+  owns the TUI double and the mouse-event builder (one cast each, naming what it guarantees), and a new
+  `as any`, `: any`, or `<any>` in an extension or `lib/` suite fails the gate. Eight suites that
+  grew a type import moved their doubles into `test/helpers/` instead, which took 124 lines off the
+  suite ledger rather than adding them. `@biomejs/biome` is also pinned to `2.5.15` and `biome.json`
+  sets `files.ignoreUnknown`, so a formatter upgrade is a decision rather than a lockfile refresh and
+  `--verbose` names the 1369 files checked instead of the 118 it has no handler for.
+
 - `board`: the tool arrives with the team. A session the bus holds no live record of is offered no
   `board` tool at all — it registers inactive, and a turn start offers it once the record lands, so a
   join reaches the model on the next turn and a leave takes it away — while a run with no bus keeps
@@ -104,6 +114,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   re-owned by a name; the session that wants the card claims it again from the pool.
 
 ### Fixed
+
+- `docs`: the design page and the terminal kit's README name the ceiling that actually holds a
+  block's height. `COLLAPSED_ROWS` lives in `test/helpers/tool-block.ts` and `test/tool-rows.test.ts`
+  enforces it — not `tool-render.test.ts`, which reads one entry to justify a call-line-only draw —
+  and raising an entry is a review ratchet rather than a gate, which the page now says where it
+  defines the two words. The block budget's numbers are corrected (41 blocks, `subagent` the tallest
+  at 10; the average nobody acted on is gone) and a case holds them to the ledger, so they cannot
+  drift again. The four glyph rules no longer claim to be gates each: `lib/tui/glyphs.test.ts` gates
+  two, and one ink per family is a rule a reviewer holds because no table records a family.
 
 - `code-review`: where a jump lands is one measured line now. A deep link, a hunk jump and a reload
   put the picked row a third of the way down the band under the pinned file head, so the lines above

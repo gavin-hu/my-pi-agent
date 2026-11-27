@@ -3,9 +3,9 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, w
 import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
-import { isoTime } from "../../../test/helpers/entries.ts";
+import { assistantEntry, userEntry } from "../../../test/helpers/entries.ts";
 import { tempDir, useEnv, withAgentDir } from "../../../test/helpers/env.ts";
-import { createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme, mouseEvent } from "../../../test/helpers/fakes.ts";
 import {
 	answerScope as answer,
 	branchWithUser,
@@ -54,26 +54,6 @@ import {
 
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
-
-function userEntry(id: string, content: unknown, timestamp = 1000): any {
-	return {
-		type: "message",
-		id,
-		parentId: null,
-		timestamp: isoTime(timestamp),
-		message: { role: "user", content, timestamp },
-	};
-}
-
-function assistantEntry(id: string): any {
-	return {
-		type: "message",
-		id,
-		parentId: null,
-		timestamp: isoTime(1000),
-		message: { role: "assistant", content: [{ type: "text", text: "ok" }], timestamp: 1000 },
-	};
-}
 
 describe("rewind timeline", () => {
 	test("flattens text blocks and ignores images", () => {
@@ -364,10 +344,10 @@ describe("rewind timeline screen", () => {
 		const component = rewindList();
 		component.render(60);
 
-		expect(component.handleMouse({ type: "wheel", wheelDelta: 1 } as any)).toEqual({ handled: true });
+		expect(component.handleMouse(mouseEvent({ type: "wheel", wheelDelta: 1 }))).toEqual({ handled: true });
 		const selected = component.render(60).find((line) => line.startsWith("❯"));
 		expect(selected).toContain("add tests");
-		expect(component.handleMouse({ type: "click", button: "left" } as any)).toBeUndefined();
+		expect(component.handleMouse(mouseEvent({ type: "click", button: "left" }))).toBeUndefined();
 	});
 });
 

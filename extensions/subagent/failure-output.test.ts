@@ -31,7 +31,7 @@ function noisyFailure(agent: string): SingleResult {
 	};
 }
 
-function call(tool: unknown, params: unknown): Promise<any> {
+function call(tool: unknown, params: unknown) {
 	return callTool(tool, params, fakeToolCtx());
 }
 

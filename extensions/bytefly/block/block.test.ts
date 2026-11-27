@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import {
 	BOLD_SGR,
@@ -6,8 +7,10 @@ import {
 	createFakePi,
 	fakeTheme,
 	innerOf,
+	type RenderContext,
 	ROLE_SGR,
 	roleSgrTheme,
+	toolRenderContext as renderContext,
 } from "../../../test/helpers/fakes.ts";
 import type { PadSource } from "../pad.ts";
 import { headlineWithToolName, recolorCallHeadline, recolorShellCall, ToolBlock, toolBlockLines } from "./component.ts";
@@ -16,19 +19,6 @@ import { registerToolBlocks } from "./register.ts";
 
 const call = (name: string, subject: string) =>
 	roleSgrTheme.fg("toolTitle", name) + " " + roleSgrTheme.fg("accent", subject);
-
-/** A render context with only the fields the resolver reads. */
-function renderContext(overrides: Record<string, unknown> = {}) {
-	return {
-		isPartial: false,
-		isError: false,
-		expanded: false,
-		outputPad: 0,
-		lastComponent: undefined,
-		state: {},
-		...overrides,
-	} as any;
-}
 
 /** Register the frame and hand back the single resolver. */
 function resolver(pad?: PadSource) {
@@ -392,7 +382,12 @@ describe("registerToolBlocks", () => {
 		const renderers = resolver()("read", () => ({ renderResult: () => new Text("base result", 0, 0) }));
 		const lines =
 			renderers
-				?.renderResult?.({ content: [] } as any, { expanded: false, isPartial: false }, fakeTheme, renderContext())
+				?.renderResult?.(
+					{ content: [], details: undefined },
+					{ expanded: false, isPartial: false },
+					fakeTheme,
+					renderContext(),
+				)
 				.render(40) ?? [];
 		expect(lines[0]?.trim()).toBe("╎ base result");
 	});
@@ -439,11 +434,11 @@ describe("registerToolBlocks", () => {
 		const seen: number[] = [];
 		const renderers = resolver()("edit", () => ({
 			renderShell: "self" as const,
-			renderCall: (_args: unknown, _theme: unknown, context: any) => {
+			renderCall: (_args: unknown, _theme: unknown, context: RenderContext) => {
 				seen.push(context.outputPad);
 				return new Text("edit x\nbody", 0, 0);
 			},
-			renderResult: (_r: unknown, _o: unknown, _t: unknown, context: any) => {
+			renderResult: (_r: unknown, _o: unknown, _t: unknown, context: RenderContext) => {
 				seen.push(context.outputPad);
 				return new Text("done", 0, 0);
 			},
@@ -453,7 +448,7 @@ describe("registerToolBlocks", () => {
 		expect(lines[0]?.indexOf("edit x")).toBe(1);
 		expect(lines[1]?.trim()).toBe("╎ body");
 		renderers?.renderResult?.(
-			{ content: [] } as any,
+			{ content: [], details: undefined },
 			{ expanded: false, isPartial: false },
 			fakeTheme,
 			renderContext({ outputPad: 1 }),
@@ -472,7 +467,7 @@ describe("registerToolBlocks", () => {
 
 	test("rails the edit call body by status", () => {
 		const renderers = resolver()("edit", () => ({ renderCall: () => new Text("edit x\nbody", 0, 0) }));
-		const body = (overrides: Record<string, unknown>) =>
+		const body = (overrides: Partial<RenderContext>) =>
 			renderers?.renderCall?.({}, coloringTheme, renderContext(overrides)).render(20)?.[1] ?? "";
 		expect(body({ isPartial: true })).toContain("[accent]╎");
 		expect(body({ isPartial: false, isError: false })).toContain("[dim]╎");
@@ -483,7 +478,12 @@ describe("registerToolBlocks", () => {
 		const renderers = resolver()("write", () => ({ renderResult: () => new Text("done", 0, 0) }));
 		const lines =
 			renderers
-				?.renderResult?.({ content: [] } as any, { expanded: false, isPartial: false }, coloringTheme, renderContext())
+				?.renderResult?.(
+					{ content: [], details: undefined },
+					{ expanded: false, isPartial: false },
+					coloringTheme,
+					renderContext(),
+				)
 				.render(20) ?? [];
 		expect(lines[0]).toContain("[dim]╎");
 	});
@@ -491,7 +491,7 @@ describe("registerToolBlocks", () => {
 	test("keeps the edit base renderer from painting its own background", () => {
 		let painted = "";
 		const renderers = resolver()("edit", () => ({
-			renderCall: (_args: unknown, theme: any) => {
+			renderCall: (_args: unknown, theme: Theme) => {
 				painted = theme.bg("toolSuccessBg", "X");
 				return new Text("edit x", 0, 0);
 			},
@@ -511,7 +511,7 @@ describe("registerToolBlocks", () => {
 	test("hands the base its own previous component, never the frame", () => {
 		const seen: unknown[] = [];
 		const renderers = resolver()("read", () => ({
-			renderCall: (_args: unknown, _theme: unknown, context: any) => {
+			renderCall: (_args: unknown, _theme: unknown, context: RenderContext) => {
 				seen.push(context.lastComponent);
 				return new Text("base", 0, 0);
 			},
@@ -549,7 +549,7 @@ describe("registerToolBlocks", () => {
 		const lines =
 			renderers
 				?.renderResult?.(
-					{ content: [{ type: "text", text: "out" }] } as any,
+					{ content: [{ type: "text", text: "out" }], details: undefined },
 					{ expanded: false, isPartial: false },
 					fakeTheme,
 					renderContext({ outputPad: 1 }),

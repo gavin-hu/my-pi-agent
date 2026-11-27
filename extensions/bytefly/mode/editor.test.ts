@@ -19,6 +19,9 @@ import { coloringTheme, createFakePi } from "../../../test/helpers/fakes.ts";
 import { stateEntry } from "../../../test/helpers/fixtures/plan.ts";
 import { attachModeKey, ModeEditor } from "./editor.ts";
 
+/** The editor factory the extension installs, as the host declares it. */
+type EditorFactory = NonNullable<ReturnType<ExtensionContext["ui"]["getEditorComponent"]>>;
+
 /** The editor only needs a repaint hook and a row count from the TUI. */
 const tui = { requestRender: () => {}, terminal: { rows: 24 } } as unknown as TUI;
 
@@ -39,7 +42,7 @@ afterEach(() => {
 
 /** A context double with the editor slot and a branch the border reads. */
 function modeCtx(branch: unknown[] = []) {
-	let factory: ((...args: any[]) => ModeEditor) | undefined;
+	let factory: EditorFactory | undefined;
 	const notifications: string[] = [];
 	const ctx = {
 		mode: "tui",
@@ -47,13 +50,15 @@ function modeCtx(branch: unknown[] = []) {
 		ui: {
 			theme: coloringTheme,
 			setEditorComponent: (next?: unknown) => {
-				factory = next as typeof factory;
+				factory = next as EditorFactory;
 			},
 			getEditorComponent: () => factory,
 			notify: (message: string) => notifications.push(message),
 		},
 	} as unknown as ExtensionContext;
-	const editor = () => factory?.(tui, editorTheme(coloringTheme), getKeybindings());
+	// The registry this suite installs is pi-tui's manager; the host hands its own subclass
+	// of it to the factory, and the editor only reads keys through the same class.
+	const editor = () => factory?.(tui, editorTheme(coloringTheme), getKeybindings() as Parameters<EditorFactory>[2]);
 	return { ctx, editor, notifications };
 }
 

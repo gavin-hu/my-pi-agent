@@ -11,7 +11,8 @@
     "lineWidth": 120
   },
   "files": {
-    "includes": ["**", "!docs/search.json", "!.pi/**"]
+    "includes": ["**", "!docs/search.json", "!.pi/**"],
+    "ignoreUnknown": true
   },
   "javascript": {
     "formatter": {

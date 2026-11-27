@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { AutocompleteItem } from "@earendil-works/pi-tui";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { PLAN_TOOL } from "../../lib/tool-names.ts";
@@ -37,7 +38,7 @@ describe("bytefly extension registration", () => {
 		const labels = commands
 			.get("bytefly")
 			.getArgumentCompletions("")
-			.map((item: any) => item.label);
+			.map((item: AutocompleteItem) => item.label);
 
 		expect(labels).toContain("refresh");
 		expect(labels).not.toContain("header");

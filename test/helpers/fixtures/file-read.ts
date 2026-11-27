@@ -1,6 +1,9 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import type { AgentToolResult, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { TSchema } from "typebox";
+import type { ReadResult } from "../../../extensions/file-read/schema.ts";
 
 /** A scratch root for file-read tests, with an `outside/` directory and a symlink into it. */
 export interface ReadFixture {
@@ -35,5 +38,30 @@ export function makeReadFixture(): ReadFixture {
 			return abs;
 		},
 		remove: () => rmSync(base, { recursive: true, force: true }),
+	};
+}
+
+/**
+ * The registered `read_doc` tool, as a case drives it: a case passes the arguments an action
+ * reads, and reads the extraction it got back.
+ */
+export type ReadTool = ToolDefinition<TSchema, ReadResult> &
+	Required<Pick<ToolDefinition, "renderCall" | "renderResult">>;
+
+/** A result shaped the way the tool returns one: every override lands in `details`. */
+export function docResult(overrides: Partial<ReadResult>): AgentToolResult<ReadResult> {
+	return {
+		details: {
+			path: "a.pdf",
+			format: "pdf",
+			bytes: 1,
+			chars: 42478,
+			startIndex: 0,
+			nextIndex: 42478,
+			truncated: false,
+			text: "x",
+			...overrides,
+		},
+		content: [{ type: "text", text: "x" }],
 	};
 }
