@@ -9,11 +9,19 @@
 import {
 	keyHint,
 	keyText,
+	type ExtensionAPI,
 	type MarkdownTransformer,
+	type Theme,
 	type ToolDefinition,
 	type ToolRendererResolver,
 } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences, type MarkdownTheme, type Component } from "@earendil-works/pi-tui";
+import {
+	stripTerminalSequences,
+	type Component,
+	type MarkdownTheme,
+	type TUI,
+	type TuiMouseEvent,
+} from "@earendil-works/pi-tui";
 
 export type AnyHandler = (...args: any[]) => any;
 
@@ -24,7 +32,7 @@ export type AnyHandler = (...args: any[]) => any;
  * one; the fourth parameter of its own renderer is the same type, so the two cannot
  * drift apart.
  */
-type RenderContext = Parameters<NonNullable<ToolDefinition["renderResult"]>>[3];
+export type RenderContext = Parameters<NonNullable<ToolDefinition["renderResult"]>>[3];
 
 /**
  * A render context for a suite that draws one block directly instead of driving a
@@ -32,9 +40,10 @@ type RenderContext = Parameters<NonNullable<ToolDefinition["renderResult"]>>[3];
  *
  * The package's renderers read only `lastComponent`, `expanded`, and `state`; the
  * rest is what Pi passes for a finished, non-streaming call, so a renderer that
- * starts reading another field gets a value rather than undefined.
+ * starts reading another field gets a value rather than undefined. A suite that
+ * needs one field set for a case passes it, and the neutral value goes away.
  */
-export function toolRenderContext(options: { expanded?: boolean } = {}): RenderContext {
+export function toolRenderContext(options: Partial<RenderContext> = {}): RenderContext {
 	const context: RenderContext = {
 		args: {},
 		toolCallId: "call-1",
@@ -45,15 +54,52 @@ export function toolRenderContext(options: { expanded?: boolean } = {}): RenderC
 		executionStarted: true,
 		argsComplete: true,
 		isPartial: false,
-		expanded: options.expanded ?? false,
+		expanded: false,
 		showImages: false,
 		isError: false,
 		durationMs: undefined,
 		outputPad: 0,
 		keyText,
 		keyHint,
+		...options,
 	};
 	return context;
+}
+
+/**
+ * A `TUI` double, for a surface that takes the host's terminal handle and reads the
+ * row count off it.
+ *
+ * Only `requestRender` and `terminal.rows` are reached: the real `TUI` also owns
+ * children, overlays, and input listeners, none of which a mounted surface takes
+ * when a case drives it directly. No `rows` is a host with no terminal at all, which
+ * is the bare object a header factory also has to survive.
+ */
+export function fakeTui(rows?: number): TUI {
+	const terminal = rows === undefined ? undefined : { rows, columns: 80 };
+	return { requestRender: () => {}, terminal } as unknown as TUI;
+}
+
+/**
+ * A normalized mouse event, for a surface's `handleMouse`.
+ *
+ * The host's `TuiMouseEvent` is the whole cell-and-modifier shape; a surface reads the
+ * two or three fields it acts on, so a case sets those and the rest stay inert.
+ */
+export function mouseEvent(partial: Partial<TuiMouseEvent> & Pick<TuiMouseEvent, "type">): TuiMouseEvent {
+	return {
+		button: "none",
+		x: 0,
+		y: 0,
+		screenX: 0,
+		screenY: 0,
+		width: 80,
+		height: 24,
+		shift: false,
+		alt: false,
+		ctrl: false,
+		...partial,
+	};
 }
 
 /** Identity theme so rendered text stays assertable. */
@@ -172,10 +218,16 @@ export interface RecordingTheme {
 	bold(text: string): string;
 }
 
-/** Build a theme that records colour tokens instead of styling text. */
-export function makeRecordingTheme(): RecordingTheme {
+/**
+ * Build a theme that records colour tokens instead of styling text.
+ *
+ * Typed as the host's `Theme` as well, because that is what a surface's parameter names,
+ * and `Theme` is a class holding a private palette no double can carry: the surfaces these
+ * suites drive read only `fg` and `bold`, and `calls` is the recording half a case asserts on.
+ */
+export function makeRecordingTheme(): RecordingTheme & Theme {
 	const calls: Array<[string, string]> = [];
-	return {
+	const theme: RecordingTheme = {
 		calls,
 		fg: (color, text) => {
 			calls.push([color, text]);
@@ -183,6 +235,7 @@ export function makeRecordingTheme(): RecordingTheme {
 		},
 		bold: (text) => text,
 	};
+	return theme as unknown as RecordingTheme & Theme;
 }
 
 export interface FakePi {
@@ -326,6 +379,26 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 
 /** Alias for `createFakePi`; most suites only need the default double. */
 export const makeFakePi = createFakePi;
+
+/**
+ * What `pi.sendMessage` was given, as the host declares both arguments.
+ *
+ * `options` is the host's optional set resolved to a value, because a case reads
+ * `triggerTurn` off it: the message went out, so the call carried the options or nothing.
+ */
+export interface SentMessage {
+	message: Parameters<ExtensionAPI["sendMessage"]>[0];
+	options: NonNullable<Parameters<ExtensionAPI["sendMessage"]>[1]>;
+}
+
+/** Replace `pi.sendMessage` with a recorder, so a case can read what the extension pushed. */
+export function recordSent(pi: ExtensionAPI): SentMessage[] {
+	const sent: SentMessage[] = [];
+	pi.sendMessage = (message: SentMessage["message"], options: SentMessage["options"] = {}) => {
+		sent.push({ message, options });
+	};
+	return sent;
+}
 
 /** Run every handler registered for `event`. */
 export async function emit(pi: any, event: string, payload: unknown, ctx: any): Promise<void> {

@@ -30,7 +30,11 @@ const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 /** One session on a shared bus, holding the context an event handler has rather than a tool's. */
-function eventSession(dir: string, id: string, label: string): { bus: SessionBus; pi: any; ctx: ExtensionContext } {
+function eventSession(
+	dir: string,
+	id: string,
+	label: string,
+): { bus: SessionBus; pi: ExtensionAPI; ctx: ExtensionContext } {
 	const bus = createSessionBus({} as ExtensionAPI, {
 		dir,
 		repo: { root: "/repo", key: "shared" },
@@ -46,7 +50,7 @@ function eventSession(dir: string, id: string, label: string): { bus: SessionBus
 }
 
 /** Ask the bus to claim, the way `lib/session-tool.ts` asks for an event context. */
-function askClaim(pi: any, ctx: ExtensionContext, paths: string[]): Promise<ClaimPathsResult> {
+function askClaim(pi: ExtensionAPI, ctx: ExtensionContext, paths: string[]): Promise<ClaimPathsResult> {
 	return new Promise<ClaimPathsResult>((resolve) => {
 		const request: SessionClaimRequest = { ctx, paths, respond: resolve };
 		pi.events.emit(SESSION_CLAIM_REQUEST, request);
@@ -54,7 +58,7 @@ function askClaim(pi: any, ctx: ExtensionContext, paths: string[]): Promise<Clai
 }
 
 /** The same ask, for a release. */
-function askRelease(pi: any, ctx: ExtensionContext, paths: string[]): Promise<ReleasePathsResult> {
+function askRelease(pi: ExtensionAPI, ctx: ExtensionContext, paths: string[]): Promise<ReleasePathsResult> {
 	return new Promise<ReleasePathsResult>((resolve) => {
 		const request: SessionReleaseRequest = { ctx, paths, respond: resolve };
 		pi.events.emit(SESSION_RELEASE_REQUEST, request);

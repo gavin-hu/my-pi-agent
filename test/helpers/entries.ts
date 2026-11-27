@@ -6,6 +6,8 @@
  * across extensions so the shapes are defined once.
  */
 
+import type { SessionEntry } from "@earendil-works/pi-coding-agent";
+
 /** ISO timestamp for an epoch-ms value, without reading the wall clock. */
 export function isoTime(ms: number): string {
 	return new Date(ms).toISOString();
@@ -28,3 +30,25 @@ export function userMessage(text = "just a normal message"): unknown {
 
 /** An unrelated user message (legacy name). */
 export const otherMessage = userMessage;
+
+/** A user message entry, as a branch carries it: `isoTime` of the same stamp. */
+export function userEntry(id: string, content: string, timestamp = 1000): SessionEntry {
+	return {
+		type: "message",
+		id,
+		parentId: null,
+		timestamp: isoTime(timestamp),
+		message: { role: "user", content, timestamp },
+	};
+}
+
+/** An assistant reply; a timeline reads its role and its text block, not its provider's usage. */
+export function assistantEntry(id: string): SessionEntry {
+	return {
+		type: "message",
+		id,
+		parentId: null,
+		timestamp: isoTime(1000),
+		message: { role: "assistant", content: [{ type: "text", text: "ok" }], timestamp: 1000 },
+	} as unknown as SessionEntry;
+}

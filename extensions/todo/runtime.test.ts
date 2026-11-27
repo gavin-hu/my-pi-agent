@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +19,11 @@ import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 const pending = (content: string): Todo => ({ content, status: "pending" });
 const completed = (content: string): Todo => ({ content, status: "completed" });
 const active = (content: string): Todo => ({ content, status: "in_progress" });
+
+/** What `reconstruct` reads: the mode, and the branch it rebuilds the list from. */
+function printCtx(): ExtensionContext {
+	return { mode: "print", sessionManager: { getBranch: () => [] } } as unknown as ExtensionContext;
+}
 
 describe("query helpers", () => {
 	const todos = [completed("a"), active("b"), pending("c")];
@@ -49,7 +55,7 @@ describe("TodoRuntime change notifications", () => {
 		const runtime = createTodoRuntime();
 		let calls = 0;
 		runtime.onChange(() => calls++);
-		runtime.reconstruct({ mode: "print", sessionManager: { getBranch: () => [] } } as any);
+		runtime.reconstruct(printCtx());
 		expect(calls).toBe(1);
 	});
 
@@ -157,7 +163,7 @@ describe("TodoRuntime lag tracking", () => {
 		runtime.noteWork();
 		runtime.markNudged();
 
-		runtime.reconstruct({ mode: "print", sessionManager: { getBranch: () => [] } } as any);
+		runtime.reconstruct(printCtx());
 		expect(runtime.nudgeDue()).toBe(false);
 		expect(runtime.isNudgeActive()).toBe(false);
 	});

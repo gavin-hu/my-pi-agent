@@ -4,10 +4,10 @@ import sessionBus from "./index.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
 import { createBusStore } from "./store.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
+import { fakeCtx, mountCustom } from "../../test/helpers/context.ts";
 import { scratchDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createFakePi, emit, emitFirst, fakeTheme } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit, emitFirst } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { type JoinResult, TEAM_JOIN_REQUEST } from "../../lib/session-tool.ts";
 import { waitFor } from "../../test/helpers/process.ts";
@@ -140,16 +140,14 @@ describe("session-bus extension", () => {
 		if (!command) throw new Error("sessions command not registered");
 		await joined(bus, ctx, "frontend");
 
-		let mounted: SessionListComponent | undefined;
-		ctx.ui.custom = async (factory: any) => {
-			mounted = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
-		};
+		const board = mountCustom(ctx, { rows: 24 });
 		const suppressed: boolean[] = [];
 		onRailsSuppressed(pi, (value) => suppressed.push(value));
 
 		await command.handler("", ctx);
+		const mounted = board.component();
 		expect(mounted).toBeInstanceOf(SessionListComponent);
-		expect(mounted?.render(80).join("\n")).toContain("frontend · you");
+		expect(mounted.render(80).join("\n")).toContain("frontend · you");
 		expect(suppressed).toEqual([true, false]);
 		await bus.stop();
 	});
@@ -159,13 +157,10 @@ describe("session-bus extension", () => {
 		const { pi, bus, ctx, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 
-		let mounted: SessionListComponent | undefined;
-		ctx.ui.custom = async (factory: any) => {
-			mounted = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
-		};
+		const board = mountCustom(ctx, { rows: 24 });
 		onRailsSuppressed(pi, () => {});
 		await command.handler("", ctx);
-		if (!mounted) throw new Error("the board did not mount");
+		const mounted = board.component();
 		// Opening the board is a read: the bus it draws lists nobody, itself included.
 		expect(mounted.render(80).join("\n")).toContain("No sessions on this bus yet. Press w to join and listen.");
 		expect(await createBusStore({ dir }).sessions()).toEqual([]);
@@ -173,7 +168,7 @@ describe("session-bus extension", () => {
 		// `w` is the one act the board offers that also joins, so it is how a TUI
 		// session gets on the bus without a tool call.
 		mounted.handleInput("w");
-		await waitFor(() => mounted?.render(80).join("\n").includes('On the bus as "frontend", listening') ?? false);
+		await waitFor(() => mounted.render(80).join("\n").includes('On the bus as "frontend", listening'));
 		expect((await createBusStore({ dir }).sessions()).map((session) => session.label)).toEqual(["frontend"]);
 		await bus.stop();
 	});
@@ -196,13 +191,10 @@ describe("session-bus extension", () => {
 		await peer.start(peerCtx);
 		await peer.send({ to: "frontend", text: "contract v2 landed" });
 
-		let mounted: SessionListComponent | undefined;
-		ctx.ui.custom = async (factory: any) => {
-			mounted = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
-		};
+		const board = mountCustom(ctx, { rows: 24 });
 		onRailsSuppressed(pi, () => {});
 		await command.handler("", ctx);
-		if (!mounted) throw new Error("the board did not mount");
+		const mounted = board.component();
 
 		mounted.handleInput("\t");
 		expect(mounted.render(80).join("\n")).toContain("contract v2 landed");
@@ -213,7 +205,7 @@ describe("session-bus extension", () => {
 		mounted.handleInput("x");
 		expect(mounted.render(80).join("\n")).toContain("Release src/api? y/N");
 		mounted.handleInput("y");
-		await waitFor(() => mounted?.render(80).join("\n").includes("Released src/api.") ?? false);
+		await waitFor(() => mounted.render(80).join("\n").includes("Released src/api."));
 
 		expect(await createBusStore({ dir }).claims()).toEqual([]);
 		expect(mounted.render(80).join("\n")).toContain("Released src/api.");

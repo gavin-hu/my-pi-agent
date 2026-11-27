@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, jest, test } from "bun:test";
+import type { ExtensionToolContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { TSchema } from "typebox";
 import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/watch.ts";
 import { registerCommands } from "./commands.ts";
 import { registerTools, TOOL_NAME } from "./tools.ts";
+import { resultText } from "../../test/helpers/tools.ts";
+import type { WatchDetails } from "./types.ts";
 
 const suite = makeHarnessSuite();
 afterEach(() => suite.cleanup());
@@ -19,8 +23,11 @@ function setup(mode = "print") {
 	return { h, ctx, tool: tools.get(TOOL_NAME), command: commands.get("watch") };
 }
 
+/** The registered `watch` tool: a case passes the fields an action reads, and reads its details. */
+type WatchTool = ToolDefinition<TSchema, WatchDetails>;
+
 /** Execute one `watch` tool call against the harness context. */
-function call(tool: any, ctx: any, args: Record<string, unknown>) {
+function call(tool: WatchTool, ctx: ExtensionToolContext, args: Record<string, unknown>) {
 	return tool.execute("t", args, undefined, undefined, ctx);
 }
 
@@ -32,7 +39,7 @@ describe("watch tool", () => {
 		const result = await call(tool, ctx, { action: "add", path, pattern: "error" });
 		expect(result.isError).toBeUndefined();
 		expect(result.details.action).toBe("add");
-		expect(result.details.watch.id).toBe("w1");
+		expect(result.details.watch?.id).toBe("w1");
 	});
 
 	test("an add result reads one way for every flag combination", async () => {
@@ -41,7 +48,7 @@ describe("watch tool", () => {
 		for (const flags of [{}, { caseSensitive: true }, { wake: true }, { caseSensitive: true, wake: true }]) {
 			const result = await call(tool, ctx, { action: "add", command: "build", pattern: "FAIL", ...flags });
 			expect(result.isError).toBeUndefined();
-			lines.push(result.content[0].text.split("\n")[0]);
+			lines.push(resultText(result).split("\n")[0]);
 		}
 		expect(lines).toEqual([
 			"Watching w1: $ build → /FAIL/i",
@@ -65,7 +72,7 @@ describe("watch tool", () => {
 		await call(tool, ctx, { action: "add", path, pattern: "a" });
 		const result = await call(tool, ctx, { action: "list" });
 		expect(result.details.watches).toHaveLength(1);
-		expect(result.content[0].text).toContain("w1");
+		expect(resultText(result)).toContain("w1");
 	});
 
 	test("status reports an unknown id as an error", async () => {
@@ -93,7 +100,7 @@ describe("watch tool", () => {
 		// The reported failure: `/ERROR/` compiled into a regex whose ends are literal slashes,
 		// so it matched nothing and an empty `matches` read as a clean log.
 		const added = await call(tool, ctx, { action: "add", path, pattern: "/ERROR/" });
-		expect(added.content[0].text.split("\n")[0]).toContain("→ /ERROR/");
+		expect(resultText(added).split("\n")[0]).toContain("→ /ERROR/");
 		appendFileSync(path, "error: quiet\nERROR: boom\n");
 		h.runtime.tick();
 		const result = await call(tool, ctx, { action: "matches", id: "w1" });
@@ -130,9 +137,9 @@ describe("watch tool", () => {
 		// Node's own account of a killed child: no exit code, and the signal that ended it.
 		h.children[0].close(null, "SIGKILL");
 		const status = await call(tool, ctx, { action: "status", id: "w1" });
-		expect(status.content[0].text.split("\n")[0]).toBe("w1: exited (SIGKILL)");
+		expect(resultText(status).split("\n")[0]).toBe("w1: exited (SIGKILL)");
 		const list = await call(tool, ctx, { action: "list" });
-		expect(list.content[0].text).toContain("w1  exited (SIGKILL)");
+		expect(resultText(list)).toContain("w1  exited (SIGKILL)");
 	});
 
 	test("clear refuses a running watcher by id without all", async () => {

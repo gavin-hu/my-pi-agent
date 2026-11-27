@@ -207,10 +207,44 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 		rowBottom: number;
 	}
 
+	/**
+	 * The page's own DOM, as these two cases read it.
+	 *
+	 * `page.evaluate` runs the body in the browser, where this package's `tsconfig.json` — `lib:
+	 * ["ES2023"]`, no DOM — has no types for it. These name the members the bodies touch, and the
+	 * one cast below is the browser boundary: the global is the page's, not a double of it.
+	 */
+	interface DomRect {
+		top: number;
+		bottom: number;
+		height: number;
+	}
+
+	interface DomNode {
+		/** A `<details>` element's open state. */
+		open: boolean;
+		getBoundingClientRect(): DomRect;
+		contains(other: DomNode | null): boolean;
+	}
+
+	interface DomDocument {
+		getElementById(id: string): DomNode | null;
+		querySelector(selector: string): DomNode | null;
+	}
+
+	interface DomGlobals {
+		document: DomDocument;
+		getComputedStyle(node: DomNode): { fontSize: string };
+	}
+
 	async function skin(page: Page): Promise<Skin> {
 		return page.evaluate(() => {
-			const doc = (globalThis as unknown as { document: any }).document;
-			const box = (node: any): { top: number; bottom: number; height: number } => {
+			const { document: doc } = globalThis as unknown as DomGlobals;
+			const present = (node: DomNode | null): DomNode => {
+				if (node === null) throw new Error("the page drew no node to measure");
+				return node;
+			};
+			const box = (node: DomNode): DomRect => {
 				const rect = node.getBoundingClientRect();
 				return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), height: Math.round(rect.height) };
 			};
@@ -219,17 +253,19 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 			const note = doc.getElementById("review-note");
 			const share = doc.getElementById("share");
 			const row = doc.querySelector(".bf-app__actions");
+			const top = (node: DomNode | null): number => box(present(node)).top;
+			const heightOf = (node: DomNode | null): number => box(present(node)).height;
 			return {
 				sectionsOpen: sections ? sections.open : false,
 				moreOpen: doc.getElementById("review-more")?.open ?? false,
-				planTop: box(doc.getElementById("plan")).top,
-				viewTop: view ? box(view).top : -1,
-				viewInSection: view ? sections.contains(view) : true,
-				noteInSection: note ? sections.contains(note) : true,
-				shareTop: share ? box(share).top : -1,
-				shareVisible: share ? box(share).height > 0 : false,
-				rowTop: box(row).top,
-				rowBottom: box(row).bottom,
+				planTop: top(doc.getElementById("plan")),
+				viewTop: view ? top(view) : -1,
+				viewInSection: view ? present(sections).contains(view) : true,
+				noteInSection: note ? present(sections).contains(note) : true,
+				shareTop: share ? top(share) : -1,
+				shareVisible: share ? heightOf(share) > 0 : false,
+				rowTop: top(row),
+				rowBottom: box(present(row)).bottom,
 			};
 		});
 	}
@@ -262,10 +298,9 @@ describe.skipIf(REVIEW_CHROME === undefined)("the narrow review", () => {
 		await page.click("#plan .bf-block .bf-block__add", { timeout: REVIEW_PAINT_MS });
 		await page.waitForSelector(".bf-composer textarea", { timeout: REVIEW_PAINT_MS });
 		const size = await page.evaluate(() => {
-			const doc = (globalThis as unknown as { document: any; getComputedStyle: any }).document;
-			const style = (globalThis as unknown as { getComputedStyle: any }).getComputedStyle;
+			const { document: doc, getComputedStyle } = globalThis as unknown as DomGlobals;
 			const area = doc.querySelector(".bf-composer textarea");
-			return area ? Number.parseFloat(style(area).fontSize) : 0;
+			return area ? Number.parseFloat(getComputedStyle(area).fontSize) : 0;
 		});
 		expect(size, "the kit inherits the 15px body size; the field names 16").toBe(16);
 	});

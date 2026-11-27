@@ -332,7 +332,7 @@ describe("proactive probe", () => {
 		// It is a message in the flow, not a transient UI notification.
 		expect(notices).toEqual([]);
 		expect(fake.customMessages).toHaveLength(1);
-		const { message } = fake.customMessages[0] as { message: any };
+		const { message } = fake.customMessages[0];
 		expect(message.customType).toBe(NOTICE_TYPE);
 		expect(message.display).toBe(true);
 		expect(message.content).toContain("run /bytefly doctor");

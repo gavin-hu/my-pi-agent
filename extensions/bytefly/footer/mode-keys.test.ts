@@ -14,7 +14,7 @@ import { modeSegment, modesSegment } from "./render/segments.ts";
 
 describe("the bar's mode slot", () => {
 	test("names auto in meta when no mode chip is published", () => {
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		expect(modeSegment(fullSnapshot({ statuses: new Map() }), fakeTheme)?.forms).toEqual([`${GLYPHS.autoMode} auto`]);
 
 		modeSegment(fullSnapshot({ statuses: new Map() }), theme);
@@ -24,7 +24,7 @@ describe("the bar's mode slot", () => {
 	test("draws the lead mode in accent, and never beside the plan chip", () => {
 		const seat = fullSnapshot({ statuses: new Map([[STATUS_KEYS.leadMode, "lead"]]) });
 		expect(modeSegment(seat, fakeTheme)?.forms).toEqual([`${GLYPHS.lead} lead`, GLYPHS.lead]);
-		const theme = makeRecordingTheme() as any;
+		const theme = makeRecordingTheme();
 		modeSegment(seat, theme);
 		expect(theme.calls).toContainEqual(["accent", `${GLYPHS.lead} lead`]);
 

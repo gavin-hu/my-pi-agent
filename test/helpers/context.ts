@@ -7,8 +7,9 @@
  * to `ctx` so tests that read `ctx.statuses` / `ctx.notices` keep working.
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { fakeTheme } from "./fakes.ts";
+import type { ExtensionContext, KeybindingsManager } from "@earendil-works/pi-coding-agent";
+import type { Component } from "@earendil-works/pi-tui";
+import { fakeTheme, fakeTui } from "./fakes.ts";
 
 export interface FakeCtxOptions {
 	/** Defaults to `"tui"`. `hasUI` defaults to `mode === "tui"`. */
@@ -245,4 +246,64 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
  */
 export function bareCtx(cwd: string): ExtensionContext {
 	return { cwd } as unknown as ExtensionContext;
+}
+
+/**
+ * The component a `ctx.ui.custom` factory hands the host.
+ *
+ * The host types the factory's return as `Component & { dispose?(): void }`, whose
+ * `handleInput` is optional. Every surface this package mounts answers keys, so a case
+ * drives one directly: a mount that stopped answering would throw here instead of
+ * silently dropping the keystroke it was given.
+ */
+export type MountedComponent = Component & { handleInput(data: string): void; dispose?(): void };
+
+export interface MountCustomOptions {
+	/** Rows the mock terminal reports; defaults to 24. */
+	rows?: number;
+	/** Runs as the screen opens, before the factory builds the component. */
+	opening?: () => void;
+	/**
+	 * Runs with the mounted component, before `ui.custom` resolves — for the keys a case sends
+	 * while the surface has focus, and the work it awaits there.
+	 */
+	mounted?: (component: MountedComponent) => void | Promise<void>;
+}
+
+export interface MountedCustom {
+	/** The component the extension mounted; throws when it mounted none. */
+	component(): MountedComponent;
+}
+
+/** The factory the host's `ui.custom` takes, as the host declares it. */
+type CustomFactory = Parameters<ExtensionContext["ui"]["custom"]>[0];
+
+/** What the host hands a factory in place of a result the caller waits on: nothing reads it here. */
+const UNOBSERVED = (): void => {};
+
+/**
+ * Install `ctx.ui.custom` with a terminal double, mounting whatever the extension builds.
+ *
+ * The host's seam takes a factory, a `TUI`, a theme, a keybindings manager, and a `done`
+ * callback; a suite supplies the twin of each and drives the component itself. `fakeTui`
+ * owns the one `TUI` cast, and no surface reads a keybinding through the manager, so an
+ * empty one is what the factory gets. Nothing waits on `done` here: every case this serves
+ * drives the mounted component, and the double resolves as soon as the mount is done, the
+ * way every suite that replaced this method already did.
+ */
+export function mountCustom(ctx: ExtensionContext, options: MountCustomOptions = {}): MountedCustom {
+	let mounted: MountedComponent | undefined;
+	const keybindings = {} as KeybindingsManager;
+	const install = async (factory: CustomFactory): Promise<void> => {
+		options.opening?.();
+		mounted = factory(fakeTui(options.rows ?? 24), ctx.ui.theme, keybindings, UNOBSERVED) as MountedComponent;
+		await options.mounted?.(mounted);
+	};
+	ctx.ui.custom = install as ExtensionContext["ui"]["custom"];
+	return {
+		component: () => {
+			if (mounted === undefined) throw new Error("the extension mounted no custom component");
+			return mounted;
+		},
+	};
 }

@@ -13,15 +13,17 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { AgentToolResult, ExtensionAPI, ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { TSchema } from "typebox";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { scratchDir } from "../../test/helpers/env.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
+import { resultText } from "../../test/helpers/tools.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import sessionBus from "./index.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
 import { createBusStore } from "./store.ts";
-import type { BusMessage } from "./types.ts";
+import type { BusMessage, SessionDetails } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -49,6 +51,22 @@ async function land(dir: string, to: string, overrides: Partial<BusMessage> = {}
 }
 
 /**
+ * The registered `session` tool, called with the event-shaped context the harness holds.
+ *
+ * The tool reads the session's branch through `ctx.sessionManager`; the two fields a tool
+ * context adds over an event context (`tools`, `executeTool`) are never reached.
+ */
+type SessionTool = Omit<ToolDefinition<TSchema, SessionDetails>, "execute"> & {
+	execute(
+		id: string,
+		params: Record<string, unknown>,
+		signal: undefined,
+		update: undefined,
+		ctx: ExtensionContext,
+	): Promise<AgentToolResult<SessionDetails>>;
+};
+
+/**
  * A started session on a bus of its own directory, with `/sessions` registered on its Pi.
  *
  * The session joins as `frontend`, so the bus holds one record — which is what makes an id it does
@@ -59,15 +77,7 @@ async function harness(dir: string): Promise<{
 	ctx: ExtensionContext;
 	notices: Array<{ message: string; kind?: string }>;
 	command: { handler(args: string, ctx: ExtensionContext): Promise<void> };
-	tool: {
-		execute(
-			id: string,
-			params: unknown,
-			signal?: undefined,
-			update?: undefined,
-			ctx?: ExtensionContext,
-		): Promise<{ content: Array<{ text: string }>; details: any; isError?: true }>;
-	};
+	tool: SessionTool;
 }> {
 	const fake = createFakePi();
 	const bus = createSessionBus({} as ExtensionAPI, {
@@ -199,9 +209,9 @@ describe("the tool's side", () => {
 		const { bus, ctx, tool } = await harness(dir);
 		await land(dir, "s-gone");
 		const result = await tool.execute("call", { action: "status" }, undefined, undefined, ctx);
-		expect(result.content[0]?.text).toContain("Unaccounted (1)");
-		expect(result.content[0]?.text).toContain(`- ${ORPHAN} · gavin · ask`);
-		expect(result.details.status.unaccounted?.count).toBe(1);
+		expect(resultText(result)).toContain("Unaccounted (1)");
+		expect(resultText(result)).toContain(`- ${ORPHAN} · gavin · ask`);
+		expect(result.details.status?.unaccounted?.count).toBe(1);
 		await bus.stop();
 	});
 
@@ -211,7 +221,7 @@ describe("the tool's side", () => {
 		await land(dir, "s-gone");
 		const result = await tool.execute("call", { action: "drop" }, undefined, undefined, ctx);
 		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text).toContain('unknown action "drop"');
+		expect(resultText(result)).toContain('unknown action "drop"');
 		// The command is the only door: nothing reached through the tool touched the file.
 		expect((await bus.status()).unaccounted?.count).toBe(1);
 		await bus.stop();

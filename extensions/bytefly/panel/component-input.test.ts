@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
-import { coloringTheme } from "../../../test/helpers/fakes.ts";
+import { coloringTheme, mouseEvent } from "../../../test/helpers/fakes.ts";
 import { buildPanel, enabledItem, selectedLine } from "../../../test/helpers/fixtures/panel.ts";
 import { fakeSettingsSurface } from "../../../test/helpers/fixtures/settings.ts";
 import { makeReport } from "../../../test/helpers/fixtures/doctor.ts";
@@ -145,10 +145,12 @@ describe("PanelComponent input", () => {
 		const { component } = buildPanel({ items: [enabledItem("alpha"), enabledItem("beta")], reports: [] });
 
 		component.render(80);
-		expect(component.handleMouse({ type: "click", button: "left", x: 10, y: 5 } as any)).toEqual({ handled: true });
+		expect(component.handleMouse(mouseEvent({ type: "click", button: "left", x: 10, y: 5 }))).toEqual({
+			handled: true,
+		});
 		expect(selectedLine(component)).toContain("beta");
 
-		component.handleMouse({ type: "click", button: "left", x: 10, y: 4 } as any);
+		component.handleMouse(mouseEvent({ type: "click", button: "left", x: 10, y: 4 }));
 		expect(selectedLine(component)).toContain("alpha");
 	});
 
@@ -157,8 +159,8 @@ describe("PanelComponent input", () => {
 
 		component.render(80);
 		const before = selectedLine(component);
-		expect(component.handleMouse({ type: "click", button: "left", x: 10, y: 0 } as any)).toBeUndefined();
-		expect(component.handleMouse({ type: "click", button: "left", x: 10, y: 3 } as any)).toBeUndefined();
+		expect(component.handleMouse(mouseEvent({ type: "click", button: "left", x: 10, y: 0 }))).toBeUndefined();
+		expect(component.handleMouse(mouseEvent({ type: "click", button: "left", x: 10, y: 3 }))).toBeUndefined();
 		expect(selectedLine(component)).toBe(before);
 	});
 
