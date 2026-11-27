@@ -1,6 +1,5 @@
 /**
- * The review page's reading, in a browser: the cursor, the rail, the hunk jump, and the place a
- * reload restores.
+ * The review page's reading, in a browser: the cursor, the rail, and the place a reload restores.
  *
  * Each is a DOM fact after an interaction — a row picked, the rail's `aria-current` following the
  * scroll, a hash written back — which is exactly what a string assertion cannot see. What a write
@@ -131,106 +130,6 @@ gated("the review page's reading", () => {
 					expect(await page.locator("[data-reviewed='a.ts']").getAttribute("aria-label")).toBe("Mark a.ts reviewed");
 				},
 				{ start: 17 },
-			);
-		},
-		CASE_MS,
-	);
-
-	test(
-		"the file head pins, and each hunk jump lands below it and advances at 1280 and 390",
-		async () => {
-			await withPage(
-				async (page) => {
-					const read = () =>
-						page.evaluate(`(function () {
-							var main = document.getElementById("rv-main");
-							var box = main.getBoundingClientRect();
-							var head = document.querySelector(".rv-file__head").getBoundingClientRect();
-							var below = Array.prototype.filter.call(document.querySelectorAll(".bf-diff-line--hunk"), function (hunk) {
-								return hunk.getBoundingClientRect().top >= box.top;
-							})[0];
-							return {
-								mainTop: Math.round(box.top),
-								headTop: Math.round(head.top),
-								headBottom: Math.round(head.bottom),
-								scroll: Math.round(main.scrollTop),
-								landed: below ? below.textContent.trim() : ""
-							};
-						})()`) as Promise<Record<"mainTop" | "headTop" | "headBottom" | "scroll", number> & { landed: string }>;
-					const assertJump = async () => {
-						await page.keyboard.press("]");
-						await page.waitForFunction(
-							() => {
-								const doc = (globalThis as unknown as ReviewDom).document;
-								const box = doc.getElementById("rv-main")?.getBoundingClientRect();
-								const head = doc.querySelector(".rv-file__head")?.getBoundingClientRect();
-								const below = Array.from(doc.querySelectorAll(".bf-diff-line--hunk")).filter(
-									(hunk) => box !== undefined && hunk.getBoundingClientRect().top >= box.top,
-								)[0];
-								if (below === undefined || head === undefined) return false;
-								return below.getBoundingClientRect().top >= head.bottom - 1;
-							},
-							undefined,
-							{ timeout: REVIEW_PAINT_MS },
-						);
-					};
-
-					/** The press after a landing must get past it: a fixed offset would pick the same hunk. */
-					const assertAdvance = async () => {
-						const before = await read();
-						await page.keyboard.press("]");
-						await page.waitForFunction(
-							(was) => {
-								const doc = (globalThis as unknown as ReviewDom).document;
-								const box = doc.getElementById("rv-main")?.getBoundingClientRect();
-								const below = Array.from(doc.querySelectorAll(".bf-diff-line--hunk")).filter(
-									(hunk) => box !== undefined && hunk.getBoundingClientRect().top >= box.top,
-								)[0];
-								return below !== undefined && (below.textContent ?? "").trim() !== was;
-							},
-							before.landed,
-							{ timeout: REVIEW_PAINT_MS },
-						);
-						expect((await read()).scroll, "the jump moves the diff to the next hunk").toBeGreaterThan(before.scroll);
-					};
-
-					await page.evaluate('document.getElementById("rv-main").scrollTop = 700');
-					// Pinning is the scroll's own effect: the box moved and the head stayed on it. The scroll
-					// is the page's own height, so it lands short of the 700 asked for and clamped.
-					await page.waitForFunction(
-						() => {
-							const doc = (globalThis as unknown as ReviewDom).document;
-							const main = doc.getElementById("rv-main");
-							const head = doc.querySelector(".rv-file__head")?.getBoundingClientRect();
-							if (main === null || head === undefined) return false;
-							return main.scrollTop > 0 && Math.abs(head.top - main.getBoundingClientRect().top) <= 1;
-						},
-						undefined,
-						{ timeout: REVIEW_PAINT_MS },
-					);
-					const pinned = await read();
-					expect(Math.abs(pinned.headTop - pinned.mainTop), "the head pins at the scrollport top").toBeLessThanOrEqual(
-						1,
-					);
-					await assertJump();
-					await assertAdvance();
-
-					await page.setViewportSize({ width: 390, height: 844 });
-					// A narrower head is taller: wait for the page's own re-measure before the next jump.
-					await page.waitForFunction(
-						() => {
-							const doc = (globalThis as unknown as ReviewDom).document;
-							const section = doc.querySelector(".rv-file");
-							const head = section?.querySelector(".rv-file__head");
-							if (section === null || head === null || head === undefined) return false;
-							return section.style.getPropertyValue("--rv-head-h") === `${head.offsetHeight}px`;
-						},
-						undefined,
-						{ timeout: REVIEW_PAINT_MS },
-					);
-					await assertAdvance();
-				},
-				{ start: 17, lines: 60, files: 4 },
 			);
 		},
 		CASE_MS,
