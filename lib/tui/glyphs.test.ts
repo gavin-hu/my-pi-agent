@@ -9,12 +9,10 @@
  * which is what fails on a hand-copied wide arrow rather than only on a missing constant.
  */
 
-import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { eastAsianWidthType } from "get-east-asian-width";
 import { ARROW, GLYPH_SPECS, GLYPH_SEQUENCES, GLYPHS, MODE_GLYPHS, SEPARATORS } from "./glyphs.ts";
-import { textOf } from "../../test/helpers/scan.ts";
 
 describe("GLYPHS", () => {
 	test("every glyph is exactly one visible column", () => {
@@ -115,34 +113,5 @@ describe("SEPARATORS", () => {
 		expect(`billing-core${SEPARATORS.arrow}#12`).toBe("billing-core → #12");
 		expect(`start${SEPARATORS.arrow}${"npm test"}`).toBe("start → npm test");
 		expect(`${ARROW} clear list`).toBe("→ clear list");
-	});
-});
-
-/**
- * The one page that reprints the vocabulary.
- *
- * `docs/design-system.md` is where a reader learns what a mark means, so it is also
- * the one place a mark could outlive the constant it came from: the table is read back
- * and held to `GLYPHS`, which owns every literal a surface draws.
- */
-describe("the design system page", () => {
-	const page = textOf(join(import.meta.dir, "../../docs/design-system.md"));
-
-	/** A `## ` section's body, up to the heading after it. */
-	function section(heading: string): string {
-		const at = page.indexOf(`## ${heading}`);
-		if (at < 0) return "";
-		const end = page.indexOf("\n## ", at + 1);
-		return page.slice(at, end < 0 ? undefined : end);
-	}
-
-	test("prints only marks the vocabulary owns", () => {
-		const marks = [...section("A glyph is one column and one meaning").matchAll(/^\|\s*`(.+?)`\s*\|/gm)].map(
-			(match) => match[1] ?? "",
-		);
-		// A missing table would otherwise hold nothing to anything and pass.
-		expect(marks.length, "the glyph table is gone, so no mark is held to GLYPHS").toBeGreaterThan(0);
-		const owned = new Set<string>(Object.values(GLYPHS));
-		expect(marks.filter((mark) => !owned.has(mark))).toEqual([]);
 	});
 });

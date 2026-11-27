@@ -115,6 +115,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `docs`: the design page's colour table is the mapping now. One row for each of the eighteen roles,
+  with the token it paints, so the six that alias another's colour are visible instead of hidden —
+  and a case in `lib/tui/design-page.test.ts` holds the table to `TUI_TOKENS` role for role, which
+  is what fails a hand-typed token rather than describing the code beside it. The `↺` row splits into
+  the rewind and the recorded state it used to merge, the page's opening claim covers the terminal
+  surfaces it governs (a browser page is drawn by `lib/web`), and the `bad` key rule names the hint
+  that ships it, `/wechat`'s logout. Both page cases move out of `glyphs.test.ts` into a suite of
+  their own, where a page is the subject and the glyphs are not.
+
 - `code-review`: the page that shows one file's whole text now works the controls it draws. Its
   header's key button is gone, because the page serves no key sheet, and the theme toggle flips the
   theme; the text wraps at every width with the diff's own **wrap** button; a whole file's numbers

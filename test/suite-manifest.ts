@@ -491,6 +491,7 @@ export const LIB_SUITES: readonly string[] = [
 	"http/token",
 	"session-label",
 	"tui/columns",
+	"tui/design-page",
 	"tui/glyphs",
 	"tui/identity-lines",
 	"tui/layout",
