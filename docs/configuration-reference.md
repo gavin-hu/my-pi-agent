@@ -240,7 +240,7 @@ it drew a diff of its own, and a project that moved them here keeps what it had.
 |---|---|---|---|---|
 | `base` | string | `""` | a ref, or `""` to detect | The ref a review's left end defaults to: `""` detects the default branch (`origin/HEAD`'s, else a local `main` or `master`) and reads it through its `origin/` ref. A ref that does not resolve, or one longer than 200 characters, is refused by name. |
 | `diffContext` | integer | `3` | `0`–`100` | Unified context lines around each hunk. |
-| `maxDiffLines` | integer | `4000` | `1`–`1000000` | Diff lines per file before the page truncates and says so. |
+| `maxDiffLines` | integer | `4000` | `1`–`1000000` | Diff lines per file before a page truncates and says so. The whole-file view reads the same cap and names the total it showed when the file was read whole. |
 | `maxFiles` | integer | `200` | `1`–`10000` | Changed files the page lists; the rest are counted, not drawn. |
 
 ## `goal` — the goal widget

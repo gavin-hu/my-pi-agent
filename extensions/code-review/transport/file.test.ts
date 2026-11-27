@@ -55,6 +55,26 @@ describe("the whole-file route", () => {
 		expect(String(response.body)).toContain('href="/review/new?scope=branch"');
 	});
 
+	test("serves the file view's own script, and loads it from the page", async () => {
+		const { handler } = stage(root);
+		const script = await reply(handler, request("GET", "/file.js"));
+		expect(script.status).toBe(200);
+		expect(String(script.body)).toContain("rv-wrap");
+
+		const page = await reply(handler, request("GET", "/file?path=a.ts"));
+		expect(String(page.body)).toContain('src="/review/file.js"');
+		// The page serves no key sheet, so it draws no trigger for one.
+		expect(String(page.body)).not.toContain('id="keys-open"');
+	});
+
+	test("names the repository it read and the comparison the page is on", async () => {
+		const { handler } = stage(root);
+		const response = await reply(handler, request("GET", "/file?path=a.ts"));
+		// The header's facts carry the repo, the footer the comparison — the diff page's split.
+		expect(String(response.body)).toContain('<div class="bf-app__facts">repo</div>');
+		expect(String(response.body)).toContain('<span class="bf-footer__facts">main...HEAD</span>');
+	});
+
 	test("answers a session with no page open before it reads anything", async () => {
 		const { handler } = reviewRoute({ scope: undefined });
 		expect((await reply(handler, request("GET", "/file?path=a.ts"))).status).toBe(409);

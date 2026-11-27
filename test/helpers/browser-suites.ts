@@ -41,6 +41,7 @@ export const BROWSER_SUITES: readonly string[] = [
 	"extensions/code-review/view/chrome.test.ts",
 	"extensions/code-review/view/drafts.test.ts",
 	"extensions/code-review/view/face.test.ts",
+	"extensions/code-review/view/file-chrome.test.ts",
 	"extensions/code-review/view/interaction.test.ts",
 	"extensions/code-review/view/live.test.ts",
 	"extensions/code-review/view/place.test.ts",

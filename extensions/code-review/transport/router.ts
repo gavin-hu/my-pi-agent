@@ -50,7 +50,8 @@ import {
 } from "../scope.ts";
 import { REVIEW_CLIENT_JS } from "../view/client.ts";
 import { renderReviewFile } from "../view/file.ts";
-import { renderReviewPage, renderReviewProblem } from "../view/page.ts";
+import { FILE_CLIENT_JS, FILE_CLIENT_JS_PATH } from "../view/file-client.ts";
+import { renderReviewPage, renderReviewProblem, comparisonLine } from "../view/page.ts";
 
 /** The page's script, beside the shared theme. */
 export const CLIENT_JS_PATH = "/client.js";
@@ -67,6 +68,11 @@ export const EVENTS_PATH = "/events";
  * write door's own contract rather than something a read gets to widen.
  */
 export const REV_PATH = "/rev";
+
+/** A script a page loads with `src`: the page's CSP allows no inline one. */
+function scriptResponse(body: string): ServeResponse {
+	return { status: 200, headers: scriptHeaders(), body };
+}
 
 /** The page's refusal when a scope names no review to show. */
 const NO_REVIEW = "that review is not open on this session — run /review";
@@ -271,7 +277,7 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		if (rel === "" || !outcome.snapshot.files.some((entry) => entry.rel === rel)) {
 			return problem(404, "That file is not in this review", "Only a file this comparison changes has a text view.");
 		}
-		const { root } = current.place();
+		const { root, repo } = current.place();
 		if (!isInsideReal(root, join(root, rel))) {
 			return problem(
 				403,
@@ -289,9 +295,12 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 				scope: outcome.snapshot.scope,
 				...(page.preset === undefined ? {} : { preset: page.preset }),
 				rel,
+				repo,
+				comparison: comparisonLine(outcome.snapshot),
 				lines: text.lines,
 				binary: text.binary,
 				truncated: text.truncated,
+				...(text.totalLines === undefined ? {} : { totalLines: text.totalLines }),
 			}),
 		};
 	};
@@ -351,12 +360,9 @@ export function createReviewHandler(deps: ReviewHandlerDeps): LoopbackHandler {
 		if (parsed === undefined) return { result: jsonError(400, "Malformed request URL.") };
 		const { pathname, search } = parsed;
 
-		if (pathname === CLIENT_JS_PATH) {
-			return { result: { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS } };
-		}
-		if (pathname === THEME_JS_PATH) {
-			return { result: { status: 200, headers: scriptHeaders(), body: THEME_JS } };
-		}
+		if (pathname === CLIENT_JS_PATH) return { result: scriptResponse(REVIEW_CLIENT_JS) };
+		if (pathname === THEME_JS_PATH) return { result: scriptResponse(THEME_JS) };
+		if (pathname === FILE_CLIENT_JS_PATH) return { result: scriptResponse(FILE_CLIENT_JS) };
 		// The page's stream: the same token every write carries, because a tab that can write can
 		// listen, and a caller without one learns nothing about this review.
 		if (pathname === EVENTS_PATH) {

@@ -64,4 +64,24 @@ describe("diff rendering", () => {
 		expect((highlighted.match(/bf-diff-line--add/g) ?? []).length).toBe(1);
 		expect((highlighted.match(/bf-diff-line--del/g) ?? []).length).toBe(1);
 	});
+
+	test("draws a whole file's gutter as one number and no sign", () => {
+		// The file view: a file's old and new sides are the same number, so the second column and
+		// the sign column would be blanks. The number it keeps is the new one.
+		const html = renderDiffLines(
+			[
+				{ kind: "ctx", text: "one", oldNo: 7, newNo: 7 },
+				{ kind: "ctx", text: "two", oldNo: 8, newNo: 8 },
+			],
+			undefined,
+			{ gutter: "file" },
+		);
+		expect([...html.matchAll(/class="browse-diff-no"/g)]).toHaveLength(2);
+		expect(html).not.toContain("browse-diff-sign");
+		expect(html).toContain('aria-hidden="true">7</span>');
+		// The diff's own gutter is the default, so a caller that says nothing keeps two columns.
+		const diff = renderDiffLines([{ kind: "ctx", text: "one", oldNo: 7, newNo: 7 }]);
+		expect([...diff.matchAll(/class="browse-diff-no"/g)]).toHaveLength(2);
+		expect(diff).toContain("browse-diff-sign");
+	});
 });
