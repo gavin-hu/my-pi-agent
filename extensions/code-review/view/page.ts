@@ -91,7 +91,7 @@ const REVIEW_KEYS = [
 	{ keys: "Enter", label: "Comment on the selected lines" },
 	{ keys: "c", label: "Comment on the selected lines" },
 	{ keys: "m", label: "Mark the current file reviewed" },
-	{ keys: ["] n", "[ p"], label: "Next and previous hunk" },
+	{ keys: ["] [", "n p"], label: "Next and previous hunk — n p stay in this file" },
 	{ keys: "w", label: "Toggle line wrapping" },
 	{ keys: "Esc", label: "Close a composer, a dialog, or the sheet" },
 ];
@@ -165,7 +165,7 @@ function backToAll(current: { scope: ReviewScope; preset?: ReviewPreset }, total
 	return `<p class="rv-side__back"><a class="bf-btn" id="rv-all-files" href="${escapeHtml(newHref(current.scope, current.preset))}">all ${total} file${total === 1 ? "" : "s"}</a></p>`;
 }
 
-/** One file's head, its diff, and the two notes a cap leaves. */
+/** One file's head, its diff, the two notes a cap leaves, and — last — the room the tail needs. */
 function fileSection(
 	file: ReviewSnapshot["files"][number],
 	index: number,
@@ -173,6 +173,7 @@ function fileSection(
 	reviewed: ReadonlySet<string>,
 	scope: ReviewScope,
 	preset: ReviewPreset | undefined,
+	last: boolean,
 ): string {
 	const state = fileState(file.rel, comments, reviewed);
 	const count = comments.filter((comment) => comment.rel === file.rel).length;
@@ -204,10 +205,14 @@ function fileSection(
 		rows.length === 0
 			? ""
 			: `<pre class="bf-code bf-diff rv-diff" data-path="${escapeHtml(file.rel)}"><code>${renderDiffLines(rows, languageOf(file.rel))}</code></pre>`;
+	// The last section carries the room a row in the last screenful needs to reach the reading
+	// line. It is the section's own child, not a sibling, so the file stays `:last-child` — the
+	// bar's inset rule and the cases that query it keep the box they measure (#930).
+	const tail = last && body !== "" ? '\n<div class="rv-tail" id="rv-tail" aria-hidden="true"></div>' : "";
 	return `<section class="rv-file" id="rv-file-${index}" data-path="${escapeHtml(file.rel)}" data-state="${state}">
 ${head}
 ${notes.join("\n")}
-${body}
+${body}${tail}
 </section>`;
 }
 
@@ -285,7 +290,9 @@ export function renderReviewPage(input: ReviewPageInput): string {
 		files.length === 0
 			? `<div class="bf-empty"><p class="bf-empty__title">No changes in this scope.</p><p class="bf-empty__sub">Nothing differs between ${escapeHtml(snapshot.label)} and the tree. Switch the scope, or edit something first.</p></div>`
 			: files
-					.map((file, index) => fileSection(file, index, comments, reviewed, snapshot.scope, input.preset))
+					.map((file, index) =>
+						fileSection(file, index, comments, reviewed, snapshot.scope, input.preset, index === files.length - 1),
+					)
 					.join("\n");
 	const omitted =
 		snapshot.omitted > 0

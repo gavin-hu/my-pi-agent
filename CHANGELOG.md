@@ -97,6 +97,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: where a jump lands is one measured line now. A deep link, a hunk jump and a reload
+  put the picked row a third of the way down the band under the pinned file head, so the lines above
+  it are read with it instead of the row pinning to the top edge; the page reserves a tail below the
+  last file, which is what lets the review's final line reach that line at all. `]` and `[` move the
+  place to the next hunk's first changed line — crossing files, landing on a change rather than a
+  context row — and `n` and `p` keep to the cursor's own file, so both keys answer instead of going
+  quiet at either end. A hash-only navigation restores the line it names, and a restored draft no
+  longer pushes the restored line down.
+
 - `code-review`: the selection bar no longer takes the diff's last rows with it. The bar floats over
   the bottom of the page and nothing reserved its height, so at the end of the scroll the last rows sat
   inside its box with no scrolling left to lift them out. The file's last section now carries the bar's

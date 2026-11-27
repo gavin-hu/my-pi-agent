@@ -15,6 +15,7 @@ import { REVIEW_DRAFTS_JS } from "./client-drafts.ts";
 import { REVIEW_KEYS_JS } from "./client-keys.ts";
 import { REVIEW_LIVE_JS } from "./client-live.ts";
 import { REVIEW_PLACE_JS } from "./client-place.ts";
+import { REVIEW_REVEAL_JS } from "./client-reveal.ts";
 
 /** The URLs the bundle posts to, without the mount prefix. */
 function postPaths(source: string): string[] {
@@ -94,13 +95,14 @@ describe("the review bundle", () => {
 	});
 
 	/**
-	 * The split's own hazard: three fragments concatenated into one closure, which no compiler
+	 * The split's own hazard: six fragments concatenated into one closure, which no compiler
 	 * reads. A fragment left out is a `ReferenceError` on the first paint, and two fragments
 	 * declaring one name is which body a caller reaches decided by concatenation order.
 	 */
-	test("assembles all five fragments, each name once", () => {
+	test("assembles all six fragments, each name once", () => {
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_DRAFTS_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_COMMENTS_JS);
+		expect(REVIEW_CLIENT_JS).toContain(REVIEW_REVEAL_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_PLACE_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_KEYS_JS);
 		expect(REVIEW_CLIENT_JS).toContain(REVIEW_LIVE_JS);

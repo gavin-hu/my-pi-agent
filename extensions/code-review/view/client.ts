@@ -1,13 +1,14 @@
 /**
- * The review page's client: one script, no build step, assembled here from three fragments.
+ * The review page's client: one script, no build step, assembled here from six fragments.
  *
  * The element builder, the typing test, and the JSON POST come from the kit's runtime, and the
- * page's own code is three capabilities spliced into this one IIFE: the comments
- * (`client-comments.ts`), the place (`client-place.ts`), and the wiring and keys
- * (`client-keys.ts`). It is one closure and not a namespace because the three share state —
- * `cursor`, `anchor`, `currentFile`, `restoring`, `expectedScroll` — and a second copy of any
- * of it is what a page split across `window.*` objects always drifts into. The state they
- * share is declared here, below, so no fragment owns a name another reads.
+ * page's own code is four capabilities spliced into this one IIFE: the drafts and the comments
+ * (`client-drafts.ts`, `client-comments.ts`), the reveal and the place (`client-reveal.ts`,
+ * `client-place.ts`), the wiring and keys (`client-keys.ts`), and the stream (`client-live.ts`).
+ * It is one closure and not a namespace because the fragments share state — `cursor`,
+ * `anchor`, `currentFile`, `restoring`, `expectedScroll` — and a second copy of any of it is
+ * what a page split across `window.*` objects always drifts into. The state they share is
+ * declared here, below, so no fragment owns a name another reads.
  *
  * The review arrives as the `#rv-data` island, so a comment is written into the document with
  * `textContent` and never as markup. Drafts are this tab's, one per line: an unsent composer's
@@ -15,9 +16,9 @@
  * brings back every one whose line is still drawn, and a moved one says where it came from.
  * A write always carries the page's `rev`, never a record's — the server draws the line or not.
  *
- * The fragments are concatenated in load order — comments, place, keys — because their
- * top-level statements run in that order, and the page's start block is last for the same
- * reason: it is the first thing that reads what the fragments declare.
+ * The fragments are concatenated in load order — drafts, comments, reveal, place, keys, live —
+ * because their top-level statements run in that order, and the page's start block is last for
+ * the same reason: it is the first thing that reads what the fragments declare.
  */
 
 import { PATH_REF_JS, PLURAL_JS } from "../../../lib/format.ts";
@@ -33,6 +34,7 @@ import { REVIEW_DRAFTS_JS } from "./client-drafts.ts";
 import { REVIEW_KEYS_JS } from "./client-keys.ts";
 import { REVIEW_LIVE_JS } from "./client-live.ts";
 import { REVIEW_PLACE_JS } from "./client-place.ts";
+import { REVIEW_REVEAL_JS } from "./client-reveal.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -45,7 +47,7 @@ ${CLIENT_RUNTIME_JS}
   var data = JSON.parse(root.textContent || "{}");
   var token = data.token || "";
   var rev = data.rev || "";
-  // The state the three fragments share. cursor, anchor and currentFile are the place's —
+  // The state the fragments share. cursor, anchor and currentFile are the place's —
   // which row the keys act on, and which file the rail marks and the spy writes; DRAFT_KEY is
   // the comments'; base, data, token, rev and toastTimer are the page's, read by both.
   var DRAFT_KEY = "rv-review-drafts";
@@ -128,6 +130,7 @@ ${PATH_REF_JS}
 
 ${REVIEW_DRAFTS_JS}
 ${REVIEW_COMMENTS_JS}
+${REVIEW_REVEAL_JS}
 ${REVIEW_PLACE_JS}
 ${REVIEW_KEYS_JS}
 ${REVIEW_LIVE_JS}
@@ -141,11 +144,18 @@ ${REVIEW_LIVE_JS}
   observeHeads();
   paintThreads();
   paintChrome();
+  // Drafts before the place: a restored composer is height above the line the hash names, and the
+  // reveal measures the viewport it lands in — restoring afterwards would scroll to where the line
+  // was before the box opened.
+  restoreDrafts();
+  fitTail();
   restorePlace();
   var reviewMain = byId("rv-main");
   if (reviewMain) reviewMain.addEventListener("scroll", onScroll, { passive: true });
   window.addEventListener("resize", remeasure);
-  restoreDrafts();
+  // A hash-only navigation does not reload, and the fragment names no element: without this the
+  // browser has nothing to scroll to and the reader stays where they were.
+  window.addEventListener("hashchange", restorePlace);
 ${THEME_TOGGLE_JS}
 ${dialogScript({ dialogId: "rv-send-dialog", closeId: "rv-send-close", globalName: "rvSend" })}
 ${keysDialogScript("keys-open")}
