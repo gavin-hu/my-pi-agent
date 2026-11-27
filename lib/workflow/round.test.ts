@@ -88,9 +88,16 @@ describe("buildRound", () => {
 		expect(round.done.map((entry) => entry.id)).toEqual(["2"]);
 	});
 
-	test("unassigned is every backlog card", () => {
+	test("unassigned is every backlog card nobody set aside", () => {
 		const round = buildRound([card("1"), doing("2"), card("3")], NOW);
 		expect(round.unassigned.map((entry) => entry.id)).toEqual(["1", "3"]);
+	});
+
+	test("a shelved card leaves unassigned for its own group, and moves no lane", () => {
+		const shelved = card("2", { shelved: { at: NOW, by: "billing-lead", note: "waiting on the release" } });
+		const round = buildRound([card("1"), shelved], NOW);
+		expect(round.unassigned.map((entry) => entry.id)).toEqual(["1"]);
+		expect(round.shelved.map((entry) => entry.id)).toEqual(["2"]);
 	});
 
 	test("a complete, approved contract with no plan is unplanned, not awaiting approval", () => {
@@ -229,6 +236,7 @@ describe("buildRound", () => {
 		expect(buildRound([], NOW)).toEqual({
 			owners: [],
 			unassigned: [],
+			shelved: [],
 			unplanned: [],
 			unapproved: [],
 			unreviewed: [],

@@ -22,7 +22,7 @@ import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { sweepFinished, sweepText } from "./archive.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
-import { formatCard } from "./format.ts";
+import { formatBoard, formatCard } from "./format.ts";
 import type { BoardPage } from "./page.ts";
 import { registerTools } from "./tools.ts";
 import { BOARD_TOOL, type BoardDetails } from "./types.ts";
@@ -203,6 +203,25 @@ describe("dropped history", () => {
 	test("says nothing at all on a board that dropped nothing", () => {
 		const cards = [boardCard("7")];
 		expect(formatRound(cards, buildRound(cards, NOW))).not.toContain("dropped history");
+	});
+});
+
+describe("a card set aside", () => {
+	const SHELF = { at: NOW, by: "billing-lead", note: "waiting on the release" };
+
+	test("the listing names the reason, so an unassigned row is not read as work to pick up", () => {
+		const text = formatBoard([boardCard("7", { shelved: SHELF })], { hiddenDone: 0, archived: 0, skipped: [] });
+		expect(text).toContain("#7 backlog · Card 7 · unassigned · shelved: waiting on the release");
+	});
+
+	test("the card's own line carries the reason, and how long is left when it was bounded", () => {
+		expect(formatCard(boardCard("7", { shelved: SHELF }), undefined, NOW)).toContain("shelved: waiting on the release");
+		const bounded = boardCard("7", { shelved: { ...SHELF, until: NOW + 86_400_000 } });
+		expect(formatCard(bounded, undefined, NOW)).toContain("due in 1d");
+		// A bound that passed is a sentence and not a write: nothing on this board wakes a card.
+		expect(formatCard(boardCard("7", { shelved: { ...SHELF, until: NOW - 1 } }), undefined, NOW)).toContain(
+			"its date has passed",
+		);
 	});
 });
 

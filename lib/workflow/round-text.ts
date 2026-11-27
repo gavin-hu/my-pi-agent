@@ -56,6 +56,7 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 		plural(owners, "owner"),
 		plural(cards.length, "feature"),
 		`${round.unassigned.length} unassigned`,
+		`${round.shelved.length} shelved`,
 		`${round.unplanned.length} unplanned`,
 		`${round.unapproved.length} awaiting approval`,
 		`${round.unreviewed.length} awaiting review`,
@@ -87,6 +88,9 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 	}
 	if (history > 0) lines.push(historyLine(history, finished));
 	lines.push(...group("unassigned", round.unassigned));
+	// Beside the pool it came out of, and never instead of it: the shelf is a count a reader can
+	// act on, so a card set aside is one line away rather than gone.
+	lines.push(...group("shelved", round.shelved));
 	lines.push(...group("unplanned", round.unplanned));
 	lines.push(...group("unapproved", round.unapproved));
 	lines.push(...group("unreviewed", round.unreviewed));

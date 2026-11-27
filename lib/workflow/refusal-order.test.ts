@@ -25,7 +25,8 @@ import {
 	proved,
 	refusal,
 } from "../../test/helpers/fixtures/board-rules.ts";
-import { MAX_BLOCKED, MAX_NOTE } from "./card.ts";
+import { MAX_BLOCKED } from "./block.ts";
+import { MAX_NOTE } from "./card.ts";
 import { MAX_CONTRACT } from "./contract.ts";
 import { reviewGate } from "./lead.ts";
 

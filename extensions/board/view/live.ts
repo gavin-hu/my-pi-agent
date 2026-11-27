@@ -253,6 +253,7 @@ const liveTemplate = String.raw`(function () {
     view.round = {
       owners: owners,
       unassigned: expand(round.unassigned),
+      shelved: expand(round.shelved),
       unplanned: expand(round.unplanned),
       unapproved: expand(round.unapproved),
       unreviewed: expand(round.unreviewed),

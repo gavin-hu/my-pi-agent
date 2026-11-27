@@ -21,17 +21,8 @@ import { readFile, readdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
 import { mapConcurrent } from "../pool.ts";
-import {
-	BLOCKERS,
-	type BlockerKind,
-	type Card,
-	type CardBlock,
-	CARD_VERSION,
-	canonicalCardId,
-	isCard,
-	priorityRank,
-	SUPPORTED_VERSIONS,
-} from "./card.ts";
+import { BLOCKERS, type BlockerKind, type CardBlock } from "./block.ts";
+import { type Card, CARD_VERSION, canonicalCardId, isCard, priorityRank, SUPPORTED_VERSIONS } from "./card.ts";
 
 import { LANES, type Lane } from "./lanes.ts";
 
@@ -260,9 +251,15 @@ export async function recordedPlans(boardDir: string): Promise<Set<string> | und
  */
 export function sortForLane(cards: Card[]): Card[] {
 	const lane = (card: Card): number => LANES.indexOf(card.lane);
+	// A shelved pool card keeps its place at the bottom of the pool: it is still on the board, and it
+	// is not work to pick up, so the cards a reader can act on come first in the order they always
+	// had — `shelved.ts` is why the field exists, and the pool's two halves read apart.
+	const aside = (card: Card): number => (card.shelved === undefined ? 0 : 1);
 	return cards.sort((a, b) => {
 		const byLane = lane(a) - lane(b);
 		if (byLane !== 0) return byLane;
+		const byAside = aside(a) - aside(b);
+		if (byAside !== 0) return byAside;
 		const byPriority = priorityRank(a) - priorityRank(b);
 		if (byPriority !== 0) return byPriority;
 		return Number(a.id) - Number(b.id);

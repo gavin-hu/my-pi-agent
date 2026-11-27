@@ -404,7 +404,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// 88 -> 89 (#864): `doctor/schema.ts` reads `RUN_DOCTOR_TOOL`, so the entry pays `lib/tool-names.ts` — the
 	// constants module sibling entries already evaluate — and board pays nothing: `runtime.ts` is deferred.
 	bytefly: 89,
-	board: 64, // 64 <= 64 (#748)
+	board: 66, // 66 <= 66 (#944): card.ts split at the module bar, so the entry pays block.ts + shelved.ts
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
 	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks), and
 	// one more for lib/json: the temp name plan-files used to spell for itself is the owner's
@@ -425,12 +425,11 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// `planMerge` (`todo-seed.ts:37`). Re-derive any price with `staticGraph`
 	// (`test/helpers/graph.ts`) over a reader that drops one specifier.
 	plan: 53, // 53 <= 53 (#803)
-	team: 54, // 54 <= 54 (#748)
 	job: 46, // lib/stray-fields.ts: this dispatch is synchronous, so the guard cannot defer (see #896)
+	team: 56, // 56 <= 56 (#944): the same split, seen through `session`; a synchronous guard cannot defer
 	"session-bus": 45,
 	subagent: 34,
 	"web-access": 41,
-	// 38 -> 45 for the transcript block (#742): `worktree` was the last package tool drawing
 	// through bytefly's generic fallback, so registering renderers for it is what puts the block
 	// kit — `tui/tool`, `tui/chrome`, `tui/columns` and the indent and render-cache they reach —
 	// in this graph, the same kit every other drawn tool already pays for. It cannot defer: Pi

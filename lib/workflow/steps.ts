@@ -16,14 +16,13 @@
 
 import { listOf } from "../format.ts";
 import { type ArtifactProof, proved } from "./artifact.ts";
+import { BLOCKERS, normalizeBlock } from "./block.ts";
 import {
-	BLOCKERS,
 	type Card,
 	type CardOwner,
 	cardRef,
 	dependsOf,
 	holds,
-	normalizeBlock,
 	normalizeNote,
 	normalizePathHints,
 	normalizePlanPath,
@@ -69,7 +68,7 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	if (refused !== undefined) return { error: refused };
 	const carried = ownerRefusal(actor, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
-	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });
+	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined, shelved: undefined });
 }
 
 /**
@@ -91,7 +90,7 @@ export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: Wip
 	if (waiting !== undefined) return { error: waiting };
 	const carried = ownerRefusal(to, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
-	const entered = enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
+	const entered = enter(card, "plan", board, limits, { owner: to, offeredAt: undefined, shelved: undefined });
 	return "error" in entered ? entered : { ...entered, notice: "assign" as const };
 }
 
@@ -110,6 +109,10 @@ function releasedToPool(): Partial<Card> {
 		lane: "backlog",
 		owner: undefined,
 		offeredAt: undefined,
+		// A card back in the pool is pool work again: a holder who releases a card it had shelved
+		// before is not asking the board to keep it aside, and the shelf's reason is one line they
+		// can set again with the verb that owns it.
+		shelved: undefined,
 		// A review is a statement about work finished in `execute`; a card its own holder hands
 		// back is not finished, so the sign cannot travel with it. A `reclaim` keeps it instead:
 		// the sign is evidence, and only its signer withdraws it (`lead.ts`).
@@ -471,6 +474,10 @@ export function edit(card: Card, op: Extract<CardOp, { kind: "edit" }>, actor: A
 export function offer(card: Card, now: number, board: BoardIndex, limits: WipLimits, ownerLabel?: string): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be offered.` };
 	if (card.owner !== undefined) return { error: heldBy(card, ownerLabel) };
+	// An offer asks a peer to claim, and a shelved card is one nobody should be asked to take.
+	if (card.shelved !== undefined) {
+		return { error: `${cardRef(card.id)} is shelved (${card.shelved.note}); unshelve it first.` };
+	}
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
 	const full = wipRefusal("plan", [...board.values()], limits);

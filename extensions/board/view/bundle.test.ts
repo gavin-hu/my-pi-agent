@@ -68,9 +68,11 @@ describe("the fragments' bodies", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.render(hydrate(view));");
 		for (const group of [
 			"unassigned",
+			"shelved",
 			"unplanned",
 			"unapproved",
 			"unreviewed",
+			"untold",
 			"blocked",
 			"unwritten",
 			"done",

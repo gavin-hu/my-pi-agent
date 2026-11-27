@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a `backlog` card can be set aside with a one-line reason — `shelve` writes it, `unshelve` puts
+  it back, and a claim or an assignment does the same — so a card waiting on the world stops counting as
+  unassigned work and stops being offered, while staying in the pool with its reason on the row and in the
+  round. It is a fact on the card rather than a sixth lane, which is what lets the lead's seat use it: the
+  seat cannot claim, so a shelf that needed a holder would be closed to the one session that says "not
+  now". `until 30d` records the moment it comes due; nothing wakes a card, because nothing here runs on a
+  clock, and a date that passed is a sentence on its line.
+
 - `session-bus`: a `/new` keeps the record the process serves, so clearing a transcript at a card
   boundary costs the context and nothing else — the name a peer addresses, the inbox with the cursor
   that counts it, the watch mode a join settled on, the claims on the paths being edited, and the card

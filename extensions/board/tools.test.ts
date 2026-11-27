@@ -188,7 +188,7 @@ describe("a field the action does not act on", () => {
 		const { call } = harness();
 		const result = await call({ action: "list", goal: "why", note: "it" });
 		expect(result.details.error).toBe(
-			"list does not act on goal, note: `contract` takes goal; `add`, `note`, `approve`, and `review` take note.",
+			"list does not act on goal, note: `contract` takes goal; `add`, `note`, `approve`, `review`, and `shelve` take note.",
 		);
 		// Four actions take this one, so the message names the serial list and says "take".
 		const lane = await call({ action: "add", title: "x", lane: "execute" });
@@ -457,7 +457,7 @@ describe("list", () => {
 		expect(result.details.round?.owners.map((group) => group.label)).toEqual([LEAD]);
 		expect(result.details.round?.unassigned.map((card) => card.id)).toEqual(["1"]);
 		expect(result.details.round?.unplanned.map((card) => card.id)).toEqual(["2"]);
-		expect(resultText(result)).toContain("1 owner · 2 features · 1 unassigned · 1 unplanned");
+		expect(resultText(result)).toContain("1 owner · 2 features · 1 unassigned · 0 shelved · 1 unplanned");
 	});
 });
 

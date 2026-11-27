@@ -26,11 +26,12 @@ promises, and the notes that explain it — and two signatures are needed before
 | Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut … verify …` — all four lines, and the `verify` command is required |
 | Approve the contract | `/board approve 4` in the lead's session, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
-| Park a card | `board move 4 blocked blocker decision blockedBy "waiting on the API owner"` |
+| Block a card | `board move 4 blocked blocker decision blockedBy "waiting on the API owner"` |
+| Set a card aside | `board shelve 4 note "waiting on the API owner" until 30d` — it stays in the pool, and `board unshelve 4`, or a claim, puts it back |
 | Sign off finished work | `/board review 4` in the lead's session, then `board move 4 done`, and `/board next` starts the next session — once nothing of yours is in `plan` or `execute`; the page and its seat end with it, the record does not |
 | Explain something | `board note 4 "why the retry is capped at three"` |
 | Set finished work aside | `/board archive` in the lead's session, or the `board` action `archive` from any session |
-| Read the round | `board list round: true`, or `/team` — owners, unassigned, unplanned, awaiting approval, awaiting review, untold, blocked, done |
+| Read the round | `board list round: true`, or `/team` — owners, unassigned, shelved, unplanned, awaiting approval, awaiting review, untold, blocked, done |
 
 ## Try it
 
@@ -56,9 +57,8 @@ lane of 24 folds. The pane is the one scroll box: a lane is as tall as the board
 Team tab raises what needs the seat: one list of the moves only it can finish — sign a contract nobody read, send a notice that never landed, free a card whose owner is gone, chase one nobody has written to — each a two-line row that says its own reason, folded at five. Under it, `The board · N open` counts the four lanes it draws: `blocked`, `execute`, `plan`, and `backlog`, whose cards appear while the pool is small and become one line and a door past twelve. The terminal's rollup keeps its own counts (`9 unassigned · 5 unplanned`), because it answers what the board holds rather than what the seat owes.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`, `approve`,
-`review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while a lane is full; `claim` is also refused while the bus
-holds no live record of this session — the fact that decides whether the tool is offered at all — so it wrote nothing and names `/team join` or `/board`, while a run with no bus claims as it always has. `assign` is `team`'s verb under that rule, and one session holds one card in flight by default (`board.wip.perOwner`). `reclaim` takes a card back: the person and
-the lead always, a peer only while its owner is quiet or gone. `move` into `execute` or `done` re-reads the plan and refuses a
+`review`, `edit`, `shelve`, `unshelve`, `archive`, `drop`. `claim` and `move` are refused while a lane is full; `claim` is also refused while the bus
+holds no live record of this session — the fact that decides whether the tool is offered at all — so it wrote nothing and names `/team join` or `/board`, while a run with no bus claims as it always has. `assign` is `team`'s verb under that rule, and one session holds one card in flight by default (`board.wip.perOwner`). `move` into `execute` or `done` re-reads the plan and refuses a
 card whose plan is gone. An `execute` card claims the `paths` nobody else holds; `edit` claims added paths and releases removed
 ones, claiming first so a conflict releases nothing. A contract names a `verify` command — the card's own check, not the
 repository's gate, [as the walkthrough writes one](../tutorials/first-board.md) — and `review` runs the module and suite size gates first, then the command, in the tree `root` names, refusing the sign when either gate is red; a tree that carries no commit past the base branch is refused before either gate starts, naming the tree and pointing at `root` for the card's worktree; a tree that keeps neither gate file skips them, and the sign records the skip so a reader can tell "they held" from "they were not there".

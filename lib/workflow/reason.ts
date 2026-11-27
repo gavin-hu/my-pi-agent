@@ -26,6 +26,7 @@ export const REASON_KINDS = [
 	"waiting",
 	"blocked",
 	"offered",
+	"shelved",
 	"contract",
 	"approval",
 	"executing",
@@ -49,6 +50,7 @@ export const REASON_LABEL: Record<ReasonKind, string> = {
 	waiting: "waits",
 	blocked: "blocked",
 	offered: "offered",
+	shelved: "shelved",
 	contract: "no contract",
 	approval: "needs approval",
 	executing: "in progress",
@@ -109,6 +111,10 @@ export function reasonFor(card: ReasonCard, ago: (at: number) => string): Reason
 		return { kind: "blocked", text: last === undefined ? "blocked, with nothing recorded" : last.text };
 	}
 	if (card.lane === "backlog") {
+		// The shelf outranks an offer and a note, because it is the decision the card is under: a
+		// reader who set it aside said more than the last note did. No backticks here or below --
+		// this body is spliced into the page's bundle, where one would end the literal.
+		if (card.shelved !== undefined) return { kind: "shelved", text: "shelved — " + card.shelved.note };
 		if (card.offeredAt !== undefined) {
 			const age = ago(card.offeredAt);
 			return {

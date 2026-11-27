@@ -9,9 +9,8 @@
 
 import type { Static } from "typebox";
 import { Type } from "typebox";
+import { BLOCKERS, MAX_BLOCKED } from "../../lib/workflow/block.ts";
 import {
-	BLOCKERS,
-	MAX_BLOCKED,
 	MAX_DEPENDS,
 	MAX_NOTE,
 	MAX_PATH,
@@ -31,7 +30,7 @@ export const BoardParams = Type.Object({
 	action: StringEnum(BOARD_ACTIONS, {
 		// The verbs and their meanings live in the tool description, built from
 		// `BOARD_ACTION_DOCS`; this says only what a caller needs to choose one.
-		description: "`list` reads the board, or one card when `card` names it; every other verb changes it.",
+		description: "`list` reads the board, or one card when `card` names it.",
 	}),
 	card: Type.Optional(
 		Type.String({
@@ -74,7 +73,7 @@ export const BoardParams = Type.Object({
 		Type.String({
 			maxLength: MAX_NOTE,
 			description:
-				"`add`: a first note; `note`: the note to append; `approve` and `review`: what the signer saw; one line.",
+				"`add`: a first note; `note`: the note to append; `shelve`: the reason it is set aside; `approve` and `review`: what the signer saw.",
 		}),
 	),
 	override: Type.Optional(
@@ -97,8 +96,7 @@ export const BoardParams = Type.Object({
 	path: Type.Optional(
 		Type.String({
 			maxLength: MAX_PLAN,
-			description:
-				"`contract`, required: the plan file this card is executed against — the path `plan` action `write` returned.",
+			description: "`contract`, required: the plan file this card is executed against, as `plan` returned it.",
 		}),
 	),
 	goal: Type.Optional(
@@ -113,8 +111,7 @@ export const BoardParams = Type.Object({
 	verify: Type.Optional(
 		Type.String({
 			maxLength: MAX_CONTRACT,
-			description:
-				"`contract`, required: the command its acceptance is checked by — one line — which the spot-check runs and records.",
+			description: "`contract`, required: the command its acceptance is checked by, which the spot-check runs.",
 		}),
 	),
 	scopeOut: Type.Optional(
@@ -125,8 +122,7 @@ export const BoardParams = Type.Object({
 	),
 	priority: Type.Optional(
 		StringEnum(PRIORITIES, {
-			description:
-				"`add` and `edit`: how urgent the feature is. `high` sorts first inside its lane; `normal` is the default.",
+			description: "`add` and `edit`: how urgent the feature is; `normal` is the default.",
 		}),
 	),
 	type: Type.Optional(
@@ -149,7 +145,7 @@ export const BoardParams = Type.Object({
 	mine: Type.Optional(Type.Boolean({ description: "`list`: only the cards this session holds." })),
 	query: Type.Optional(
 		Type.String({
-			description: "`list`: only the cards whose id, title, holder, kind, path, plan, or note match this text.",
+			description: "`list`: only the cards whose id, title, holder, or text matches this.",
 		}),
 	),
 	round: Type.Optional(
@@ -166,7 +162,12 @@ export const BoardParams = Type.Object({
 	olderThan: Type.Optional(
 		Type.String({
 			description:
-				"`archive`: only cards finished at least this long ago (`30d`, `12h`, `90m`, `45s`); absent sweeps all, and it takes no `card`.",
+				"`archive`: only cards finished at least this long ago (`30d`, `12h`, `90m`); absent sweeps all, and it takes no `card`.",
+		}),
+	),
+	until: Type.Optional(
+		Type.String({
+			description: "`shelve`: how long it stays aside, in the same ages (`30d`, `12h`, `90m`).",
 		}),
 	),
 });

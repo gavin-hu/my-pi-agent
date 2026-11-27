@@ -100,7 +100,7 @@ it at the next turn; delivered mail stays until `/sessions drop` clears it.
 - Nothing here starts a peer's process: a peer that never joined cannot be handed a card — it is offered no
   `team` tool either, and its turn names the door — and one listening with `wake` is woken by its mail.
 - A card somebody already holds is not assignable: `board reclaim` it, then assign.
-- An offer is advice — a card can stay offered indefinitely, counted as unassigned.
+- An offer is advice — a card can stay offered indefinitely, counted as unassigned; one set aside first is never offered, so `board unshelve` it, or claim it.
 - Ownership does not claim paths: the peer still claims the files it edits through `session`.
 - The lead's name is a label, not a person: it reaches whoever is serving the page
   just now, and nothing when nobody is.

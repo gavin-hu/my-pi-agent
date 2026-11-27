@@ -85,7 +85,7 @@ describe("roundText", () => {
 		];
 		const roster = [mate("billing-lead", NOW), mate("ops-helper", NOW - 20 * 60_000)];
 		expect(roundText(cards, NOW, roster).split("\n")).toEqual([
-			"1 owner · 3 features · 1 unassigned · 0 unplanned · 0 awaiting approval · 1 awaiting review · 0 untold · 1 blocked · 0 unwritten · 0 done",
+			"1 owner · 3 features · 1 unassigned · 0 shelved · 0 unplanned · 0 awaiting approval · 1 awaiting review · 0 untold · 1 blocked · 0 unwritten · 0 done",
 			"billing-core (2): #2 execute, #3 blocked",
 			"unassigned (1): #1 backlog",
 			"unreviewed (1): #2 execute",

@@ -18,29 +18,11 @@ import { archivableOf } from "../../lib/workflow/round.ts";
 import { plural } from "../../lib/format.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
+import { parseBound, type SweepBound } from "./bound.ts";
 import { formatArchived } from "./format.ts";
 import { refusal } from "./result.ts";
 import type { BoardArgs } from "./schema.ts";
 import type { ArchiveOutcome, BoardDetails } from "./types.ts";
-
-/** One unit a bound may name, in milliseconds. */
-const BOUND_UNITS: Readonly<Record<string, number>> = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
-
-/**
- * An age bound as milliseconds: `30d`, `12h`, `90m`, `45s`, and nothing else.
- *
- * A whole number and one unit letter, so the spec a person mistypes — `/board archive 30d` with
- * no flag — is refused here rather than reaching a sweep, and refused again before it could read
- * as a card id. Zero is not a bound: a sweep that means everything says nothing at all.
- */
-export function parseBound(spec: string): number | undefined {
-	const match = /^([0-9]{1,6})([smhd])$/.exec(spec.trim().toLowerCase());
-	if (match === null) return undefined;
-	const unit = BOUND_UNITS[match[2] ?? ""];
-	const amount = Number(match[1]);
-	if (unit === undefined || !Number.isInteger(amount) || amount <= 0) return undefined;
-	return amount * unit;
-}
 
 /** What a caller's `olderThan` said: the bound, no bound at all, or the sentence refusing it. */
 export type BoundRead = { ok: true; bound?: SweepBound } | { ok: false; error: string };
@@ -90,12 +72,6 @@ export function boundFromCommand(rest: readonly string[]): BoundRead {
  */
 export function closedAt(card: Card): number {
 	return laneSince(card) ?? card.updatedAt;
-}
-
-/** A sweep's limit: the spec as the caller wrote it, and its width in milliseconds. */
-export interface SweepBound {
-	spec: string;
-	ms: number;
 }
 
 /**

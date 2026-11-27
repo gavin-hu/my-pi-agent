@@ -151,7 +151,7 @@ export const LANE_RULES: Record<Lane, LaneRule> = {
  * `artifact` is the plan file the card is executed against — recorded, and proved to be in
  * this repository's plan store — `blocker` is the recorded reason and kind, and `waiting` is
  * no unfinished dependency. The blocker's own kind is a label: where a blocked card may go is
- * decided by what it has, not by what it was parked on.
+ * decided by what it has, not by what it was blocked on.
  */
 export const REQUIREMENTS = ["contract", "approval", "review", "landing", "artifact", "blocker", "waiting"] as const;
 
@@ -173,7 +173,7 @@ export interface Transition {
  * *into* `backlog` (a card nobody holds is `release`'s or `reclaim`'s decision, not a
  * move's), and nothing moves *out of* `done` (finished work is history). Re-planning is
  * `execute → plan`, and a blocked card goes back to `plan` or resumes in `execute` — either
- * one into a lane that has room for it, since a park frees a slot rather than reserving one.
+ * one into a lane that has room for it, since a block frees a slot rather than reserving one.
  *
  * The dependency gate is not one of these: it belongs to the pull out of the pool, which
  * `claim` asks itself, and to `execute` and `done`. Planning is where a wait is read against
@@ -184,8 +184,8 @@ export interface Transition {
  * session that does not hold the card gave. The plan joins the contract rather than `done`
  * because a plan recorded after the work began is a note about what happened, not the
  * agreement the work was done against. So the way out of a block follows the card's state
- * rather than the block's kind — a card parked from `plan` cannot enter `execute` until it
- * has been planned, proved, and approved, and one parked from `execute` already carries all
+ * rather than the block's kind — a card blocked from `plan` cannot enter `execute` until it
+ * has been planned, proved, and approved, and one blocked from `execute` already carries all
  * three and resumes.
  */
 export const TRANSITIONS: readonly Transition[] = [
