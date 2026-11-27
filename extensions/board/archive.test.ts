@@ -12,7 +12,8 @@ import { describe, expect, test } from "bun:test";
 import { type Card, laneSince } from "../../lib/workflow/card.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
 import { billingCard as card } from "../../test/helpers/fixtures/board.ts";
-import { boundFromCommand, boundOf, closedAt, parseBound, sweepFinished, sweepText } from "./archive.ts";
+import { boundFromCommand, boundOf, closedAt, sweepFinished, sweepText } from "./archive.ts";
+import { parseBound } from "./bound.ts";
 
 const NOW = 1_800_000_000_000;
 const DAY = 86_400_000;

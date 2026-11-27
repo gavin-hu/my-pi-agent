@@ -495,6 +495,16 @@ export async function runAction(input: ActionInput): Promise<ReturnType<typeof t
 					{ cross },
 				);
 			}
+			case "shelve": {
+				// The bound is a spelling a person writes: `bound.ts` parses it and words the refusal, because
+				// "nothing was shelved" is this door's promise rather than the sweep's.
+				const { shelfWidth } = await import("./bound.ts");
+				const width = args.until === undefined ? undefined : shelfWidth(args.until);
+				if (width !== undefined && "error" in width) return refusal(action, me, width.error);
+				return await write({ kind: "shelve", note: args.note, ...(width === undefined ? {} : { until: width.ms }) });
+			}
+			case "unshelve":
+				return await write({ kind: "unshelve" });
 			case "drop":
 				return await dropCard(store, me, args, now, cross, ownerLabel);
 			case "land": {

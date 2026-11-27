@@ -52,6 +52,9 @@ function factsOf(card: Card): Fact[] {
 	const priority = priorityOf(card);
 	if (priority !== DEFAULT_PRIORITY) facts.push({ text: priority, tone: "muted" });
 	facts.push({ text: card.lane, tone: LANE_RULES[card.lane].role });
+	// A pool card's holder word reads the same whether somebody set it aside or nobody has looked
+	// at it, so the row says which: `shelved` is the one fact that tells those two apart.
+	if (card.shelved !== undefined) facts.push({ text: "shelved", tone: REASON_TONE.shelved });
 	// What the card owes before it can move on, in the words the Team queue's pills use. A card
 	// that owes no gate says nothing: `planned` was a word about a file, and it read the same as
 	// a card waiting for a signature.

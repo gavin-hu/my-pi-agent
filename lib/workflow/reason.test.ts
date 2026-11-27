@@ -48,6 +48,15 @@ describe("reasonFor", () => {
 		expect(reasonFor(card(), ago)).toBeUndefined();
 	});
 
+	test("a shelved pool card says the reason it was set aside", () => {
+		// The one line under a card is the whole of the shelf on the page, and it is why the reason is a
+		// field rather than a note: a reader tells it apart from a card nobody has picked up yet.
+		expect(reasonFor(card({ shelved: { at: NOW, by: "billing-lead", note: "waiting on the release" } }), ago)).toEqual({
+			kind: "shelved",
+			text: "shelved — waiting on the release",
+		});
+	});
+
 	test("a blocked card says what it waits on, and never invents one", () => {
 		expect(
 			reasonFor(card({ lane: "blocked", owner, blocked: { kind: "decision", note: "legal signs" } }), ago),

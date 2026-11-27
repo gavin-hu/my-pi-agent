@@ -93,6 +93,7 @@ describe("a card row at a narrow width", () => {
 		const round: RoundSummary = {
 			owners: [],
 			unassigned: [],
+			shelved: [],
 			unplanned: [],
 			unapproved: [],
 			unreviewed: [due],

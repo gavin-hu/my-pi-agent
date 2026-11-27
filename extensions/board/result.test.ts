@@ -223,6 +223,7 @@ describe("a rollup under a narrowed listing", () => {
 	const round: RoundSummary = {
 		owners: [{ label: PEER.label, cards: [card({ id: "4" })], done: [] }],
 		unassigned: [],
+		shelved: [],
 		unplanned: [],
 		unapproved: [],
 		unreviewed: [],
@@ -264,6 +265,14 @@ describe("the rollup's sections", () => {
 		const round: RoundSummary = {
 			owners: [{ label: PEER.label, cards: [card()], done: [] }],
 			unassigned: [card({ id: "1", lane: "backlog", owner: undefined })],
+			shelved: [
+				card({
+					id: "9",
+					lane: "backlog",
+					owner: undefined,
+					shelved: { at: 1, by: "lead", note: "waiting on the release" },
+				}),
+			],
 			unplanned: [card({ id: "2" })],
 			unapproved: [card({ id: "3" })],
 			unreviewed: [card({ id: "7" })],
@@ -278,6 +287,7 @@ describe("the rollup's sections", () => {
 		expect(input.sections.map((entry) => entry.label)).toEqual([
 			PEER.label,
 			"Unassigned",
+			"Shelved",
 			"Unplanned",
 			"Awaiting approval",
 			"Awaiting review",
@@ -304,6 +314,7 @@ describe("the rollup's sections", () => {
 				{ label: "billing-other", cards: [], done: [finished] },
 			],
 			unassigned: [],
+			shelved: [],
 			unplanned: [],
 			unapproved: [],
 			unreviewed: [],

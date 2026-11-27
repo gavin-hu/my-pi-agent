@@ -35,7 +35,7 @@ describe("the action table", () => {
 
 	test("counts every other action as a write, so none of them slips past plan mode", () => {
 		const writes = BOARD_ACTIONS.filter((action) => action !== "list");
-		expect(writes).toHaveLength(13);
+		expect(writes).toHaveLength(15);
 		for (const action of writes) expect(isBoardReadAction(action), action).toBe(false);
 	});
 

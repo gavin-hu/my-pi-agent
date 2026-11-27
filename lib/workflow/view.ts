@@ -252,6 +252,7 @@ export interface WireRoundGroup {
 export interface WireRound {
 	owners: WireRoundGroup[];
 	unassigned: string[];
+	shelved: string[];
 	unplanned: string[];
 	unapproved: string[];
 	unreviewed: string[];
@@ -450,6 +451,7 @@ export function boardWire(view: BoardView): BoardWire {
 				done: ids(group.done),
 			})),
 			unassigned: ids(view.round.unassigned),
+			shelved: ids(view.round.shelved),
 			unplanned: ids(view.round.unplanned),
 			unapproved: ids(view.round.unapproved),
 			unreviewed: ids(view.round.unreviewed),

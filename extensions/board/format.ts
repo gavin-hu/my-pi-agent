@@ -11,14 +11,8 @@
  * The rollup's text is `lib/workflow/round-text.ts`, because `team` prints it too.
  */
 
-import {
-	type Card,
-	type CardBlock,
-	cardRef,
-	DEFAULT_PRIORITY,
-	dependsOf,
-	priorityOf,
-} from "../../lib/workflow/card.ts";
+import { type Card, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/workflow/card.ts";
+import { type CardBlock } from "../../lib/workflow/lanes.ts";
 import type { Sign } from "../../lib/workflow/contract.ts";
 import { CONTRACT_LINE_OWED } from "../../lib/workflow/contract.ts";
 import { gateOf } from "../../lib/workflow/round.ts";
@@ -27,7 +21,7 @@ import { GATE_WORD } from "../../lib/workflow/tone.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/workflow/links.ts";
 import { skippedText } from "../../lib/workflow/skipped.ts";
 import type { Skip } from "../../lib/workflow/read.ts";
-import { ageWords, formatAge, plural, shortenPath } from "../../lib/format.ts";
+import { ageWords, formatAge, plural, sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { ranClause } from "../../lib/workflow/round-text.ts";
 
 /**
@@ -180,6 +174,20 @@ function blockText(block: CardBlock): string {
 	return block.kind === undefined ? note : `${note} (${block.kind})`;
 }
 
+/**
+ * The shelf's bound, as a clause on its own line: how long is left, or that the moment has passed.
+ *
+ * The board has no janitor, so an expired shelf changes nothing — the card waits exactly where it
+ * is, and this sentence is the whole effect a wake date has. `formatAge` takes the earlier moment
+ * first, so the remaining width is the age of now measured from the bound.
+ */
+function untilClause(until: number | undefined, now: number | undefined): string {
+	if (until === undefined || now === undefined) return "";
+	if (until <= now) return " · its date has passed";
+	const left = formatAge(until, now);
+	return left === "now" ? " · due any moment" : ` · due in ${left}`;
+}
+
 /** A one-line listing: the id, the lane, the title, who holds it, and what it owes. */
 function listLine(card: Card): string {
 	const holder = card.owner === undefined ? "unassigned" : card.owner.label;
@@ -192,7 +200,10 @@ function listLine(card: Card): string {
 	// The blocked lane carries a fact of its own, and it says it here: the sentence, or the
 	// kind, is one short phrase, so a listing stays one line.
 	const blocked = card.blocked === undefined ? "" : ` · blocked: ${blockText(card.blocked)}`;
-	return `${cardRef(card.id)} ${card.lane} · ${card.title} · ${holder}${urgency}${owed}${waits}${blocked}`;
+	// A shelf is the one fact a pool card carries that its holder word cannot: the card still reads
+	// unassigned, and the reason it is not work is here.
+	const shelved = card.shelved === undefined ? "" : ` · shelved: ${sanitizeLine(card.shelved.note)}`;
+	return `${cardRef(card.id)} ${card.lane} · ${card.title} · ${holder}${urgency}${owed}${waits}${blocked}${shelved}`;
 }
 
 /** The state lines under a card's headline. */
@@ -206,6 +217,11 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 		lines.push(`  offered: ${ageWords(formatAge(now, card.offeredAt))}, and nobody took it`);
 	}
 	if (card.blocked !== undefined) lines.push(`  blocked: ${blockText(card.blocked)}`);
+	// A shelf's reason is the line a reader acts on, and its bound is the one thing a clock is
+	// needed for: an expired shelf is a sentence here, never a write, because nothing wakes a card.
+	if (card.shelved !== undefined) {
+		lines.push(`  shelved: ${sanitizeLine(card.shelved.note)}${untilClause(card.shelved.until, now)}`);
+	}
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
 	// The card stores the path resolved, so the line is shortened the way the `write` action shows
 	// it: an absolute home directory is noise in every read of the same card. A path whose file is
