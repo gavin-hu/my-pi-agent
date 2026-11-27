@@ -45,10 +45,6 @@ export class TodoListComponent implements Component {
 		return this.getTodos();
 	}
 
-	private get maxScroll(): number {
-		return Math.max(0, this.todos.length - this.visible);
-	}
-
 	private setScroll(next: number): void {
 		const clamped = clampScroll(next, this.todos.length, this.visible);
 		if (clamped === this.scrollTop) return;
@@ -59,15 +55,6 @@ export class TodoListComponent implements Component {
 	handleInput(data: string): void {
 		if (isCloseKey(data)) {
 			this.onClose();
-			return;
-		}
-		// `g`/`G` jump to the ends, matching the `/jobs` and plan screens.
-		if (data === "g") {
-			this.setScroll(0);
-			return;
-		}
-		if (data === "G") {
-			this.setScroll(this.maxScroll);
 			return;
 		}
 		const next = navigateScroll(data, this.scrollTop, this.todos.length, this.visible);

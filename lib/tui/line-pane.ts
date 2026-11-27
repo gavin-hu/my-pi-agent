@@ -167,18 +167,8 @@ export class LinePane {
 	/** Apply a scroll key; `false` when the key is not one the pane consumes. */
 	handleKey(data: string): boolean {
 		const next = navigateScroll(data, this.scroll, this.buffer.length, this.visible);
-		if (next !== undefined) {
-			this.setScroll(next);
-			return true;
-		}
-		if (data === "g") {
-			this.setScroll(0);
-			return true;
-		}
-		if (data === "G") {
-			this.setScroll(this.maxScroll);
-			return true;
-		}
-		return false;
+		if (next === undefined) return false;
+		this.setScroll(next);
+		return true;
 	}
 }
