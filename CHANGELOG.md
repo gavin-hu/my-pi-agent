@@ -115,6 +115,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`: the page that shows one file's whole text now works the controls it draws. Its
+  header's key button is gone, because the page serves no key sheet, and the theme toggle flips the
+  theme; the text wraps at every width with the diff's own **wrap** button; a whole file's numbers
+  are one column rather than the diff's two, with a cursor that no longer offers a pick this page
+  cannot take; and its footer names the comparison it came from. A file past the line cap says how
+  many of how many lines it showed — naming no total for a read the byte cap cut — and an empty file
+  says it is empty. The shared pieces the page needed landed with it: one wrap button, one diff
+  `<pre>` builder, one document envelope for the file view and a refusal, and one shape for the
+  page's script routes. Its wrap script and theme splice stay two bodies apiece, which is a
+  follow-up rather than a second copy of the fold rule.
+
 - `docs`: the design page and the terminal kit's README name the ceiling that actually holds a
   block's height. `COLLAPSED_ROWS` lives in `test/helpers/tool-block.ts` and `test/tool-rows.test.ts`
   enforces it — not `tool-render.test.ts`, which reads one entry to justify a call-line-only draw —
