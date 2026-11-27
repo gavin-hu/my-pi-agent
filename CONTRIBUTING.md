@@ -96,7 +96,7 @@ change, and use no emojis.
 Every extension has one page, `docs/extensions/<name>.md`, listed in
 [`./docs/extensions/README.md`](./docs/extensions/README.md) and written for a reader who
 uses the pack, not for someone changing it. `test/extension-docs.test.ts` holds the shape
-and refuses a contributor section, a missing section, or a page past 120 lines.
+and refuses a contributor section, a missing section, or a page past 140 lines.
 
 1. `# <name> — <tagline>`, a sentence or three, and the hero image when it has one.
 2. `## What you can do` — a table, `| What you want | What to do |`, one row per thing
