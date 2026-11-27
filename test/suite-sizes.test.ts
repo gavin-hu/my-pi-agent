@@ -89,7 +89,10 @@ const LONG_SUITES: Record<string, number> = {
 	"lib/workflow/view.test.ts": 418,
 	"lib/core.test.ts": 844,
 	"lib/requirements.test.ts": 733,
-	"lib/tui/interaction.test.ts": 1245,
+	// 1245 -> 1125: the status controller's lifecycle moved to its own suite when a
+	// navigation case here needed room (#947); the split lands the pair of keys once, so the
+	// entry falls rather than the number being raised.
+	"lib/tui/interaction.test.ts": 1125,
 	"lib/tui/layout.test.ts": 577,
 	"lib/web/web.test.ts": 653,
 	"scripts/screenshots.test.ts": 683,

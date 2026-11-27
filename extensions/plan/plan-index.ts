@@ -177,12 +177,6 @@ export class PlanIndexComponent implements Component {
 			this.requestRender();
 			return;
 		}
-		// The hint advertises `g`/`G`, so bind them to the ends.
-		if (data === "g" || data === "G") {
-			this.cursor.set(data === "g" ? 0 : this.summaries.length - 1, this.summaries.length);
-			this.requestRender();
-			return;
-		}
 		if (data === "r") {
 			this.reload();
 			return;

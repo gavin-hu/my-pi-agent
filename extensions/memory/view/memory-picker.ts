@@ -399,14 +399,6 @@ export class MemoryPickerComponent implements Component {
 			this.requestRender();
 			return;
 		}
-		// The hint advertises `g`/`G`, so bind them to the ends.
-		if (data === "g" || data === "G") {
-			this.cursor.set(data === "g" ? 0 : notes.length - 1, notes.length);
-			this.selectedKey = notes[this.cursor.selected] ? noteKey(notes[this.cursor.selected]) : undefined;
-			this.requestRender();
-			return;
-		}
-
 		const focused = notes[this.cursor.selected];
 		if (matchesKey(data, Key.tab) || data === "s") this.cycleFilter();
 		else if (matchesKey(data, Key.enter) || data === "e") this.startEdit(focused);

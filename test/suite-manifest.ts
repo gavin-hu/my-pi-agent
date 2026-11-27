@@ -498,6 +498,7 @@ export const LIB_SUITES: readonly string[] = [
 	"tui/render-cache",
 	"tui/components",
 	"tui/interaction",
+	"tui/status-controller",
 	"tui/keys",
 	"tui/tail-result",
 	"tui/tool",

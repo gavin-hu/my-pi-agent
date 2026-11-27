@@ -101,6 +101,11 @@ export function selectRow(entries: PanelEntry[], cursor: ListCursor, index: numb
 /**
  * Read one navigation key against a list. `grouped` is true for the resource
  * lists, whose headings the bracket keys jump between; the Settings list is flat.
+ *
+ * `g`/`G` are read here rather than left to `navIntent`, which maps them to the
+ * list's `home`/`end`: this list interleaves headings among its rows, so its ends
+ * are `firstRow`/`lastRow` — the first and last *selectable* row — and index 0 is
+ * often a heading. The pair is handled before the switch for that reason.
  */
 export function navigateEntries(
 	entries: PanelEntry[],

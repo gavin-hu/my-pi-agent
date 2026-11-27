@@ -32,11 +32,11 @@ turn is one screen away. From the timeline you choose a prompt and restore the
 /rewind
 ```
 
-`↑`/`↓` or `j`/`k` move, `PgUp`/`PgDn`/`Home`/`End` jump, and `Enter` picks the
-focused prompt. The screen closes, then asks what to restore; a code restore with
-several changed paths asks **Everything (N files)** or **Choose paths…**, and the
-checklist takes `Space` per file, `a`/`n` for all or none, and `Enter` to confirm.
-A confirmation with the diff preview is the last step.
+`↑`/`↓` or `j`/`k` move, `PgUp`/`PgDn`/`Home`/`End`/`g`/`G` jump, and `Enter`
+picks the focused prompt. The screen closes, then asks what to restore; a code
+restore with several changed paths asks **Everything (N files)** or **Choose
+paths…**, and the checklist takes `Space` per file, `a`/`n` for all or none, and
+`Enter` to confirm. A confirmation with the diff preview is the last step.
 [Go back to an earlier prompt](../tutorials/first-rewind.md) walks a code restore,
 a conversation restore, and the undo.
 
