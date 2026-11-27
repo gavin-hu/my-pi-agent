@@ -3,9 +3,9 @@
  *
  * A suite that drives Chrome costs roughly two hundred milliseconds a case — a document, a click,
  * a read — where a suite that reads the same page as a string costs two milliseconds for all of
- * them. Forty files therefore decide what `bun run check` feels like, and the one hand-kept list of
- * seven of them (in `test/wait-budget.test.ts`) meant the other thirty-three were counted by nobody:
- * the hook rule said "every browser suite" and covered a sixth of the layer.
+ * them. Forty-one files therefore decide what `bun run check` feels like, and the one hand-kept list
+ * of seven of them (in `test/wait-budget.test.ts`) meant the other thirty-four were counted by
+ * nobody: the hook rule said "every browser suite" and covered a sixth of the layer.
  *
  * A value module rather than a contract, because two contracts read it — the hook rule in
  * `test/wait-budget.test.ts`, and the declaration check in `test/browser-budget.test.ts`, which
@@ -43,6 +43,7 @@ export const BROWSER_SUITES: readonly string[] = [
 	"extensions/code-review/view/face.test.ts",
 	"extensions/code-review/view/interaction.test.ts",
 	"extensions/code-review/view/live.test.ts",
+	"extensions/code-review/view/place.test.ts",
 	"extensions/code-review/view/rail-row.test.ts",
 	"extensions/code-review/view/threads.test.ts",
 	"extensions/code-review/view/writes.test.ts",
@@ -67,9 +68,10 @@ export const BROWSER_SUITES: readonly string[] = [
  * The tier: the browser suites a local gate keeps, one served page each.
  *
  * `bun run check` ignores the rest of the layer, because a landing pays this gate on every branch,
- * while `check:all` and CI run all of `BROWSER_SUITES`. These three are measured on one machine —
- * interaction 4.17 s, web-behaviour 4.32 s, queue 5.24 s — against `behaviour.test.ts` at 26.58 s and
- * `mission.test.ts` at 47.09 s, which is why the tier is a list and not "the page suites".
+ * while `check:all` and CI run all of `BROWSER_SUITES`. These four are measured on one machine —
+ * interaction 4.17 s, web-behaviour 4.32 s, queue 5.24 s, place 1.58 s — against
+ * `behaviour.test.ts` at 26.58 s and `mission.test.ts` at 47.09 s, which is why the tier is a list
+ * and not "the page suites".
  *
  * A suite not named here runs locally until it is named: the gate's ignore list is `BROWSER_SUITES`
  * minus this one, so **an addition costs time and never coverage** — a slow local gate after a new
@@ -78,5 +80,6 @@ export const BROWSER_SUITES: readonly string[] = [
 export const SMOKE_SUITES: readonly string[] = [
 	"extensions/board/view/queue.test.ts",
 	"extensions/code-review/view/interaction.test.ts",
+	"extensions/code-review/view/place.test.ts",
 	"extensions/plan/web-behaviour.test.ts",
 ];

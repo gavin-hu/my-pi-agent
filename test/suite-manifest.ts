@@ -156,6 +156,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/client",
 		"view/face",
 		"view/interaction",
+		"view/place",
 		"view/writes",
 		"view/drafts",
 		"view/threads",
