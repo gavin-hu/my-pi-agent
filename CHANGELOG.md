@@ -47,6 +47,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `test`: the `any` ban reaches the suites. `test/conventions.test.ts` scanned every suite but banned
+  `any` only in source, so 118 casts stood in the suites over shipped code — the one place a fake keeps
+  answering a member that moved while `check:types` stays green. Each now names its type: `test/helpers/`
+  owns the TUI double and the mouse-event builder (one cast each, naming what it guarantees), and a new
+  `as any`, `: any`, or `<any>` in an extension or `lib/` suite fails the gate. Eight suites that
+  grew a type import moved their doubles into `test/helpers/` instead, which took 124 lines off the
+  suite ledger rather than adding them. `@biomejs/biome` is also pinned to `2.5.15` and `biome.json`
+  sets `files.ignoreUnknown`, so a formatter upgrade is a decision rather than a lockfile refresh and
+  `--verbose` names the 1369 files checked instead of the 118 it has no handler for.
+
 - `board`: the tool arrives with the team. A session the bus holds no live record of is offered no
   `board` tool at all — it registers inactive, and a turn start offers it once the record lands, so a
   join reaches the model on the next turn and a leave takes it away — while a run with no bus keeps
