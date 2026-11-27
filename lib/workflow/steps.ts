@@ -17,17 +17,17 @@
 import { listOf } from "../format.ts";
 import { type ArtifactProof, proved } from "./artifact.ts";
 import {
-	BLOCKERS,
 	type Card,
 	type CardOwner,
+	type CardShelved,
 	cardRef,
 	dependsOf,
 	holds,
-	normalizeBlock,
 	normalizeNote,
 	normalizePathHints,
 	normalizePlanPath,
 	normalizePriority,
+	normalizeShelfNote,
 	normalizeTitle,
 	priorityOf,
 } from "./card.ts";
@@ -42,7 +42,15 @@ import {
 } from "./contract.ts";
 import type { LandingVerdict } from "./landing.ts";
 import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
-import { contractRoute, LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
+import {
+	blockFields,
+	contractRoute,
+	LANE_RULES,
+	type Lane,
+	type Requirement,
+	targetsFrom,
+	transitionOf,
+} from "./lanes.ts";
 import {
 	heldBy,
 	holderRefusal,
@@ -69,7 +77,7 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	if (refused !== undefined) return { error: refused };
 	const carried = ownerRefusal(actor, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
-	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });
+	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined, shelved: undefined });
 }
 
 /**
@@ -91,7 +99,7 @@ export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: Wip
 	if (waiting !== undefined) return { error: waiting };
 	const carried = ownerRefusal(to, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
-	const entered = enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
+	const entered = enter(card, "plan", board, limits, { owner: to, offeredAt: undefined, shelved: undefined });
 	return "error" in entered ? entered : { ...entered, notice: "assign" as const };
 }
 
@@ -110,6 +118,10 @@ function releasedToPool(): Partial<Card> {
 		lane: "backlog",
 		owner: undefined,
 		offeredAt: undefined,
+		// A card back in the pool is pool work again: a holder who releases a card it had shelved
+		// before is not asking the board to keep it aside, and the shelf's reason is one line they
+		// can set again with the verb that owns it.
+		shelved: undefined,
 		// A review is a statement about work finished in `execute`; a card its own holder hands
 		// back is not finished, so the sign cannot travel with it. A `reclaim` keeps it instead:
 		// the sign is evidence, and only its signer withdraws it (`lead.ts`).
@@ -196,15 +208,8 @@ function enter(
 	return { changed: true, fields: { ...fields, lane } };
 }
 
-/** What a lane change to `blocked` records: one block, holding the kind and the sentence. */
-function blockFields(rawBlocker: unknown, rawSentence: unknown): { error: string } | { fields: Partial<Card> } {
-	if (rawBlocker === undefined) {
-		return { error: `a block needs a blocker: ${BLOCKERS.join(", ")}.` };
-	}
-	const block = normalizeBlock(rawBlocker, rawSentence);
-	if ("error" in block) return { error: block.error };
-	return { fields: { blocked: block.blocked } };
-}
+/** What a lane change to `blocked` records lives with the lane table it asks: {@link blockFields}, whose
+ * two parameters (`blocker`, `blockedBy`) and whose record are one fact, called from `move` alone. */
 
 /**
  * Why a transition's requirement is not met, or `undefined` when it is.
@@ -471,6 +476,10 @@ export function edit(card: Card, op: Extract<CardOp, { kind: "edit" }>, actor: A
 export function offer(card: Card, now: number, board: BoardIndex, limits: WipLimits, ownerLabel?: string): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be offered.` };
 	if (card.owner !== undefined) return { error: heldBy(card, ownerLabel) };
+	// An offer asks a peer to claim, and a shelved card is one nobody should be asked to take.
+	if (card.shelved !== undefined) {
+		return { error: `${cardRef(card.id)} is shelved (${card.shelved.note}); unshelve it first.` };
+	}
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
 	const full = wipRefusal("plan", [...board.values()], limits);
@@ -479,16 +488,58 @@ export function offer(card: Card, now: number, board: BoardIndex, limits: WipLim
 }
 
 /**
- * What a card set aside answers to a write, wherever the call came from.
+ * Set a pool card aside: still nobody's, still on the board, and out of the way.
  *
- * The archive is one way, so a card in it is history rather than work: `drop` is the only
- * operation that still applies, and it exists because a card archived by mistake has to have
- * some way out. The sentence is stated once, in the module that owns the refusals, and
- * `rules.ts` asks it before any step runs.
+ * A shelf is a decision about the pool rather than a lane, so this needs no claim, no owner and no
+ * WIP slot — which is the point: the seat, which cannot claim a card, still has to be able to say
+ * "not now". A held card is refused with its route, because a release is the holder's decision and
+ * not one a shelve may take on their behalf. A repeat fixes the reason, the answer a repeated
+ * `blocked` gives, and keeps `at`: the card has been aside since it went aside.
  */
-export function closedArchive(card: Card): string {
-	return `${cardRef(card.id)} is archived: its record is read-only, and \`drop\` removes it for good.`;
+export function shelve(card: Card, op: Extract<CardOp, { kind: "shelve" }>, actor: Actor, now: number): Prepared {
+	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be shelved.` };
+	if (card.lane !== "backlog") {
+		return {
+			error: `${cardRef(card.id)} is in ${card.lane}; only a pool card can be shelved — \`board release ${card.id}\` puts it back.`,
+		};
+	}
+	const reason = normalizeShelfNote(op.note);
+	if ("error" in reason) return { error: reason.error };
+	// The door reads `30d` and hands a width; this is the same fact met at the rules boundary, so a
+	// caller that skipped the door is refused rather than storing a moment that is not one.
+	if (op.until !== undefined && (typeof op.until !== "number" || !Number.isInteger(op.until) || op.until <= 0)) {
+		return { error: "until must be a length of time in whole milliseconds." };
+	}
+	const shelved: CardShelved = {
+		at: card.shelved?.at ?? now,
+		by: actor.label,
+		note: reason.note,
+		...(op.until === undefined ? {} : { until: now + op.until }),
+	};
+	// The same sentence is the same shelf: nothing is written and the revision does not move.
+	if (card.shelved !== undefined && card.shelved.note === shelved.note && card.shelved.until === shelved.until) {
+		return { changed: false, fields: null };
+	}
+	// An offer is answered by the shelf, so the two facts never sit on one card.
+	return { changed: true, fields: { shelved, offeredAt: undefined } };
 }
+
+/**
+ * Put a shelved card back in the pool.
+ *
+ * The card never left `backlog`, so there is no lane to change and no transition to log: the field
+ * is deleted by the one write that clears it. Unshelving what was never shelved is a no-op rather
+ * than an error, the way claiming a card you already hold is.
+ */
+export function unshelve(card: Card): Prepared {
+	if (card.shelved === undefined) return { changed: false, fields: null };
+	return { changed: true, fields: { shelved: undefined } };
+}
+
+/**
+ * What a card set aside answers to a write lives in `rules.ts`, whose `prepare` asks it before any
+ * step runs: the closed archive is the pile the card is in, not a lane it can move out of.
+ */
 
 /**
  * Set a finished card aside, out of the board and into the archive beside it.

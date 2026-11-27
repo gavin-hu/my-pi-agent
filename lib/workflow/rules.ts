@@ -30,21 +30,14 @@
  */
 
 import type { ArtifactProof } from "./artifact.ts";
+import type { CardBlock } from "./lanes.ts";
 import type { LandingVerdict } from "./landing.ts";
-import {
-	type Card,
-	type CardBlock,
-	CARD_VERSION,
-	type CardOwner,
-	DEFAULT_PRIORITY,
-	MAX_LOG,
-	type Priority,
-} from "./card.ts";
+import { type Card, CARD_VERSION, type CardOwner, cardRef, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
 import type { CardType } from "./kind.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG } from "./config.ts";
 import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
-import { archive, assign, claim, closedArchive, drop, edit, move, note, offer, release } from "./steps.ts";
+import { archive, assign, claim, drop, edit, move, note, offer, release, shelve, unshelve } from "./steps.ts";
 
 import type { NoticeField } from "./contract.ts";
 import { announced, type HolderFact } from "./signs.ts";
@@ -186,6 +179,15 @@ export type CardOp =
 	 */
 	| ({ kind: "offer" } & HolderLabel)
 	/**
+	 * Set a pool card aside: the one line saying why, and the moment it was bounded to when the
+	 * caller gave one. `until` is a width in milliseconds, added to the write's own clock by the
+	 * step, so the record carries a moment rather than a spelling. A pool verb — no claim, no owner,
+	 * no slot — which is what lets the seat, which cannot claim, say "not now".
+	 */
+	| ({ kind: "shelve"; note?: unknown; until?: unknown } & HolderLabel)
+	/** Put a shelved card back in the pool: the lane never changed, so nothing but the field moves. */
+	| { kind: "unshelve" }
+	/**
 	 * Set a finished card aside: the store moves its file out of the board, and the record
 	 * itself is unchanged, because the pile its file lies in is the whole of the state.
 	 */
@@ -208,6 +210,18 @@ export type CardOp =
  * moved. The caller reads the kind off the result rather than inferring it from a write.
  */
 export type OpResult = { ok: true; card: Card; changed: boolean; notice?: NoticeKind } | { ok: false; error: string };
+
+/**
+ * What a card set aside answers to a write, wherever the call came from.
+ *
+ * The archive is one way, so a card in it is history rather than work: `drop` is the only
+ * operation that still applies, and it exists because a card archived by mistake has to have
+ * some way out. The sentence is stated once, here, because `prepare` is the one place the closed
+ * pile is asked about — before any step runs.
+ */
+export function closedArchive(card: Card): string {
+	return `${cardRef(card.id)} is archived: its record is read-only, and \`drop\` removes it for good.`;
+}
 
 /** What one operation would write, or why it may not. */
 export type Prepared = { error: string } | { fields: Partial<Card> | null; changed: boolean; notice?: NoticeKind };
@@ -338,6 +352,10 @@ function prepare(
 			return announced(card, op, actor, config, now);
 		case "offer":
 			return offer(card, now, board, config.wip, op.ownerLabel);
+		case "shelve":
+			return shelve(card, op, actor, now);
+		case "unshelve":
+			return unshelve(card);
 		case "archive":
 			return archive(card, board);
 		case "drop":
@@ -408,7 +426,7 @@ function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Ca
 	// kind, and one that left `execute` is not reviewed, so a key holding undefined would be
 	// one more shape for a reader to know about. A cleared breaking marker is the same case:
 	// the record reads an absent key as not breaking.
-	for (const field of ["blocked", "offeredAt", "review", "breaking"] as const) {
+	for (const field of ["blocked", "offeredAt", "shelved", "review", "breaking"] as const) {
 		if (field in fields && fields[field] === undefined) delete next[field];
 	}
 	// `blocked` is a fact about the `blocked` lane and nothing else: a card back in the pool, or

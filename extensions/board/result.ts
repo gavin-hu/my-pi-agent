@@ -70,6 +70,9 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
 		sections.push(section(group.label, group.cards, rollupLine));
 	}
 	if (round.unassigned.length > 0) sections.push(section("Unassigned", round.unassigned, rollupLine));
+	// Beside the pool it came out of, in the order `formatRound` prints it: a card set aside is
+	// drawn, because a shelf nobody can see is a card nobody remembers.
+	if (round.shelved.length > 0) sections.push(section("Shelved", round.shelved, rollupLine));
 	if (round.unplanned.length > 0) sections.push(section("Unplanned", round.unplanned, rollupLine));
 	// The lead's first signature: a contract nobody has signed is a card the flow stops on, so
 	// it is drawn in the order `formatRound` prints it rather than left to the text above.

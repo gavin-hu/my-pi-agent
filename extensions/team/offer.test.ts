@@ -45,6 +45,23 @@ describe("offer", () => {
 		expect(resultText(result)).toContain("unowned until one of them claims it");
 	});
 
+	test("a shelved card is not offered, and nothing is broadcast", async () => {
+		const { call, seed, sent, store } = harness();
+		const id = await seed();
+		const shelved = await (await store()).mutate(
+			id,
+			{ kind: "shelve", note: "waiting on the release" },
+			{ label: SUITE_LEAD },
+			NOW,
+		);
+		expect(shelved.ok).toBe(true);
+		const result = await call({ action: "offer", card: id });
+		expect(result.isError).toBe(true);
+		expect(resultText(result)).toContain("is shelved (waiting on the release); unshelve it first.");
+		// Refused before the broadcast: a card nobody may take wakes nobody.
+		expect(sent).toHaveLength(0);
+	});
+
 	test("a claim answers the offer, so the record goes with it", async () => {
 		const { call, seed, store } = harness();
 		const id = await seed();

@@ -476,6 +476,9 @@ function backToPool(card: Card, actor: Actor, lead: Lead, swept = false): Partia
 		lane: "backlog",
 		owner: undefined,
 		offeredAt: undefined,
+		// A card taken back to the pool is pool work again, whoever took it back: the shelf was a fact
+		// about the card nobody held, and the next holder decides whether to set it aside again.
+		shelved: undefined,
 		// A spot-check is evidence that somebody looked at the work, and taking the card back is not
 		// a look: only the signer withdraws their own sign, so a third session keeps what it found.
 		review: swept || !signedAs(card.review, actor, lead) ? card.review : undefined,

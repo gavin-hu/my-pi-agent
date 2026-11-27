@@ -79,10 +79,6 @@ board({ action: "contract", card: "1", path: "<the path plan returned>",
 
 The fourth line is not optional: a contract that names no command cannot be
 approved, because the spot-check would then be a sentence nobody can repeat.
-`verify` is the command the lead's `review` runs, in the tree you review in, and
-the sign keeps its exit and the commit it ran against. Name the card's own slice
-rather than the repository's whole gate: your `bun run check` before handover and
-CI already ran everything, and the sign is a second reading, not a second run.
 
 `path` is the file `plan` action `write` returned — not one retyped from another
 repository's store. It must be in this repository's plan store, and it must still
@@ -114,10 +110,15 @@ Then the work itself starts:
 board({ action: "move", card: "1", lane: "execute" })
 ```
 
-A card that is not ready to execute can be parked instead. `blocked` waits on a
+A card that is not ready to execute can be blocked instead. `blocked` waits on a
 person, and the card records the one line it waits on — a decision, a dependency,
 or a contract that is not written yet. Resuming it goes back to `plan`, or
-straight to `execute` when it was already approved before it was parked.
+straight to `execute` when it was already approved before it was blocked.
+
+A card nobody is ready to work on is a different thing: it stays in the pool, and
+`board({ action: "shelve", card: "2", note: "waiting on the 2.0 release" })` sets
+it aside with that one line. It is not offered to anybody and stops counting as
+unassigned; `unshelve`, or a claim, puts it back.
 
 Notes are how the card explains itself while it is worked:
 

@@ -32,23 +32,23 @@ export { BOARD_ACTIONS, type BoardAction };
  */
 export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	list:
-		"shows the board — `lane` filters one lane, `mine` only what this session holds, `card` reads that one " +
-		"card, and `round` also prints the lead's rollup: owners, unassigned, unplanned, awaiting approval, " +
-		"awaiting review, untold, blocked, unwritten, done, archivable",
+		"shows the board; `round` also prints the lead's rollup: owners, unassigned, shelved, unplanned, " +
+		"awaiting approval, awaiting review, untold, blocked, unwritten, done, archivable",
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
 	release: "gives it back to `backlog`; an `execute` card re-claims its paths",
 	reclaim:
 		"returns it to `backlog`, leaving the holder's claims; the lead from anyone, a peer only from a stopped owner",
-	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store, and `done` takes `override` when no merge can be named",
+	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store",
 	note: "appends to its history",
-	contract:
-		"records the plan file and the four lines a card promises, and drops any approval, because the wording changed",
+	contract: "records the plan file and the four lines a card promises, and drops any approval",
 	approve: "approves the contract and the plan it names: the lead, who does not hold the card, says both are right",
 	review:
 		"records a spot-check of the finished work: the same lead, in `execute`; the sign is announced to the owner's inbox (`session send` asks the lead). `override` instead signs a finished card nobody signed",
 	edit: "fixes what the card says",
-	archive: "sets a finished card aside — never one an open card waits on; all if none named, `olderThan` bounds by age",
+	shelve: "sets a pool card aside with one line saying why, out of offers and the unassigned count",
+	unshelve: "puts a shelved card back in the pool",
+	archive: "sets a finished card aside — never one an open card waits on",
 	drop: "deletes a `backlog` or a `done` card, or one you hold",
 	land: "lands a reviewed card from the seat: fetch, merge, proof, push",
 };
@@ -76,6 +76,8 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	approve: ["card", "note"],
 	review: ["card", "note", "override", "root"],
 	edit: ["card", "title", "paths", "type", "breaking", "priority", "dependsOn"],
+	shelve: ["card", "note", "until"],
+	unshelve: ["card"],
 	archive: ["card", "olderThan"],
 	drop: ["card"],
 	land: ["card"],

@@ -153,7 +153,13 @@ const CEILINGS: readonly Ceiling[] = [
 	// 6,282 → 6,225 after #831: `contract`'s doc gave up the four field names its own parameters state
 	// (−46), and `reclaim` gained the claim it leaves behind (+29, less than the deletion, so the
 	// ceiling falls with the surface rather than staying where it was).
-	{ tool: "board", max: 6_225, guidelines: 361, longest: 150 },
+	// 6,225 → 6,197 after #944: `shelve` and `unshelve` (+129) and `until` (+83) were paid for by four
+	// restatements — `list`'s `lane`/`mine`/`card` clauses, `move`'s `override` clause, `archive`'s
+	// bound clause (its own `olderThan` states it), and `contract`'s "because the wording changed" —
+	// plus shorter `action`, `query`, `path`, `verify` and `priority` descriptions. `review`'s
+	// `session send` parenthetical and `list`'s group names were deliberately kept: each is a fact
+	// stated nowhere else on this surface.
+	{ tool: "board", max: 6_197, guidelines: 361, longest: 150 },
 	// 3,111 before the verb list stopped being written twice; 2,349 after `claim`/`reclaim` left;
 	// 2,335 when `action` became a string enum and the bus's bounds moved into the schema.
 	{ tool: "team", max: 2_335, guidelines: 662, longest: 167 },

@@ -71,8 +71,16 @@ export interface RoundGroup<T extends Card = Card> {
 export interface RoundSummary<T extends Card = Card> {
 	/** Every owner the board names, ordered by label, with its live cards and the ones it finished. */
 	owners: RoundGroup<T>[];
-	/** `backlog` cards: nobody has taken them yet. */
+	/** `backlog` cards nobody has taken, and nobody has set aside. */
 	unassigned: T[];
+	/**
+	 * `backlog` cards set aside: nobody's, still on the board, and not work to pick up.
+	 *
+	 * A shelf is a fact about a pool card rather than a lane, so the two groups partition the pool —
+	 * every `backlog` card is in exactly one of them — and this count is the only thing that says a
+	 * card was set aside rather than forgotten.
+	 */
+	shelved: T[];
 	/**
 	 * `plan` cards whose contract is still missing a line, or whose plan was never recorded:
 	 * work started before it was agreed, and either one refuses `execute`.
@@ -129,6 +137,7 @@ export interface RoundSummary<T extends Card = Card> {
 export function buildRound<T extends Card = Card>(cards: readonly T[], now: number): RoundSummary<T> {
 	const groups = new Map<string, RoundGroup<T>>();
 	const unassigned: T[] = [];
+	const shelved: T[] = [];
 	const unplanned: T[] = [];
 	const unapproved: T[] = [];
 	const unreviewed: T[] = [];
@@ -141,7 +150,9 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		// The pool is what nobody holds, and the two lanes a lead watches are the two a card
 		// is worked in: a plan with a contract still missing is work started before it was
 		// agreed, and an execute nothing has touched is work that may have stopped.
-		if (card.lane === "backlog") unassigned.push(card);
+		// The pool splits on one fact: a shelved card is nobody's too, and counting it as work nobody
+		// has picked up is the nagging the shelf exists to stop.
+		if (card.lane === "backlog") (card.shelved === undefined ? unassigned : shelved).push(card);
 		if (card.lane === "done") done.push(card);
 		if (card.lane === "blocked") blocked.push(card);
 		// The route gate a card owes, from the one rule the transcript's rows read too: a contract
@@ -171,6 +182,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 	return {
 		owners: [...groups.values()].sort((a, b) => a.label.localeCompare(b.label)),
 		unassigned,
+		shelved,
 		unplanned,
 		unapproved,
 		unreviewed,

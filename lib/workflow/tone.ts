@@ -54,6 +54,7 @@ export const REASON_TONE: Record<ReasonKind, BoardTone> = {
 	waiting: "muted",
 	blocked: "danger",
 	offered: "muted",
+	shelved: "muted",
 	contract: "warn",
 	approval: "warn",
 	executing: "muted",
