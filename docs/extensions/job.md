@@ -42,9 +42,9 @@ Then:
 /jobs
 ```
 
-`↑`/`↓` or `j`/`k` select, `Enter`/`l` opens the log (`g`/`G` jump, `Esc`
-returns), `d` kills after a `y`/`N` prompt, `x` clears finished jobs after one,
-and `Esc` closes the list.
+`↑`/`↓` or `j`/`k` select, `g`/`G` jump to the ends, `Enter`/`l` opens the log
+(`g`/`G` jump there too, `Esc` returns), `d` kills after a `y`/`N` prompt, `x`
+clears finished jobs after one, and `Esc` closes the list.
 [Run long work in the background](../tutorials/first-background.md) walks a job,
 its screen, and the watcher that reads the same log.
 

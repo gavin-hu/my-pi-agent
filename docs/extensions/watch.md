@@ -48,8 +48,8 @@ that expression, delimiters included.
 
 **Commands.** `/watch` (screen or list), `/watch list`, `/watch matches <id>`,
 `/watch logs <id>`, `/watch stop <id>`, `/watch clear [all]`. On the screen:
-`j`/`k` move, `Enter`/`l` opens matches, `x`/`K` stops behind a `y`/`N` confirm,
-`d` clears stopped ones, `Esc` closes.
+`j`/`k` move, `g`/`G` jump to the ends, `Enter`/`l` opens matches, `x`/`K` stops
+behind a `y`/`N` confirm, `d` clears stopped ones, `Esc` closes.
 
 **Delivery.** Matches are reported to the model at the start of the next turn. A
 watcher with `wake` raises one triggered turn as soon as the agent is idle,
