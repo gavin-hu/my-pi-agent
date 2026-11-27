@@ -115,6 +115,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `docs`: the design page and the terminal kit's README name the ceiling that actually holds a
+  block's height. `COLLAPSED_ROWS` lives in `test/helpers/tool-block.ts` and `test/tool-rows.test.ts`
+  enforces it — not `tool-render.test.ts`, which reads one entry to justify a call-line-only draw —
+  and raising an entry is a review ratchet rather than a gate, which the page now says where it
+  defines the two words. The block budget's numbers are corrected (41 blocks, `subagent` the tallest
+  at 10; the average nobody acted on is gone) and a case holds them to the ledger, so they cannot
+  drift again. The four glyph rules no longer claim to be gates each: `lib/tui/glyphs.test.ts` gates
+  two, and one ink per family is a rule a reviewer holds because no table records a family.
+
 - `code-review`: where a jump lands is one measured line now. A deep link, a hunk jump and a reload
   put the picked row a third of the way down the band under the pinned file head, so the lines above
   it are read with it instead of the row pinning to the top edge; the page reserves a tail below the
