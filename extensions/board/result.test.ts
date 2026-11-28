@@ -279,7 +279,7 @@ describe("a rollup under a narrowed listing", () => {
 		// than a group of one: no label above it.
 		expect(input.sections[0]?.label).toBeUndefined();
 		expect(input.sections[0]?.rows.map((row) => row.id)).toEqual(["1"]);
-		expect(input.sections[1]?.label).toBe(PEER.label);
+		expect(input.sections[1]?.label).toBe(`${PEER.label} · 1`);
 		// The accent means "this row is yours": the slice that asked for `mine` wears it, and the
 		// rollup that answers for the whole board does not, even inside the same result.
 		expect(input.sections[0]?.rowLine(mine, WIDTH, coloringTheme)).toContain(`${colour("accent")}#1`);
@@ -291,54 +291,84 @@ describe("a rollup under a narrowed listing", () => {
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");
 		// A bare `round` already draws every one of those cards in a group below, so a slice
 		// above it would be the same rows twice.
-		expect(input.sections.map((entry) => entry.label)).toEqual([PEER.label]);
+		expect(input.sections.map((entry) => entry.label)).toEqual([`${PEER.label} · 1`]);
 	});
 });
 
 describe("the rollup's sections", () => {
-	test("draws every group the round reports, in the order the text prints it", () => {
-		// Every group carries one card, and the group it belongs to is the assertion: a
-		// rollup group that loses its section is invisible in the text above it.
+	test("names what needs a decision in ids, then draws every card once", () => {
+		// The groups overlap by design — #3 is its owner's work and the lead's signature — so the
+		// index says what to sign and the body says who holds what, without drawing one card twice.
+		const held = (id: string, more: Partial<Card> = {}): Card =>
+			card({ id, owner: { label: PEER.label, id: PEER.id }, ...more });
+		const approval = held("3");
+		const blocked = held("10", { lane: "blocked", blocked: { kind: "decision" } });
+		const pool = card({ id: "1", lane: "backlog", owner: undefined });
+		const shelf = card({
+			id: "9",
+			lane: "backlog",
+			owner: undefined,
+			shelved: { at: 1, by: "lead", note: "waiting on the release" },
+		});
+		const finished = card({ id: "6", lane: "done", owner: { label: "billing-other", id: "s-other" } });
 		const round: RoundSummary = {
-			owners: [{ label: PEER.label, cards: [card()], done: [] }],
-			unassigned: [card({ id: "1", lane: "backlog", owner: undefined })],
-			shelved: [
-				card({
-					id: "9",
-					lane: "backlog",
-					owner: undefined,
-					shelved: { at: 1, by: "lead", note: "waiting on the release" },
-				}),
+			owners: [
+				{ label: PEER.label, cards: [held("4"), approval, blocked], done: [] },
+				{ label: "billing-other", cards: [], done: [finished] },
 			],
-			unplanned: [card({ id: "2" })],
-			unapproved: [card({ id: "3" })],
-			unreviewed: [card({ id: "7" })],
-			untold: [card({ id: "8" })],
-			blocked: [card({ id: "4", lane: "blocked", blocked: { kind: "decision" } })],
-			unwritten: [card({ id: "5", lane: "execute" })],
-			done: [card({ id: "6", lane: "done" })],
-			archivable: [card({ id: "6", lane: "done" })],
+			unassigned: [pool],
+			shelved: [shelf],
+			unplanned: [],
+			unapproved: [approval],
+			unreviewed: [],
+			untold: [],
+			blocked: [blocked],
+			unwritten: [],
+			done: [finished],
+			archivable: [finished],
 		};
 		const input = resultInput({ action: "list", me: ME, round, cards: [] });
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");
 		expect(input.sections.map((entry) => entry.label)).toEqual([
-			PEER.label,
-			"Unassigned",
-			"Shelved",
-			"Unplanned",
-			"Awaiting approval",
-			"Awaiting review",
-			"Sign not told",
-			"Blocked",
-			"Unwritten",
-			"Done",
+			"awaiting approval · #3",
+			"blocked · #10",
+			`${PEER.label} · 3`,
+			"Unassigned · 1",
+			"Shelved · 1",
+			"Done · 1",
 		]);
-		// The lead's queue is the one group a reader acts on, so the card is named there.
-		const approval = input.sections.find((entry) => entry.label === "Awaiting approval");
-		expect(approval?.rows.map((row) => row.id)).toEqual(["3"]);
-		// The other signature is its own queue, one section further down and not folded into it.
-		const review = input.sections.find((entry) => entry.label === "Awaiting review");
-		expect(review?.rows.map((row) => row.id)).toEqual(["7"]);
+		// An index line answers what to sign and nothing else: it carries no row, which is why the
+		// card below it is drawn once rather than once per group it belongs to.
+		expect(input.sections[0]?.rows).toEqual([]);
+		// Every body row is a different card, and the heading counts what the section holds.
+		const rows = input.sections.flatMap((entry) => entry.rows).map((row) => row.id);
+		expect(rows).toEqual(["4", "3", "10", "1", "9", "6"]);
+		expect(new Set(rows).size).toBe(rows.length);
+	});
+
+	test("stops a long section at its rows and names the rest by id", () => {
+		const held = Array.from({ length: 20 }, (_, index) => card({ id: String(index + 1) }));
+		const round: RoundSummary = {
+			owners: [{ label: PEER.label, cards: held, done: [] }],
+			unassigned: [],
+			shelved: [],
+			unplanned: [],
+			unapproved: [],
+			unreviewed: [],
+			blocked: [],
+			untold: [],
+			unwritten: [],
+			done: [],
+			archivable: [],
+		};
+		const input = resultInput({ action: "list", me: ME, round, cards: [] });
+		if (input?.kind !== "sections") throw new Error("a rollup is sections");
+		expect(input.sections[0]?.label).toBe(`${PEER.label} · 20`);
+		expect(input.sections[0]?.rows).toHaveLength(8);
+		// The twelve it could not draw are named by id: the title is one call away, and the id is
+		// the half of the row a reader acts on.
+		expect(input.sections[1]?.label).toBe("… 12 more: #9 #10 #11 #12 #13 #14 #15 #16 #17 #18 #19 #20");
+		expect(input.sections[1]?.rows).toEqual([]);
 	});
 
 	test("leaves out an owner whose only card is finished, which `Done` already draws", () => {
@@ -363,7 +393,7 @@ describe("the rollup's sections", () => {
 		};
 		const input = resultInput({ action: "list", me: ME, round, cards: [] });
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");
-		expect(input.sections.map((entry) => entry.label)).toEqual([PEER.label, "Done"]);
+		expect(input.sections.map((entry) => entry.label)).toEqual([`${PEER.label} · 1`, "Done · 1"]);
 		// The finished card is not lost with the heading: it is the `Done` section's row.
 		expect(input.sections[1]?.rows.map((row) => row.id)).toEqual(["8"]);
 	});

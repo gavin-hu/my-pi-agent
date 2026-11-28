@@ -88,10 +88,10 @@ describe("a card row at a narrow width", () => {
 		expect(lines).toEqual(["#4 Retry branches merge clean…", FACTS]);
 	});
 
-	test("names the card in the section that already says what it owes", () => {
+	test("keeps the card's number and title when the facts have to move down", () => {
 		const due = longCard({ id: "7" });
 		const round: RoundSummary = {
-			owners: [],
+			owners: [{ label: "api-core", cards: [due], done: [] }],
 			unassigned: [],
 			shelved: [],
 			unplanned: [],
@@ -105,8 +105,9 @@ describe("a card row at a narrow width", () => {
 		};
 		const input = resultInput({ action: "list", me: ME, round, cards: [] });
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");
-		const section = input.sections.find((entry) => entry.label === "Awaiting review");
-		expect(section, "the rollup draws the queue it was asked for").toBeDefined();
+		// The body section: the index above it names the debt in ids and carries no row to measure.
+		const section = input.sections.find((entry) => entry.rows.length > 0);
+		expect(section, "the rollup draws the board it was asked for").toBeDefined();
 		if (!section) return;
 		// Wide, the section row is unchanged; narrow, it is where the defect read as facts alone.
 		expect(rowLines(section.rowLine(due, 80, fakeTheme))).toEqual([

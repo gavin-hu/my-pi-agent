@@ -46,13 +46,17 @@ export const LEAD_ROUND = "The lead's round: who holds what, and what needs a de
  * `kind` is set on the counts a person acts on — the six groups a card waits on somebody for. The
  * rest (the owners, the feature count, the pool's two halves, the history) are what the board is
  * made of rather than what it asks, so a surface that shows a decision drops every entry without
- * one. The word carries its own number: the headline, the block's collapsed line and the block's
- * index headings are one sentence, and a second wording of one count is the drift this table is
- * here to stop.
+ * one. The word carries its own number: the headline and the block's collapsed line are one
+ * sentence, and a second wording of one count is the drift this table is here to stop.
  */
 export interface RoundTally {
+	/** The count as a sentence — `1 awaiting approval` — which the headline and the block's line print. */
 	word: string;
+	/** The group's name without a count, for a heading that carries the ids instead of a number. */
+	label: string;
 	count: number;
+	/** The cards the group holds, in the round's order; empty for the counts that are not a group. */
+	cards: readonly Card[];
 	kind?: DecisionKind;
 }
 
@@ -60,22 +64,63 @@ export interface RoundTally {
  * The rollup's counts, in the order a lead reads them.
  *
  * Read by {@link formatRound} for the headline it has always printed and by the board's block for
- * the line and the index it draws, so the model's first line and the reader's cannot disagree
- * about one board.
+ * the line the index it draws, so the model's first line and the reader's cannot disagree about one
+ * board — including which ids a count is made of.
  */
 export function roundTally(cards: readonly Card[], round: RoundSummary): RoundTally[] {
 	return [
-		{ word: plural(round.owners.length, "owner"), count: round.owners.length },
-		{ word: plural(cards.length, "feature"), count: cards.length },
-		{ word: `${round.unassigned.length} unassigned`, count: round.unassigned.length },
-		{ word: `${round.shelved.length} shelved`, count: round.shelved.length },
-		{ word: `${round.unplanned.length} unplanned`, count: round.unplanned.length, kind: "unplanned" },
-		{ word: `${round.unapproved.length} awaiting approval`, count: round.unapproved.length, kind: "approval" },
-		{ word: `${round.unreviewed.length} awaiting review`, count: round.unreviewed.length, kind: "review" },
-		{ word: `${round.untold.length} untold`, count: round.untold.length, kind: "untold" },
-		{ word: `${round.blocked.length} blocked`, count: round.blocked.length, kind: "blocked" },
-		{ word: `${round.unwritten.length} unwritten`, count: round.unwritten.length, kind: "unwritten" },
-		{ word: doneWord(cards, round), count: round.done.length },
+		{ word: plural(round.owners.length, "owner"), label: "owner", count: round.owners.length, cards: [] },
+		{ word: plural(cards.length, "feature"), label: "feature", count: cards.length, cards },
+		{
+			word: `${round.unassigned.length} unassigned`,
+			label: "unassigned",
+			count: round.unassigned.length,
+			cards: round.unassigned,
+		},
+		{ word: `${round.shelved.length} shelved`, label: "shelved", count: round.shelved.length, cards: round.shelved },
+		{
+			word: `${round.unplanned.length} unplanned`,
+			label: "unplanned",
+			count: round.unplanned.length,
+			cards: round.unplanned,
+			kind: "unplanned",
+		},
+		{
+			word: `${round.unapproved.length} awaiting approval`,
+			label: "awaiting approval",
+			count: round.unapproved.length,
+			cards: round.unapproved,
+			kind: "approval",
+		},
+		{
+			word: `${round.unreviewed.length} awaiting review`,
+			label: "awaiting review",
+			count: round.unreviewed.length,
+			cards: round.unreviewed,
+			kind: "review",
+		},
+		{
+			word: `${round.untold.length} untold`,
+			label: "untold",
+			count: round.untold.length,
+			cards: round.untold,
+			kind: "untold",
+		},
+		{
+			word: `${round.blocked.length} blocked`,
+			label: "blocked",
+			count: round.blocked.length,
+			cards: round.blocked,
+			kind: "blocked",
+		},
+		{
+			word: `${round.unwritten.length} unwritten`,
+			label: "unwritten",
+			count: round.unwritten.length,
+			cards: round.unwritten,
+			kind: "unwritten",
+		},
+		{ word: doneWord(cards, round), label: "done", count: round.done.length, cards: round.done },
 	];
 }
 
