@@ -75,6 +75,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: one record, one parser. `sessions/<id>.json` was parsed by three modules under two
+  policies — the bus's `isSession`, the roster's `isSessionPayload`, and `session-label.ts`'s own copy —
+  so a record whose optional `watch` was the wrong shape was refused by the bus while the page still drew
+  its row, and that row owned no claim and no name. The shape (`SessionRecord`, `ClaimRecord`) and the
+  parser now live beside the file layer in `lib/session-files.ts`, one `readDocuments` walks a directory
+  for all three readers, and an optional field of the wrong shape costs the field rather than the record.
+  **A record missing a required field (`pid`, `cwd`, `repoRoot`, `startedAt`) stops drawing a row on the
+  Team tab**: the roster now agrees with the bus about which files are sessions, which is the answer the
+  change exists for and the one a reader of the old page will notice. A record the parser refuses is
+  named by `pruneRecords` and left on disk — named, not deleted, because an older build must not destroy
+  a newer build's record.
+
 - `board`: an owner's line in the round counts the cards it holds — `mike (0 cards, 55 done)` where it said
   `0 live`. The word collided inside one message: two lines below, the tail counts `N of M sessions live`, so
   `0 live` read as "this session is dead" when it meant "this owner holds no cards", and a seat reclaimed a

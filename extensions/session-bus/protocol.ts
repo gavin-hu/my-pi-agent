@@ -38,7 +38,14 @@ export const MAX_PATHS = 20;
 const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
-export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
+import type { SessionMode } from "../../lib/session-files.ts";
+
+/**
+ * The mode a record says its session was started in. `lib/session-files.ts` owns the word, because
+ * the record's shape and the guard that accepts it live together there; re-exported so this
+ * extension keeps importing its protocol's vocabulary from its protocol.
+ */
+export type { SessionMode };
 type SessionAction = "status" | "send" | "inbox" | "read" | "claim" | "release" | "join";
 /**
  * The mail's kinds, and the field they are written in, are `lib/session-mail.ts`'s — the one

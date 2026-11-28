@@ -5,7 +5,7 @@ import { storedName } from "../../lib/session-files.ts";
 import { busMessage, busStoreFixture, sessionRecord, stampArrival, untoldOf } from "../../test/helpers/bus.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createBusStore } from "./store.ts";
-import type { ClaimConflict, SessionRecord } from "./types.ts";
+import type { ClaimConflict } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -19,44 +19,6 @@ describe("sessions", () => {
 		const sessions = await store.sessions();
 		expect(sessions.map((entry) => entry.id).sort()).toEqual(["s1", "s2"]);
 		expect(await untoldOf(store.dir, "missing")).toBe(0);
-	});
-
-	test("keeps the listening field, and skips a record whose field is not the shape the bus writes", async () => {
-		const { store } = busStoreFixture(temps);
-		await store.ensure();
-		await store.writeSession({ ...sessionRecord("s1"), watching: { armed: true, wake: true } });
-		expect((await store.session("s1"))?.watching).toEqual({ armed: true, wake: true });
-		// The cast is the point of the case: only a hand-edited record can hold this, and a
-		// reader that trusted it would report mail that cannot arrive.
-		const broken = { ...sessionRecord("s2"), watching: "on" } as unknown as SessionRecord;
-		await store.writeSession(broken);
-		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
-	});
-
-	test("keeps the start token, and skips a record whose token is not a string", async () => {
-		const { store } = busStoreFixture(temps);
-		await store.ensure();
-		await store.writeSession({ ...sessionRecord("s1"), startToken: "Mon Oct 26 00:02:00 2026" });
-		expect((await store.session("s1"))?.startToken).toBe("Mon Oct 26 00:02:00 2026");
-		// Only a hand-edited record can hold this, and a rule that trusted it would call a
-		// live session gone.
-		const broken = { ...sessionRecord("s2"), startToken: 7 } as unknown as SessionRecord;
-		await store.writeSession(broken);
-		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
-	});
-
-	test("keeps the turn stamp, and skips a record whose stamp is not a number", async () => {
-		const { store } = busStoreFixture(temps);
-		await store.ensure();
-		await store.writeSession({ ...sessionRecord("s1"), turnAt: 7 });
-		expect((await store.session("s1"))?.turnAt).toBe(7);
-		// Only a hand-edited record can hold this. The roster drops the bad field and keeps the
-		// row, because a page must still draw a teammate; the bus skips the record, the way it
-		// already does for a bad `startToken` or `watching`, because a record it cannot read cannot
-		// say who owns a path.
-		const broken = { ...sessionRecord("s2"), turnAt: "working" } as unknown as SessionRecord;
-		await store.writeSession(broken);
-		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
 	});
 
 	test("removes a session, and its inbox directory once it holds no mail", async () => {

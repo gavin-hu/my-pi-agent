@@ -14,7 +14,7 @@
  * bus when a footer asks for a name it was not told.
  */
 
-import { readFile, readdir } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { pageSource, sanitizeLine } from "./format.ts";
@@ -262,46 +262,24 @@ export function checkoutNames(trees: Iterable<Checkout>): Set<string> {
 }
 
 /**
- * The label one record names, with the directories it says it was working in.
+ * The label one `sessions/` directory holds for `id`, when `accept` takes what the record names.
  *
- * The strictness is the roster's: a file missing the fields the bus writes is debris, and a
- * `half` record that happened to sit in front of the real one must not name the session. The homes
- * are canonicalized here because they are compared with a caller's, and a path is one spelling.
+ * The strictness is the roster's, because the guard is: a file missing the fields the bus writes is
+ * debris, and a `half` record in front of the real one must not name the session. The id the caller
+ * asked for is still this function's own check — the file name is a digest, so a record that
+ * disagrees with the id asked about is not the one being looked for.
  */
-function labelledRecord(value: unknown, id: string): { label: string; homes: string[] } | undefined {
-	if (typeof value !== "object" || value === null) return undefined;
-	const record = value as Record<string, unknown>;
-	const { label, mode, lastSeen, cwd, repoRoot } = record;
-	if (record.id !== id || typeof label !== "string" || typeof mode !== "string" || typeof lastSeen !== "number") {
-		return undefined;
-	}
-	const homes = [cwd, repoRoot].filter((path): path is string => typeof path === "string" && path !== "");
-	return { label, homes };
-}
-
-/** The label one `sessions/` directory holds for `id`, when `accept` takes what the record names. */
 async function labelIn(
 	sessions: string,
 	id: string,
 	accept: (homes: readonly string[]) => boolean,
 ): Promise<string | undefined> {
-	const { JSON_SUFFIX } = await import("./session-files.ts");
-	let names: string[];
-	try {
-		names = await readdir(sessions);
-	} catch {
-		return undefined;
-	}
-	for (const name of names) {
-		if (!name.endsWith(JSON_SUFFIX)) continue;
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(await readFile(join(sessions, name), "utf-8"));
-		} catch {
-			continue;
-		}
-		const found = labelledRecord(parsed, id);
-		if (found !== undefined && accept(found.homes)) return found.label;
+	const { parseSessionRecord, readDocuments } = await import("./session-files.ts");
+	const { records } = await readDocuments(sessions, parseSessionRecord);
+	for (const record of records) {
+		if (record.id !== id) continue;
+		const homes = [record.cwd, record.repoRoot].filter((path) => path !== "");
+		if (accept(homes)) return record.label;
 	}
 	return undefined;
 }

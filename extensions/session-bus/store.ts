@@ -8,8 +8,6 @@
  */
 
 import { rm, stat } from "node:fs/promises";
-import { join } from "node:path";
-import { asRecord } from "../../lib/json.ts";
 import {
 	busPaths,
 	dropIfEmpty,
@@ -17,10 +15,13 @@ import {
 	ensureDir,
 	type HostIdentity,
 	type HostRecord,
-	listJson,
+	parseClaimRecord,
+	parseSessionRecord,
 	publishNew,
+	type ReadDocuments,
+	readDocuments,
+	readDocument,
 	readHosts,
-	readJsonAs,
 	replaceJson,
 	storedName,
 	writeJsonAtomic,
@@ -190,54 +191,6 @@ export async function releaseClaimed(
 	return { released, notOwned };
 }
 
-/**
- * Whether a file is one record the bus wrote.
- *
- * Every field the bus writes is checked, and a field of the wrong shape skips the whole
- * record — the convention `startToken` and `watching` already follow. That is stricter than
- * the roster's read (`lib/session-roster.ts`), which drops only the bad field and keeps the
- * row: a page must still draw a teammate. Here the record is the bus's own, and one it cannot
- * read is one it cannot trust to say who owns a path or a name.
- */
-function isSession(value: unknown): value is SessionRecord {
-	const entry = asRecord(value);
-	if (!entry) return false;
-	return (
-		typeof entry.id === "string" &&
-		typeof entry.label === "string" &&
-		typeof entry.pid === "number" &&
-		typeof entry.cwd === "string" &&
-		typeof entry.repoRoot === "string" &&
-		typeof entry.mode === "string" &&
-		typeof entry.startedAt === "number" &&
-		typeof entry.lastSeen === "number" &&
-		(entry.host === undefined || typeof entry.host === "string") &&
-		(entry.startToken === undefined || typeof entry.startToken === "string") &&
-		(entry.turnAt === undefined || typeof entry.turnAt === "number") &&
-		(entry.watching === undefined || isWatchingState(entry.watching)) &&
-		(entry.seenMail === undefined ||
-			(Array.isArray(entry.seenMail) && entry.seenMail.every((id) => typeof id === "string")))
-	);
-}
-
-/** The optional listening field, validated only when it is there. */
-function isWatchingState(value: unknown): boolean {
-	const entry = asRecord(value);
-	return entry !== undefined && typeof entry.armed === "boolean" && typeof entry.wake === "boolean";
-}
-
-function isClaim(value: unknown): value is ClaimRecord {
-	const entry = asRecord(value);
-	if (!entry) return false;
-	return (
-		typeof entry.path === "string" &&
-		typeof entry.owner === "string" &&
-		typeof entry.ownerLabel === "string" &&
-		typeof entry.at === "number" &&
-		(entry.host === undefined || typeof entry.host === "string")
-	);
-}
-
 /** Create a store rooted at one repository's bus directory. */
 export function createBusStore(options: BusStoreOptions): BusStore {
 	const paths = busPaths(options.dir);
@@ -259,22 +212,25 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		await writeJsonAtomic(paths.messageOf(target, message.id), message);
 	}
 
+	/**
+	 * Every record this build can read, newest heartbeat first.
+	 *
+	 * The refused names are kept by {@link readSessionFiles} for `pruneRecords`, which is the one
+	 * caller with somewhere to say them: a `sessions()` row has no room for "and one file I could
+	 * not parse", and a bus that cannot read a record must not pass it off as absent.
+	 */
 	async function readSessions(): Promise<SessionRecord[]> {
-		const sessions: SessionRecord[] = [];
-		for (const name of await listJson(sessionsDir)) {
-			const record = readJsonAs(join(sessionsDir, name), isSession);
-			if (record) sessions.push(record);
-		}
-		return sessions.sort((a, b) => b.lastSeen - a.lastSeen || a.label.localeCompare(b.label));
+		const { records } = await readSessionFiles();
+		return records.sort((a, b) => b.lastSeen - a.lastSeen || a.label.localeCompare(b.label));
+	}
+
+	/** The same walk, kept whole: the records and the names the guard refused. */
+	async function readSessionFiles(): Promise<ReadDocuments<SessionRecord>> {
+		return readDocuments(sessionsDir, parseSessionRecord);
 	}
 
 	async function readClaims(): Promise<ClaimRecord[]> {
-		const claims: ClaimRecord[] = [];
-		for (const name of await listJson(claimsDir)) {
-			const claim = readJsonAs(join(claimsDir, name), isClaim);
-			if (claim) claims.push(claim);
-		}
-		return claims.sort((a, b) => a.path.localeCompare(b.path));
+		return (await readDocuments(claimsDir, parseClaimRecord)).records.sort((a, b) => a.path.localeCompare(b.path));
 	}
 
 	async function claimOne(
@@ -289,7 +245,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		// afterwards: the link is the exclusive create, so no reader can observe a
 		// half-written claim and mistake it for a crashed owner's.
 		if (await publishNew(file, claim)) return { claim, created: true };
-		const existing = readJsonAs(file, isClaim);
+		const existing = readDocument(file, parseClaimRecord);
 		if (existing) {
 			return existing.owner === owner
 				? { claim: existing, created: false }
@@ -304,7 +260,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 	async function releaseOne(path: string, owner: string): Promise<boolean> {
 		const file = claimFile(path);
-		const existing = readJsonAs(file, isClaim);
+		const existing = readDocument(file, parseClaimRecord);
 		if (!existing || existing.owner !== owner) return false;
 		await rm(file, { force: true });
 		return true;
@@ -339,7 +295,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		const notHeld: string[] = [];
 		for (const path of paths) {
 			const file = claimFile(path);
-			const existing = readJsonAs(file, isClaim);
+			const existing = readDocument(file, parseClaimRecord);
 			if (!existing || existing.owner !== from) {
 				notHeld.push(path);
 				continue;
@@ -474,7 +430,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 		sessions: readSessions,
 
-		session: async (id) => readJsonAs(sessionFile(id), isSession),
+		session: async (id) => readDocument(sessionFile(id), parseSessionRecord),
 
 		async removeSession(id) {
 			await rm(sessionFile(id), { force: true });
@@ -565,7 +521,11 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			const live = new Set(activeIds);
 			const gone = new Set(goneIds ?? []);
 			const lapsed: ClaimRecord[] = [];
-			for (const session of await readSessions()) {
+			// The names the guard refused, reported rather than discarded — and never deleted: an older
+			// build must not destroy a newer build's record, so a file this build cannot read is left
+			// where it is and said out loud, which is the rule `session-mail.ts` keeps for a message.
+			const { records, refused } = await readSessionFiles();
+			for (const session of records) {
 				if (at - session.lastSeen > sessionTtlMs) {
 					await rm(sessionFile(session.id), { force: true });
 					await dropIfEmpty(inboxDir(session.id));
@@ -586,7 +546,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			}
 			await dropStaleTemps(sessionsDir);
 			await dropStaleTemps(claimsDir);
-			return { claims: lapsed };
+			return { claims: lapsed, refused };
 		},
 
 		async pruneMail(input) {

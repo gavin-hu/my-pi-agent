@@ -6,7 +6,7 @@
  */
 
 import type { RosterState } from "../../lib/session-roster.ts";
-import type { SessionMode } from "./protocol.ts";
+import type { ClaimRecord, SessionRecord } from "../../lib/session-files.ts";
 
 /**
  * The mail shape is the bus's, and two readers outside the bus need it: the message's
@@ -17,71 +17,14 @@ import type { BusMessage, UnaccountedPage } from "../../lib/session-mail.ts";
 
 export type { BusMessage, MessageKind, UnaccountedMessage, UnaccountedPage } from "../../lib/session-mail.ts";
 
-/** One registered Pi session. */
-export interface SessionRecord {
-	id: string;
-	label: string;
-	pid: number;
-	/**
-	 * The machine that wrote this record.
-	 *
-	 * A bus directory can live where a sync client replicates it, so a record read here may be the
-	 * other machine's: this is what tells them apart, and what stops a stranger's pid being read as
-	 * a local process. Absent is a record an older build wrote, which is always this machine's.
-	 */
-	host?: string;
-	/**
-	 * That process's start time, when the host can name one.
-	 *
-	 * It is what tells the record's process apart from an unrelated one that has since
-	 * been given the same pid, so `gone` does not have to wait for the heartbeat to age.
-	 * Absent on a platform without `ps`, and on a record written before this existed.
-	 */
-	startToken?: string;
-	/** Working directory of the session; the worktree root when there is one. */
-	cwd: string;
-	/** Repository root the session belongs to, for relative claims. */
-	repoRoot: string;
-	/** The mode the session was started in. */
-	mode: SessionMode;
-	startedAt: number;
-	lastSeen: number;
-	/**
-	 * When this session began the turn it is in, absent outside one.
-	 *
-	 * The heartbeat says whether a session is there; this says whether it is busy, which is
-	 * the other half of a teammate's row. Written on both edges of a run rather than on the
-	 * heartbeat, so it does not lag the turn it describes — and read only beside a fresh
-	 * heartbeat, because a process that died mid-turn left the stamp behind.
-	 */
-	turnAt?: number;
-	/**
-	 * The watch this session asked for, in one word — the statement, written on every join.
-	 *
-	 * `off` is a door's `listen: false` and is never turned back on by another door; absent is a
-	 * record written before this field existed. A start adopts it, so a restart restores what the
-	 * user asked for instead of the mode the next join happens to spell.
-	 */
-	watch?: WatchMode;
-	/**
-	 * The same mode as the pair a peer reads, derived on every write.
-	 *
-	 * `armed: false` means the session is on the bus but no watch will wake it, which is the
-	 * honest answer for a peer deciding whether mail will reach it; absent is only a record
-	 * written before this field existed. It is a rendering of `watch`, not a second fact — the
-	 * readers outside this extension still take this shape (#868 moves one of them).
-	 */
-	watching?: { armed: boolean; wake: boolean };
-	/**
-	 * The mail this session has been told about, by id — what a peer's unread count subtracts.
-	 *
-	 * A count of `N unread` is the mail a session has *not* been told about, so an announcement
-	 * advances this and the number falls with no delete: `inbox` keeps sole ownership of removing
-	 * a body. Pruned against the inbox on every poll, and on the heartbeat whether or not the watch
-	 * is armed, so an id can outlive its file by one tick and no longer.
-	 */
-	seenMail?: string[];
-}
+/**
+ * The record's own shapes, and the watch it names, come from the file layer.
+ *
+ * They moved there with the guard that tests them: `lib/` may not import an extension, and a
+ * document's shape and the test that accepts it are one idea. This re-export is the same pattern
+ * the line above uses for a message.
+ */
+export type { ClaimRecord, SessionMode, SessionRecord, WatchMode } from "../../lib/session-files.ts";
 
 /**
  * One read of a recipient's inbox.
@@ -120,23 +63,6 @@ export interface InboxRead {
 	unreadable: string[];
 }
 
-/** One repository-relative claim. */
-export interface ClaimRecord {
-	path: string;
-	owner: string;
-	ownerLabel: string;
-	at: number;
-	/**
-	 * The machine that made it.
-	 *
-	 * It is what the claim lapses on: a peer here judges its owner by the owner's record, and owns
-	 * no pid on another machine — so the other machine's claim ends when *that machine* stops
-	 * writing its heartbeat, not when a local pid happens to be missing. Absent is a claim an older
-	 * build wrote, which claimed paths on this machine only.
-	 */
-	host?: string;
-}
-
 /**
  * What a prune took: the claims whose owners no longer hold them.
  *
@@ -147,6 +73,14 @@ export interface ClaimRecord {
 export interface LapsedClaims {
 	/** The claims this prune removed, each as its file held it. */
 	claims: ClaimRecord[];
+	/**
+	 * Records in `sessions/` this build could not read, by file name.
+	 *
+	 * Reported and left where they are: a newer build wrote them, so deleting one would destroy a
+	 * record this reader only failed to understand. Saying the name is what stops it reading as a
+	 * session that was never here, and it is the one place in the bus with room to say it.
+	 */
+	refused: string[];
 }
 
 /** What `session status` returns. */
@@ -182,14 +116,6 @@ export interface SessionStatus {
 	/** Present when a join asked for a watch — this run or an earlier one; a restart restores it. */
 	watching?: { armed: boolean; wake: boolean };
 }
-
-/**
- * The watch as a session holds it: one mode, not a pair.
- *
- * `off` is no watch at all, `on` reports mail at the next turn, and `wake` raises a turn while
- * the session is idle. The pair a peer reads is `mail-watch.ts`'s rendering of this.
- */
-export type WatchMode = "off" | "on" | "wake";
 
 /**
  * One id a drop was given and did not remove, and the reason it stayed.

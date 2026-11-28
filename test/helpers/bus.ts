@@ -35,12 +35,25 @@ export interface BusRecord {
 	host?: string;
 }
 
-/** Write one session record under `busDir`, and answer the file it wrote. */
+/** The fields every writer emits, for a fixture that only cares about a few of them. */
+// `pid: 0` is a record that names no process: the guard requires a number and `pidOf` drops a
+// non-positive one, so a fixture reads like the record an older build wrote instead of claiming
+// this test process is the session — which would make every case's row look like its own.
+const DEFAULTS = { mode: "tui", pid: 0, cwd: "", repoRoot: "", startedAt: 50, lastSeen: 100 };
+
+/**
+ * Write one session record under `busDir`, and answer the file it wrote.
+ *
+ * The fields every writer emits are filled in unless a case names them: since #994 both readers
+ * require what `SessionRecord` requires, so a fixture missing `pid` would describe a file no
+ * writer can produce and would test a refusal rather than the thing it is about.
+ */
 export function writeBusRecord(busDir: string, record: BusRecord): string {
 	const dir = join(busDir, SESSIONS_DIR_NAME);
 	mkdirSync(dir, { recursive: true });
 	const file = join(dir, `${record.id}.json`);
-	writeFileSync(file, JSON.stringify({ mode: "tui", ...record }), "utf-8");
+	const full = { ...DEFAULTS, cwd: busDir, repoRoot: busDir, ...record };
+	writeFileSync(file, JSON.stringify(full), "utf-8");
 	return file;
 }
 

@@ -16,6 +16,7 @@ import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
 import type { MountSource, MountSpec } from "../../lib/http/index.ts";
 import { tempDir } from "../../test/helpers/env.ts";
+import { type BusRecord, writeBusRecord } from "../../test/helpers/bus.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { type PagePointer, type ProbeFetch, readPointer, PAGE_FILE } from "../../lib/workflow/page-pointer.ts";
@@ -80,18 +81,17 @@ async function readCards(port: number, token: string): Promise<Array<{ id: strin
 }
 
 describe("the roster", () => {
-	/** The bus directory this page reads, laid out the way `session-bus` lays one out. */
-	async function seedBus(runtime: BoardSession, cwd: string, records: object[]): Promise<void> {
-		const dir = join(await runtime.busDir(cwd), "sessions");
-		mkdirSync(dir, { recursive: true });
-		for (const [index, record] of records.entries()) writeFileSync(join(dir, `s${index}.json`), JSON.stringify(record));
+	/** The bus directory this page reads, seeded the way `session-bus` writes one. */
+	async function seedBus(runtime: BoardSession, cwd: string, records: BusRecord[]): Promise<void> {
+		const dir = await runtime.busDir(cwd);
+		for (const record of records) writeBusRecord(dir, record);
 	}
 
 	test("names the bus's sessions on the snapshot", async () => {
 		const { page, ctx, cwd, runtime } = harness({ lead: "team-lead" });
 		await seedBus(runtime, cwd, [
-			{ id: "s-core", label: "team-agent-score", mode: "tui", lastSeen: NOW - 1_000 },
-			{ id: "s-lead", label: "team-lead", mode: "tui", lastSeen: NOW },
+			{ id: "s-core", label: "team-agent-score", lastSeen: NOW - 1_000 },
+			{ id: "s-lead", label: "team-lead", lastSeen: NOW },
 		]);
 		const status = servedPage(await page.start(ctx));
 		const snapshot = JSON.parse(
