@@ -89,8 +89,11 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 							ctx as ExtensionContext,
 						);
 						const pattern = formatPattern(watch);
+						// `wake` is its own line because the pattern is printed whole: a model copies that string
+						// back into `add`, and a badge glued to it would come back as part of the expression.
+						const wake = watch.wake ? "\nWake: on — a match raises one triggered turn." : "";
 						return textResult(
-							`Watching ${watch.id}: ${sourceLabel(watch)}${SEPARATORS.arrow}${pattern}\nRead with \`watch matches ${watch.id}\` or \`watch logs ${watch.id}\`.`,
+							`Watching ${watch.id}: ${sourceLabel(watch)}${SEPARATORS.arrow}${pattern}${wake}\nRead with \`watch matches ${watch.id}\` or \`watch logs ${watch.id}\`.`,
 							{ action: "add", watch } satisfies WatchDetails,
 						);
 					}

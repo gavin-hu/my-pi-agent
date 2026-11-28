@@ -18,7 +18,8 @@ import { createChildSupervisor, KILL_GRACE_MS } from "../../lib/child.ts";
 import { DEFAULT_CONFIG, loadConfig, type WatchConfig } from "./config.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
 import { defaultInterval } from "../../lib/timer.ts";
-import { compileRegex, sourceLabel } from "./format.ts";
+import { compileRegex } from "./pattern.ts";
+import { sourceLabel } from "./format.ts";
 import { createUiController, type UiController } from "./ui.ts";
 import type { PendingMatch, WatchMatch, WatchRecord, WatchSource } from "./types.ts";
 

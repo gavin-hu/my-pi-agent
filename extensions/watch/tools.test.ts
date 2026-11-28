@@ -48,14 +48,14 @@ describe("watch tool", () => {
 		for (const flags of [{}, { caseSensitive: true }, { wake: true }, { caseSensitive: true, wake: true }]) {
 			const result = await call(tool, ctx, { action: "add", command: "build", pattern: "FAIL", ...flags });
 			expect(result.isError).toBeUndefined();
-			lines.push(resultText(result).split("\n")[0]);
+			lines.push(resultText(result));
 		}
-		expect(lines).toEqual([
-			"Watching w1: $ build → /FAIL/i",
-			"Watching w2: $ build → /FAIL/",
-			"Watching w3: $ build → /FAIL/i · wake",
-			"Watching w4: $ build → /FAIL/ · wake",
-		]);
+		// The pattern line is the one a model copies back, so no badge rides on it; `Wake: on` is the
+		// next line, saying the same thing without becoming part of the expression.
+		expect(lines[0]).toBe("Watching w1: $ build → /FAIL/i\nRead with `watch matches w1` or `watch logs w1`.");
+		expect(lines[1]).toStartWith("Watching w2: $ build → /FAIL/\nRead with");
+		expect(lines[2]).toStartWith("Watching w3: $ build → /FAIL/i\nWake: on");
+		expect(lines[3]).toStartWith("Watching w4: $ build → /FAIL/\nWake: on");
 	});
 
 	test("a rejected add returns an error without state", async () => {
