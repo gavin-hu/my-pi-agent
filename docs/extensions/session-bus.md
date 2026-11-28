@@ -25,6 +25,7 @@ editing — and the board refuses a write outside the card's `paths` in `execute
 | Broadcast an event | `session send to "*" kind "event" text "…"` |
 | Read your mail | `session inbox`, or `session read` to show it and keep it (the waiting line counts files, so `read` leaves it) |
 | See mail no session holds, and clear one | the board's summary counts it; `/sessions drop` names each, and `<id>` clears one |
+| Free a stopped session's name | `/sessions forget <label\|id>…` — its record and claims go now, and its unread mail becomes unaccounted for `drop` |
 | Claim files before editing | `session claim paths ["src/api"]` |
 | Release a claim, or take a peer's | `session release paths ["src/api"]`, or `x` on the board; with `holder tom`, from the seat |
 | Be woken by mail | a board/team join asks for it; `session join wake: true` for a bare session |
@@ -60,6 +61,9 @@ the session advances its count — and a row's state comes from its recipient's 
 holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch
 is armed, so a peer that will not be woken reads as one. The record carries the turn too:
 stamped on `agent_start`, dropped on `agent_settled`, counted only beside a fresh heartbeat.
+A record that cannot be written says so: one `session-bus: heartbeat failed: …` line on stderr when
+a streak starts, and one `… recovered` when a whole tick beats again — never one per tick, so a
+failing write is visible without owning the terminal.
 It names the machine that wrote it: another machine's record — a store can live where a sync client
 replicates it — is judged by its heartbeat alone, so it reads `quiet`, never `gone`, once that ages.
 The Team tab draws a row per machine saying when it was last seen, and names it on a session there.
@@ -76,7 +80,9 @@ its record ages out, and each file still ends at its own TTL. That door is a com
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its layer. A duplicate
 label gets a short id suffix, and a label is reserved while the bus keeps its owner's record —
-ten minutes past the last heartbeat — so a crashed session has not freed its name.
+ten minutes past the last heartbeat — so a crashed session has not freed its name. A person frees
+it sooner with `/sessions forget <label>`: the record and its claims go, and its unread mail
+becomes unaccounted for `drop`.
 
 **Claims.** A claim names the machine that made it and ends on that machine's heartbeat: another
 machine's is judged by its row in `hosts/`, this machine's by the owner's record, never by a pid.
@@ -106,8 +112,9 @@ authentication between sessions; the [agent directory](../security.md#the-agent-
 - Pull-based for a bare `session join`: a message waits for a session that is not listening. A board
 or team join asks for `wake`, so a handoff, an ask, or a sign starts a turn in an idle teammate.
 - Reading is not joining: `/sessions` shows a board you are not on until you join or act.
-- Membership belongs to the process, not the transcript: a `/new` keeps the record — its name, its
-watch, its claims, its unread count — names the transcript it begins, and a quit frees the label later.
+- Membership belongs to the process, not the transcript: a `/new` and a `/reload` keep the record — its
+name, its watch, its claims, its unread count — a `/new` names the transcript it begins, and a quit
+frees the label later.
 - The board acts on your own state only — it never consumes mail or touches a peer's claims.
 - Two listening peers can wake each other in a loop; stop listening on one.
 - A fan-out is one file per inbox, so it can be partial; the result names the delivered and the missed.

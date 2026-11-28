@@ -100,7 +100,7 @@ describe("status", () => {
 		const gone = session({ id: "fedcba654321", label: "backend", state: "gone", unread: 2 });
 		const unarmed = session({ id: "123456abcdef", label: "reviewer", watching: { armed: false, wake: false } });
 		const lines = statusAt(busStatus([session(), gone, unarmed])).split("\n");
-		expect(lines).toContain("- backend (654321) · /repo · tui · gone · 2 unread");
+		expect(lines).toContain("- backend (654321) · /repo · tui · gone · 2 unread · `/sessions forget backend`");
 		expect(lines).toContain("- reviewer (abcdef) · /repo · tui · not listening");
 		expect(lines).toContain("- frontend (123456) · /repo · tui");
 	});

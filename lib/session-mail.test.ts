@@ -14,6 +14,7 @@ import {
 	type MailRecord,
 	type WaitingPage,
 	unaccountedMail,
+	MAX_MESSAGE_TEXT,
 	unaccountedOf,
 	untoldIn,
 	WAITING_LIMIT,
@@ -330,4 +331,8 @@ describe("the mail ledger", () => {
 		expect(page.messages.map((message) => message.id)).toEqual(["m-1", "m-2"]);
 		expect(page.dropped).toBe(1);
 	});
+});
+
+test("the text cap is the 4,000 characters the docs state", () => {
+	expect(MAX_MESSAGE_TEXT).toBe(4_000);
 });

@@ -18,7 +18,7 @@ import {
 } from "./protocol.ts";
 import type { ClaimRecord } from "./types.ts";
 import { INBOX_BUDGET } from "./format.ts";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-mail.ts";
 
 describe("labels and actions", () => {
 	test("normalizes a label and falls back when empty", () => {
@@ -52,7 +52,7 @@ describe("validation", () => {
 		expect(normalizeText("x".repeat(4_001))).toHaveProperty("error");
 	});
 	test("bounds a read at the cap a send refuses over, rather than a second number", () => {
-		// One owner: `lib/session-tool.ts`'s MAX_MESSAGE_TEXT. The read takes one full-length body, and
+		// One owner: `lib/session-mail.ts`'s MAX_MESSAGE_TEXT. The read takes one full-length body, and
 		// a literal in the read's module is how its ceiling and the send's cap drift a number apart.
 		expect(INBOX_BUDGET).toBe(MAX_MESSAGE_TEXT);
 		expect(normalizeText("x".repeat(INBOX_BUDGET))).toEqual({ text: "x".repeat(INBOX_BUDGET) });

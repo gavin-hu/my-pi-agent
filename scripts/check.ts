@@ -155,12 +155,7 @@ export function planFor(facts: Facts): Plan {
 	const runner = facts.changed.find((path) => RUNNER_FILES.includes(path));
 	if (runner !== undefined) return full(`\`${runner}\` is the runner, so the full sweep runs`);
 	return {
-		commands: [
-			FORMAT,
-			TYPES,
-			tests(facts, "--changed=main", ...BROWSER_TIER),
-			tests(facts, "test/", ...BROWSER_TIER),
-		],
+		commands: [FORMAT, TYPES, tests(facts, "--changed=main", ...BROWSER_TIER), tests(facts, "test/", ...BROWSER_TIER)],
 	};
 }
 

@@ -10,13 +10,20 @@
  * parenthesises the paths, the screen prefixes them.
  */
 
-import { ageWords, clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
-import { unreadableText } from "../../lib/session-mail.ts";
+import { ageWords, clipText, formatAge, plural, sanitizeLine } from "../../lib/format.ts";
+import { MAX_MESSAGE_TEXT, unreadableText } from "../../lib/session-mail.ts";
 import { peerMark } from "../../lib/session-roster.ts";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { shortId } from "./protocol.ts";
-import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
+import { forgetCommand, shortId } from "./protocol.ts";
+import type {
+	BusMessage,
+	ClaimConflict,
+	ClaimRecord,
+	DropResult,
+	ForgetResult,
+	SessionStatus,
+	UnaccountedPage,
+} from "./types.ts";
 
 /** The separator as a glyph, for the scan that neutralizes it inside a value. */
 const SEPARATOR_GLYPH = SEPARATORS.item.trim();
@@ -83,7 +90,9 @@ export function formatStatus(status: SessionStatus, now: number): string {
 		// and one that is not listening reads the mail at its next turn. The words are `peerMark`'s.
 		const mark = peerMark({ state: session.state, listening: session.watching?.armed });
 		const where = `${sanitizeLine(session.mode)}${mark === undefined ? "" : ` · ${mark}`}`;
-		return `- ${label} (${shortId(session.id)}) · ${cwd} · ${where}${unread}`;
+		// A gone row is where the name is stuck, so it names the door that frees it, in one spelling.
+		const stuck = session.state === "gone" ? ` · \`${forgetCommand(session.label)}\`` : "";
+		return `- ${label} (${shortId(session.id)}) · ${cwd} · ${where}${unread}${stuck}`;
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
 	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];
@@ -172,6 +181,29 @@ export function formatDrop(result: DropResult): string {
 }
 
 /**
+ * What a forget did: the names it freed and the claims that went back, one name per line.
+ *
+ * The held sentence is `heldBy`'s live wording — `already in use` while the record's process may
+ * still be running — and an ambiguous one names the ids, because a guess would free the wrong row.
+ */
+export function formatForget(result: ForgetResult): string {
+	const lines = result.forgotten.map((entry) => {
+		const released = entry.released.length === 0 ? "" : `, and ${plural(entry.released.length, "claim")} went back`;
+		return `Forgot ${sanitizeLine(entry.label)} — its name is free${released}.`;
+	});
+	for (const kept of result.kept) {
+		lines.push(
+			kept.reason === "held"
+				? `Not forgotten: ${sanitizeLine(kept.name)} is already in use by session ${sanitizeLine(kept.holder)}.`
+				: kept.reason === "ambiguous"
+					? `Not forgotten: ${sanitizeLine(kept.name)} names ${plural(kept.holders.length, "session")} — use one of their ids: ${kept.holders.map(sanitizeLine).join(", ")}.`
+					: `Not forgotten: ${sanitizeLine(kept.name)} is not on this bus.`,
+		);
+	}
+	return lines.length > 0 ? lines.join("\n") : "Nothing forgotten.";
+}
+
+/**
  * The join result: the label peers address, and whether mail will reach this session.
  *
  * One sentence for one act, because `join` is one action — the name and the watch are
@@ -189,7 +221,7 @@ export function formatJoin(label: string, watching: { armed: boolean; wake: bool
 /**
  * The whole read is bounded at one message's maximum body: `inbox` is the surface the
  * prompt tells the model to run, so it is also the largest thing the bus can put in a
- * context. The cap is `lib/session-tool.ts`'s `MAX_MESSAGE_TEXT` — the same number `send`
+ * context. The cap is `lib/session-mail.ts`'s `MAX_MESSAGE_TEXT` — the same number `send`
  * refuses a body over, and a read never clips one — so a read costs at most one full-length
  * message: a burst of them is one message per call, where a page that clipped each body
  * would have shown a sliver of every one and deleted the rest.

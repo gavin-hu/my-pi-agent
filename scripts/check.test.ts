@@ -205,12 +205,16 @@ describe("a worker count a caller asks for", () => {
 		const plan = planFor({ ...LEAF, parallel: 4 });
 		expect(display(plan.commands[0] ?? [])).toBe("bun run check:format");
 		expect(display(plan.commands[1] ?? [])).toBe("bun run check:types");
-		expect(display(plan.commands[2] ?? []).startsWith("bun test --timeout 90000 --parallel=4 --changed=main ")).toBe(true);
+		expect(display(plan.commands[2] ?? []).startsWith("bun test --timeout 90000 --parallel=4 --changed=main ")).toBe(
+			true,
+		);
 		expect(display(plan.commands[3] ?? []).startsWith("bun test --timeout 90000 --parallel=4 test/ ")).toBe(true);
 	});
 
 	test("is carried by a widened plan too, because only a human asked for it", () => {
-		expect(display(planFor({ all: true, parallel: 4 }).commands[2] ?? [])).toBe("bun test --timeout 90000 --parallel=4");
+		expect(display(planFor({ all: true, parallel: 4 }).commands[2] ?? [])).toBe(
+			"bun test --timeout 90000 --parallel=4",
+		);
 	});
 
 	test("is absent from every plan nobody asked, which is the default this card keeps", () => {

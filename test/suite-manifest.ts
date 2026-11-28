@@ -344,6 +344,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"extension",
 		"seat-release",
 		"own-record",
+		"forget",
 		"leave",
 		"after-new",
 	],

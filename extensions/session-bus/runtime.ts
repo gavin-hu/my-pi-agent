@@ -153,8 +153,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// The record this process serves: a `/new` keeps the row it left, so a reset costs the
 			// transcript and nothing else. `own-record.ts` says which row, and why every guard
 			// fails toward minting one.
-			const { startRecord, wasServed } = await import("./own-record.ts");
-			record = await startRecord({
+			const { startRecord } = await import("./own-record.ts");
+			const started = await startRecord({
 				pi,
 				store,
 				context,
@@ -168,6 +168,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				fromGit: repo?.fromGit === true,
 				now: now(),
 			});
+			record = started.record;
 			// A record that outlived its process still says what that session was told, and a resume
 			// is that session: adopting its cursor keeps its old mail out of the count. A `/new` reads
 			// the row it serves, which is the row the previous transcript wrote.
@@ -178,13 +179,13 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const { createLabels } = await import("./labels.ts");
 			labels = createLabels({ pi, store, record, sessionId: id, stateOf, now, sessionTtlMs });
 			const { createRecordWriter } = await import("./record.ts");
-			writer = createRecordWriter({ store: () => store, record: () => record, joined: () => joined });
+			writer = createRecordWriter({ store: () => store, record: () => record, joined: () => joined }, options.stderr);
 			await writer.adopt();
 			await mailWatch.restore(storedWatchMode(await store.session(record.id)));
 			// A served row is one this process was already on the bus with, so the start joins it as a
 			// resumed session would: the beat is what keeps a peer's prune from taking the row — and the
 			// claims a card is worked under — ten quiet minutes later.
-			if (wasServed(record, id)) {
+			if (started.served) {
 				await joinBus();
 				// The row kept the name; the transcript Pi holds did not. A minted start names nobody,
 				// because naming it would put a session that never joined on the bar.
@@ -227,26 +228,24 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 */
 	function armHeartbeat(): void {
 		if (heartbeatMs <= 0 || stopHeartbeat) return;
-		stopHeartbeat = interval(heartbeatMs, () => {
-			void (async () => {
-				if (!record || !store || !labels || !writer) return;
-				record.lastSeen = now();
-				// The cursor names mail the inbox may have lost since the last poll, and a session that
-				// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
-				// grow with every message the session ever read.
-				await writer.trim();
-				// A heartbeat that resumed after a long pause can find its label taken; the tick is
-				// where a revived session notices and yields, before the one write carries both.
-				const yielded = await labels.settle();
-				await writer.save();
-				// The machine's row beats with the session: a claim lapses on it.
-				if (identity) await store.writeHost(identity, now());
-				if (yielded) labels.publish();
-				// The one prune that opens inbox files rides the clock the message TTL is measured in,
-				// so no action pays for mail nobody is waiting on. It takes this session's inbox and
-				// the ones no record holds; a peer's mail is that peer's to end.
-				await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
-			})().catch(() => {});
+		stopHeartbeat = writer?.startBeat(heartbeatMs, interval, async () => {
+			if (!record || !store || !labels || !writer) return;
+			record.lastSeen = now();
+			// The cursor names mail the inbox may have lost since the last poll, and a session that
+			// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
+			// grow with every message the session ever read.
+			await writer.trim();
+			// A heartbeat that resumed after a long pause can find its label taken; the tick is
+			// where a revived session notices and yields, before the one write carries both.
+			const yielded = await labels.settle();
+			await writer.save();
+			// The machine's row beats with the session: a claim lapses on it.
+			if (identity) await store.writeHost(identity, now());
+			if (yielded) labels.publish();
+			// The one prune that opens inbox files rides the clock the message TTL is measured in,
+			// so no action pays for mail nobody is waiting on. It takes this session's inbox and
+			// the ones no record holds; a peer's mail is that peer's to end.
+			await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
 		});
 	}
 
@@ -381,8 +380,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			joined = false;
 			await writer?.close();
 			if (store && record && wasJoined) {
-				// The row's whole afterlife is `own-record.ts`'s: a `/new` keeps it for the process's
-				// next transcript, every other reason releases its claims and removes it.
+				// The row's whole afterlife is `own-record.ts`'s: a `/new` and a `/reload` keep it for
+				// the process's next start, every other reason releases its claims and removes it.
 				const { endRecord } = await import("./own-record.ts");
 				await endRecord({ store, record, pid, reason: event?.reason, now: now() });
 			}
@@ -493,15 +492,13 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if (!store || !record) throw new Error("session bus is not started.");
 			return store.peek(record.id, { limit: MAX_LIMIT });
 		},
-		/**
-		 * Clear unaccounted mail — the store's one write, reached only from `/sessions drop`.
-		 *
-		 * A passthrough with a start check: the store owns both the inbox files and the record set the
-		 * attribution is read from, and that read has to happen at the delete so a resume cannot slip
-		 * between a listing and a removal.
-		 */
+		/** Clear unaccounted mail — the one door `/sessions drop` opens. */
 		async dropUnaccounted(ids) {
 			return requireStore().dropUnaccounted(ids);
+		},
+		async forget(names) {
+			const { forgetSessions } = await import("./forget.ts");
+			return forgetSessions({ store: requireStore(), stateOf }, names);
 		},
 		/**
 		 * Release a claim by its stored path.

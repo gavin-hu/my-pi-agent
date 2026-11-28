@@ -31,7 +31,7 @@ import { MAX_LABEL } from "../lib/session-label.ts";
 import { MAX_PATHS as MAX_SESSION_PATHS, MIN_PATHS } from "../extensions/session-bus/protocol.ts";
 import { MAX_CONTENT } from "../lib/todo-state.ts";
 import { MAX_OBJECTIVE } from "../extensions/goal/schema.ts";
-import { MAX_MESSAGE_TEXT } from "../lib/session-tool.ts";
+import { MAX_MESSAGE_TEXT } from "../lib/session-mail.ts";
 import { MAX_BODY_CHARS } from "../extensions/web-access/fetch/config.ts";
 import { MAX_HEADERS, MAX_HEADER_VALUE, MAX_URL_LENGTH } from "../extensions/web-access/fetch/schema.ts";
 import { REGISTERED } from "./helpers/registry.ts";

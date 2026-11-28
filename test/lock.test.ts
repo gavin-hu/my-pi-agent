@@ -91,7 +91,10 @@ describe("a run that is not the first", () => {
 		expect(waited).toEqual([]);
 		// A skip releases nothing, so the sibling's record is left exactly as it was.
 		lock.release();
-		expect(readLock(lockPath(dir))).toEqual({ kind: "holder", holder: { pid: 999, path: "/run", since: 5, root: 500 } });
+		expect(readLock(lockPath(dir))).toEqual({
+			kind: "holder",
+			holder: { pid: 999, path: "/run", since: 5, root: 500 },
+		});
 		rmSync(dir, { recursive: true, force: true });
 	});
 

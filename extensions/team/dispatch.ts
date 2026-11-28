@@ -7,7 +7,7 @@
 
 import { randomBytes } from "node:crypto";
 import { clipText } from "../../lib/format.ts";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-mail.ts";
 
 /**
  * What the lead asks when it names no question.

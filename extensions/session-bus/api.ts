@@ -17,7 +17,15 @@ import type { LivenessFn, StartTokenFn } from "../../lib/spawn.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
 import type { WatchingState } from "./mail-watch.ts";
 import type { BusStore } from "./store.ts";
-import type { BusMessage, ClaimConflict, DeliveryFailure, DropResult, InboxPeek, SessionStatus } from "./types.ts";
+import type {
+	BusMessage,
+	ClaimConflict,
+	DeliveryFailure,
+	DropResult,
+	ForgetResult,
+	InboxPeek,
+	SessionStatus,
+} from "./types.ts";
 
 export interface SessionBusOptions {
 	now?: () => number;
@@ -49,6 +57,12 @@ export interface SessionBusOptions {
 	heartbeatMs?: number;
 	/** Inbox-watch poll interval; 0 disables it (tests). */
 	watchMs?: number;
+	/**
+	 * Test seam: where the heartbeat's failure and recovery lines go.
+	 *
+	 * The default is `process.stderr` — the one place a session with no tool call open can read them.
+	 */
+	stderr?: (line: string) => void;
 	/** Test seam: the repeating timer behind the heartbeat and the poll. */
 	interval?: RepeatTimer;
 	sessionTtlMs?: number;
@@ -70,7 +84,8 @@ export interface LeaveOutcome {
 
 export interface SessionBus {
 	/**
-	 * Load this session's records, serving the row a `/new` left behind.
+	 * Load this session's records, adopting the row this session already has, or serving the one a
+	 * `/new` left behind.
 	 *
 	 * The event is optional because a caller that is not the host's lifecycle has no reason to
 	 * give: a join request, a suite, a command. Without one, nothing is served and a record is
@@ -80,8 +95,9 @@ export interface SessionBus {
 	/**
 	 * Release this session's resources.
 	 *
-	 * `"new"` keeps the record and its claims, because the process goes on serving them under a
-	 * new transcript; every other reason ends the session and removes what it held.
+	 * `"new"` and `"reload"` keep the record and its claims, because the process goes on serving them
+	 * under a new transcript or a re-evaluated runtime; every other reason ends the session and removes
+	 * what it held.
 	 */
 	stop(event?: SessionShutdownEvent): Promise<void>;
 	/**
@@ -115,6 +131,13 @@ export interface SessionBus {
 	 * id a record's inbox holds, so a mistaken id costs a sentence rather than somebody's mail.
 	 */
 	dropUnaccounted(ids: readonly string[]): Promise<DropResult>;
+	/**
+	 * Free the names of records the bus reads as `gone`: their claims go, their inbox stays.
+	 *
+	 * A person's door — no session's tool call may take a name a person has not released — and the
+	 * answer is one line per name: what went, or why it stayed.
+	 */
+	forget(names: readonly string[]): Promise<ForgetResult>;
 	/** Release a claim by its stored repository-relative path. */
 	releaseStored(path: string): Promise<boolean>;
 	send(input: {

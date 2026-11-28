@@ -32,6 +32,14 @@ export type MessageKind = "message" | "event" | "ask" | "handoff";
 export const MESSAGE_KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
 
 /**
+ * The longest text a message, a handoff, or an offer may carry.
+ *
+ * The envelope's own bound: `protocol.ts` refuses a send over it, the tool schemas publish it as
+ * `maxLength`, and a workflow notice clips to it rather than being refused.
+ */
+export const MAX_MESSAGE_TEXT = 4_000;
+
+/**
  * A new message's id: the clock it was made at, and four bytes, so two sends in one millisecond differ.
  *
  * The id is the file's name in every inbox that received it (`idOfFile` reads it back), and the word

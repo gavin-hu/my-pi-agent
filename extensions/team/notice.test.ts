@@ -12,7 +12,7 @@ import { describe, expect, test } from "bun:test";
 import type { Card } from "../../lib/workflow/card.ts";
 import { askLead } from "../../lib/workflow/contract.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-mail.ts";
 import { actorFor, handoffText, noticeText, offerText, ownerFor } from "../../lib/workflow/notice.ts";
 
 /** The lead a case hands the builder: the name a sign has to carry. */

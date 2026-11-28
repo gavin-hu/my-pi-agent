@@ -404,7 +404,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// 88 -> 89 (#864): `doctor/schema.ts` reads `RUN_DOCTOR_TOOL`, so the entry pays `lib/tool-names.ts` — the
 	// constants module sibling entries already evaluate — and board pays nothing: `runtime.ts` is deferred.
 	bytefly: 89,
-	board: 64, // 64 <= 64 (#748)
+	board: 64, // 64 <= 64 (#748); #1022's cap move adds nothing — board/notices.ts is a dynamic import()
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
 	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks), and
 	// one more for lib/json: the temp name plan-files used to spell for itself is the owner's

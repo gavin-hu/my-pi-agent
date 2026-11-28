@@ -18,6 +18,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lock shares it. `test/README.md` and `scripts/README.md` also state the counts they had drifted from: 37
   files under `test/`, and a 42-suite browser layer with four smoke.
 
+- `session-bus`: `/sessions forget <label|id>…` frees a stopped session's name at once — its record
+  and claims go, its unread mail becomes unaccounted for `drop`, and a live or quiet record is refused
+  naming its holder. A killed process used to hold its label for the whole `SESSION_TTL_MS` window, and
+  the lead's name is what `team.lead` compares, so nothing could sign until it freed; `/team exit` was a
+  session's door and a crash had none. The door acts on the same `stateOf` `gone` the row shows, removes
+  with `releaseAll` then `removeSession`, and refuses two records under one label by naming their ids
+  rather than guessing, because a replicated store can hold two machines' sessions under one name. The
+  two sentences that describe a gone holder and the gone row name it, through one `forgetCommand`
+  spelling in `protocol.ts`. A shorter TTL, release-on-crash and `join --force` were rejected: the name
+  is the signature, so only a person may hand it on.
+
 - `board`: a `round` read puts the ids that need a signature above the board — `awaiting approval · #6` —
   where it used to draw the same card once per group it belonged to (six cards became ten rows) with no
   heading counted. The collapsed line carries that tally instead of the owner count, every body section
@@ -244,11 +255,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a record write that fails says so — one line on stderr when a streak of failures
+  starts and one when a whole clean tick ends it, never one per tick. The swallow was two layers
+  down: the record's `flush()` resolved on a failed `writeSession`, so the heartbeat's own catch
+  never saw the commonest failure and every peer read the session as merely quiet. The writer owns
+  the report for that reason, and a tick that carried a failed write is not clean: recovery is the
+  next whole tick, so a healthy write behind a failing inbox sweep cannot flap the two lines.
+
+- `session-bus`: a start after a `/reload` keeps the record its session already has, so a renamed row no
+  longer comes back as Pi's transcript name at a fresh start time. Pi's `/reload` is one process and one
+  session id — a `session_shutdown` and a `session_start` milliseconds apart — so the shutdown keeps the
+  row as a `/new` does, writing no heartbeat it did not earn, and any start whose session id already has a
+  row adopts that row's `label`, `startedAt` and watch pair, writing only this process's `pid`, `host`, start
+  token and context over them. `startRecord` now hands back `{ record, served }`, so `served` is a fact
+  rather than an inference from the ids, and it stays true only for a `/new`, the one start that joins. The
+  `/new` bullet under Added still lists a reload among the reasons that end the membership; the reload is
+  now the second reason that keeps it, and only a quit, a resume or a fork removes the row.
+
 - `session-bus`: a claim is drawn under the label its owner's record holds now, so a rename moves its
   roster row, the `session status` listing and every conflict sentence together instead of leaving two
   surfaces on the name captured at claim time. The claim file still keeps that captured label, which is
   the fallback for a reader the owner's record has left — an offline roster still names the session its
   row was written for.
+
 
 - `board`: a landing keeps a card's extension when the change is code and the `test/` ledgers only
   ride beside it. The count that decides whether the extension is where the work is treated every
