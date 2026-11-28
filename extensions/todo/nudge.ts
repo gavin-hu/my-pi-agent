@@ -81,12 +81,14 @@ export function isFileWrite(toolName: string, annotations?: ToolAnnotations, det
 }
 
 /**
- * Successful mutating calls needed before a run with no list at all is worth a
- * reminder. A plan that was never started has no item to fall behind, and a
- * false positive costs a whole extra model request, so one edit is not enough
- * evidence that the work needed a list.
+ * Successful mutating calls needed before a run with nothing in flight is worth
+ * a reminder: no list at all, a cleared one, or one whose items are all
+ * completed. A plan that was never started has no item to fall behind, and
+ * neither has a closed list until the work adds one, and a false positive costs
+ * a whole extra model request — so one edit is not enough evidence that the work
+ * needed a list.
  */
-export const EMPTY_LIST_MUTATIONS = 3;
+export const IDLE_LIST_MUTATIONS = 3;
 
 /** What the current turn knows about its work and the list. */
 export interface NudgeState {
@@ -104,7 +106,7 @@ export interface NudgeState {
 
 /**
  * Whether a reminder is due. With an unfinished item, one mutation is enough.
- * With no list at all, the turn must also have written something: repeated
+ * With nothing in flight, the turn must also have written something: repeated
  * inspection with no file change is not unplanned work. A list the model wrote
  * or cleared this turn is its own answer, so an explicit clear is never
  * second-guessed.
@@ -112,7 +114,7 @@ export interface NudgeState {
 export function shouldNudge({ mutations, writes, touched, nudged, todos }: NudgeState): boolean {
 	if (nudged || mutations <= 0) return false;
 	if (hasOpenTodos(todos)) return true;
-	return todos.length === 0 && !touched && writes > 0 && mutations >= EMPTY_LIST_MUTATIONS;
+	return !touched && writes > 0 && mutations >= IDLE_LIST_MUTATIONS;
 }
 
 /**
@@ -125,22 +127,28 @@ export const TODO_NUDGE_MARKER = "[TODO SYNC]";
 /**
  * Model-facing reminder injected before settlement. For a list with unfinished
  * work it points at the item the list currently considers active, so the model
- * can correct it without rereading the whole list; for no list at all it asks
- * for one.
+ * can correct it without rereading the whole list; with nothing in flight it asks
+ * for one — the steps of this work when no list was ever recorded, or an item for
+ * work that carried on after the list was closed.
  */
 export function formatNudge(todos: Todo[]): string {
-	if (todos.length === 0) {
+	if (!hasOpenTodos(todos)) {
+		if (todos.length === 0) {
+			return (
+				`${TODO_NUDGE_MARKER} Work happened but no todo list was recorded. ` +
+				"Call the todo tool with the steps of this work, then continue."
+			);
+		}
 		return (
-			`${TODO_NUDGE_MARKER} Work happened but no todo list was recorded. ` +
-			"Call the todo tool with the steps of this work, then continue."
+			`${TODO_NUDGE_MARKER} Work happened after the todo list was closed, every item on it completed. ` +
+			"Call the todo tool to record the new work as an item and set it in_progress, then continue."
 		);
 	}
-	const current = currentTodo(todos);
-	const item = current ? (current.activeForm ?? current.content) : undefined;
-	const pointer = item ? ` The list still points at "${item}".` : "";
+	// `hasOpenTodos` sent us here, so there is an item the list can point at.
+	const current = currentTodo(todos) as Todo;
 	return (
 		`${TODO_NUDGE_MARKER} Work happened since the todo list was last updated, but the list still has ` +
-		`unfinished items.${pointer} Call the todo tool to mark what is done and set the next item ` +
-		"in_progress, then continue."
+		`unfinished items. The list still points at "${current.activeForm ?? current.content}". Call the todo ` +
+		"tool to mark what is done and set the next item in_progress, then continue."
 	);
 }

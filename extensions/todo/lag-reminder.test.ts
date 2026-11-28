@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import todo, { TODO_NUDGE_CONTEXT_TYPE } from "./index.ts";
-import { EMPTY_LIST_MUTATIONS, TODO_NUDGE_MARKER } from "./nudge.ts";
+import { IDLE_LIST_MUTATIONS, TODO_NUDGE_MARKER } from "./nudge.ts";
 import { TOOL_NAME } from "./tools.ts";
 import type { Todo } from "./types.ts";
 import { emit, emitFirst, makeFakePi } from "../../test/helpers/fakes.ts";
@@ -76,7 +76,7 @@ describe("lag reminder integration", () => {
 		]);
 	});
 
-	test("does not remind when every item is completed or there is only a single edit", async () => {
+	test("does not remind for a single edit, whether the list is empty or closed", async () => {
 		const completedRun = await started([resultEntry([completed("done")])]);
 		await emit(completedRun.pi, "tool_execution_end", work, completedRun.ctx);
 		expect(await emitFirst(completedRun.pi, "agent_before_settle", settle, completedRun.ctx)).toBeUndefined();
@@ -84,6 +84,18 @@ describe("lag reminder integration", () => {
 		const emptyRun = await started();
 		await emit(emptyRun.pi, "tool_execution_end", work, emptyRun.ctx);
 		expect(await emitFirst(emptyRun.pi, "agent_before_settle", settle, emptyRun.ctx)).toBeUndefined();
+	});
+
+	test("reminds when work carries on after the list was closed", async () => {
+		// The shape the open-list rule cannot see: nothing is open, and the list is not
+		// empty, so three writes used to ask for nothing while the rail read as synced.
+		const { pi, ctx } = await started([resultEntry([completed("done")])]);
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);
+
+		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
+		expect(result.continue).toBe(true);
+		expect(result.entries[0].content).toContain("after the todo list was closed");
+		expect(result.entries[0].content).not.toContain("unfinished items");
 	});
 
 	test("does not remind for a session tracker's call, though its hint says it may write", async () => {
@@ -146,14 +158,14 @@ describe("lag reminder integration", () => {
 		// without it the case would pass by silencing the rule instead of correcting it.
 		const reading = await started();
 		reading.pi.allTools = [{ name: "subagent", annotations: { readOnlyHint: false } }];
-		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) {
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) {
 			await emit(reading.pi, "tool_execution_end", child({ readOnly: true }), reading.ctx);
 		}
 		expect(await emitFirst(reading.pi, "agent_before_settle", settle, reading.ctx)).toBeUndefined();
 
 		const writing = await started();
 		writing.pi.allTools = [{ name: "subagent", annotations: { readOnlyHint: false } }];
-		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) {
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) {
 			await emit(writing.pi, "tool_execution_end", child({ readOnly: false }), writing.ctx);
 		}
 		expect(await emitFirst(writing.pi, "agent_before_settle", settle, writing.ctx)).toBeDefined();
@@ -161,7 +173,7 @@ describe("lag reminder integration", () => {
 
 	test("reminds after repeated work with no list", async () => {
 		const { pi, ctx } = await started();
-		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);
 
 		const result = await emitFirst(pi, "agent_before_settle", settle, ctx);
 		expect(result.continue).toBe(true);
@@ -170,7 +182,7 @@ describe("lag reminder integration", () => {
 
 	test("does not remind for repeated shell reads with no list", async () => {
 		const { pi, ctx } = await started();
-		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) {
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) {
 			await emit(pi, "tool_execution_end", { type: "tool_execution_end", toolName: "bash" }, ctx);
 		}
 
@@ -180,7 +192,7 @@ describe("lag reminder integration", () => {
 	test("does not second-guess a list the model cleared this turn", async () => {
 		const { pi, tools, ctx } = await started();
 		await tools.get(TOOL_NAME).execute("call-1", { todos: [] }, undefined, undefined, ctx);
-		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) await emit(pi, "tool_execution_end", work, ctx);
 
 		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeUndefined();
 	});

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_TODO_CONFIG, loadTodoConfig, normalizeTodoConfig } from "./config.ts";
 import todo from "./index.ts";
-import { EMPTY_LIST_MUTATIONS } from "./nudge.ts";
+import { IDLE_LIST_MUTATIONS } from "./nudge.ts";
 import { createTodoRuntime } from "./runtime.ts";
 import { currentTodo, hasOpenTodos } from "./state.ts";
 import type { Todo } from "./types.ts";
@@ -23,6 +23,14 @@ const active = (content: string): Todo => ({ content, status: "in_progress" });
 /** What `reconstruct` reads: the mode, and the branch it rebuilds the list from. */
 function printCtx(): ExtensionContext {
 	return { mode: "print", sessionManager: { getBranch: () => [] } } as unknown as ExtensionContext;
+}
+
+/** A branch carrying a list the model finished before this turn began. */
+function closedCtx(): ExtensionContext {
+	return {
+		mode: "print",
+		sessionManager: { getBranch: () => [resultEntry([completed("done")])] },
+	} as unknown as ExtensionContext;
 }
 
 describe("query helpers", () => {
@@ -110,20 +118,27 @@ describe("TodoRuntime lag tracking", () => {
 		expect(runtime.nudgeDue()).toBe(true);
 	});
 
-	test("no reminder is due for a fully completed list", () => {
-		const runtime = createTodoRuntime();
-		runtime.setTodos([completed("done")]);
-		runtime.noteWork();
-		expect(runtime.nudgeDue()).toBe(false);
+	test("a single edit on a completed list asks nothing, and repeated writes do", () => {
+		// A closed list arrives from the branch, not from a write this turn: `setTodos`
+		// marks the list as the model's own answer and would exempt it.
+		const tidied = createTodoRuntime();
+		tidied.reconstruct(closedCtx());
+		tidied.noteWork(true);
+		expect(tidied.nudgeDue()).toBe(false);
+
+		const carried = createTodoRuntime();
+		carried.reconstruct(closedCtx());
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) carried.noteWork(true);
+		expect(carried.nudgeDue()).toBe(true);
 	});
 
 	test("an untouched empty list needs repeated work that wrote something", () => {
 		const shellOnly = createTodoRuntime();
-		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) shellOnly.noteWork();
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) shellOnly.noteWork();
 		expect(shellOnly.nudgeDue()).toBe(false);
 
 		const runtime = createTodoRuntime();
-		for (let i = 1; i < EMPTY_LIST_MUTATIONS; i++) {
+		for (let i = 1; i < IDLE_LIST_MUTATIONS; i++) {
 			runtime.noteWork();
 			expect(runtime.nudgeDue()).toBe(false);
 		}
@@ -132,7 +147,7 @@ describe("TodoRuntime lag tracking", () => {
 
 		const cleared = createTodoRuntime();
 		cleared.setTodos([]);
-		for (let i = 0; i < EMPTY_LIST_MUTATIONS; i++) cleared.noteWork(true);
+		for (let i = 0; i < IDLE_LIST_MUTATIONS; i++) cleared.noteWork(true);
 		expect(cleared.nudgeDue()).toBe(false);
 	});
 
