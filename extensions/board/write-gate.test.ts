@@ -17,11 +17,10 @@ import { isAbsolute, join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { LEAD_MODE_ENTRY_TYPE, PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import type { Card } from "../../lib/workflow/card.ts";
-import { boardHarness, cardFile } from "../../test/helpers/board.ts";
+import { cardFile, guardedBoard } from "../../test/helpers/board.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { boardCard } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import board from "./index.ts";
 import { writeRefusal } from "./write-gate.ts";
 
 const temps = makeTempTracker();
@@ -189,47 +188,26 @@ describe("a delegated child", () => {
 /** The board's factory enabled, as the host loads it. */
 const ENABLED = { [ENV_DISABLED_EXTENSIONS]: "" };
 
-/** What the guard answers, as a case reads it. */
-type Answer = { block?: true; reason?: string } | undefined;
+/** The shared factory fixture, with this suite's temp tracker, so its directories are cleaned up. */
+const boardAt = (options: { branch?: unknown[] } = {}) => guardedBoard({ track: temps.track, ...options });
 
-/** One board with a card claimed by this session, and the real guard the host would call. */
-async function guardedBoard(options: { branch?: unknown[] } = {}) {
-	const harness = boardHarness({ track: temps.track, branch: options.branch });
-	const me = await harness.runtime.who(harness.ctx, harness.cwd);
-	const store = await harness.runtime.store(harness.cwd);
-	const card = await store.create(
-		{ title: "A card in flight", paths: ["extensions/board/write-gate.ts"] },
-		me,
-		harness.now,
-	);
-	await store.mutate(card.id, { kind: "claim" }, me, harness.now);
-	board(harness.fake.pi, { session: harness.runtime });
-	const [guard] = harness.fake.pi.handlers.get("tool_call") ?? [];
-	if (guard === undefined) throw new Error("the factory registered no tool_call handler");
-	return {
-		harness,
-		card,
-		call: async (toolName: string, input: unknown): Promise<Answer> =>
-			(await guard({ toolName, input }, harness.ctx)) as Answer,
-		/** Where the card lands next, written straight to its file: the lanes' gates are not this suite's. */
-		relane: (lane: Card["lane"]): void => {
-			const file = cardFile(harness.agentDir, card.id);
-			const record = JSON.parse(readFileSync(file, "utf8")) as Card;
-			writeFileSync(file, JSON.stringify({ ...record, lane }));
-		},
-	};
+/** Where the card lands next, written straight to its file: the lanes' gates are not this suite's. */
+function relane(next: Awaited<ReturnType<typeof boardAt>>, lane: Card["lane"]): void {
+	const file = cardFile(next.harness.agentDir, next.card.id);
+	const record = JSON.parse(readFileSync(file, "utf8")) as Card;
+	writeFileSync(file, JSON.stringify({ ...record, lane }));
 }
 
 describe("the handler the model meets", () => {
 	test("refuses a write for a card still in plan, and allows it once the card is in execute", async () => {
 		await withEnv(ENABLED, async () => {
-			const next = await guardedBoard();
+			const next = await boardAt();
 			const refused = await next.call("write", { path: "extensions/board/write-gate.ts" });
 			expect(refused?.block).toBe(true);
 			expect(refused?.reason).toContain(`#${next.card.id} is in plan`);
 			expect(refused?.reason).toContain("Record it with `contract`.");
 
-			next.relane("execute");
+			relane(next, "execute");
 			// The board call is what tells the gate the set moved: one scan per turn, cleared by a
 			// call that writes cards — including this read, which costs one scan rather than a stale lane.
 			expect(await next.call("board", { action: "list" })).toBeUndefined();
@@ -240,9 +218,9 @@ describe("the handler the model meets", () => {
 
 	test("reads the lanes once, so a move it has not been told about is the next turn's answer", async () => {
 		await withEnv(ENABLED, async () => {
-			const next = await guardedBoard();
+			const next = await boardAt();
 			expect((await next.call("write", { path: "a.ts" }))?.block).toBe(true);
-			next.relane("execute");
+			relane(next, "execute");
 			// The same turn, after a move nobody reported: the cached lane still refuses. Cheap, and a
 			// stale allow is the failure this cache must never make.
 			expect((await next.call("write", { path: "extensions/board/write-gate.ts" }))?.block).toBe(true);
@@ -251,7 +229,7 @@ describe("the handler the model meets", () => {
 
 	test("lets a released card go, because the session holds nothing", async () => {
 		await withEnv(ENABLED, async () => {
-			const next = await guardedBoard();
+			const next = await boardAt();
 			const store = await next.harness.runtime.store(next.harness.cwd);
 			const me = await next.harness.runtime.who(next.harness.ctx, next.harness.cwd);
 			await store.mutate(next.card.id, { kind: "release" }, me, next.harness.now);
@@ -261,7 +239,7 @@ describe("the handler the model meets", () => {
 
 	test("stands down while plan mode will say it first, so one call gets one sentence", async () => {
 		await withEnv(ENABLED, async () => {
-			const planning = await guardedBoard({
+			const planning = await boardAt({
 				branch: [{ type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: { enabled: true } }],
 			});
 			expect(await planning.call("write", { path: "extensions/board/write-gate.ts" })).toBeUndefined();
@@ -270,7 +248,7 @@ describe("the handler the model meets", () => {
 
 	test("answers the seat's sentence first, because the seat holds no card", async () => {
 		await withEnv(ENABLED, async () => {
-			const seated = await guardedBoard({
+			const seated = await boardAt({
 				branch: [{ type: "custom", customType: LEAD_MODE_ENTRY_TYPE, data: { enabled: true } }],
 			});
 			seated.harness.runtime.serve("team-lead");

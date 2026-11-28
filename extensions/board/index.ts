@@ -16,8 +16,8 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/mount.ts";
-import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import { BOARD_TOOL, SESSION_TOOL, TEAM_TOOL } from "../../lib/tool-names.ts";
+import { busLoaded, createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import { BOARD_TOOL, PLAN_TOOL, SESSION_TOOL, TEAM_TOOL } from "../../lib/tool-names.ts";
 import type { Card } from "../../lib/workflow/card.ts";
 import type { Claims } from "../../lib/workflow/claims.ts";
 import type { MemberTools } from "../../lib/workflow/join.ts";
@@ -164,9 +164,15 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	 * moves the set and a turn boundary is where a move behind it (the page) is picked up. The
 	 * cards are read together with the line's first read, and the cache is reset rather than
 	 * invalidated: a second scan is cheap next to a stale allow.
+	 *
+	 * The one stale answer it can give is the other way round: a card that becomes this session's
+	 * mid-turn — a peer's `assign`, a command — is not in the set read at the turn's start, so the
+	 * gate reads "holds nothing" until the next turn. The direction is bounded by the turn, and the
+	 * alternative is a scan per judged call for every session that holds nothing.
 	 */
 	let heldNow: Card[] | undefined;
 	let gateModule: Promise<typeof import("./write-gate.ts")> | undefined;
+	let enterModule: Promise<typeof import("./enter-gate.ts")> | undefined;
 	let policyModule: Promise<typeof import("../../lib/policy.ts")> | undefined;
 
 	/** The held cards, read at most once per part of a turn; a board that cannot be read gates nothing. */
@@ -182,19 +188,45 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	const MOVING_TOOLS: readonly string[] = [BOARD_TOOL, TEAM_TOOL, SESSION_TOOL];
 
 	/**
+	 * Why this session may not start planning, or `undefined` when the board is not its gate.
+	 *
+	 * Membership first, and it is the same fact that decides whether the tool is offered: the board
+	 * does not speak for a session it has no record of, and a board that does not speak must not
+	 * brick work that is not its own. With no bus loaded the board is solo and does speak; what is
+	 * left is `enter-gate.ts`'s one question.
+	 */
+	const enterRefusal = async (ctx: ExtensionContext, held: readonly Card[]): Promise<string | undefined> => {
+		const bus = busLoaded(pi);
+		if (bus) {
+			const { onTeam } = await (memberModule ??= import("../../lib/workflow/join.ts"));
+			if (!(await onTeam(session, ctx))) return undefined;
+		}
+		const { planEntryRefusal } = await (enterModule ??= import("./enter-gate.ts"));
+		return planEntryRefusal(held, bus ? "team" : "solo");
+	};
+
+	/**
 	 * Why the lane refuses this call, or `undefined` when it has no card of this session's to judge.
 	 *
 	 * The seat answers first in the handler, so a refused lead never sees a card's sentence. Plan
 	 * mode is second: its own block is stricter on every tool this gate judges and it words its own
 	 * refusal, so standing down keeps exactly one sentence answering a call whatever the extension
-	 * load order is.
+	 * load order is. Then the one question the lane table cannot ask — whether there is a lane at
+	 * all — is asked before it, because a session with no card has nothing for the table to key on.
 	 */
 	const laneRefusal = async (ctx: ExtensionContext, toolName: string, input: unknown): Promise<string | undefined> => {
 		if (MOVING_TOOLS.includes(toolName)) heldNow = undefined;
 		const { isPlanModeEnabled } = await (branchState ??= import("../../lib/mode-state.ts"));
 		if (isPlanModeEnabled(ctx.sessionManager.getBranch())) return undefined;
+		// One read and one unreadable guard for both questions below: a board that cannot be read
+		// gates nothing, which is the answer the table has always given.
 		const held = await heldForGate(ctx);
-		if (held === undefined || held.length === 0) return undefined;
+		if (held === undefined) return undefined;
+		if (toolName === PLAN_TOOL && (input as { action?: unknown } | undefined)?.action === "enter") {
+			const refused = await enterRefusal(ctx, held);
+			if (refused !== undefined) return refused;
+		}
+		if (held.length === 0) return undefined;
 		const store = await session.store(ctx.cwd);
 		const { writeRefusal } = await (gateModule ??= import("./write-gate.ts"));
 		// The pin is `lib/policy.ts`'s body, the one plan mode also runs; the gate only decides when.

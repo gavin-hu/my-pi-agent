@@ -98,6 +98,9 @@ that changes. A delegated agent runs with writing forced off.
 - Read-only is a guard rail against accidents, not a sandbox — extensions share Pi's permissions.
 - A plan holds at most 50 steps and 256 KiB; a bigger one is refused, not trimmed. A session holding the board's seat
   cannot enter plan mode — planning strips the contract and the signature the seat is for, so `/board stop` first.
+- The board refuses the model's `plan` `enter` while the session holds no card of its own: claim one first, so
+  the plan has a card to record it against, or the refusal names the way out. `/plan` and Shift+Tab are the
+  person's doors and are not gated.
 - Plan mode has no PowerShell on Windows: Git Bash is the shell, and it must be installed.
 - The browser review needs `serve` and a local browser; a reviewer's page is only reachable while
   its link is shared. At 1180px and below the sections list folds above the document and starts

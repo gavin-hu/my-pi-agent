@@ -181,9 +181,12 @@ describe("heldCards", () => {
 		await store.mutate("3", { kind: "claim" }, mine, NOW);
 		const done = await store.mutate("3", { kind: "move", lane: "blocked", blocker: "decision" }, mine, NOW);
 		expect(done.ok).toBe(true);
+		// A card still in the pool is nobody's, so it is not this session's to owe — the fact the
+		// plan-entry gate rests on, and why a `backlog` card can never be its refusal.
+		await store.create({ title: "Pool", paths: [] }, mine, NOW);
 		const { cards, skipped } = await store.scan();
 		expect(skipped).toEqual([]);
-		expect(cards).toHaveLength(3);
+		expect(cards).toHaveLength(4);
 		const held = await heldCards(harness.runtime, harness.ctx);
 		expect(held?.map((card) => card.id)).toEqual(["1", "3"]);
 	});
