@@ -267,7 +267,8 @@ async function argumentsFor(bus: SessionBus, word: string): Promise<string[]> {
 	if (word === "clean") return [...CLEAN_AGES];
 	const status = await bus.snapshot();
 	if (word === "drop") return (status.unaccounted?.messages ?? []).map((entry) => entry.message.id);
-	if (word === FORGET_WORD) return status.sessions.filter((entry) => entry.state === "gone").map((entry) => entry.label);
+	if (word === FORGET_WORD)
+		return status.sessions.filter((entry) => entry.state === "gone").map((entry) => entry.label);
 	return [];
 }
 

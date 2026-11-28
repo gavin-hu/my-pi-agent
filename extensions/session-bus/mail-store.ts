@@ -127,10 +127,12 @@ export function createMailStore(dir: string): MailStore {
 		for (const file of await listJson(directory)) {
 			const path = join(directory, file);
 			const message = readJsonAs(path, isBusMessage);
-			const written = message ? message.at : await stat(path).then(
-				(info) => info.mtimeMs,
-				() => at,
-			);
+			const written = message
+				? message.at
+				: await stat(path).then(
+						(info) => info.mtimeMs,
+						() => at,
+					);
 			if (at - written <= cutoffMs) continue;
 			await rm(path, { force: true });
 			removed++;
