@@ -115,6 +115,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: plan mode is a card's own step, so the model's `plan` `enter` is refused while this session
+  holds no card — naming `claim` (`board add` opens one) so the plan has a card to record it against,
+  and `/team exit` where a bus makes leaving a door. It gates the model's door only: `/plan` and
+  Shift+Tab raise no tool call and stay the person's, `goal`'s plan route plans an objective rather
+  than a card, and a session whose board tool is withheld is not gated at all. The held set it reads
+  is the lane gate's own `heldCards`, so a card still in the pool — ownerless by construction — is
+  precisely the state it refuses, and the state the five-tool table could never see.
+
 - `code-review`: reading a file no longer ends the review. **view file** now holds the page open by
   attaching the same stream the diff page has — it is that page in the same tab — so the closed-tab
   grace does not run out while a file is on screen, and the way back lands on the page the reader

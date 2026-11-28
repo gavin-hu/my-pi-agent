@@ -8,6 +8,11 @@
  * the card's lane, which is the record rather than a mode, and it is read from the cards the
  * session already holds (`context.ts`'s `heldCards`).
  *
+ * The leash therefore begins at `claim`: `card.ts` keeps a card in the pool ownerless, so a
+ * backlog card is never in `held` and nothing here can see it. A session whose work is still
+ * unclaimed is gated by nothing, which is why the step before this table — whether there is a
+ * card at all — is `enter-gate.ts`'s question and not a branch of this one.
+ *
  * What this deliberately is not: a sandbox. A shell command under an `execute` card is judged by
  * lane and not by path, because a shell's effect is not decidable; a session holding no card
  * writes exactly as it always did, because a board must never brick work that is not its own; and
@@ -56,10 +61,11 @@ export interface GateDeps {
 /**
  * Why this session may not make `call`, or `undefined` when it may.
  *
- * The cards decide and nothing else: a session holding no card in `backlog`, `plan`, `blocked`,
- * or `execute` is the ordinary answer, and so is every tool this table does not judge — the
- * board, session, team, plan, todo, and goal verbs are how a card leaves its lane, and a refusal
- * that trapped a session in one would be a board nobody could use.
+ * The cards decide and nothing else: a session holding no card in `plan`, `blocked`, or
+ * `execute` is the ordinary answer — a card in the pool has no holder, so it is not in `held` at
+ * all — and so is every tool this table does not judge — the board, session, team, plan, todo, and
+ * goal verbs are how a card leaves its lane, and a refusal that trapped a session in one would be
+ * a board nobody could use.
  */
 export function writeRefusal(held: readonly Card[], call: GateCall, deps: GateDeps): string | undefined {
 	const live = held.filter((card) => card.lane !== "done");

@@ -18,13 +18,15 @@ import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import { openBoardSession, type BoardSession } from "../../lib/workflow/session.ts";
 import type { Claims } from "../../lib/workflow/claims.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { MAX_WIP } from "../../lib/workflow/limits.ts";
+import board from "../../extensions/board/index.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
 import type { BoardDetails } from "../../extensions/board/types.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import { fakeCtx } from "./context.ts";
 import { createFakePi, type FakePiOptions } from "./fakes.ts";
-import { tempDir } from "./env.ts";
+import { tempDir, withEnv } from "./env.ts";
 
 /** What a suite may vary about the board it is given. */
 export interface BoardHarnessOptions {
@@ -182,6 +184,50 @@ export function boardTool(options: BoardHarnessOptions = {}) {
  * answer here would spawn `bun run check` from a unit test.
  */
 const passingRun: VerifyRun = async () => ({ exit: 0, output: "", killed: false });
+
+/**
+ * One board with the factory registered over it, and the `tool_call` guard the host would call.
+ *
+ * The write gate and the plan-entry gate are questions about the *factory*, not the tool, so a
+ * suite needs a board the factory is already guarding rather than one it calls the tool on. `claim`
+ * decides whether the card is this session's — the default — or still in the pool, which is the
+ * state a plan entry is refused in; `bus` registers a `session` tool so the board reads as a team's
+ * board rather than a solo one.
+ */
+export async function guardedBoard(
+	options: {
+		/** The suite's temp tracker, so the directories this creates are cleaned up. */
+		track?: <T extends string | undefined>(dir: T) => T;
+		/** The branch the session reports, for a case about a mode. */
+		branch?: unknown[];
+		/** Whether the card is claimed before the guard is taken; a pool card is unclaimed. */
+		claim?: boolean;
+		/** Whether a bus is loaded, which is one of the two facts that decide who the board speaks for. */
+		bus?: boolean;
+	} = {},
+) {
+	return await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, async () => {
+		const harness = boardHarness({ track: options.track, branch: options.branch });
+		const me = await harness.runtime.who(harness.ctx, harness.cwd);
+		const store = await harness.runtime.store(harness.cwd);
+		const card = await store.create(
+			{ title: "A card in flight", paths: ["extensions/board/write-gate.ts"] },
+			me,
+			harness.now,
+		);
+		if (options.claim !== false) await store.mutate(card.id, { kind: "claim" }, me, harness.now);
+		board(harness.fake.pi, { session: harness.runtime });
+		if (options.bus === true) harness.fake.pi.tools.set("session", { name: "session" });
+		const [guard] = harness.fake.pi.handlers.get("tool_call") ?? [];
+		if (guard === undefined) throw new Error("the factory registered no tool_call handler");
+		return {
+			harness,
+			card,
+			call: async (toolName: string, input: unknown): Promise<{ block?: true; reason?: string } | undefined> =>
+				(await guard({ toolName, input }, harness.ctx)) as { block?: true; reason?: string } | undefined,
+		};
+	});
+}
 
 /**
  * The card file the store wrote for `id`, found by reading the pile rather than by
