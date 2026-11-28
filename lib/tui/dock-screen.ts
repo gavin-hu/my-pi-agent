@@ -131,7 +131,9 @@ export abstract class DockListScreen<T> implements Component {
 	/** The summary cells, painted by the subclass and joined by the base. */
 	protected abstract summaryCells(rows: readonly T[]): string[];
 	/** Footer hints while listing. */
-	protected abstract listHints(rows: readonly T[]): ScreenHint[];
+	/** Footer hints while listing, with the row under the cursor when there is one: a hint that acts
+	 * on the focused row must not be offered without one, nor for a row the verb would refuse. */
+	protected abstract listHints(rows: readonly T[], focused?: T): ScreenHint[];
 	/** Footer hints while reading a detail pane. */
 	protected abstract detailHints(row: T | undefined): ScreenHint[];
 	/** What to open for `row`, fetched fresh. */
@@ -415,7 +417,7 @@ export abstract class DockListScreen<T> implements Component {
 			body,
 			range,
 			detail: block.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w)),
-			hint: this.footer(w, this.listHints(rows)),
+			hint: this.footer(w, this.listHints(rows, this.focusedRow)),
 		});
 	}
 

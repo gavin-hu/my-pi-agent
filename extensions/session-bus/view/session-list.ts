@@ -18,16 +18,17 @@ import { type DetailContents, DockListScreen } from "../../../lib/tui/dock-scree
 import { GLYPHS, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { keyValueRow } from "../../../lib/tui/rows.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { shortId } from "../protocol.ts";
 import { plural } from "../../../lib/format.ts";
 import {
 	type SessionRow,
 	claimRowLine,
 	messageRowLine,
+	recordFacts,
 	sessionDetailBlock,
 	sessionRowLine,
 	sessionRows,
 	summaryCells,
+	watchChip,
 } from "../rows.ts";
 import type { BoardSnapshot, BusMessage, ClaimRecord } from "../types.ts";
 
@@ -65,22 +66,19 @@ function messageProse(message: BusMessage): string {
 		.join("\n");
 }
 
-/** The pane's width-dependent facts: identity, above the claim body. */
+/** The pane's facts: the record's own, drawn by the same owner the focus block reads. */
 function paneFacts(theme: Theme, row: SessionRow, now: number, width: number): string[] {
-	const labelWidth = 10;
-	return [
-		keyValueRow(theme, width, { label: "mode", labelWidth, value: sanitizeLine(row.session.mode) }),
-		keyValueRow(theme, width, { label: "id", labelWidth, value: shortId(row.session.id) }),
-		keyValueRow(theme, width, {
-			label: "last seen",
-			labelWidth,
-			value: ageText(now, row.session.lastSeen),
-		}),
-	];
+	return recordFacts(row, now).map((fact) =>
+		keyValueRow(theme, width, { label: fact.label, labelWidth: 10, value: fact.value }),
+	);
 }
 
-/** The pane body: every claim this session holds, in path order. */
+/**
+ * The pane body: every claim this session holds, in path order — or the fact that it holds none, so a
+ * recorded session is never the base's `Nothing to show.` beside six facts about it.
+ */
 function paneLines(row: SessionRow, now: number): string[] {
+	if (row.claims.length === 0) return ["No claims held."];
 	return row.claims.map((claim) => `${sanitizeLine(claim.path)}${SEPARATORS.item}held ${ageText(now, claim.at)}`);
 }
 
@@ -244,26 +242,31 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 				const own = rows.flatMap((row) => (row.kind === "claim" && row.claim.owner === this.me() ? [row] : []));
 				const cells = [paint(this.theme, "meta", plural(rows.length, "claim"))];
 				if (own.length > 0) cells.push(paint(this.theme, "label", `${own.length} yours`));
+				// The watch is this session's on every scope: the key is the same `w` wherever it is read.
+				if (watching) cells.push(this.watchCell(watching));
 				return cells;
 			}
 		}
 	}
 
-	protected listHints(): ScreenHint[] {
+	protected listHints(rows: readonly BoardRow[], focused?: BoardRow): ScreenHint[] {
 		const tab = (scope: BoardScope): ScreenHint => ({ text: `Tab ${SCOPE_TITLE[scope].toLowerCase()}` });
 		const enter = (verb: string): ScreenHint => ({ text: `Enter ${verb}`, color: "accent" });
 		// The scopes differ in their own words, not in their tail: the arrows and the page keys are the
 		// same gesture on every list, so they are written once.
 		const tail: ScreenHint[] = [`${GLYPHS.update}/${GLYPHS.hintDown}`, "PgUp/PgDn"];
 		const hints: ScreenHint[] = ["Esc", tab(this.nextScope())];
+		// Enter and `x` act on the row under the cursor, so a list with nothing under it offers neither,
+		// and `x` is only offered under a claim this session can actually release.
+		const open: ScreenHint[] = rows.length > 0 ? [enter("open")] : [];
+		const own = focused?.kind === "claim" && focused.claim.owner === this.me();
+		const release: ScreenHint[] = own ? [{ text: "x release", color: "warn" }] : [];
 		switch (this.scope) {
 			case "sessions":
-				return [...hints, enter("open"), this.watchHint(), ...tail];
 			case "inbox":
-				// `open`, not `read`: this pane consumes nothing, and `read` is a tool's word that does.
-				return [...hints, enter("open"), this.watchHint(), ...tail];
+				return [...hints, ...open, this.watchHint(), ...tail];
 			case "claims":
-				return [...hints, enter("open"), { text: "x release", color: "warn" }, ...tail];
+				return [...hints, ...open, ...release, this.watchHint(), ...tail];
 		}
 	}
 
@@ -370,7 +373,7 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 	}
 
 	private watchCell(watching: { armed: boolean; wake: boolean }): string {
-		return paint(this.theme, "ok", watching.wake ? "watch wake" : "watch on");
+		return watchChip(this.theme, watching);
 	}
 
 	private watchHint(): ScreenHint {
