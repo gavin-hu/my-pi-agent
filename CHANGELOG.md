@@ -176,6 +176,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   what it costs. This is the bound, not the check: a pattern that gets past the gate now sits on a
   line whose worst case is milliseconds, which is the point — not that the line is safe.
 
+- `board`: a landing refuses to run a verb its process imported before board code moved. `/new`, `/board next`
+  and `/reload` keep a `lib/` module another extension already loaded, so a seat that took new board code
+  landed under the rule the merge had replaced — #1004's subject came out `merge(lib)` on a board card, and
+  a merge subject cannot be repaired. The verb now hashes its own judgement at import — `lib/workflow/land.ts`
+  and the reader `lib/workflow/suite-declarations.ts`, one digest over both — and recomputes it before the
+  merge, after every refusal a holder can already act on. A file that changed and a file that could not be
+  read both refuse, each naming the pair, because one digest cannot say which of the two it was; a process
+  whose files are unchanged lands exactly as it did, and the sentence names the restart that fixes it.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached

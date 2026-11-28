@@ -63,8 +63,13 @@ export const CARD: Card = boardCard("856", {
 	paths: ["extensions/board/actions.ts", "lib/workflow/land.ts"],
 });
 
-/** What a landing is handed: the card, the checkout, and the review's own evidence. */
-export function landingWith(script: Record<string, Answer | Answer[]>) {
+/**
+ * What a landing is handed: the card, the checkout, the review's own evidence, and the verb's seam.
+ *
+ * `fingerprint` is the one fact a scripted git cannot supply, so it comes in beside the script: a
+ * case says "moved" or `undefined` the way it says "the push was refused".
+ */
+export function landingWith(script: Record<string, Answer | Answer[]>, fingerprint?: () => string | undefined) {
 	const git = fakeGit(script);
 	return {
 		git,
@@ -73,6 +78,7 @@ export function landingWith(script: Record<string, Answer | Answer[]>) {
 			cwd: "/checkout",
 			reviewed: { sha: REVIEWED, branch: "worktree-one" },
 			run: git.run,
+			...(fingerprint === undefined ? {} : { fingerprint }),
 		}),
 	};
 }
