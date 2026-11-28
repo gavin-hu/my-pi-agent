@@ -42,6 +42,15 @@ export interface BoardDeps {
 	claims?: Claims;
 }
 
+/**
+ * The calls that can move the set of cards this session holds: the board, a handoff, a claim.
+ *
+ * Exported for one case: the gate skips the read for these names, which is sound only while the lane
+ * table refuses none of them — a name that was both would be silently skipped rather than gated, so
+ * `enter-gate.test.ts` pins the disjointness rather than leaving it to a comment.
+ */
+export const MOVING_TOOLS: readonly string[] = [BOARD_TOOL, TEAM_TOOL, SESSION_TOOL];
+
 export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	if (!isExtensionEnabled("board")) return;
 	const session = deps.session ?? openBoardSession(pi, deps.claims === undefined ? {} : { claims: deps.claims });
@@ -184,9 +193,6 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		return cards;
 	};
 
-	/** The calls that can move the set of cards this session holds: the board, a handoff, a claim. */
-	const MOVING_TOOLS: readonly string[] = [BOARD_TOOL, TEAM_TOOL, SESSION_TOOL];
-
 	/**
 	 * Why this session may not start planning, or `undefined` when the board is not its gate.
 	 *
@@ -215,7 +221,14 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	 * all — is asked before it, because a session with no card has nothing for the table to key on.
 	 */
 	const laneRefusal = async (ctx: ExtensionContext, toolName: string, input: unknown): Promise<string | undefined> => {
-		if (MOVING_TOOLS.includes(toolName)) heldNow = undefined;
+		if (MOVING_TOOLS.includes(toolName)) {
+			// A call that moves the set has nothing here to judge: the table judges writes, a shell, a child
+			// and a pin, never a board, team or session verb. So it must not read the set either — the read
+			// would cache it as it is *before* the write lands, and the next call in this turn would answer
+			// from a set the moving call has already changed (#962). The next call reads the written state.
+			heldNow = undefined;
+			return undefined;
+		}
 		const { isPlanModeEnabled } = await (branchState ??= import("../../lib/mode-state.ts"));
 		if (isPlanModeEnabled(ctx.sessionManager.getBranch())) return undefined;
 		// One read and one unreadable guard for both questions below: a board that cannot be read

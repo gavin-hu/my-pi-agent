@@ -11,9 +11,12 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { guardedBoard } from "../../test/helpers/board.ts";
+import { tempDir } from "../../test/helpers/env.ts";
 import { boardCard } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { planEntryRefusal } from "./enter-gate.ts";
+import { MOVING_TOOLS } from "./index.ts";
+import { writeRefusal } from "./write-gate.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -67,5 +70,29 @@ describe("the handler", () => {
 		// no-brick rule `write-gate.ts` states, applied to the step before it.
 		const off = await guardedBoard({ track: temps.track, claim: false, bus: true });
 		expect(await off.call("plan", { action: "enter" })).toBeUndefined();
+	});
+
+	test("allows plan entry after a claim made in the same turn", async () => {
+		// One turn, one cache window: `guardedBoard` never fires `before_agent_start`, so the read the
+		// guard makes for the claim and the entry after it share one memo — which is the bug's shape.
+		const next = await guardedBoard({ track: temps.track, claim: false });
+		const store = await next.harness.runtime.store(next.harness.cwd);
+		const me = await next.harness.runtime.who(next.harness.ctx, next.harness.cwd);
+		// The guard runs before the tool does, so the case is the tool: the claim lands between them.
+		expect(await next.call("board", { action: "claim", card: next.card.id })).toBeUndefined();
+		await store.mutate(next.card.id, { kind: "claim" }, me, next.harness.now);
+		expect(await next.call("plan", { action: "enter" })).toBeUndefined();
+	});
+
+	test("skips the read only for tools the lane table does not judge", () => {
+		// The early return's whole risk: a name in both lists would be skipped rather than gated, and
+		// nothing would be read at all — so the disjointness is a case, not a comment.
+		const held = [boardCard("962", { lane: "plan" })];
+		const root = temps.track(tempDir("pi-enter-gate-"));
+		for (const tool of MOVING_TOOLS) {
+			for (const input of [{}, { action: "claim" }, { command: "git status" }]) {
+				expect(writeRefusal(held, { tool, input }, { root, pinSubagent: () => undefined })).toBeUndefined();
+			}
+		}
 	});
 });
