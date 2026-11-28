@@ -74,6 +74,13 @@ export default function todo(pi: ExtensionAPI) {
 	// todo update, force one more request with a short reminder.
 	pi.on("agent_before_settle", (event) => {
 		if (event.outcome !== "completed") return undefined;
+		// A continuation the host cannot run is not offered. The boundary commits
+		// what this handler returns before it reads the preview, so a reminder sent
+		// with no runnable context left would land on the branch unread and report
+		// the continuation as an error. The guard sits above `markNudged` for the
+		// same reason: consuming the turn's one reminder for a boundary that is
+		// never run would lose it rather than defer it.
+		if (event.context?.canContinue === false) return undefined;
 		if (!runtime.nudgeDue()) return undefined;
 		runtime.markNudged();
 		// Append to the boundary's proposed entries: the host replaces its

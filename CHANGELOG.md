@@ -115,6 +115,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `todo`: the lag reminder is no longer offered into a boundary the host cannot continue. The host
+  commits what a boundary proposes before it reads the preview, so a reminder offered with no runnable
+  context left landed on the branch as a message nothing would read and reported the continuation as an
+  error; the handler now reads `context.canContinue` and asks for nothing when it says no. Where the
+  context can carry it, the reminder is what it was.
+
 - `board`: the write gate judges `job` and `watch` by the action a call names, so `job start`/`send` and
   `watch add` need the card in `execute` while their reads do not — the two tools that run a command were
   falling through a table that named tools for a lane. `kill`, `stop` and `clear` stay allowed: they clean up
