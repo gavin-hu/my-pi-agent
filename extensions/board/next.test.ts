@@ -24,12 +24,6 @@ afterAll(() => temps.flush());
 const NOW = 1_000;
 
 describe("the boundary's answer", () => {
-	test("refuses a card typed after the word, because the session it starts reads its own", () => {
-		expect(nextRefusal({ argued: "916" })).toBe(
-			"board: /board next takes no card — the session it starts finds yours on its first turn",
-		);
-	});
-
 	test("refuses a board it could not read, and names the door that skips the gate", () => {
 		const line = nextRefusal({ unreadable: true }) ?? "";
 		expect(line).toContain("could not read the board");

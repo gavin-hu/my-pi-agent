@@ -193,7 +193,7 @@ describe("landCard — every refusal, and what it leaves behind", () => {
 			cleanLanding({ fetch: { code: 128, stderr: "Permission denied (publickey)" } }),
 		);
 		expect(await answer).toEqual({
-			error: "could not fetch origin (Permission denied (publickey)) — `/board stop` and land by hand.",
+			error: "could not fetch origin (Permission denied (publickey)) — `/board exit` and land by hand.",
 		});
 		expect(git.calls.map((args) => args[0])).toEqual(["fetch"]);
 	});

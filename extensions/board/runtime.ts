@@ -3,7 +3,7 @@
  *
  * The mode is one value on the branch, shared with plan mode (`lib/mode-state.ts`):
  * `/board` turns it on when the page started under this session's own seat, and
- * `/board stop` turns it off with the page. Turning it off is the process's answer as well as the
+ * `/board exit` turns it off with the page. Turning it off is the process's answer as well as the
  * branch's: `disable` latches the exit for the session id, and `reconcile` never
  * re-arms over that latch, so an off-switch that said it worked cannot be undone by
  * a branch write that did not land. While it is on, the tool set is narrowed to the
@@ -82,7 +82,7 @@ export const LEAD_ALLOWED_TOOLS = [
 const MODE_TOOLS = [PLAN_TOOL];
 
 /** What a refusal adds when the tool name alone does not say where to go next. */
-export const LEAD_GUIDANCE = "`/board stop` gives every tool back; the page closes with it.";
+export const LEAD_GUIDANCE = "`/board exit` gives every tool back; the page closes with it.";
 
 /** What the runtime exposes: the mode's state, its gate, and its one sentence. */
 export interface LeadRuntime {
@@ -115,7 +115,7 @@ export function createLeadRuntime(pi: ExtensionAPI): LeadRuntime {
 	// seat restores the user's set rather than the mode's own.
 	let removed: string[] = [];
 	/**
-	 * The session whose `/board stop` latched the seat off.
+	 * The session whose `/board exit` latched the seat off.
 	 *
 	 * The process answers for itself here: a branch write that did not land would otherwise let the
 	 * next reconcile re-arm the leash the user just took off. Cleared by `/board` and by a new

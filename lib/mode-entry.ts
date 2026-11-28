@@ -81,7 +81,7 @@ export function planConsent(ctx: UIContextCarrier): string {
  */
 export function modeRefusal(mode: LeashedMode, action: string): string {
 	return mode === "lead"
-		? `Lead mode holds the seat: \`/board stop\` before ${action}.`
+		? `Lead mode holds the seat: \`/board exit\` before ${action}.`
 		: `Plan mode is read-only. Approve the plan before ${action}.`;
 }
 

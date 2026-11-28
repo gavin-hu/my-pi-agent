@@ -206,7 +206,7 @@ describe("lead runtime — the gate", () => {
 		for (const tool of ["edit", "write", "worktree", "job", "watch"]) {
 			const reason = await runtime.refusal(tool, {});
 			expect(reason).toContain(tool);
-			expect(reason).toContain("/board stop");
+			expect(reason).toContain("/board exit");
 		}
 	});
 
@@ -233,9 +233,9 @@ describe("lead runtime — the gate", () => {
 		const { runtime, ctx } = setup();
 		runtime.enable(ctx);
 		// `readOnlyHint` is the tool's own testimony; the closed list is the decision.
-		expect(await runtime.refusal("mcp_read", {})).toContain("/board stop");
-		expect(await runtime.refusal("mcp_write", {})).toContain("/board stop");
-		expect(await runtime.refusal("mystery", {})).toContain("/board stop");
+		expect(await runtime.refusal("mcp_read", {})).toContain("/board exit");
+		expect(await runtime.refusal("mcp_write", {})).toContain("/board exit");
+		expect(await runtime.refusal("mystery", {})).toContain("/board exit");
 	});
 
 	test("keeps the plan tool for a card's plan, and refuses entering plan mode", async () => {
@@ -244,7 +244,7 @@ describe("lead runtime — the gate", () => {
 		expect(await runtime.refusal("plan", { action: "write" })).toBeUndefined();
 		expect(await runtime.refusal("plan", { action: "steps" })).toBeUndefined();
 		const enter = await runtime.refusal("plan", { action: "enter" });
-		expect(enter).toContain("/board stop");
+		expect(enter).toContain("/board exit");
 	});
 
 	test("judges bash as read-only git, and runs what it approved", async () => {
@@ -256,8 +256,8 @@ describe("lead runtime — the gate", () => {
 
 		const write = await runtime.refusal("bash", { command: "rm -rf build" });
 		expect(write).toContain("in lead mode");
-		expect(write).toContain("/board stop");
-		expect(await runtime.refusal("bash", { command: "  " })).toContain("/board stop");
+		expect(write).toContain("/board exit");
+		expect(await runtime.refusal("bash", { command: "  " })).toContain("/board exit");
 	});
 
 	test("names the by-revision forms between the reason and the hatch", async () => {
@@ -267,12 +267,12 @@ describe("lead runtime — the gate", () => {
 		expect(line).toContain('"git -C" is not a read-only subcommand.');
 		expect(line).toContain("`git show <sha>:<path>`");
 		// The hatch stays last: the alternative sits between the reason and the way out.
-		expect(line?.indexOf("`git show <sha>:<path>`")).toBeLessThan(line?.indexOf("/board stop") ?? -1);
+		expect(line?.indexOf("`git show <sha>:<path>`")).toBeLessThan(line?.indexOf("/board exit") ?? -1);
 
 		// A subcommand's own `-c` runs now; the global one is still refused by position.
 		expect(await runtime.refusal("bash", { command: "git grep -c TODO" })).toBeUndefined();
 		const global = await runtime.refusal("bash", { command: "git -c alias.x=!sh x" });
-		expect(global).toContain("/board stop");
+		expect(global).toContain("/board exit");
 		expect(global).not.toContain("`git show <sha>:<path>`");
 	});
 
@@ -285,7 +285,7 @@ describe("lead runtime — the gate", () => {
 
 		const unpinned = setup({ pinnedSubagent: false });
 		unpinned.runtime.enable(unpinned.ctx);
-		expect(await unpinned.runtime.refusal("subagent", { prompt: "look" })).toContain("/board stop");
+		expect(await unpinned.runtime.refusal("subagent", { prompt: "look" })).toContain("/board exit");
 	});
 
 	test("says nothing at all while the seat is not held", async () => {

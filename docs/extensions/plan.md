@@ -103,7 +103,7 @@ for approval, because a collect writes that result into the session.
   section: with no such heading the whole document's shallowest list is read as the steps — a bullet under Context or
   Risks included — and approval seeds it, so a save and a review say when that is the list they took. A session holding
   the board's seat cannot enter plan mode — planning strips the contract and the signature the seat is for, so
-  `/board stop` first.
+  `/board exit` first.
 - The board refuses the model's `plan` `enter` while the session holds no card of its own: claim one first, so
   the plan has a card to record it against, or the refusal names the way out. `/plan` and Shift+Tab are the
   person's doors and are not gated.

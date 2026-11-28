@@ -1,6 +1,6 @@
 /**
  * The page's lifecycle: one mount per session, started by `/board` and given back by
- * `/board stop`, by the idle grace once the last tab has been gone for a minute, or by
+ * `/board exit`, by the idle grace once the last tab has been gone for a minute, or by
  * `session_shutdown`.
  *
  * Only the lifecycle lives here — the state machine, the prefix it holds, the note that
@@ -67,7 +67,7 @@ export interface BoardPageStatus {
 	attached?: boolean;
 	/**
 	 * True when that page no longer answers: the note is there, the process behind it is
-	 * not, and `/board stop` may drop it.
+	 * not, and `/board exit` may drop it.
 	 */
 	stale?: boolean;
 	/** The name the page serves as: a seat, not the session that opened it. */
@@ -118,13 +118,13 @@ export interface BoardPageDeps {
 }
 
 /**
- * What `/board stop` got when it went to drop a note nobody answers.
+ * What `/board exit` got when it went to drop a note nobody answers.
  *
  * An answer rather than a boolean, because the two ways it can end without dropping anything
  * are said differently: a page that came back is somebody's to stop, and a note that is
  * already gone is nothing left to do — calling that one "answering" is how a stale note
- * survived the `/board stop` that had just proved it dead. `gone` is also "this session
- * watches nothing", which `/board stop` never reaches: `stale` is what sends it here.
+ * survived the `/board exit` that had just proved it dead. `gone` is also "this session
+ * watches nothing", which `/board exit` never reaches: `stale` is what sends it here.
  */
 export type StaleDrop = "dropped" | "live" | "gone";
 
@@ -149,7 +149,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 	/**
 	 * Close the page this session serves, and take its note with it.
 	 *
-	 * One close for both callers: `/board stop` has a context and clears the status line, and
+	 * One close for both callers: `/board exit` has a context and clears the status line, and
 	 * a clean `session_shutdown` has none. The note must leave either way — a note nobody
 	 * answers makes every open tab reconnect forever and costs the next `/board` a probe
 	 * and a takeover before it serves.
@@ -161,7 +161,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 		await server.close();
 		await clearPointer(store.dir, token);
 		// A page that closed is no seat: the session's next card is written as itself. This is
-		// the one place all three closes pass — `/board stop`, the idle grace, and shutdown — so
+		// the one place all three closes pass — `/board exit`, the idle grace, and shutdown — so
 		// a page nobody is looking at cannot leave the session serving in name only.
 		runtime.serve(undefined);
 		return true;
@@ -409,7 +409,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 	 * check makes that true even if a new page wrote one in between. Either way this session
 	 * stops watching what it was: a note already removed by its owner, or replaced by a newer
 	 * one, is not one this session can clear, and holding the reference to it is what kept
-	 * `/board status` calling a gone note stale and `/board stop` calling its page alive.
+	 * `/board status` calling a gone note stale and `/board exit` calling its page alive.
 	 */
 	const dropStale = async (ctx: ExtensionContext): Promise<StaleDrop> => {
 		const pointer = attachedTo;

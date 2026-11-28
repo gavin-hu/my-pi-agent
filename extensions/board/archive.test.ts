@@ -12,7 +12,7 @@ import { describe, expect, test } from "bun:test";
 import { type Card, laneSince } from "../../lib/workflow/card.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
 import { billingCard as card } from "../../test/helpers/fixtures/board.ts";
-import { boundFromCommand, boundOf, closedAt, sweepFinished, sweepText } from "./archive.ts";
+import { boundOf, closedAt, sweepFinished, sweepText } from "./archive.ts";
 import { parseBound } from "./bound.ts";
 
 const NOW = 1_800_000_000_000;
@@ -83,29 +83,6 @@ describe("boundOf", () => {
 		expect(error).toContain('"30" is not an age');
 		expect(error).toContain("30d, 12h, or 90m");
 		expect(error).toContain("Nothing was swept.");
-	});
-});
-
-describe("boundFromCommand", () => {
-	test("reads the flag, and nothing at all without one", () => {
-		expect(boundFromCommand([])).toEqual({ ok: true });
-		expect(boundFromCommand(["--older-than", "30d"])).toEqual({ ok: true, bound: { spec: "30d", ms: 30 * DAY } });
-	});
-
-	test("refuses a tail that is not the flag, and sweeps nothing", () => {
-		// `/board archive 30d` is the case: no flag, and a word the rest of the command would read
-		// as a card id. It has to stop here, saying so.
-		for (const rest of [["30d"], ["--older", "30d"], ["--older-than"], ["--older-than", "30", "x"]]) {
-			const read = boundFromCommand(rest);
-			expect(read.ok, rest.join(" ")).toBe(false);
-			const error = read.ok ? "" : read.error;
-			expect(error).toContain("--older-than <age>");
-			expect(error).toContain("Nothing was swept.");
-		}
-		// A flag with an unreadable spec is the spec's refusal, in the words the tool also uses.
-		const unreadable = boundFromCommand(["--older-than", "30"]);
-		expect(unreadable.ok).toBe(false);
-		expect(unreadable.ok ? "" : unreadable.error).toContain('"30" is not an age');
 	});
 });
 

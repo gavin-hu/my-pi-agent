@@ -87,6 +87,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: **`/board stop` stops working** — the word is `/board exit`, and a line typed with the old one
+  is refused by the command's own "not a word this command knows — try" list, which now names `exit` among
+  the words. Nothing is aliased: a second spelling is how a vocabulary grows a dialect, and the refusal is
+  the migration message a person reads once. What the word *does* is unchanged, and that is what keeps
+  #866's merge in place — the page and the seat end together, so `exit` here means both, exactly what
+  `/team exit` means for a membership. That is also the reason for the rename: the team side already has
+  the door that ends a standing, and a person who has typed it should not learn a second word for the same
+  ending on the board. The page's own verbs keep their names (`page.stop()`, `board: stopped`), and the
+  release notes below keep the word they shipped, and the `team` bullet above names the old spelling
+  because that line is another card's record: the door it means is this one.
+
+- `board`: `/board`'s words are one table, one flag parser and one line. Every word the command accepts
+  is a row — its spelling, its sign, its flags and its run — so the description, the mistyped-word line, the
+  completer and the parser read that one table, where four spellings of the same vocabulary used to drift
+  apart. The scan is one left-to-right pass, and it changes the thing a person notices: a flag the row does
+  not declare is refused by name instead of being read as a card's tail and dropped — `/board review 4
+  --rote x` used to sign the card, and now answers `review takes no --rote — try --root <tree>, --override
+  <why>`. The two bespoke "approve takes no `--root` / `--override`" branches retire with the second flag
+  grammar, and the flag cases move to `extensions/board/words.test.ts` so no suite grows past its bar.
+
 - `todo`: the tool's description stopped stating what the model already reads elsewhere. Its whole-list
   rule was on the `todos` field and in the snippet, and its status list was the enum inside the schema, so
   the copy cost 170 characters on every request to say nothing new — the cut pays it back to 1,211, and the
@@ -187,6 +207,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   surface prints; the clamp keeps its ceiling, so a deliberate override still buys 16 KiB and pays
   what it costs. This is the bound, not the check: a pattern that gets past the gate now sits on a
   line whose worst case is milliseconds, which is the point — not that the line is safe.
+
+- `board`: a landing refuses to run a verb its process imported before board code moved. `/new`, `/board next`
+  and `/reload` keep a `lib/` module another extension already loaded, so a seat that took new board code
+  landed under the rule the merge had replaced — #1004's subject came out `merge(lib)` on a board card, and
+  a merge subject cannot be repaired. The verb now hashes its own judgement at import — `lib/workflow/land.ts`
+  and the reader `lib/workflow/suite-declarations.ts`, one digest over both — and recomputes it before the
+  merge, after every refusal a holder can already act on. A file that changed and a file that could not be
+  read both refuse, each naming the pair, because one digest cannot say which of the two it was; a process
+  whose files are unchanged lands exactly as it did, and the sentence names the restart that fixes it.
 
 ### Removed
 
