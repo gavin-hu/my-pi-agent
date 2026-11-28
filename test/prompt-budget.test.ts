@@ -139,11 +139,11 @@ interface Ceiling {
  * mode-shaped tools with no `action` parameter (`subagent`'s three modes, `send_wechat`'s one
  * of three fields) are rows too — they are just as redraw-heavy a call surface — and the case
  * below fails a registered tool that has an `action` and no row here, so a new verb-shaped tool
- * cannot arrive with nobody having measured it. A single-verb tool (`goal`, `todo`, `read_doc`,
- * `open_path`, `web_search`, `run_doctor`) is out of scope: it has no verb list to choose wrong —
- * unless its surface carries a configured value the model must know before it calls, which is why
- * `web_fetch` is a row: the body cap it publishes would otherwise grow unseen, and an unmeasured
- * surface drifts back into a refusal the model cannot anticipate (#898).
+ * cannot arrive with nobody having measured it. A single-verb tool (`goal`, `read_doc`, `open_path`,
+ * `web_search`, `run_doctor`) is out of scope: it has no verb list to choose wrong. Out of scope is not
+ * the same as unmeasured, so two carry a row anyway: `web_fetch`, whose surface publishes a configured
+ * body cap the model must know before it calls (#898), and `todo`, which cost more than two measured
+ * rows while stating three of its own facts twice (#959).
  */
 const CEILINGS: readonly Ceiling[] = [
 	// 8,156 before the restating bullets were cut; 7,200 held until `review` took the one-line
@@ -186,6 +186,12 @@ const CEILINGS: readonly Ceiling[] = [
 	// configured body cap cannot grow without a gate saying so. `longest` is the second guideline (90),
 	// not the surface's first impression of it.
 	{ tool: "web_fetch", max: 2_195, guidelines: 208, longest: 90 },
+	// 1,381 -> 1,211 at #959: the description stated its whole-list rule (the `todos` field's own
+	// sentence) and its status list (the enum inside `parameters`) a second time, and paid 170
+	// characters on every request for the copy. A single-verb tool earns a row when it outgrows the
+	// measured ones — and nothing else would hold this one: the missing-row case walks only tools
+	// with an `action`, so this surface drifts like any other unless the table names it.
+	{ tool: "todo", max: 1_211, guidelines: 356, longest: 177 },
 ];
 
 describe("the always-on tool surfaces", () => {
