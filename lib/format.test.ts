@@ -22,6 +22,7 @@ import {
 	MAX_OUTPUT_LINE,
 	outsideRepository,
 	pageSource,
+	parseAge,
 	pathRef,
 	PATH_REF_JS,
 	PLURAL_JS,
@@ -144,6 +145,22 @@ describe("formatAge", () => {
 		expect(AGE_WORDS_JS).toBe(String(ageWords));
 		const browserWords = new Function(`return (${AGE_WORDS_JS});`)() as (age: string) => string;
 		for (const age of ["now", "1m", "2h", "1d"]) expect(browserWords(age)).toBe(ageWords(age));
+	});
+});
+
+describe("parseAge", () => {
+	test("reads one whole number and one unit letter, in either case and around stray spaces", () => {
+		expect(parseAge("45s")).toBe(45_000);
+		expect(parseAge("90m")).toBe(90 * 60_000);
+		expect(parseAge("12h")).toBe(12 * 3_600_000);
+		expect(parseAge("30d")).toBe(30 * 86_400_000);
+		expect(parseAge(" 30D ")).toBe(30 * 86_400_000);
+	});
+
+	test("refuses a bare number, which is the shape of a card id, and an age of zero", () => {
+		for (const spec of ["", "30", "0d", "-1d", "30 days", "1w", "30dd", "d30", "1.5d"]) {
+			expect(parseAge(spec), spec).toBeUndefined();
+		}
 	});
 });
 
