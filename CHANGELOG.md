@@ -278,6 +278,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `lib`: a branch merely behind main's changelog reads as one that edited it, so a sync is a landing precondition (#1030)
+
 - `worktree`: a worktree lock can outlive the state that names it, and exit has no door to it (#1027)
 
 - `worktree`: a lock whose reason names a process's pid but a session id that process no longer runs is

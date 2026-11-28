@@ -11,8 +11,10 @@ import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
+	BASE,
 	BRANCH,
 	BULLET,
+	CHANGELOG,
 	cleanLanding,
 	LANDED,
 	landingWith,
@@ -47,12 +49,14 @@ describe("the landing's order and its argv", () => {
 			"rev-parse",
 			"rev-parse",
 			"rev-parse",
-			// The tree's verb, five files, then the branch's changelog: the reads a stale process must not
-			// let itself run past.
+			// The tree's verb, five files, then the branch's changelog read against its fork: the reads a
+			// stale process must not let itself run past.
 			"show",
 			"show",
 			"show",
 			"show",
+			"show",
+			"merge-base",
 			"show",
 			"show",
 			"show",
@@ -117,10 +121,13 @@ describe("the landing verb's fingerprint", () => {
 			"rev-parse",
 			"rev-parse",
 			"rev-parse",
+			// The tree's verb, five files — then the branch's changelog, read against its fork.
 			"show",
 			"show",
 			"show",
 			"show",
+			"show",
+			"merge-base",
 			"show",
 			"show",
 			"show",
@@ -219,5 +226,61 @@ describe("the verb the signed tree carries", () => {
 		);
 		expect(await answer).toMatchObject({ merge: MERGE });
 		expect(written).toHaveLength(1);
+	});
+});
+
+describe("the changelog a branch has fallen behind", () => {
+	/** Where the branch forked: main has moved on since. */
+	const FORK = "6666666666666666666666666666666666666666";
+	/** The bullet a peer landed while this branch sat still. */
+	const PEER = "- `board`: a neighbour's bullet\n\n";
+	/** Main's changelog: the fixture's, with that bullet at the head of its list. */
+	const MAIN = CHANGELOG.replace("### Changed\n\n", `### Changed\n\n${PEER}`);
+	/** What a landing leaves when the branch never touched the file: main's, plus this card's line. */
+	const withLine = (text: string) => text.replace("### Changed\n\n", `### Changed\n\n${BULLET}\n\n`);
+
+	/** A landing whose branch forked at `FORK`, and whose main has the peer's bullet. */
+	const behind = (branch: string, merge: string, overrides: Record<string, unknown> = {}) =>
+		cleanLanding({
+			[`merge-base ${BASE}`]: { stdout: `${FORK}\n` },
+			[`show ${BASE}:CHANGELOG.md`]: { stdout: MAIN },
+			[`show ${FORK}:CHANGELOG.md`]: { stdout: CHANGELOG },
+			[`show ${REVIEWED}:CHANGELOG.md`]: { stdout: branch },
+			[`show ${MERGE}:CHANGELOG.md`]: { stdout: merge },
+			...overrides,
+		});
+
+	test("a branch with no edit of its own lands, and the file it leaves is main's plus this card's line", async () => {
+		// The false refusal this card removes: the branch's file is its fork's, untouched, while main
+		// carries a peer's bullet — so a read that compares two tips calls the branch an editor.
+		const { written, answer } = landingWith(behind(CHANGELOG, withLine(MAIN)));
+		expect(await answer).toMatchObject({ merge: MERGE });
+		expect(written.at(0)?.text.trimEnd()).toBe(withLine(MAIN).trimEnd());
+	});
+
+	test("a branch that did edit the file still refuses, with the same sentence, before any merge", async () => {
+		const typed = CHANGELOG.replace("### Changed\n\n", `### Changed\n\n- a bullet the branch typed itself\n\n`);
+		const { git, answer } = landingWith(behind(typed, withLine(MAIN)));
+		const result = await answer;
+		expect(errorOf(result)).toContain("the branch edits CHANGELOG.md");
+		expect(errorOf(result)).toContain(BULLET);
+		expect(git.argv("merge")).toEqual([]);
+		expect(git.argv("push")).toEqual([]);
+	});
+
+	test("a behind branch on the bootstrap path passes the plan and meets the merge's conflict", async () => {
+		// The one shape whose answer changes in kind: the branch carries its line, main carries a peer's,
+		// and both land on the same head line — so nothing merges, and the sentence names the conflict.
+		const { git, answer } = landingWith(
+			behind(withLine(CHANGELOG), withLine(MAIN), {
+				...signedSources(REVIEWED, (path: string) =>
+					path.endsWith("/land-verb.ts") ? { stdout: "// a different guard\n" } : undefined,
+				),
+				merge: { code: 1, stderr: "CONFLICT (content): Merge conflict in CHANGELOG.md" },
+			}),
+		);
+		const result = await answer;
+		expect(errorOf(result)).toContain("the merge conflicts");
+		expect(git.argv("push")).toEqual([]);
 	});
 });
