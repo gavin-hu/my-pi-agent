@@ -399,11 +399,13 @@ interface ChangelogPlan {
  * The changelog this landing will leave behind, or why it will not land.
  *
  * Read from the two trees rather than from the checkout, because the branch's own copy is what a
- * merge would carry. Two shapes follow from the verb the tree holds: while it is this one, the branch
- * must not have touched the file and the landing writes the line itself; while it is not, this process
- * cannot apply that tree's rules, so the tree carries the line and the landing only holds it to the
- * line this verb would have written. A version cut is the one edit that rides either way — its foot
- * references, and only those, may differ.
+ * merge would carry — and read against where the branch **forked**, because main's tip also carries
+ * whatever peers landed since: a branch that is merely behind is not an editor, and a baseline taken
+ * from the tip reads it as one. Two shapes follow from the verb the tree holds: while it is this one,
+ * the branch must not have touched the file and the landing writes the line itself; while it is not,
+ * this process cannot apply that tree's rules, so the tree carries the line and the landing only holds
+ * it to the line this verb would have written. A version cut is the one edit that rides either way —
+ * its foot references, and only those, may differ.
  */
 async function changelogPlan(
 	call: (args: string[]) => Promise<Call>,
@@ -412,26 +414,41 @@ async function changelogPlan(
 	card: Card,
 	signed: SignedVerb,
 ): Promise<ChangelogPlan | { error: string }> {
+	// The one baseline the branch's own edit can be read against: main's tip is not it, since the tip
+	// carries every peer's landing since the fork.
+	const fork = await call(["merge-base", base, tip]);
+	if (!fork.ok || fork.out === "") {
+		return { error: `could not read where ${short(tip)} forked from ${short(base)} (${firstLine(fork.out)}).` };
+	}
 	const before = await call(["show", `${base}:${CHANGELOG_HOTSPOT}`]);
 	if (!before.ok) {
 		return { error: `could not read the base's ${CHANGELOG_HOTSPOT} (${firstLine(before.out)}).` };
+	}
+	const forked = await call(["show", `${fork.out}:${CHANGELOG_HOTSPOT}`]);
+	if (!forked.ok) {
+		return { error: `could not read the branch's fork of ${CHANGELOG_HOTSPOT} (${firstLine(forked.out)}).` };
 	}
 	const branch = await call(["show", `${tip}:${CHANGELOG_HOTSPOT}`]);
 	if (!branch.ok) {
 		return { error: `could not read the branch's ${CHANGELOG_HOTSPOT} (${firstLine(branch.out)}).` };
 	}
+	const heading = headingFor(card.type);
 	const bullet = landBullet(card);
-	const carried = insertBullet(before.out, headingFor(card.type), bullet);
-	if (carried === undefined) {
-		return {
-			error: `${CHANGELOG_HOTSPOT} has no \`## [Unreleased]\` window: a bullet is written there and nowhere else.`,
-		};
-	}
-	const from = referencesOf(before.out);
+	const from = referencesOf(forked.out);
 	const to = referencesOf(branch.out);
-	if (from.join("\n") !== to.join("\n") && to.length <= from.length) {
+	const cut = from.join("\n") !== to.join("\n");
+	if (cut && to.length <= from.length) {
 		return {
 			error: `the branch rewrites ${CHANGELOG_HOTSPOT}'s foot references without the new version's line, which is what a cut adds.`,
+		};
+	}
+	// The file the merge must leave — main's, or the branch's where it cut the references, the one edit
+	// that rides — and, on the bootstrap path, the one the branch must already carry.
+	const written = insertBullet(cut ? branch.out : before.out, heading, bullet);
+	const carried = insertBullet(forked.out, heading, bullet);
+	if (written === undefined || carried === undefined) {
+		return {
+			error: `${CHANGELOG_HOTSPOT} has no \`## [Unreleased]\` window: a bullet is written there and nowhere else.`,
 		};
 	}
 	if (signed.kind === "differs") {
@@ -446,13 +463,15 @@ async function changelogPlan(
 		// `call` trims its answer, so the file is rebuilt with the newline every line of it ended on.
 		return { bullet, text: `${branch.out}\n`, write: false };
 	}
-	if (withoutReferences(before.out) !== withoutReferences(branch.out)) {
+	if (withoutReferences(forked.out) !== withoutReferences(branch.out)) {
 		return {
 			error: `the branch edits ${CHANGELOG_HOTSPOT}: a landing writes the bullet itself, so drop that change — the line it will land is\n  ${bullet}`,
 		};
 	}
+	// The merge leaves main's file where the branch never changed it, and the branch's own where it cut
+	// the references — the one edit that rides — so the branch is authoritative for that block.
 	// `call` trims its answer, so the file is rebuilt with the newline every line of it ended on.
-	return { bullet, text: `${insertBullet(branch.out, headingFor(card.type), bullet)}\n`, write: true };
+	return { bullet, text: `${written}\n`, write: true };
 }
 
 /** The write, and the two commands that put it in the merge; `undefined` when all three worked. */
