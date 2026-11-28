@@ -438,7 +438,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	// a hand-rolled row builder would be a second block grammar beside `lib/tui`.
 	worktree: 45,
 	goal: 36,
-	watch: 34,
+	watch: 35, // 34 -> 35 (#985): the pattern check left format.ts for pattern.ts at the 600-line bar, and it cannot defer — `add` refuses before a watcher starts, so the check is synchronous by construction.
 	todo: 32,
 	wechat: 32,
 	"file-read": 30,

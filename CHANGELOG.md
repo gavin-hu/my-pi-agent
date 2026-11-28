@@ -173,6 +173,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`: a pattern copied out of `status` and back into `add` meant something else — `api/v1`
+  printed `/api/v1/i`, which read back as that literal expression with the delimiters glued on, so
+  the watcher matched nothing and the log looked clean. A `/` in the body is printed escaped and the
+  reader accepts the escape, so the printed form is the form it parses; the `wake` badge left the
+  pattern for a line of its own, because a copied pattern that silently wakes a turn costs more than
+  a badge missing from the line being copied. The check itself moved to `pattern.ts`, since
+  `format.ts` was 36 lines from the module bar, which prices as one static module on the entry.
+
 - `watch`: a pattern that repeats a group whose iteration can end more than one place froze the
   session rather than being refused, and every one of those shapes was accepted: `(\w+\s?)+` cost
   525 ms on a 27-character line, `(a+a)+` 47 ms at 32, `(a{1,3})+` 376 ms, and the gate only looked
