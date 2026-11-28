@@ -28,7 +28,7 @@ function frame(): (toolName: string, next: () => ToolRenderers | undefined) => F
 }
 
 /** What a block draws, without the SGR a real theme would carry. */
-function plain(lines: string[]): string {
+function plain(lines: readonly string[]): string {
 	return lines.map((line) => stripTerminalSequences(line)).join("\n");
 }
 

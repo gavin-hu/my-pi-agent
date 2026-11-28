@@ -49,7 +49,7 @@ function worktreeTool(): WorktreeTool {
 }
 
 /** One result, drawn collapsed or expanded at a width. */
-function draw(tool: WorktreeTool, details: unknown, width: number, expanded = false): string[] {
+function draw(tool: WorktreeTool, details: unknown, width: number, expanded = false): readonly string[] {
 	const result = { content: [{ type: "text" as const, text: "the model's copy" }], details };
 	return tool
 		.renderResult(result, { expanded, isPartial: false }, theme, toolRenderContext({ expanded }))
@@ -57,12 +57,12 @@ function draw(tool: WorktreeTool, details: unknown, width: number, expanded = fa
 }
 
 /** One call line at a width. */
-function call(tool: WorktreeTool, args: Record<string, unknown>, width: number): string[] {
+function call(tool: WorktreeTool, args: Record<string, unknown>, width: number): readonly string[] {
 	return tool.renderCall(args, theme, toolRenderContext()).render(width);
 }
 
 /** Every line fits the width it was drawn at. */
-function expectFits(lines: string[], width: number): void {
+function expectFits(lines: readonly string[], width: number): void {
 	for (const line of lines) expect(visibleWidth(line), line).toBeLessThanOrEqual(width);
 }
 

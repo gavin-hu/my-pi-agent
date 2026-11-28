@@ -10,6 +10,8 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { lastSegment } from "../../lib/path.ts";
 import {
 	BASE,
 	BRANCH,
@@ -82,7 +84,8 @@ describe("the landing's order and its argv", () => {
 			"merge(board): land is a reviewed card's verb, not a mode exit (#856)",
 		]);
 		// The write is the file itself, not a description of one: the merge's tree is compared to it.
-		expect(written).toEqual([{ path: "/checkout/CHANGELOG.md", text: LANDED }]);
+		// `join` because the verb joins the platform's way, and this case runs on Windows too.
+		expect(written).toEqual([{ path: join("/checkout", "CHANGELOG.md"), text: LANDED }]);
 		// A named ref, and never a force.
 		expect(git.calls.at(-1)).toEqual(["push", "origin", "main:main"]);
 	});
@@ -94,7 +97,7 @@ describe("the landing verb's fingerprint", () => {
 		// the merge may delete, `changelog.ts` decides the one line the landing writes, `land-subject.ts`
 		// spells it, and `land-verb.ts` spells this list — a guard missing that last one would let a tree
 		// weaken `signedVerb` itself and land unexamined.
-		expect(VERB_SOURCES.map((path) => path.split("/").at(-1))).toEqual([
+		expect(VERB_SOURCES.map((path) => lastSegment(path))).toEqual([
 			"land.ts",
 			"suite-declarations.ts",
 			"changelog.ts",
