@@ -17,12 +17,17 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 import { CASE_BUDGET_MS } from "../test/helpers/budget.ts";
 import { BROWSER_SUITES, SMOKE_SUITES } from "../test/helpers/browser-suites.ts";
-import { display, type Facts, planFor, RUNNER_FILES } from "./check.ts";
+import { display, type Facts, hintFor, PARALLEL_HINT_MS, parseParallel, planFor, RUNNER_FILES } from "./check.ts";
 
 /** A branch that changed one leaf module. */
 const LEAF: Facts = { changed: ["lib/workflow/verify.ts"] };
+
+/** A suite no other suite imports, so the case that runs the runner recurses into nothing. */
+const LEAF_SUITE = "lib/json.test.ts";
 
 /** The commands as `display` spells them, which is what a reader sees and what a case can read. */
 function lines(facts: Facts): string[] {
@@ -48,7 +53,7 @@ function ignoredSuites(facts: Facts): string[] {
 }
 
 describe("the browser tier", () => {
-	test("ignores exactly the layer's suites outside the smoke three", () => {
+	test("ignores exactly the layer's suites outside the smoke four", () => {
 		const ignored = ignoredSuites(LEAF);
 		expect(ignored).toHaveLength(BROWSER_SUITES.length - SMOKE_SUITES.length);
 		for (const suite of ignored) expect(BROWSER_SUITES).toContain(suite);
@@ -192,5 +197,81 @@ describe("the line a reader sees", () => {
 
 	test("prints a command that is its own binary as it is", () => {
 		expect(display(["git", "status"])).toBe("git status");
+	});
+});
+
+describe("a worker count a caller asks for", () => {
+	test("rides both test commands, after the budget, and nothing else", () => {
+		const plan = planFor({ ...LEAF, parallel: 4 });
+		expect(display(plan.commands[0] ?? [])).toBe("bun run check:format");
+		expect(display(plan.commands[1] ?? [])).toBe("bun run check:types");
+		expect(display(plan.commands[2] ?? []).startsWith("bun test --timeout 90000 --parallel=4 --changed=main ")).toBe(true);
+		expect(display(plan.commands[3] ?? []).startsWith("bun test --timeout 90000 --parallel=4 test/ ")).toBe(true);
+	});
+
+	test("is carried by a widened plan too, because only a human asked for it", () => {
+		expect(display(planFor({ all: true, parallel: 4 }).commands[2] ?? [])).toBe("bun test --timeout 90000 --parallel=4");
+	});
+
+	test("is absent from every plan nobody asked, which is the default this card keeps", () => {
+		const wider: Facts[] = [
+			LEAF,
+			{ all: true, changed: ["lib/workflow/verify.ts"] },
+			{ changed: [] },
+			{ changed: undefined },
+			{},
+		];
+		for (const facts of wider) expect(lines(facts).some((line) => line.includes("--parallel"))).toBe(false);
+	});
+});
+
+describe("the flag as the wrapper reads it", () => {
+	test("takes a positive count", () => {
+		expect(parseParallel(["--all"])).toEqual({});
+		expect(parseParallel(["--parallel=4"])).toEqual({ parallel: 4 });
+		expect(parseParallel(["--all", "--parallel=2"])).toEqual({ parallel: 2 });
+	});
+
+	test("refuses a bare flag or a count that is not a positive number, rather than dropping it", () => {
+		// A silent drop is a gate that ignores what it was asked; filling in a number is a gate guessing
+		// the cores of a machine it has not met.
+		for (const argv of [["--parallel"], ["--parallel=0"], ["--parallel=four"], ["--parallel="]]) {
+			expect(parseParallel(argv).refusal).toContain("--parallel=4");
+			expect(parseParallel(argv).parallel).toBeUndefined();
+		}
+	});
+});
+
+describe("the advice a slow step gets", () => {
+	const step = (facts: Facts = LEAF): readonly string[] => planFor(facts).commands[2] ?? [];
+
+	test("names the command that would have been faster, and the seconds it took", () => {
+		const hint = hintFor({ command: step(), ms: 129_400 });
+		expect(hint).toContain("129s");
+		expect(hint).toContain("bun run check --parallel=4");
+	});
+
+	test("says nothing below the bar, when the run already asked, or for a step that is not a test run", () => {
+		expect(hintFor({ command: step(), ms: PARALLEL_HINT_MS - 1 })).toBeUndefined();
+		expect(hintFor({ command: step({ ...LEAF, parallel: 4 }), ms: PARALLEL_HINT_MS * 10 })).toBeUndefined();
+		expect(hintFor({ command: planFor(LEAF).commands[0] ?? [], ms: PARALLEL_HINT_MS * 10 })).toBeUndefined();
+	});
+});
+
+describe("the runner's own answer", () => {
+	test("accepts the flag this gate forwards, and runs the suite it names", () => {
+		// The one case here that starts a second process, and the reason is the card: a flag the runner
+		// ignored would make every `verify` in the repository a no-op, and one it rejected would break
+		// them all at once. Neither is visible from a green run, so the flag is spent here — once, over a
+		// leaf suite. `PI_NO_LOCK` because this suite already holds the machine's lock.
+		const run = spawnSync(process.execPath, ["test", "--timeout", String(CASE_BUDGET_MS), "--parallel=4", LEAF_SUITE], {
+			cwd: join(import.meta.dir, ".."),
+			env: { ...process.env, PI_NO_LOCK: "1" },
+			encoding: "utf8",
+		});
+		expect(run.status).toBe(0);
+		// Honoured, not merely tolerated: the banner names the worker count the flag asked for, which is
+		// the half a green run cannot show — a flag that parsed and was then ignored looks identical.
+		expect(run.stdout).toContain("PARALLEL");
 	});
 });
