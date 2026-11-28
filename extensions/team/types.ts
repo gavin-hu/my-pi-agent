@@ -3,9 +3,9 @@
  *
  * A `team` result is usually one card plus what happened to the handoff, so the details
  * say both: `assigned` is who the card went to, `delivered` is the labels the bus wrote
- * a message file for, and `messageError` is the send that never landed — a card is
- * never left in a state the report does not describe. `ask` is the one verb with no
- * card: it reports the same two send facts and nothing else.
+ * a message file for, and a send that never landed is a refusal carrying the card as it
+ * is — a card is never left in a state the report does not describe. `ask` is the one verb
+ * with no card: it reports the same two send facts and nothing else.
  *
  * The prompt text lives here for the reason `board`'s action docs do: `test/prompt-budget.test.ts`
  * measures the registered surface, so the words are exported where a test can reach them, and the
@@ -33,8 +33,8 @@ export type TeamAction = (typeof TEAM_ACTIONS)[number];
 
 /** What a round is, and what each of its three verbs does. */
 export const TEAM_DESCRIPTION =
-	"Run a round of work over the shared board: `assign` sends a running session a handoff and then records the owner " +
-	"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
+	"Run a round of work over the shared board: `assign` records a running session as the owner and then sends it the " +
+	"handoff; `offer` broadcasts an unclaimed card to every other " +
 	"live session, then records the moment it was made — the lane and the owner stay put — so the first to claim " +
 	"it takes it, and a lead can tell an offer nobody took from a card nobody has looked at; `ask` sends one peer a " +
 	"question and reports what the bus did with it — delivered, or waiting for that peer's next turn — so the answer " +
@@ -93,9 +93,8 @@ export interface TeamDetails {
 	 * `re: <id>` is what pairs the two. Present on `ask` alone.
 	 */
 	askId?: string;
-	/** Why the handoff was not sent; the card is untouched when this is set. */
-	messageError?: string;
-	/** A refusal's reason, which the renderer draws instead of the details. */
+	/**
+	 * A refusal's reason, which the renderer draws instead of the details. */
 	error?: string;
 }
 

@@ -1,8 +1,8 @@
 /**
  * team — the lead's round over the shared board.
  *
- * `board` owns the cards; `team` owns the lead's round over them. `assign` sends a handoff
- * to a session that is already running and then records the owner — dispatch cannot start a
+ * `board` owns the cards; `team` owns the lead's round over them. `assign` records a session that
+ * is already running as the card's owner and then sends it a handoff — dispatch cannot start a
  * peer's turn, and the page and the docs say so — `offer` broadcasts one to whoever is
  * free, and `ask` puts a question to one peer. The three are the verbs that reach another
  * session; a card's own state is `board`'s. Its one command, `/team`, prints the round the
