@@ -115,6 +115,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a `done` move handed no landing verdict is refused as unchecked, the way a missing plan proof already
+  was, so a caller that forgot to resolve the branch cannot close a card on an omission. The verdict grew the third
+  shape it always needed — `none`, for a spot-check that named no commit or a branch with nothing to land — which is a
+  fact rather than the absence of one, and `instructionFor` says so instead of calling it a landing. The tool's own
+  resolution of the chain is unchanged. The three plan refusals the `artifact` requirement shared a module with moved
+  to `artifact.ts`, where the fact belongs, and that is what kept `steps.ts` under its bar.
+
 - `board`: plan mode is a card's own step, so the model's `plan` `enter` is refused while this session
   holds no card — naming `claim` (`board add` opens one) so the plan has a card to record it against,
   and `/team exit` where a bus makes leaving a door. It gates the model's door only: `/plan` and

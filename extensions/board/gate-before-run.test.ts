@@ -152,7 +152,12 @@ describe("the person's door", () => {
 			person,
 			at,
 		);
-		await next.store.mutate(next.id, { kind: "move", lane: "done", artifact: { record: next.plan } }, next.me, at + 1);
+		await next.store.mutate(
+			next.id,
+			{ kind: "move", lane: "done", artifact: { record: next.plan }, landed: { none: true } },
+			next.me,
+			at + 1,
+		);
 		const file = cardFile(next.agentDir, next.id);
 		const card = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
 		delete card.review;

@@ -80,7 +80,7 @@ describe("claim", () => {
 	});
 
 	test("refuses a finished card", () => {
-		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
+		const done = stepOf(reviewed(), doneOf(reviewed()), CORE);
 		expect(refusal(applyOp(done, { kind: "claim" }, LEAD, NOW, boardOf(done)))).toBe(
 			"#4 is done; it cannot be claimed.",
 		);
@@ -139,7 +139,7 @@ describe("assign", () => {
 	});
 
 	test("refuses a finished card", () => {
-		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
+		const done = stepOf(reviewed(), doneOf(reviewed()), CORE);
 		expect(refusal(applyOp(done, { kind: "assign", to: OTHER }, LEAD, NOW, boardOf(done)))).toBe(
 			"#4 is done; it cannot be assigned.",
 		);
@@ -177,7 +177,7 @@ describe("release", () => {
 	test("release refuses a card nobody holds, and a finished one", () => {
 		const pool = created();
 		expect(refusal(applyOp(pool, { kind: "release" }, CORE, NOW, boardOf(pool)))).toBe("#4 is not claimed.");
-		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
+		const done = stepOf(reviewed(), doneOf(reviewed()), CORE);
 		expect(refusal(applyOp(done, { kind: "release" }, CORE, NOW, boardOf(done)))).toBe(
 			"#4 is done; it cannot be released.",
 		);
@@ -493,7 +493,7 @@ describe("move", () => {
 		expect(refusal(applyOp(card, doneOf(card), OTHER, NOW, boardOf(card)))).toBe(
 			"#4 is held by billing-core. Only its owner can move it.",
 		);
-		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
+		const done = stepOf(reviewed(), doneOf(reviewed()), CORE);
 		expect(
 			refusal(applyOp(done, { kind: "move", lane: "execute", artifact: provedFor(done) }, CORE, NOW, boardOf(done))),
 		).toBe("#4 is done; it cannot be moved.");
@@ -650,7 +650,7 @@ describe("offer, archive, and drop", () => {
 		expect(refusal(applyOp(executingCard, { kind: "archive" }, CORE, NOW, boardOf(executingCard)))).toBe(
 			"#4 is in execute; only a finished card can be archived.",
 		);
-		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
+		const done = stepOf(reviewed(), doneOf(reviewed()), CORE);
 		const result = accepted(applyOp(done, { kind: "archive" }, LEAD, NOW, boardOf(done)));
 		expect(result.changed).toBe(true);
 		expect(result.card).toEqual(done);

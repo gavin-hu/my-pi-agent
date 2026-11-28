@@ -191,6 +191,39 @@ export function planForExecute(planDir: string, card: Pick<Card, "id" | "lane" |
 }
 
 /**
+ * Why a card's plan requirement is not met, or `undefined` when it is.
+ *
+ * The whole of the `artifact` requirement a move asks: the three sentences a missing plan, an
+ * unproved one and a proof bound to another record are refused with, and the comparison of the
+ * record the proof names with the one the card holds. It lives here because it is entirely about
+ * the plan store's fact; `steps.ts`'s `unmet` asks it with the proof the caller handed in, and
+ * `approve` asks the same question through the same switch.
+ */
+export function artifactRefusal(card: Card, artifact: ArtifactProof | undefined): string | undefined {
+	if (card.planPath === undefined) {
+		return `${cardRef(card.id)} has no plan recorded; ${contractRoute(card)}`;
+	}
+	// Fail closed: a lane that requires a proved plan refuses when the caller did not hand one in,
+	// so a surface added later cannot pass the gate by forgetting it. A check that failed speaks
+	// with its own sentence, built where the file was read.
+	if (artifact === undefined) {
+		return `${cardRef(card.id)}'s plan was not checked; ${contractRoute(card)}`;
+	}
+	// The caller hands over the question, not the answer: `applyOp` runs inside the store's lock,
+	// so this is the stat taken there — a file deleted while the write waited is refused here.
+	const check = proved(artifact);
+	if ("error" in check) return check.error;
+	// The proof is bound to the record it was computed for: a fact about one path cannot open a card
+	// whose path is another, and a plan re-recorded between the read and the write is a card to read
+	// again rather than one to force. The record is the card's own string, a store-relative name for
+	// a card this build wrote and an absolute path for one written before names were kept, so the two
+	// spellings of one plan cannot match.
+	return check.record === card.planPath
+		? undefined
+		: `${cardRef(card.id)}'s plan changed while it was being read; ${contractRoute(card)}`;
+}
+
+/**
  * Whether a card's recorded plan is gone, where that is a fact worth drawing.
  *
  * `plan` and `execute` only: entering `execute` and entering `done` are the two moments the gate

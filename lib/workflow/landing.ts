@@ -365,6 +365,11 @@ export function instructionFor(options: {
 	if (options.target !== "done") {
 		return { error: `an instruction closes a card; it has nothing to say about a move to ${options.target}.` };
 	}
+	if (options.verdict !== undefined && "none" in options.verdict) {
+		return {
+			error: `${cardRef(card.id)} has no landing to stand in for; an instruction answers one the gate refused.`,
+		};
+	}
 	if (options.verdict === undefined || !("refusal" in options.verdict)) {
 		return { error: `${cardRef(card.id)} names a landing; an instruction has nothing to stand in for.` };
 	}
@@ -372,12 +377,16 @@ export function instructionFor(options: {
 }
 
 /**
- * What a `done` move is handed: the landing it names, or the sentence refusing one.
+ * What a `done` move is handed: the landing it names, the sentence refusing one, or the fact that
+ * there was nothing to prove.
  *
  * The proof is a question and this is its answer, decided where the chain was read. `applyOp` applies
- * it rather than asking again, which is why `steps.ts` needs no landing module at all.
+ * it rather than asking again, which is why `steps.ts` needs no landing module at all. `none` is a
+ * fact, not an omission: a spot-check whose run named no commit, or a branch with nothing on it, has
+ * nothing for the gate to prove — while a caller that hands no verdict at all is refused as
+ * unchecked, the way a missing plan proof is.
  */
-export type LandingVerdict = { landing: { sha: string } } | { refusal: string };
+export type LandingVerdict = { landing: { sha: string } } | { refusal: string } | { none: true };
 
 /** The verdict for a proof the caller already read. */
 export function landingVerdict(proof: LandingProof, reviewed: string, id: string, declared?: string): LandingVerdict {

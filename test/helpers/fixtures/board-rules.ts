@@ -118,6 +118,15 @@ export function provedFor(card: Card) {
 	return { record: card.planPath ?? "plans/webhook.md" };
 }
 
+/**
+ * The verdict a close with nothing to prove hands in.
+ *
+ * A spot-check whose run named no commit — a verify that ran outside a repository — has no landing
+ * to resolve, and `none` is that fact. A case that means to close with no verdict at all is a case
+ * about the gate's fail-closed direction, not a card any door could produce.
+ */
+export const noLanding = { none: true } as const;
+
 /** A card whose contract is written, still in `plan`. */
 export function written(owner: Actor = CORE, contract: Partial<Contract> = {}): Card {
 	return stepOf(claimed(owner), { kind: "contract", artifact: proved(), ...CONTRACT, ...contract }, owner);
@@ -277,7 +286,9 @@ export function reviewOf(card: Card) {
  */
 export function finished(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
 	const card = reviewed(owner, reviewer);
-	return stepOf(card, { kind: "move", lane: "done", artifact: provedFor(card) }, owner);
+	// The fixture's spot-check names no commit (`reviewOf` writes no sha), so the close is the one a run
+	// outside a repository makes: nothing to prove, which is `noLanding`.
+	return stepOf(card, { kind: "move", lane: "done", artifact: provedFor(card), landed: noLanding }, owner);
 }
 
 /** A card in `plan` on one of `ids`, for the cases that need several at once. */

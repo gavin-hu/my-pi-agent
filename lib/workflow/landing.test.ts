@@ -14,7 +14,10 @@ import {
 	CORE,
 	doneOf,
 	landingFor as proofOf,
+	mayOp,
 	NOW,
+	provedFor,
+	reviewed,
 } from "../../test/helpers/fixtures/board-rules.ts";
 import {
 	landingFor,
@@ -357,5 +360,26 @@ describe("closing a card by instruction", () => {
 		// above is the rule rather than an empty set.
 		const early = { ...card, log: [], createdAt: started - 9_000 };
 		expect(landingGate(card.id, card.review?.verified?.sha, proofOf(early, chain))).toContain("on `main`");
+	});
+});
+
+describe("a close handed no verdict", () => {
+	test("is refused as unchecked, rather than trusted", () => {
+		const card = reviewed();
+		// The op a door builds with the one fact it resolves left out: the shape a surface added later
+		// produces by forgetting it, and the one that used to close a card without a question.
+		const refused = mayOp(card, { kind: "move", lane: "done", artifact: provedFor(card) }, CORE, boardOf(card));
+		expect(refused).toContain("landing was not checked");
+	});
+
+	test("closes on `none`, the fact that the sign had nothing to prove", () => {
+		const card = reviewed();
+		const op = {
+			kind: "move" as const,
+			lane: "done" as const,
+			artifact: provedFor(card),
+			landed: { none: true as const },
+		};
+		expect(mayOp(card, op, CORE, boardOf(card))).toBeUndefined();
 	});
 });
