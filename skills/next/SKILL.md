@@ -190,7 +190,7 @@ When the user picks an item, the audit is over:
 - Enter plan mode when the host provides it and the item spans files, changes a
   public surface, or has an unknown step list. Track a small one in a todo list.
 - Run the project's check first for a baseline, and finish with the full check.
-- Do not commit unless the user asks.
+- Commit on the branch the work is on, and never on `main`.
 
 ## 9. Stop conditions
 
