@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { MAX_TODOS } from "../../lib/todo-state.ts";
 import { BOARD_ACTIONS } from "../../lib/workflow/actions.ts";
 import {
-	EMPTY_LIST_MUTATIONS,
 	formatNudge,
+	IDLE_LIST_MUTATIONS,
 	isFileWrite,
 	isMutatingTool,
 	MUTATING_TOOL_NAMES,
@@ -312,18 +312,25 @@ describe("nudge rules", () => {
 	});
 
 	test("no list is due only after repeated work that wrote something", () => {
-		expect(shouldNudge(state({ todos: [], mutations: EMPTY_LIST_MUTATIONS - 1 }))).toBe(false);
-		expect(shouldNudge(state({ todos: [], mutations: EMPTY_LIST_MUTATIONS }))).toBe(true);
-		expect(shouldNudge(state({ todos: [], writes: 0, mutations: EMPTY_LIST_MUTATIONS }))).toBe(false);
+		expect(shouldNudge(state({ todos: [], mutations: IDLE_LIST_MUTATIONS - 1 }))).toBe(false);
+		expect(shouldNudge(state({ todos: [], mutations: IDLE_LIST_MUTATIONS }))).toBe(true);
+		expect(shouldNudge(state({ todos: [], writes: 0, mutations: IDLE_LIST_MUTATIONS }))).toBe(false);
 	});
 
 	test("a list the model wrote or cleared this turn is left alone", () => {
 		expect(shouldNudge(state({ todos: [], touched: true }))).toBe(false);
-		expect(shouldNudge(state({ todos: [], touched: true, mutations: EMPTY_LIST_MUTATIONS }))).toBe(false);
+		expect(shouldNudge(state({ todos: [], touched: true, mutations: IDLE_LIST_MUTATIONS }))).toBe(false);
+		expect(shouldNudge(state({ todos: [completed("done")], touched: true, mutations: IDLE_LIST_MUTATIONS }))).toBe(
+			false,
+		);
 	});
 
-	test("never due when every item is completed", () => {
-		expect(shouldNudge(state({ todos: [completed("done")], mutations: EMPTY_LIST_MUTATIONS }))).toBe(false);
+	test("a closed list is due after the same repeated work as no list at all", () => {
+		// A single edit after the finish is not evidence the work needed a new item, so the
+		// threshold is the idle one rather than one call.
+		expect(shouldNudge(state({ todos: [completed("done")] }))).toBe(false);
+		expect(shouldNudge(state({ todos: [completed("done")], writes: 0, mutations: IDLE_LIST_MUTATIONS }))).toBe(false);
+		expect(shouldNudge(state({ todos: [completed("done")], mutations: IDLE_LIST_MUTATIONS }))).toBe(true);
 	});
 
 	test("the reminder carries the marker and points at the active item", () => {
@@ -338,5 +345,13 @@ describe("nudge rules", () => {
 		expect(text).toContain("no todo list was recorded");
 		expect(text).not.toContain("still points at");
 		expect(text).not.toContain("unfinished items");
+	});
+
+	test("the closed-list reminder asks for a new item, not a correction", () => {
+		const text = formatNudge([completed("done"), completed("also done")]);
+		expect(text).toContain(TODO_NUDGE_MARKER);
+		expect(text).toContain("after the todo list was closed");
+		expect(text).not.toContain("still points at");
+		expect(text).not.toContain("no todo list was recorded");
 	});
 });
