@@ -173,6 +173,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`: `add` answered `Watching w1` for a command that never started — the spawn threw, a record
+  went in with `status: "error"`, and the model read success and then read an empty match list as a
+  clean log. The failure is the reply now: `the command did not start, so nothing is watching:
+  <error>`, with nothing registered and the id still burned, while a child that did start and then
+  failed keeps its record and the lines it read.
+
 - `watch`: a pattern copied out of `status` and back into `add` meant something else — `api/v1`
   printed `/api/v1/i`, which read back as that literal expression with the delimiters glued on, so
   the watcher matched nothing and the log looked clean. A `/` in the body is printed escaped and the

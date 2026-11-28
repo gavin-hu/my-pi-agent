@@ -5,6 +5,9 @@ import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/watch.ts";
+import type { SpawnFn } from "../../lib/spawn.ts";
+import { DEFAULT_CONFIG } from "./config.ts";
+import { createWatchRuntime } from "./runtime.ts";
 import { registerCommands } from "./commands.ts";
 import { registerTools, TOOL_NAME } from "./tools.ts";
 import { resultText } from "../../test/helpers/tools.ts";
@@ -25,6 +28,25 @@ function setup(mode = "print") {
 
 /** The registered `watch` tool: a case passes the fields an action reads, and reads its details. */
 type WatchTool = ToolDefinition<TSchema, WatchDetails>;
+
+/**
+ * A harness whose spawn throws `thrown`, which is what `children.start` catches and hands back.
+ *
+ * The fixture's fake child always starts, so a spawn that fails has to be driven from the seam:
+ * a function that always throws is assignable to `SpawnFn` because it never returns.
+ */
+function setupBrokenSpawn(thrown: unknown) {
+	const h = suite.makeHarness();
+	const spawn: SpawnFn = () => {
+		throw thrown;
+	};
+	const runtime = createWatchRuntime({ spawn, config: DEFAULT_CONFIG, autoClock: false });
+	const { pi, tools } = createFakePi();
+	registerTools(pi, runtime);
+	const { ctx } = makeCtx({ cwd: h.dir });
+	runtime.load(ctx);
+	return { h, ctx, runtime, tool: tools.get(TOOL_NAME) };
+}
 
 /** Execute one `watch` tool call against the harness context. */
 function call(tool: WatchTool, ctx: ExtensionToolContext, args: Record<string, unknown>) {
@@ -63,6 +85,30 @@ describe("watch tool", () => {
 		const result = await call(tool, ctx, { action: "add", pattern: "error" });
 		expect(result.isError).toBe(true);
 		expect(result.details.error).toMatch(/requires a path or a command/);
+	});
+
+	test("an add whose command cannot start answers an error and keeps nothing", async () => {
+		// The failure this card exists for: a spawn that throws used to leave an `error` record and
+		// answer `Watching w1: …`, so the model read success and then read an empty match list as a
+		// clean log. The sentence says which failure happened, because #983's refusals happen before
+		// a watcher exists and this one used to happen after.
+		const { ctx, runtime, tool } = setupBrokenSpawn(new Error("spawn nope ENOENT"));
+		const result = await call(tool, ctx, { action: "add", command: "nope --go", pattern: "x" });
+		// The assertion that names the bug first: the reply the model used to read is never built.
+		expect(resultText(result)).not.toContain("Watching");
+		expect(result.isError).toBe(true);
+		expect(resultText(result)).toContain("the command did not start, so nothing is watching: spawn nope ENOENT");
+		expect(runtime.list()).toEqual([]);
+	});
+
+	test("the same when the spawn throws something that is not an Error", async () => {
+		// The seam hands back `String(thrown)` for a non-Error, so the sentence carries whatever it
+		// produced rather than a shape this code invented.
+		const { ctx, runtime, tool } = setupBrokenSpawn("nope --go: command not found");
+		const result = await call(tool, ctx, { action: "add", command: "nope --go", pattern: "x" });
+		expect(result.isError).toBe(true);
+		expect(resultText(result)).toContain("nothing is watching: nope --go: command not found");
+		expect(runtime.list()).toEqual([]);
 	});
 
 	test("list reports the watchers", async () => {
