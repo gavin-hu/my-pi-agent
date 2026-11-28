@@ -29,7 +29,6 @@
  * most — and the caller polls on its own clock.
  */
 
-import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { WaitingPage } from "./session-mail.ts";
 import { sameLabel } from "./session-label.ts";
@@ -394,50 +393,9 @@ export function presenceOf(
 	return record === undefined ? "absent" : rosterStateOf(record, now);
 }
 
-/** The fields this reader trusts; anything else in the file is the bus's business. */
-interface SessionPayload {
-	id: string;
-	label: string;
-	mode: string;
-	lastSeen: number;
-}
-
 /** A record's pid, read only when it is the shape a pid has. */
 function pidOf(value: unknown): number | undefined {
 	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
-}
-
-function isSessionPayload(value: unknown): value is SessionPayload {
-	if (typeof value !== "object" || value === null) return false;
-	const { id, label, mode, lastSeen } = value as Record<string, unknown>;
-	return (
-		typeof id === "string" && typeof label === "string" && typeof mode === "string" && typeof lastSeen === "number"
-	);
-}
-
-/**
- * The listening field, read only when it is the shape the bus writes.
- *
- * A malformed field is not a reason to hide a teammate: the row still draws, and the
- * only thing lost is the claim that mail will reach it. Exported because the field is
- * the record's, and `lib/session-tool.ts` reads the same one over the tool rather than
- * over the files — one reader for one shape.
- */
-export function watchingOf(value: unknown): { armed: boolean; wake: boolean } | undefined {
-	if (typeof value !== "object" || value === null) return undefined;
-	const { armed, wake } = value as Record<string, unknown>;
-	return typeof armed === "boolean" && typeof wake === "boolean" ? { armed, wake } : undefined;
-}
-
-/**
- * The mail ids the record says its session was told about, read only when they are ids.
- *
- * A malformed cursor costs the cursor and not the row, the rule `watchingOf` follows: a page must
- * still draw a teammate, and the most a bad field can do is count its mail as untold.
- */
-function seenOf(value: unknown): string[] | undefined {
-	if (!Array.isArray(value)) return undefined;
-	return value.every((id): id is string => typeof id === "string") ? value : undefined;
 }
 
 /** One record as this reader parsed it, before the ledger turns it into a row. */
@@ -537,45 +495,40 @@ export async function readTeam(dir: string, options: TeamReadOptions = {}): Prom
 	};
 }
 
-/** Every record on disk, parsed once, or `undefined` when the bus has never recorded one. */
+/**
+ * Every record on disk, parsed once, or `undefined` when the bus has never recorded one.
+ *
+ * `undefined` and `[]` are different answers — a machine where the bus was never used, and a bus
+ * whose sessions have all gone — so the walk reports a directory that is not there, and the
+ * distinction survives the shared parser.
+ *
+ * This reader requires what the bus requires: since #992 one writer holds the record, so a file
+ * missing `pid`, `cwd`, `repoRoot` or `startedAt` is not one this build wrote. A row it cannot
+ * read is not drawn, which is the same answer the bus gives — the two readers agreeing about
+ * which files are sessions is the point of them sharing this walk.
+ */
 async function readRecords(dir: string): Promise<RecordedSession[] | undefined> {
-	const { JSON_SUFFIX, SESSIONS_DIR_NAME } = await import("./session-files.ts");
-	let names: string[];
-	try {
-		names = await readdir(join(dir, SESSIONS_DIR_NAME));
-	} catch {
-		return undefined;
-	}
-	const records: RecordedSession[] = [];
-	for (const name of names) {
-		if (!name.endsWith(JSON_SUFFIX)) continue;
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(await readFile(join(dir, SESSIONS_DIR_NAME, name), "utf-8"));
-		} catch {
-			continue;
-		}
-		if (!isSessionPayload(parsed)) continue;
-		const { id, label, mode, lastSeen } = parsed;
-		const watching = watchingOf((parsed as { watching?: unknown }).watching);
-		const pid = pidOf((parsed as { pid?: unknown }).pid);
-		const rawToken = (parsed as { startToken?: unknown }).startToken;
-		const rawTurn = (parsed as { turnAt?: unknown }).turnAt;
-		const rawHost = (parsed as { host?: unknown }).host;
-		records.push({
-			id,
-			label,
-			mode,
-			lastSeen,
-			told: seenOf((parsed as { seenMail?: unknown }).seenMail) ?? [],
+	const { SESSIONS_DIR_NAME, parseSessionRecord, readDocuments, seenOf, watchingOf } = await import(
+		"./session-files.ts"
+	);
+	const { records, missing } = await readDocuments(join(dir, SESSIONS_DIR_NAME), parseSessionRecord);
+	if (missing) return undefined;
+	return records.map((record) => {
+		const watching = watchingOf(record.watching);
+		const pid = pidOf(record.pid);
+		return {
+			id: record.id,
+			label: record.label,
+			mode: record.mode,
+			lastSeen: record.lastSeen,
+			told: seenOf(record.seenMail) ?? [],
 			...(pid === undefined ? {} : { pid }),
-			...(typeof rawToken === "string" && rawToken !== "" ? { startToken: rawToken } : {}),
-			...(typeof rawTurn === "number" && Number.isFinite(rawTurn) ? { turnAt: rawTurn } : {}),
+			...(record.startToken === undefined || record.startToken === "" ? {} : { startToken: record.startToken }),
+			...(typeof record.turnAt === "number" && Number.isFinite(record.turnAt) ? { turnAt: record.turnAt } : {}),
 			...(watching === undefined ? {} : { watching }),
-			...(typeof rawHost === "string" && rawHost !== "" ? { host: rawHost } : {}),
-		});
-	}
-	return records;
+			...(record.host === undefined || record.host === "" ? {} : { host: record.host }),
+		};
+	});
 }
 
 /** One record as the page's row: what it says, how much mail it is owed, and what it cannot read. */

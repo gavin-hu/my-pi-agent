@@ -28,7 +28,20 @@ function busWith(id: string, label: string): string {
 	const agentDir = temps.track(scratchDir(temps, "pi-footer-label-"));
 	const dir = join(agentDir, "repos", "bc55", BUS_DIR_NAME, SESSIONS_DIR_NAME);
 	mkdirSync(dir, { recursive: true });
-	writeFileSync(join(dir, "record.json"), JSON.stringify({ id, label, mode: "tui", lastSeen: 1_000 }), "utf-8");
+	writeFileSync(
+		join(dir, "record.json"),
+		JSON.stringify({
+			id: id,
+			label: label,
+			mode: "tui",
+			pid: 0,
+			cwd: "/repo",
+			repoRoot: "/repo",
+			startedAt: 50,
+			lastSeen: 1_000,
+		}),
+		"utf-8",
+	);
 	return agentDir;
 }
 
@@ -105,7 +118,16 @@ describe("the installed footer's chip", () => {
 			mkdirSync(dir, { recursive: true });
 			writeFileSync(
 				join(dir, "record.json"),
-				JSON.stringify({ id: "sess", label: "gavin", mode: "tui", lastSeen: 1_000 }),
+				JSON.stringify({
+					id: "sess",
+					label: "gavin",
+					mode: "tui",
+					pid: 0,
+					cwd: "/repo",
+					repoRoot: "/repo",
+					startedAt: 50,
+					lastSeen: 1_000,
+				}),
 				"utf-8",
 			);
 
@@ -128,7 +150,16 @@ describe("the installed footer's chip", () => {
 			mkdirSync(dir, { recursive: true });
 			writeFileSync(
 				join(dir, "record.json"),
-				JSON.stringify({ id: "sess", label: "gavin", mode: "tui", lastSeen: 1_000 }),
+				JSON.stringify({
+					id: "sess",
+					label: "gavin",
+					mode: "tui",
+					pid: 0,
+					cwd: "/repo",
+					repoRoot: "/repo",
+					startedAt: 50,
+					lastSeen: 1_000,
+				}),
 				"utf-8",
 			);
 

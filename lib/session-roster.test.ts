@@ -29,9 +29,16 @@ function busDir(): string {
 	return dir;
 }
 
-/** One session record, written under the name the store uses for it. */
+/**
+ * One session record, written under the name the store uses for it.
+ *
+ * The eight required fields are filled in unless a case names them: since #994 the roster requires
+ * what the bus requires, and a fixture missing `pid` would describe a file neither writer produces.
+ * A case about a missing required field passes it as `undefined`, which `JSON.stringify` leaves out.
+ */
 function writeSession(dir: string, stem: string, record: Record<string, unknown>): void {
-	writeFileSync(join(dir, SESSIONS_DIR_NAME, `${stem}.json`), `${JSON.stringify(record, null, 2)}\n`, "utf-8");
+	const full = { pid: process.pid, cwd: dir, repoRoot: dir, startedAt: NOW - 10_000, ...record };
+	writeFileSync(join(dir, SESSIONS_DIR_NAME, `${stem}.json`), `${JSON.stringify(full, null, 2)}\n`, "utf-8");
 }
 
 /** One message file in a session's inbox. */
@@ -66,8 +73,8 @@ describe("readRoster", () => {
 		writeSession(dir, storedName("s-2"), { id: "s-2", label: "billing-lead", mode: "print", lastSeen: NOW - 90_000 });
 		const sessions = await readRoster(dir);
 		expect(sessions).toEqual([
-			{ id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW - 5_000, mail: 2 },
-			{ id: "s-2", label: "billing-lead", mode: "print", lastSeen: NOW - 90_000, mail: 0 },
+			{ pid: process.pid, id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW - 5_000, mail: 2 },
+			{ pid: process.pid, id: "s-2", label: "billing-lead", mode: "print", lastSeen: NOW - 90_000, mail: 0 },
 		]);
 	});
 
@@ -99,6 +106,7 @@ describe("readRoster", () => {
 		writeMail(dir, storedName("s-1"), "1");
 		// A page must still draw a teammate: the most a bad field can do is count its mail as untold.
 		expect((await readRoster(dir))?.[0]).toEqual({
+			pid: process.pid,
 			id: "s-1",
 			label: "billing-core",
 			mode: "tui",
@@ -146,7 +154,14 @@ describe("readRoster", () => {
 		const sessions = await readRoster(dir);
 		expect(sessions?.[0]?.watching).toEqual({ armed: true, wake: true });
 		// A malformed field costs the claim that mail will reach the peer, not the row.
-		expect(sessions?.[1]).toEqual({ id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 });
+		expect(sessions?.[1]).toEqual({
+			pid: process.pid,
+			id: "s-2",
+			label: "billing-lead",
+			mode: "tui",
+			lastSeen: NOW,
+			mail: 0,
+		});
 	});
 
 	test("reads the turn's stamp when it is a time, and hides anything else", async () => {
@@ -156,7 +171,14 @@ describe("readRoster", () => {
 		const sessions = await readRoster(dir);
 		expect(sessions?.[0]?.turnAt).toBe(NOW - 5);
 		// A stamp this build cannot read loses the claim that the session is at work, not the row.
-		expect(sessions?.[1]).toEqual({ id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 });
+		expect(sessions?.[1]).toEqual({
+			pid: process.pid,
+			id: "s-2",
+			label: "billing-lead",
+			mode: "tui",
+			lastSeen: NOW,
+			mail: 0,
+		});
 	});
 
 	test("orders by label, so a repaint does not reorder the list", async () => {
@@ -172,7 +194,9 @@ describe("readRoster", () => {
 		writeSession(dir, "half", { id: "s-half", label: "half" });
 		writeFileSync(join(dir, SESSIONS_DIR_NAME, "notes.txt"), "not a record\n", "utf-8");
 		writeSession(dir, "good", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
-		expect(await readRoster(dir)).toEqual([{ id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 }]);
+		expect(await readRoster(dir)).toEqual([
+			{ pid: process.pid, id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 },
+		]);
 	});
 
 	test("counts only message files, so a leftover directory entry is not mail", async () => {

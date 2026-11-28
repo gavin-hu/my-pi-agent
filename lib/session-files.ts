@@ -176,6 +176,259 @@ export async function readHosts(dir: string): Promise<HostRecord[]> {
 	return hosts;
 }
 
+/** The mode a session was started in, as the protocol's own one list. */
+export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
+
+/**
+ * The watch a session asked for, in one word.
+ *
+ * `off` is a door's `listen: false` and is never turned back on by another door; absent is a record
+ * written before this field existed. A start adopts it, so a restart restores what the user asked
+ * for instead of the mode the next join happens to spell.
+ */
+export type WatchMode = "off" | "on" | "wake";
+
+/**
+ * One registered Pi session, as the file layer reads and writes it.
+ *
+ * It lives here rather than in the bus because the **guard** has to: `lib/` may not import an
+ * extension, and a document's shape and the test that accepts it are one idea. `types.ts`
+ * re-exports it, the way it already re-exports `BusMessage` from `session-mail.ts`.
+ *
+ * Required and optional are a distinction with a consequence: the required fields are what make a
+ * file a record at all, and one missing means this build did not write it. Everything optional is
+ * read field by field (`watchingOf`, `seenOf`), never as a reason to drop the record.
+ */
+export interface SessionRecord {
+	id: string;
+	label: string;
+	pid: number;
+	/**
+	 * The machine that wrote this record.
+	 *
+	 * A bus directory can live where a sync client replicates it, so a record read here may be the
+	 * other machine's: this is what tells them apart, and what stops a stranger's pid being read as
+	 * a local process. Absent is a record an older build wrote, which is always this machine's.
+	 */
+	host?: string;
+	/**
+	 * That process's start time, when the host can name one.
+	 *
+	 * It is what tells the record's process apart from an unrelated one that has since been given
+	 * the same pid, so `gone` does not have to wait for the heartbeat to age. Absent on a platform
+	 * without `ps`, and on a record written before this existed.
+	 */
+	startToken?: string;
+	/** Working directory of the session; the worktree root when there is one. */
+	cwd: string;
+	/** Repository root the session belongs to, for relative claims. */
+	repoRoot: string;
+	/** The mode the session was started in. */
+	mode: SessionMode;
+	startedAt: number;
+	lastSeen: number;
+	/**
+	 * When this session began the turn it is in, absent outside one.
+	 *
+	 * The heartbeat says whether a session is there; this says whether it is busy, which is the
+	 * other half of a teammate's row. Written on both edges of a run rather than on the heartbeat,
+	 * so it does not lag the turn it describes — and read only beside a fresh heartbeat, because a
+	 * process that died mid-turn left the stamp behind.
+	 */
+	turnAt?: number;
+	/** The watch this session asked for, in one word — the statement, written on every join. */
+	watch?: WatchMode;
+	/**
+	 * The same mode as the pair a peer reads, derived on every write.
+	 *
+	 * `armed: false` means the session is on the bus but no watch will wake it, which is the honest
+	 * answer for a peer deciding whether mail will reach it; absent is only a record written before
+	 * this field existed. It is a rendering of `watch`, not a second fact, and the readers outside
+	 * the extension take this shape.
+	 */
+	watching?: { armed: boolean; wake: boolean };
+	/**
+	 * The mail this session has been told about, by id — what a peer's unread count subtracts.
+	 *
+	 * A count of `N unread` is the mail a session has *not* been told about, so an announcement
+	 * advances this and the number falls with no delete: `inbox` keeps sole ownership of removing
+	 * a body. Pruned against the inbox on every poll, and on the heartbeat whether or not the watch
+	 * is armed, so an id can outlive its file by one tick and no longer.
+	 */
+	seenMail?: string[];
+}
+
+/** One path claimed by one session. */
+export interface ClaimRecord {
+	path: string;
+	owner: string;
+	ownerLabel: string;
+	at: number;
+	/** The machine that made it, and what tells a foreign claim from one to hold someone to. */
+	host?: string;
+}
+
+/**
+ * One record, parsed: the required fields, then every optional one it can actually read.
+ *
+ * The required list is {@link SessionRecord}'s own non-optional fields — **not** a copy of what a
+ * writer happens to emit. One writer has existed since #992, and it fixes *who* writes the file;
+ * this says what a record has to carry to be one. That is why a field becoming required in
+ * `SessionRecord` is a decision about every record already on disk: an older record without it
+ * stops being a session here, and a session stops drawing on the page.
+ *
+ * An optional field of the wrong shape is **dropped**, never a reason to refuse the record. It is
+ * dropped here rather than at each reader because a caller that had to remember would be a second
+ * reader by another name — the two-policies failure this file exists to end. A returned record is
+ * therefore well-typed whoever reads it.
+ */
+export function parseSessionRecord(value: unknown): SessionRecord | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const entry = value as Record<string, unknown>;
+	const { id, label, pid, cwd, repoRoot, mode, startedAt, lastSeen } = entry;
+	if (
+		typeof id !== "string" ||
+		typeof label !== "string" ||
+		typeof pid !== "number" ||
+		typeof cwd !== "string" ||
+		typeof repoRoot !== "string" ||
+		typeof mode !== "string" ||
+		typeof startedAt !== "number" ||
+		typeof lastSeen !== "number"
+	) {
+		return undefined;
+	}
+	const host = typeof entry.host === "string" ? entry.host : undefined;
+	const startToken = typeof entry.startToken === "string" ? entry.startToken : undefined;
+	const turnAt = typeof entry.turnAt === "number" && Number.isFinite(entry.turnAt) ? entry.turnAt : undefined;
+	const watching = watchingOf(entry.watching);
+	const seenMail = seenOf(entry.seenMail);
+	const watch = isWatchMode(entry.watch) ? entry.watch : undefined;
+	return {
+		id,
+		label,
+		pid,
+		cwd,
+		repoRoot,
+		mode: mode as SessionMode,
+		startedAt,
+		lastSeen,
+		...(host === undefined ? {} : { host }),
+		...(startToken === undefined ? {} : { startToken }),
+		...(turnAt === undefined ? {} : { turnAt }),
+		...(watch === undefined ? {} : { watch }),
+		...(watching === undefined ? {} : { watching }),
+		...(seenMail === undefined ? {} : { seenMail }),
+	};
+}
+
+/** One claim, parsed the same way: four fields required, the machine dropped when it is not one. */
+export function parseClaimRecord(value: unknown): ClaimRecord | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const entry = value as Record<string, unknown>;
+	const { path, owner, ownerLabel, at } = entry;
+	if (
+		typeof path !== "string" ||
+		typeof owner !== "string" ||
+		typeof ownerLabel !== "string" ||
+		typeof at !== "number"
+	) {
+		return undefined;
+	}
+	return { path, owner, ownerLabel, at, ...(typeof entry.host === "string" ? { host: entry.host } : {}) };
+}
+
+/** One document at `path`, parsed by the caller's parser; `undefined` when it is not one. */
+export function readDocument<T>(path: string, parse: (value: unknown) => T | undefined): T | undefined {
+	const raw = readJson(path);
+	return raw === undefined ? undefined : parse(raw);
+}
+
+/** The watch field's own guard, for the word a record states beside the pair a peer reads. */
+export function isWatchMode(value: unknown): value is WatchMode {
+	return value === "off" || value === "on" || value === "wake";
+}
+
+/**
+ * The listening field, read only when it is the shape the bus writes.
+ *
+ * A malformed field is not a reason to hide a teammate: the row still draws, and the only thing
+ * lost is the claim that mail will reach it. Here rather than in a reader because
+ * `lib/session-tool.ts` reads the same field over a tool result rather than over a file — one
+ * reader for one shape.
+ */
+export function watchingOf(value: unknown): { armed: boolean; wake: boolean } | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const { armed, wake } = value as Record<string, unknown>;
+	return typeof armed === "boolean" && typeof wake === "boolean" ? { armed, wake } : undefined;
+}
+
+/**
+ * The mail ids a record says its session was told about, read only when they are ids.
+ *
+ * A malformed cursor costs the cursor and not the row, the rule {@link watchingOf} follows.
+ */
+export function seenOf(value: unknown): string[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	return value.every((id): id is string => typeof id === "string") ? value : undefined;
+}
+
+/** One directory, read once: the documents that parsed, and the names that did not. */
+export interface ReadDocuments<T> {
+	records: T[];
+	/**
+	 * Files the parser refused, by name.
+	 *
+	 * Returned rather than discarded: a reader with somewhere to say them (a prune's report) says
+	 * them, and one without (a row) stays silent on purpose. A refused document is never deleted
+	 * here — an older build must not destroy a newer build's record, the rule `session-mail.ts`
+	 * already keeps for a message it cannot read.
+	 */
+	refused: string[];
+	/**
+	 * Whether the directory itself was not there.
+	 *
+	 * `[]` and "no directory" are different answers to the roster, which tells a machine where the
+	 * bus was never used from a bus whose sessions have all gone. Asked only when there is nothing
+	 * to list, so a normal read pays nothing for it.
+	 */
+	missing: boolean;
+}
+
+/**
+ * Every document in one directory, parsed once by the caller's parser.
+ *
+ * This is the walk the bus, the roster and the label lookup each used to carry: readdir, keep the
+ * `.json`, parse, keep what parses. One body, so the three cannot disagree about which files they
+ * looked at — and because the parser normalises too, they cannot disagree about what a record says
+ * either.
+ */
+export async function readDocuments<T>(
+	dir: string,
+	parse: (value: unknown) => T | undefined,
+): Promise<ReadDocuments<T>> {
+	const records: T[] = [];
+	const refused: string[] = [];
+	const names = await listJson(dir);
+	const missing = names.length === 0 && !(await present(dir));
+	for (const name of names) {
+		const document = readDocument(join(dir, name), parse);
+		if (document === undefined) refused.push(name);
+		else records.push(document);
+	}
+	return { records, refused, missing };
+}
+
+/** Whether a directory is there, for the one reader that tells an absent one from an empty one. */
+async function present(dir: string): Promise<boolean> {
+	try {
+		await stat(dir);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 /** This machine's identity as it stands, or nothing when it has not been made yet. */
 export async function readHostIdentity(agentDir: string): Promise<HostIdentity | undefined> {
 	const read = readJsonAs(join(agentDir, PRESENCE_DIR_NAME, HOST_IDENTITY_FILE), isHostIdentity);

@@ -324,6 +324,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"store",
 		"mail-watch",
 		"record",
+		"record-readers",
 		"runtime",
 		"watch-restore",
 		"watching",
