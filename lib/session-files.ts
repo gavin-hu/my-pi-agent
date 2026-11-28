@@ -338,6 +338,22 @@ export function parseClaimRecord(value: unknown): ClaimRecord | undefined {
 	return { path, owner, ownerLabel, at, ...(typeof entry.host === "string" ? { host: entry.host } : {}) };
 }
 
+/**
+ * Claims as a reader draws them: each ownerLabel is the label its owner's record holds now,
+ * falling back to the one the claim captured when no record names that id — the offline reader's
+ * only name, which is why the file keeps it.
+ */
+export function claimsWithLiveLabels<T extends { owner: string; ownerLabel: string }>(
+	claims: readonly T[],
+	records: readonly Pick<SessionRecord, "id" | "label">[],
+): T[] {
+	const labels = new Map(records.map((record) => [record.id, record.label]));
+	return claims.map((claim) => {
+		const label = labels.get(claim.owner);
+		return label === undefined || label === claim.ownerLabel ? claim : { ...claim, ownerLabel: label };
+	});
+}
+
 /** One document at `path`, parsed by the caller's parser; `undefined` when it is not one. */
 export function readDocument<T>(path: string, parse: (value: unknown) => T | undefined): T | undefined {
 	const raw = readJson(path);
