@@ -69,7 +69,7 @@ Three are gated; the fourth is review-only.
   is named in `LONG_MODULES` in `test/module-sizes.test.ts` with that responsibility, at a
   line count that may only fall.
 - **One owner per concept.** Every `lib/` module has a row in `lib/README.md`, held by
-  `test/drift.test.ts`.
+  `test/lib-index.test.ts`.
 - **A cross-cutting change is its own task.** It does not ride on another: no test can
   tell it from a feature.
 

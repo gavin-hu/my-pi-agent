@@ -565,6 +565,7 @@ export const ROOT_SUITES: readonly string[] = [
 	"extension-load",
 	"layout",
 	"layering",
+	"lib-index",
 	"lock",
 	"module-sizes",
 	"naming",

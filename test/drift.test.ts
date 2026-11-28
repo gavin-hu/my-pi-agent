@@ -4,8 +4,6 @@
  * `test/shared-helpers.test.ts` answers "is this helper written twice". These four
  * answer the slower failures around it:
  *
- * - a shared module nobody can find, because the `lib/README.md` index and the
- *   modules on disk drifted apart, so the next session writes a fourth copy;
  * - `AGENTS.md` growing back into a second manual, which is how the rules stop
  *   being read at all;
  * - a rule in `AGENTS.md` citing a test that was renamed, which turns the rule
@@ -16,21 +14,20 @@
  * - `CONTRIBUTING.md` growing the same way `AGENTS.md` did, one owned list at a
  *   time, which is how the workflow at the top stops being read.
  *
- * All five are ratchets: the index is compared against the tree, and the three word
- * budgets only ever fall. A duplicate body is not repeated here; that gate owns it.
+ * All are ratchets: the index is compared against the tree, and the word budgets
+ * only ever fall. A duplicate body is not repeated here; that gate owns it.
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { posixPath, walkFiles } from "./helpers/files.ts";
+import { posixPath } from "./helpers/files.ts";
 import { RESERVED_PATHS, type StorageHome } from "../lib/storage.ts";
-import { dirsOf, extensionsDir, relative } from "./helpers/scan.ts";
+import { dirsOf, extensionsDir } from "./helpers/scan.ts";
 
 // `join` resolves the `..` on every platform, including Windows, where the
 // backslashed absolute path is one long name to `posix.join`.
 const repo = posixPath(join(import.meta.dir, ".."));
-const libDir = join(repo, "lib");
 
 /**
  * A path relative to `root`, in posix form, so a failure names the same file on
@@ -39,16 +36,6 @@ const libDir = join(repo, "lib");
  */
 function relativeTo(root: string, file: string): string {
 	return posixPath(file.slice(root.length + 1));
-}
-
-/** Every non-test TypeScript module under `lib/`. */
-function libModules(): string[] {
-	return (
-		walkFiles(libDir)
-			.filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
-			// A barrel is a re-export list, not a module of its own.
-			.filter((file) => !relative(file).endsWith("/index.ts"))
-	);
 }
 
 test("the repo root it measures from is resolved and posix", () => {
@@ -61,21 +48,6 @@ test("the repo root it measures from is resolved and posix", () => {
 test("a native Windows path slices to the same posix module name", () => {
 	expect(relativeTo("D:/a/my-pi-agent", "D:\\a\\my-pi-agent\\lib\\format.ts")).toBe("lib/format.ts");
 	expect(relativeTo("/Users/gavin/my-pi-agent", "/Users/gavin/my-pi-agent/lib/format.ts")).toBe("lib/format.ts");
-});
-
-describe("the shared surface index", () => {
-	test("every lib module has a row in lib/README.md", () => {
-		const rows = readFileSync(join(libDir, "README.md"), "utf-8")
-			.split("\n")
-			.filter((line) => line.startsWith("|"));
-		const missing = libModules()
-			.filter((file) => {
-				const module = relative(file).slice("lib/".length);
-				return !rows.some((row) => row.includes(`](./${module})`));
-			})
-			.map((file) => `${relative(file)}: no table row in lib/README.md; a helper nobody can find gets written again`);
-		expect(missing).toEqual([]);
-	});
 });
 
 /**
