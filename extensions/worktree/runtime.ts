@@ -12,6 +12,7 @@ import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
 import { WORKTREE_CHANGED_CHANNEL, type WorktreeChangedEvent } from "../../lib/events.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
+import type { LockSelf } from "./git.ts";
 import type { WorktreeState } from "./state.ts";
 
 const STATUS_KEY = STATUS_KEYS.worktree;
@@ -121,8 +122,14 @@ export function setStatus(ctx: ExtensionContext, text: string | undefined): void
 	}
 }
 
+/** The pid and session id a lock written by this session carries: one source for the pair. */
+export function lockSelfFor(ctx: ExtensionContext): LockSelf {
+	return { pid: process.pid, sessionId: ctx.sessionManager.getSessionId() };
+}
+
 export function lockReasonFor(ctx: ExtensionContext): string {
-	return `pi:${process.pid}:${ctx.sessionManager.getSessionId()}`;
+	const self = lockSelfFor(ctx);
+	return `pi:${self.pid}:${self.sessionId}`;
 }
 
 /**

@@ -23,6 +23,7 @@ import {
 	mergeBase,
 	parsePrReference,
 	type PrReference,
+	replacedSessionOf,
 	repoRoot,
 	resetHard,
 	resolveBaseRef,
@@ -41,6 +42,7 @@ import {
 	getActive,
 	isGitignoreOffered,
 	lockReasonFor,
+	lockSelfFor,
 	markGitignoreOffered,
 	publishWorktree,
 	setActive,
@@ -177,13 +179,16 @@ export async function enterWorktree(
 	let baseRefMode: "fresh" | "head" = "head";
 	let baseCommit: string | undefined;
 	const existed = await worktreeExists(pi, target);
+	const self = lockSelfFor(ctx);
 	const lockReason = lockReasonFor(ctx);
 	// A lock is another session's claim on this checkout, and the reuse rules below can
 	// move it with `reset --hard`: read it before deciding anything. A lock whose owner is
-	// gone is taken over, as `prune` does, so a reused worktree ends up locked by us.
+	// gone is taken over, as `prune` does, and so is this process's own lock under an id a
+	// `/new` replaced — the reason carries the pair, so the pid alone is not the question.
 	const heldLock = existed ? await worktreeLock(pi, target) : undefined;
+	const replaced = heldLock === undefined ? undefined : replacedSessionOf(heldLock, self);
 	if (heldLock !== undefined && heldLock !== lockReason) {
-		if (!isStaleLock(heldLock)) {
+		if (!isStaleLock(heldLock, self)) {
 			throw new Error(
 				`Refusing to enter ${target}: it is locked by a live session ` +
 					`(${heldLock || "no reason recorded"}), which may be working there. ` +
@@ -294,6 +299,9 @@ export async function enterWorktree(
 	const summary =
 		`Entered worktree.\n${stateSummary(state)}\n\n` +
 		`Relative paths now resolve inside the worktree. When finished, call \`worktree\` action \`exit\`.` +
+		(replaced === undefined
+			? ""
+			: `\n\nTook back this process's own earlier lock: session ${replaced.slice(0, 8)} wrote it, and no session runs that id now.`) +
 		(copiedIncludes.length > 0 ? `\n\nCopied ${copiedIncludes.length} gitignored file(s).` : "");
 	return { state, summary };
 }

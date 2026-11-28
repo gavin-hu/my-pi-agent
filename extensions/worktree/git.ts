@@ -448,14 +448,53 @@ export async function unlockWorktree(pi: ExtensionAPI, repoRoot: string, dir: st
 	await git(pi, ["worktree", "unlock", dir], repoRoot);
 }
 
+/** A process and the session id it is running as: the pair a `pi:<pid>:<session>` reason carries. */
+export interface LockSelf {
+	pid: number;
+	sessionId: string;
+}
+
 /** Owning pid from a `pi:<pid>:<session>` lock reason, when present. */
 export function lockOwnerPid(reason: string): number | undefined {
 	const match = reason.match(/^pi:(\d+):/);
 	return match ? Number.parseInt(match[1], 10) : undefined;
 }
 
-/** Whether a lock reason names a `pi` process that is no longer alive. */
-export function isStaleLock(reason: string): boolean {
+/** The session id a `pi:<pid>:<session>` lock reason carries, when it carries one. */
+export function lockOwnerSession(reason: string): string | undefined {
+	return /^pi:\d+:(.+)$/.exec(reason)?.[1];
+}
+
+/**
+ * The session id a lock was written for, when its pid is this process's and the id is not the one it
+ * runs now: a `/new` re-mints the id and leaves every lock the process held naming the replaced one.
+ *
+ * `undefined` covers the other three cases — another process's pid, this process's current id, and a
+ * reason with no id at all — because none of them is a lock this process may re-issue.
+ */
+export function replacedSessionOf(reason: string, self: LockSelf): string | undefined {
+	if (lockOwnerPid(reason) !== self.pid) return undefined;
+	const held = lockOwnerSession(reason);
+	return held !== undefined && held !== self.sessionId ? held : undefined;
+}
+
+/**
+ * Whether a lock may be taken over, in the three answers `enter` and `prune` both act on.
+ *
+ * A pid that is gone is stale. A pid that is this process's, carrying a session id it no longer
+ * runs, is stale too — a `/new` replaces the id, and the process would otherwise be locked out of
+ * its own tree by a reason only it could rewrite. Anything else is live and refuses: another pid, a
+ * reason with no pid in it, or this process's own current lock.
+ *
+ * `self` is what tells the second answer from the third, so the two callers that decide pass
+ * `lockSelfFor(ctx)`; the registry's display passes none and keeps the pid-only answer, which is a
+ * lag it names rather than a licence. One pid is one process, so `pid === self.pid` can only ever be
+ * this process — a dead owner whose pid a later process inherited is not `self` and still refuses,
+ * which costs one hand `git worktree unlock` and never takes a working tree from a peer.
+ */
+export function isStaleLock(reason: string, self?: LockSelf): boolean {
 	const pid = lockOwnerPid(reason);
-	return pid !== undefined && !isPidAlive(pid);
+	if (pid === undefined) return false;
+	if (!isPidAlive(pid)) return true;
+	return self !== undefined && replacedSessionOf(reason, self) !== undefined;
 }

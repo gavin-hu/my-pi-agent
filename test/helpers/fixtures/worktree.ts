@@ -1,8 +1,10 @@
 import { join } from "node:path";
+import { utimesSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG, type WorktreeConfig } from "../../../extensions/worktree/config.ts";
 import { realPathOfNearest } from "../../../lib/path.ts";
 import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "../../../extensions/worktree/runtime.ts";
+import { touchRecord } from "../../../extensions/worktree/registry.ts";
 import {
 	ROOT_TOOL_NAMES,
 	type BuiltinFactory,
@@ -218,4 +220,28 @@ export async function bootWorktree(repo: string, options: WorktreeBootOptions = 
  */
 export function managedPath(repo: string, name: string): string {
 	return realPathOfNearest(join(repo, ".pi", "worktrees", name));
+}
+
+/** Well past the default 7-day prune age, with no wall clock involved. */
+export const AGED_MS = 30 * 86_400_000;
+
+/** Create a clean worktree and leave it behind, as a previous session would. */
+export async function keptWorktree(repo: string, name: string): Promise<string> {
+	const harness = await bootWorktree(repo);
+	await harness.action("enter", { name });
+	await harness.action("exit", { remove: false });
+	return managedPath(repo, name);
+}
+
+/** Backdate a worktree on disk and in the registry, so a sweep sees it as old. */
+export function age(repo: string, dir: string): void {
+	const seconds = AGED_MS / 1000;
+	utimesSync(dir, seconds, seconds);
+	touchRecord(join(repo, "worktrees.json"), dir, AGED_MS);
+}
+
+/** Drive one prune, as the command does, and hand back the sentence it printed. */
+export async function prune(repo: string): Promise<string> {
+	const harness = await bootWorktree(repo);
+	return (await harness.action("prune", {})).content[0].text;
 }
