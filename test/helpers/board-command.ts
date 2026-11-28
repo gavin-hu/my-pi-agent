@@ -1,11 +1,11 @@
 /**
- * The fixtures `/board`'s two suites share: the page a command opens, the two sessions it needs —
- * the lead's, which types the line, and a peer's, which holds the card — the team join it asks, and a
- * real board with a plan file behind it.
+ * The fixtures `/board`'s three suites share: the page a command opens, the two sessions it needs —
+ * the lead's, which types the line, and a peer's, which holds the card — the team join it asks, a
+ * real board with a plan file behind it, and the command as the host invokes it.
  *
- * Two suites read them — the words (`commands.test.ts`) and the signs (`sign.test.ts`) —
- * because a suite past its bar is split, never grown, and the sign door's cases need the
- * same page and the same session the word cases do.
+ * Three suites read them — the words a line is parsed into (`words.test.ts`), what each word does to
+ * the page (`commands.test.ts`), and the signs (`sign.test.ts`) — because a suite past its bar is
+ * split, never grown, and the flags' cases need the same page and session the word cases do.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -18,7 +18,7 @@ import { makeTempTracker } from "./git.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { JoinResult, TeamJoinInput } from "../../lib/session-tool.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
-import { BOARD_COMMAND, registerCommands } from "../../extensions/board/commands.ts";
+import { BOARD_COMMAND, type LeadDoor, registerCommands } from "../../extensions/board/commands.ts";
 import type { Deliver } from "../../lib/session-tool.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
@@ -257,5 +257,46 @@ export async function signingBoard(
 		agentDir: harness.agentDir,
 		cwd: harness.ctx.cwd,
 		runtime: harness.runtime,
+	};
+}
+
+/**
+ * The command as the host invokes it, on a fake page and session.
+ *
+ * The words suite and the page suite both type a line and read what the user was told; the page a
+ * case does not hand in is the recording fake, so `calls` is what the word asked it to do.
+ */
+export async function runBoard(
+	args: string,
+	options: { page?: BoardPage; team?: TeamJoin; session?: BoardSession; lead?: LeadDoor } = {},
+) {
+	const { page: recording, calls } = fakeBoardPage();
+	const target = options.page ?? recording;
+	const session = options.session ?? fakeBoardSession();
+	const fake = createFakePi();
+	registerCommands(fake.pi, session, target, {
+		...(options.team === undefined ? {} : { team: options.team }),
+		...(options.lead === undefined ? {} : { lead: options.lead }),
+	});
+	const command = fake.commands.get(BOARD_COMMAND);
+	if (!command) throw new Error("the board command was not registered");
+	// The id the fixture's session reports, so the roster it seeds is the record a join left.
+	const { ctx, notifications } = fakeCtx({ sessionId: "s-lead" });
+	await command.handler(args, ctx);
+	return { calls, notifications, command, ctx, session };
+}
+
+/** The seat's door as the command needs it, for a case that only asks whether it was walked. */
+export function fakeLeadDoor(was = true): LeadDoor & { calls: string[] } {
+	const calls: string[] = [];
+	return {
+		calls,
+		enter: async () => {
+			calls.push("enter");
+		},
+		exit: async () => {
+			calls.push("exit");
+			return was;
+		},
 	};
 }

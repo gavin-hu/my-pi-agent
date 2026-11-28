@@ -75,6 +75,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: `/board`'s words are one table, one flag parser and one line. Every word the command accepts
+  is a row — its spelling, its sign, its flags and its run — so the description, the mistyped-word line, the
+  completer and the parser read that one table, where four spellings of the same vocabulary used to drift
+  apart. The scan is one left-to-right pass, and it changes the thing a person notices: a flag the row does
+  not declare is refused by name instead of being read as a card's tail and dropped — `/board review 4
+  --rote x` used to sign the card, and now answers `review takes no --rote — try --root <tree>, --override
+  <why>`. The two bespoke "approve takes no `--root` / `--override`" branches retire with the second flag
+  grammar, and the flag cases move to `extensions/board/words.test.ts` so no suite grows past its bar.
+
 - `todo`: the tool's description stopped stating what the model already reads elsewhere. Its whole-list
   rule was on the `todos` field and in the snippet, and its status list was the enum inside the schema, so
   the copy cost 170 characters on every request to say nothing new — the cut pays it back to 1,211, and the

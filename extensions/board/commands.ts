@@ -312,7 +312,8 @@ export function registerCommands(
 			const row = BOARD_WORDS.find((entry) => entry.word === word);
 			if (row === undefined) {
 				if (word === "") return openPage(door, ctx, "board");
-				return say(ctx, { text: `board: "${word}" is not a word this command knows — try ${wordHelp()}`, tone: "warning" });
+				const text = `board: "${word}" is not a word this command knows — try ${wordHelp()}`;
+				return say(ctx, { text, tone: "warning" });
 			}
 			const read = parseWords(row, rest);
 			if (!read.ok) return say(ctx, { text: `board: ${read.error}`, tone: "warning" });
@@ -370,12 +371,7 @@ async function openPage(door: Door, ctx: ExtensionCommandContext, view: "board" 
  * lead to write as. The message that follows is the tool's too: a command cannot call a tool, so
  * `announce` sends by the request the bus answers.
  */
-async function signLine(
-	door: Door,
-	ctx: ExtensionCommandContext,
-	sign: Sign,
-	parsed: WordParse,
-): Promise<Line> {
+async function signLine(door: Door, ctx: ExtensionCommandContext, sign: Sign, parsed: WordParse): Promise<Line> {
 	const override = parsed.flags.get(OVERRIDE_FLAG.name);
 	const root = parsed.flags.get(ROOT_FLAG.name);
 	/**
@@ -503,7 +499,11 @@ interface LeadWrite {
  * signs, because the order is the rule — the label is read before a plan is read or a process started,
  * and a second copy of that order is how two doors come to gate differently.
  */
-async function leadWrite(door: Door, ctx: ExtensionCommandContext, word: string): Promise<LeadWrite | { refused: string }> {
+async function leadWrite(
+	door: Door,
+	ctx: ExtensionCommandContext,
+	word: string,
+): Promise<LeadWrite | { refused: string }> {
 	const store = await door.session.store(ctx.cwd);
 	const lead = store.config().lead;
 	const who = await door.session.who(ctx, ctx.cwd);
