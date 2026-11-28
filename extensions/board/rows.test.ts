@@ -58,6 +58,24 @@ function longCard(overrides: Partial<Card> = {}): Card {
 const FACTS = "api-core · plan · no contract";
 const LONG_HEAD = "#4 Retry branches merge cleanly into main";
 
+describe("the facts a gate cannot state", () => {
+	test("says what a parked card waits on, in the words the listing uses", () => {
+		const parked = card({ lane: "blocked", blocked: { kind: "decision", note: "waiting on the API owner" } });
+		// The rollup's index line names the card and nothing else, so the row is the only place the
+		// reason is readable without opening the record — and it is the block's own sentence.
+		expect(boardRowLineFor()(parked, 120, fakeTheme)).toContain("waiting on the API owner");
+	});
+
+	test("says a sign nobody heard, and stays quiet once it landed", () => {
+		const executed = { planPath: "plans/7.md", log: [{ lane: "execute" as const, at: 2_000, by: "api-core" }] };
+		const owed = card({ lane: "execute", ...executed, review: { by: "lead", at: 3_000 } });
+		expect(boardRowLineFor()(owed, 120, fakeTheme)).toContain("untold");
+		// Told is the record of a message that landed: the same card, one fact further on.
+		const heard = card({ lane: "execute", ...executed, review: { by: "lead", at: 3_000, told: { at: 4_000 } } });
+		expect(boardRowLineFor()(heard, 120, fakeTheme)).not.toContain("untold");
+	});
+});
+
 describe("a card row at a narrow width", () => {
 	test("is one row, byte for byte, while the head keeps its floor", () => {
 		// The floor is 24 columns, and 29 columns of facts plus the gap leave exactly that at 54:
@@ -88,10 +106,10 @@ describe("a card row at a narrow width", () => {
 		expect(lines).toEqual(["#4 Retry branches merge clean…", FACTS]);
 	});
 
-	test("names the card in the section that already says what it owes", () => {
+	test("keeps the card's number and title when the facts have to move down", () => {
 		const due = longCard({ id: "7" });
 		const round: RoundSummary = {
-			owners: [],
+			owners: [{ label: "api-core", cards: [due], done: [] }],
 			unassigned: [],
 			shelved: [],
 			unplanned: [],
@@ -105,8 +123,9 @@ describe("a card row at a narrow width", () => {
 		};
 		const input = resultInput({ action: "list", me: ME, round, cards: [] });
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");
-		const section = input.sections.find((entry) => entry.label === "Awaiting review");
-		expect(section, "the rollup draws the queue it was asked for").toBeDefined();
+		// The body section: the index above it names the debt in ids and carries no row to measure.
+		const section = input.sections.find((entry) => entry.rows.length > 0);
+		expect(section, "the rollup draws the board it was asked for").toBeDefined();
 		if (!section) return;
 		// Wide, the section row is unchanged; narrow, it is where the defect read as facts alone.
 		expect(rowLines(section.rowLine(due, 80, fakeTheme))).toEqual([

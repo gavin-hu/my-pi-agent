@@ -16,11 +16,13 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { type Card, cardRef, DEFAULT_PRIORITY, holds, priorityOf } from "../../lib/workflow/card.ts";
 import { gateOf } from "../../lib/workflow/round.ts";
-import { GATE_WORD } from "../../lib/workflow/tone.ts";
+import { isUntold } from "../../lib/workflow/signs.ts";
+import { DECISION_TONE, GATE_WORD } from "../../lib/workflow/tone.ts";
 import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
 import { type BoardTone, REASON_TONE } from "../../lib/workflow/tone.ts";
 import { sanitizeLine } from "../../lib/format.ts";
+import { blockText } from "./format.ts";
 import { clip, splitRow, usableWidth } from "../../lib/tui/columns.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -41,6 +43,10 @@ interface Fact {
  * the contract, the approval, the spot-check — because a card waiting for a signature used to
  * read exactly like one that had it. The priority rides along for the same reason: inside a lane
  * the order is the priority, and an order nobody can see reads as an accident.
+ *
+ * Two facts a gate cannot state are here for the same reason, and each is the block's own sentence:
+ * what a parked card waits on (the rollup's `blocked` line names the card, so the row has to say
+ * why), and a sign whose owner was never told (the gate is open and nobody knows).
  */
 function factsOf(card: Card): Fact[] {
 	const facts: Fact[] = [
@@ -55,11 +61,17 @@ function factsOf(card: Card): Fact[] {
 	// A pool card's holder word reads the same whether somebody set it aside or nobody has looked
 	// at it, so the row says which: `shelved` is the one fact that tells those two apart.
 	if (card.shelved !== undefined) facts.push({ text: "shelved", tone: REASON_TONE.shelved });
+	// What a parked card waits on, beside the lane word that says it is parked. The sentence is the
+	// listing's own (`format.ts`), so a `board list` line and this row cannot word one block twice.
+	if (card.blocked !== undefined) facts.push({ text: blockText(card.blocked), tone: DECISION_TONE.blocked });
 	// What the card owes before it can move on, in the words the Team queue's pills use. A card
 	// that owes no gate says nothing: `planned` was a word about a file, and it read the same as
 	// a card waiting for a signature.
 	const gate = gateOf(card);
 	if (gate !== undefined) facts.push({ text: GATE_WORD[gate], tone: REASON_TONE[gate] });
+	// A sign the owner never heard about is the one debt no gate states: the gate is open and the
+	// ledger says so, which is why the rollup counts these cards in a group of its own.
+	if (isUntold(card)) facts.push({ text: "untold", tone: DECISION_TONE.untold });
 	return facts;
 }
 

@@ -186,10 +186,22 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		},
 	},
 	{
+		name: "board-round-line",
+		tool: "board",
+		group: "package",
+		label: "the lead's rollup, collapsed to the counts a lead acts on",
+		identity: "#2",
+		args: { action: "list", round: true },
+		result: {
+			content: [{ type: "text", text: "6 cards · 1 owner" }],
+			details: ROUNDED,
+		},
+	},
+	{
 		name: "board-round",
 		tool: "board",
 		group: "package",
-		label: "the lead's rollup, expanded into owners and groups",
+		label: "the lead's rollup, ids first and the board drawn once",
 		identity: "#2",
 		args: { action: "list", round: true },
 		options: { expanded: true },

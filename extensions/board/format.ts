@@ -169,7 +169,7 @@ function handoffNotTold(card: Card): string {
 }
 
 /** A block as one line: the sentence, and the kind beside it when one was recorded. */
-function blockText(block: CardBlock): string {
+export function blockText(block: CardBlock): string {
 	const note = block.note ?? "nothing recorded";
 	return block.kind === undefined ? note : `${note} (${block.kind})`;
 }
