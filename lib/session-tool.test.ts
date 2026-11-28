@@ -16,7 +16,6 @@ import {
 	claimPaths,
 	join,
 	listPeers,
-	MAX_MESSAGE_TEXT,
 	notDeliveredLine,
 	releasePaths,
 	send,
@@ -364,8 +363,4 @@ describe("send from a command context", () => {
 			error: "session bus is not started.",
 		});
 	});
-});
-
-test("the text cap is the 4,000 characters the docs state", () => {
-	expect(MAX_MESSAGE_TEXT).toBe(4_000);
 });

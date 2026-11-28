@@ -10,7 +10,8 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
-import { MAX_MESSAGE_TEXT, notDeliveredLine, sendOutcome } from "../../lib/session-tool.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-mail.ts";
+import { notDeliveredLine, sendOutcome } from "../../lib/session-tool.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";

@@ -8,7 +8,8 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { type Peer, MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-mail.ts";
+import { type Peer } from "../../lib/session-tool.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";

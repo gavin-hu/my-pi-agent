@@ -15,8 +15,7 @@
  */
 
 import { clipText } from "../format.ts";
-import type { MessageKind } from "../session-mail.ts";
-import { MAX_MESSAGE_TEXT } from "../session-tool.ts";
+import { MAX_MESSAGE_TEXT, type MessageKind } from "../session-mail.ts";
 import { type Card, type CardOwner, cardRef } from "./card.ts";
 import { askLead, type Handoff, leadName, SIGN_WORDS } from "./contract.ts";
 import { type Lead, TELL_FIELDS } from "./contract.ts";

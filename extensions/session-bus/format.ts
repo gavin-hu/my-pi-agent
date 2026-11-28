@@ -11,9 +11,8 @@
  */
 
 import { ageWords, clipText, formatAge, plural, sanitizeLine } from "../../lib/format.ts";
-import { unreadableText } from "../../lib/session-mail.ts";
+import { MAX_MESSAGE_TEXT, unreadableText } from "../../lib/session-mail.ts";
 import { peerMark } from "../../lib/session-roster.ts";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { forgetCommand, shortId } from "./protocol.ts";
 import type {
@@ -222,7 +221,7 @@ export function formatJoin(label: string, watching: { armed: boolean; wake: bool
 /**
  * The whole read is bounded at one message's maximum body: `inbox` is the surface the
  * prompt tells the model to run, so it is also the largest thing the bus can put in a
- * context. The cap is `lib/session-tool.ts`'s `MAX_MESSAGE_TEXT` — the same number `send`
+ * context. The cap is `lib/session-mail.ts`'s `MAX_MESSAGE_TEXT` — the same number `send`
  * refuses a body over, and a read never clips one — so a read costs at most one full-length
  * message: a burst of them is one message per call, where a page that clipped each body
  * would have shown a sliver of every one and deleted the rest.
