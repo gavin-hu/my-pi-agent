@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
 	defaultLabel,
+	lapseNotice,
+	lapsedOwners,
 	normalizeAbout,
 	normalizeAction,
 	normalizeKind,
@@ -14,6 +16,7 @@ import {
 	settleSend,
 	shortId,
 } from "./protocol.ts";
+import type { ClaimRecord } from "./types.ts";
 import { INBOX_BUDGET } from "./format.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 
@@ -177,5 +180,47 @@ describe("addressing records that say whether they are alive", () => {
 		// session its own note.
 		const rows = [{ id: "s-me", label: "me", state: "gone" as const }];
 		expect(resolveRecipients(rows, "s-me", "s-me")).toEqual({ recipients: [rows[0]] });
+	});
+});
+
+/**
+ * Who a lapse's notice reaches, and what it says.
+ *
+ * The rule the prune's answer is put through, tested here because it is the one decision in the
+ * notice that the filesystem cannot show: who is owed a sentence and who is not.
+ */
+describe("a lapse's notice", () => {
+	const claim = (path: string, owner: string, host?: string): ClaimRecord => ({
+		path,
+		owner,
+		ownerLabel: `${owner}-label`,
+		at: 0,
+		...(host === undefined ? {} : { host }),
+	});
+
+	test("groups one owner's paths into one notice, and leaves this session out", () => {
+		const owners = lapsedOwners([claim("src/a.ts", "s2"), claim("src/b.ts", "s2"), claim("src/c.ts", "me")], {
+			host: "here",
+			self: "me",
+		});
+		expect([...owners.keys()]).toEqual(["s2"]);
+		expect(owners.get("s2")?.map((entry) => entry.path)).toEqual(["src/a.ts", "src/b.ts"]);
+	});
+
+	test("leaves another machine's claim to that machine's mail", () => {
+		const owners = lapsedOwners([claim("src/a.ts", "s2", "elsewhere"), claim("src/b.ts", "s3")], {
+			host: "here",
+			self: "me",
+		});
+		expect([...owners.keys()]).toEqual(["s3"]);
+	});
+
+	test("names the paths, keeps the grammar of one, and counts past six", () => {
+		expect(lapseNotice(["src/a.ts"])).toBe(
+			"claim lapse: 1 path is no longer yours — src/a.ts. Claim it again if the work is still yours.",
+		);
+		const many = lapseNotice(["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"]);
+		expect(many).toContain("8 paths are no longer yours — p1, p2, p3, p4, p5, p6 and 2 more.");
+		expect(many).not.toContain("p7");
 	});
 });

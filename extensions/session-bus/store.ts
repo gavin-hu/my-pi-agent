@@ -35,6 +35,7 @@ import type {
 	DropResult,
 	InboxPeek,
 	InboxRead,
+	LapsedClaims,
 	SessionRecord,
 } from "./types.ts";
 
@@ -128,12 +129,10 @@ export interface BusStore {
 		seams?: ClaimSeams,
 	): Promise<{ moved: string[]; notHeld: string[] }>;
 	/**
-	 * Remove the records the TTL has taken, the claims they held, and the temp files a crashed
-	 * writer left.
-	 *
-	 * Cheap by design — two small directory reads — because an action runs it: a peer that died
-	 * must lose the paths it held at the moment a claimant looks, without the claimant paying for
-	 * every message on the bus first.
+	 * Remove the records the TTL has taken and the temp files a crashed writer left, and answer
+	 * the claims it took so a caller can say so. Cheap by design — two small directory reads —
+	 * because an action runs it: a peer that died must lose the paths it held at the moment a
+	 * claimant looks, without the claimant paying for every message on the bus first.
 	 */
 	pruneRecords(input: {
 		now: number;
@@ -145,7 +144,7 @@ export interface BusStore {
 		 */
 		goneIds?: ReadonlySet<string>;
 		sessionTtlMs: number;
-	}): Promise<void>;
+	}): Promise<LapsedClaims>;
 	/**
 	 * Remove the mail past its TTL from this session's inbox and from every inbox no record holds.
 	 *
@@ -560,13 +559,12 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		},
 
 		async pruneRecords({ now: at, activeIds, goneIds, sessionTtlMs }) {
-			// The caller's set can lag: a peer that joined and claimed since that read is
-			// live on disk, and its claims are its own. This read is the answer, so the
-			// set only adds to what it found rather than deciding who survives — except for
-			// a record whose process is gone, which the caller knows and the file cannot.
-			// That record keeps its row until the heartbeat ages out and owns nothing.
+			// The caller's set can lag, so this read only adds to it rather than deciding who
+			// survives — except for a record whose process is gone, which the caller knows and the
+			// file cannot: it keeps its row until the heartbeat ages out, and owns nothing.
 			const live = new Set(activeIds);
 			const gone = new Set(goneIds ?? []);
+			const lapsed: ClaimRecord[] = [];
 			for (const session of await readSessions()) {
 				if (at - session.lastSeen > sessionTtlMs) {
 					await rm(sessionFile(session.id), { force: true });
@@ -578,15 +576,17 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 					live.add(session.id);
 				}
 			}
-			// A claim lapses on the owner's record only where that record is *here*: a claim that named
-			// another machine's session is judged by that machine's heartbeat, because a local pid says
-			// nothing about it and the owner's record lives on a disk this one cannot see.
+			// A claim lapses on the owner's record only where that record is *here*; another machine's
+			// is judged by that machine's heartbeat, because a local pid says nothing about it.
 			const beats = new Map((await readHosts(dir)).map((entry) => [entry.host, entry.lastSeen]));
 			for (const claim of await readClaims()) {
-				if (!claimHolds(claim, live, beats, at, sessionTtlMs)) await rm(claimFile(claim.path), { force: true });
+				if (claimHolds(claim, live, beats, at, sessionTtlMs)) continue;
+				await rm(claimFile(claim.path), { force: true });
+				lapsed.push(claim);
 			}
 			await dropStaleTemps(sessionsDir);
 			await dropStaleTemps(claimsDir);
+			return { claims: lapsed };
 		},
 
 		async pruneMail(input) {

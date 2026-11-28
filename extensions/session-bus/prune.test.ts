@@ -31,11 +31,27 @@ describe("the store's two halves", () => {
 		await store.writeMessage("s2", busMessage("100-a", "s2", 100));
 		await store.claimAll(["src/a.ts"], "s1", "one", 100);
 		// Both halves, in the order a heartbeat runs them.
-		await store.pruneRecords({ now: 1_000, activeIds: new Set(["s1", "s2"]), sessionTtlMs: 500 });
+		const { claims } = await store.pruneRecords({
+			now: 1_000,
+			activeIds: new Set(["s1", "s2"]),
+			sessionTtlMs: 500,
+		});
 		await store.pruneMail({ now: 1_000, messageTtlMs: 500, own: "s1" });
+		expect(claims.map((claim) => claim.path)).toEqual(["src/a.ts"]);
 		expect(await store.sessions()).toEqual([]);
 		expect(await store.claims()).toEqual([]);
 		expect(await store.inbox("s2", 10)).toEqual({ messages: [], unreadable: [] });
+	});
+
+	test("answers only the claims it removed", async () => {
+		const { store } = busStoreFixture(temps);
+		await store.writeSession(sessionRecord("s1", 100));
+		await store.writeSession(sessionRecord("s2", 900));
+		await store.claimAll(["src/old.ts"], "s1", "one", 100);
+		await store.claimAll(["src/new.ts"], "s2", "peer", 900);
+		const { claims } = await store.pruneRecords({ now: 1_000, activeIds: new Set(["s2"]), sessionTtlMs: 500 });
+		// The answer is what an owner is owed a sentence about, so a claim that survived is not in it.
+		expect(claims.map((claim) => claim.owner)).toEqual(["s1"]);
 	});
 
 	test("keeps fresh sessions and claims", async () => {
@@ -168,6 +184,78 @@ describe("the heartbeat's sweep", () => {
 		for (const tick of ticks) tick();
 		for (let attempt = 0; attempt < 100 && (await untoldOf(dir, "h1")) > 0; attempt += 1) await settle(2);
 		expect(await untoldOf(dir, "h1")).toBe(0);
+		await session.stop();
+	});
+});
+
+/**
+ * The one message the bus sends without being asked.
+ *
+ * A lapsed claim is the only loss a prune leaves behind that its owner cannot see: the row and the
+ * mail come back, and the path is a peer's to take. Both cases drive a real session's action, because
+ * the notice is written by whatever pruned — the sentence a session wakes up to is this call.
+ */
+describe("the lapse's notice", () => {
+	async function runningSession(
+		dir: string,
+		clock: { now: number },
+	): Promise<Awaited<ReturnType<typeof createSessionBus>>> {
+		const session = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo", key: "shared" },
+			now: () => clock.now,
+			heartbeatMs: 0,
+			watchMs: 0,
+			sessionTtlMs: 500,
+			alive: () => true,
+			startTokenFn: () => "started-here",
+		});
+		await session.start(
+			fakeCtx({ cwd: "/repo", sessionId: "h1", sessionName: "live", mode: "tui", hasUI: true }).ctx as ExtensionContext,
+		);
+		await session.join({ listen: false });
+		return session;
+	}
+
+	test("mails the session whose claim lapsed, and only it", async () => {
+		const dir = temps.track(tempDir("pi-session-bus-"));
+		const clock = { now: 1_000 };
+		const session = await runningSession(dir, clock);
+		const store = createBusStore({ dir });
+		// A peer that stopped beating holds a path; a live one holds another across the same prune.
+		await store.writeSession(sessionRecord("s2", 100));
+		await store.claimAll(["src/lapsed.ts"], "s2", "peer", 100);
+		clock.now += 1_000;
+		await store.writeSession(sessionRecord("s3", clock.now));
+		await store.claimAll(["src/kept.ts"], "s3", "other", clock.now);
+
+		await session.claim(["src/mine.ts"]);
+
+		const notice = await store.inbox("s2", 10);
+		expect(notice.messages).toHaveLength(1);
+		expect(notice.messages[0].from).toBe("h1");
+		expect(notice.messages[0].to).toBe("s2");
+		expect(notice.messages[0].text).toContain("src/lapsed.ts");
+		expect(notice.messages[0].text).not.toContain("src/kept.ts");
+		expect(await store.inbox("s3", 10)).toEqual({ messages: [], unreadable: [] });
+		await session.stop();
+	});
+
+	test("leaves another machine's claim to that machine's mail", async () => {
+		const dir = temps.track(tempDir("pi-session-bus-"));
+		const clock = { now: 1_000 };
+		const session = await runningSession(dir, clock);
+		const elsewhere = createBusStore({ dir, host: "elsewhere" });
+		await elsewhere.writeSession(sessionRecord("s9", 100));
+		await elsewhere.claimAll(["src/remote.ts"], "s9", "far", 100);
+
+		clock.now += 1_000;
+		await session.claim(["src/mine.ts"]);
+
+		// The claim lapsed on that machine's heartbeat, so nothing here may announce it.
+		const store = createBusStore({ dir });
+		expect((await store.claims()).map((claim) => claim.path)).not.toContain("src/remote.ts");
+		expect(await store.inbox("s9", 10)).toEqual({ messages: [], unreadable: [] });
 		await session.stop();
 	});
 });

@@ -80,7 +80,9 @@ ten minutes past the last heartbeat — so a crashed session has not freed its n
 
 **Claims.** A claim names the machine that made it and ends on that machine's heartbeat: another
 machine's is judged by its row in `hosts/`, this machine's by the owner's record, never by a pid.
-All-or-nothing: if one path conflicts, nothing is claimed. A directory claim conflicts
+A claim that lapses that way is not lost silently: the session whose prune took it leaves its owner
+one notice in its inbox, naming the paths, and the next claim says where a path went. All-or-nothing:
+if one path conflicts, nothing is claimed. A directory claim conflicts
 with claims below and above it. Two sessions claiming overlapping paths at once both pass the check —
 `src` and `src/api` are two files — so each batch re-reads after publishing: the claim written first
 keeps, the smaller session id decides a tie in one tick, and the loser gives its batch back and is
