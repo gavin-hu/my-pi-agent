@@ -91,7 +91,10 @@ hold while you comment — the draft, `Esc`, the sections switch — are in
 still look at the repository's git status and history; a write, an edit, and a shell
 redirect are refused. Reads are not confined — the readers reach whatever the process
 can, as the Limits below say — and a worktree's `guard.blockReadEscapes` is where
-that changes. A delegated agent runs with writing forced off.
+that changes. A delegated agent runs with writing forced off. A background run started
+before you entered can still be listed and cancelled from `/agents` — starting one is
+what the gate refuses, so stopping one stays open — while collecting its result waits
+for approval, because a collect writes that result into the session.
 
 ## Limits
 

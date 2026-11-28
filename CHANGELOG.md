@@ -398,6 +398,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   what it reserved when it settles. The background board keeps its own count, `backgroundMax`, and the two are
   counted apart rather than pretending to be one pool.
 
+- `plan`, `subagent`: `/agents` stays open while planning, so a child started before the plan was entered can be
+  stopped. The command refused the whole board in one sentence, which left a writing run with no screen that
+  reached it; it now lists the runs and cancels one, and withholds `c` — a collect writes that result into a
+  session meant to be read-only — while a start stays refused where it was. The board takes the policy as one
+  predicate, so the key and both hints cannot disagree about what is on offer.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added

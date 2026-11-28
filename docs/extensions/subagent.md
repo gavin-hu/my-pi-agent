@@ -73,8 +73,11 @@ waits rather than doubling the pool, and a call that would exceed the eight is
 refused whole before any child starts. The background board is counted apart, by
 `backgroundMax`.
 
-**Plan mode.** The tool stays active but every call is forced read-only; a
-background run and `/agents` are refused until the plan is approved.
+**Plan mode.** The tool stays active but every call is forced read-only, and a background
+run cannot be started. `/agents` still lists the runs and cancels one, because a child
+started before the plan was entered is the one write a refusal cannot stop. Collecting a
+finished result is refused with it: a collect writes that result into the session, which
+is what plan mode is holding back.
 
 **Read-only.** The child gets the workspace readers and `read_doc` — never a writing
 tool, a shell, or anything that reaches the network. Search and fetch are one

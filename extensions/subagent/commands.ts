@@ -3,11 +3,13 @@
  *
  * The board is a view over the session branch plus the live runtime; collecting
  * closes the board and sends the result as a user message so the next turn sees
- * it. Headless modes print the same list without actions.
+ * it. Headless modes print the same list without actions. Plan mode keeps the
+ * board — a run started before the plan was entered is the one write a refusal
+ * cannot stop, and cancelling it is the only way out — while withholding the
+ * collect, which writes a result into a session meant to be read-only.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { modeRefusal } from "../../lib/mode-entry.ts";
 import { isPlanModeEnabled } from "../../lib/mode-state.ts";
 import type { BackgroundRuntime } from "./background.ts";
 import { formatAgentsList } from "./format.ts";
@@ -18,11 +20,7 @@ export async function openAgents(
 	background: BackgroundRuntime,
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
-	if (isPlanModeEnabled(ctx.sessionManager.getBranch())) {
-		ctx.ui.notify(modeRefusal("plan", "managing background runs"), "warning");
-		return;
-	}
-
+	const planning = isPlanModeEnabled(ctx.sessionManager.getBranch());
 	const runs = background.list(ctx.sessionManager.getBranch());
 	if (ctx.mode !== "tui") {
 		ctx.ui.notify(formatAgentsList(runs), "info");
@@ -44,6 +42,7 @@ export async function openAgents(
 			const component = new AgentsBoardComponent({
 				runs: () => background.list(ctx.sessionManager.getBranch()),
 				theme,
+				collectable: () => !planning,
 				onCollect: (runId) => {
 					collectId = runId;
 					unsubscribe();

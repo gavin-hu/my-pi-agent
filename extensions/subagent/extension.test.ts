@@ -495,17 +495,17 @@ describe("/agents", () => {
 		expect(ctx.notices.at(-1)?.message).toContain("No background subagents yet.");
 	});
 
-	test("refuses in plan mode", async () => {
+	test("opens in plan mode and prints the runs", async () => {
 		const { runtime } = runtimeFor();
 		const { command } = commandFor(runtime);
 		const ctx = fakeCtx({
-			mode: "tui",
+			mode: "print",
 			branch: [{ type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: { enabled: true } }],
 		}).ctx;
 
 		await command.handler("", ctx);
 
-		expect(ctx.notices.at(-1)?.message).toContain("Plan mode is read-only");
+		expect(ctx.notices.at(-1)?.message).toContain("a1 reviewer");
 	});
 
 	test("collects a finished run and sends it as a user message", async () => {
