@@ -216,6 +216,35 @@ describe("the landing proof's append hotspots", () => {
 		expect(git.argv("push")).toEqual([]);
 	});
 
+	test("reads a note inside the manifest as a note, not as a declaration", async () => {
+		// A note may hold the brackets the scan is looking for. Without comment state the group's
+		// array ends at the `]` in the note, so the declaration it held reads as nothing, no removal
+		// is seen, and the deletion below is allowed — the silent direction.
+		const before = [
+			"export const EXTENSION_SUITES: Record<string, readonly string[]> = {",
+			"\t// a group is written `key: [` in this file",
+			'\t"session-bus": [ // this ] closes nothing',
+			'\t\t"presence",',
+			"\t],",
+			'\twechat: ["conversation/presence"], /* a block note with ] too */',
+			"};",
+			"",
+		].join("\n");
+		const after = before.replace('\t\t"presence",\n', "");
+		const { git, answer } = landingWith(
+			manifestLanding({
+				before,
+				after,
+				files: ["extensions/session-bus/presence.test.ts", "extensions/wechat/conversation/presence.test.ts"],
+				patch: '@@ -3,3 +3,2 @@\n-\t\t"presence",\n',
+			}),
+		);
+		const result = await answer;
+		if (!("error" in result)) throw new Error("expected the landing to be refused");
+		expect(result.error).toContain('"presence" (extensions/session-bus/presence.test.ts)');
+		expect(git.argv("push")).toEqual([]);
+	});
+
 	test("reads the manifest this repository ships, and resolves it to the layout's own paths", () => {
 		// The copy of the four shapes is bound to the original here: the guard's reader and resolver
 		// must reproduce `declaredSuiteFiles` and `declaredRootSuites` from the same text, or the two
