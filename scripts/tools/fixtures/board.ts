@@ -201,7 +201,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		name: "board-round",
 		tool: "board",
 		group: "package",
-		label: "the lead's rollup, expanded into owners and groups",
+		label: "the lead's rollup, ids first and the board drawn once",
 		identity: "#2",
 		args: { action: "list", round: true },
 		options: { expanded: true },

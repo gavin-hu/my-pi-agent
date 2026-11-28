@@ -32,7 +32,7 @@ A block's shape is [`docs/design-system.md#reading-the-screen`](../../docs/desig
 what this module spends is its height. `COLLAPSED_ROWS` in `test/helpers/tool-block.ts`
 is the ledger, and `test/tool-rows.test.ts` enforces it: every package fixture's height at
 80 columns is a ceiling, and an entry that rises is a review decision rather than a gate's. It
-covers 41 blocks, and `subagent` is the tallest at 10.
+covers 42 blocks, and `subagent` is the tallest at 10.
 
 `plainRule` / `titleRule` draw the rule a block or a screen is framed with, and a
 renderer composes its body from the kit rather than printing rows of its own.

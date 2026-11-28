@@ -44,7 +44,11 @@ Those are tool actions, not commands: `Reference` lists every `/board` word and 
 the next step, and `/board approve 1` refuses until the contract names a plan file in this repository's store.
 
 A card is as tall as it draws: the line above its last one says what decides what happens next — a
-dependency it waits on, one it has met, a gate it owes — and is blank when there is nothing to say. The row and `board list` print that gate in one word, and a narrow transcript row draws it on the next line.
+dependency it waits on, one it has met, a gate it owes, or what a parked card waits on — and the row
+prints that gate in one word, `untold` for a sign nobody heard, which a narrow terminal folds down.
+
+A `round` read answers before the board: its collapsed line counts what needs a signature, the expanded block
+names those cards by id above the board drawn once — each section counted, one past eight rows naming the rest.
 
 ## Reference
 
@@ -54,7 +58,7 @@ is closed. Each move follows the one transition from where the card is; no lane 
 
 **The page.** A lane's width follows its work; five sit side by side (one below 1180px, via the picker) and a
 lane of 24 folds. The pane is the one scroll box: a lane is as tall as the board, its head riding its edge. The
-Team tab raises what needs the seat: one list of the moves only it can finish — sign a contract nobody read, send a notice that never landed, free a card whose owner is gone, chase one nobody has written to — each a two-line row that says its own reason, folded at five. Under it, `The board · N open` counts the four lanes it draws: `blocked`, `execute`, `plan`, and `backlog`, whose cards appear while the pool is small and become one line and a door past twelve. The terminal's rollup keeps its own counts (`9 unassigned · 5 unplanned`), because it answers what the board holds rather than what the seat owes.
+Team tab raises what needs the seat: one list of the moves only it can finish — sign a contract nobody read, send a notice that never landed, free a card whose owner is gone, chase one nobody has written to — each a two-line row that says its own reason, folded at five. Under it, `The board · N open` counts the four lanes it draws: `blocked`, `execute`, `plan`, and `backlog`, whose cards appear while the pool is small and become one line and a door past twelve. The terminal's rollup keeps its own counts (`9 unassigned · 5 unplanned`), because it answers what the board holds rather than what the seat owes — and its block's line carries the counts a card waits on somebody for, in the words that line prints.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`, `approve`,
 `review`, `edit`, `shelve`, `unshelve`, `archive`, `drop`. `claim` and `move` are refused while a lane is full; `claim` is also refused while the bus

@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a `round` read puts the ids that need a signature above the board — `awaiting approval · #6` —
+  where it used to draw the same card once per group it belonged to (six cards became ten rows) with no
+  heading counted. The collapsed line carries that tally instead of the owner count, every body section
+  counts what it holds and names the rest by id past eight rows, and a row says why a card is parked and
+  whether its sign was never told, one rule that `signs.ts` now owns.
+
 - `board`: a pool card that named `dependsOn` says so on its face once the last dependency is `done` —
   `ready — waited on #4` — where before it drew nothing and read exactly like a card that never waited.
   Every id it waited on is named, a shelf or an offer on the card keeps its own sentence because both
