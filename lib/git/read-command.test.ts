@@ -258,6 +258,47 @@ describe("read-only git shell guard — the alternative a refusal offers", () =>
 	});
 });
 
+describe("read-only git shell guard — the character a refusal names", () => {
+	/** The clauses the reason is composed with: plan's, the seat's, and the board's. */
+	const MODES: readonly ModePhrasing[] = [
+		PLAN,
+		{ label: "lead mode", whileDoing: "in lead mode" },
+		{ label: "board", whileDoing: "for a card outside execute" },
+	];
+	const reason = (command: string, phrasing: ModePhrasing = PLAN): string => {
+		const verdict = readOnlyGitCommand(command, phrasing);
+		return verdict.ok ? "" : verdict.reason;
+	};
+	test("names the grouping character it refused, and the argument that needs none", () => {
+		// The repository's own commit-subject shape: read it without the parenthesis.
+		for (const command of [
+			"git log --grep='fix(api)'",
+			"git log --oneline --grep='(#12)'",
+			"git for-each-ref --format='%(refname)'",
+		]) {
+			expect(reason(command), command).toContain("a `(`");
+			expect(reason(command), command).toContain("reads no quoting");
+			expect(reason(command), command).toContain("git log --grep='fix'");
+		}
+	});
+
+	test("names a character a backticked literal would mangle, and never prints one raw", () => {
+		expect(reason("git status `whoami`")).toContain("a backtick");
+		expect(reason("git diff -- C:\\repo\\")).toContain("a backslash");
+		expect(reason("git status\ngit log")).toContain("a line break");
+		expect(reason("git status\ngit log")).not.toContain("\n");
+	});
+
+	test("composes one sentence from each mode's clause, and accuses nobody of redirection", () => {
+		for (const phrasing of MODES) {
+			const said = reason("git log --grep='fix(api)'", phrasing);
+			expect(said, phrasing.label).toContain(phrasing.whileDoing);
+			expect(said, phrasing.label).toContain("a `(`");
+			expect(said, phrasing.label).not.toContain("redirection");
+		}
+	});
+});
+
 describe("read-only git shell guard — the command it hands back", () => {
 	const ran = (command: string): string => {
 		const verdict = guard(command);

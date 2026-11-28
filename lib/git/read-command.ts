@@ -79,6 +79,17 @@ export interface ModePhrasing {
  */
 const SHELL_META = /[;&|<>`$(){}[\]\n\r]/;
 
+/**
+ * What a refusal calls the characters whose own literal would break the sentence — a raw backtick
+ * ends the markup around it, a newline ends the line. The rest print as themselves.
+ */
+const META_NAME: Partial<Record<string, string>> = {
+	"`": "a backtick",
+	"\\": "a backslash",
+	"\n": "a line break",
+	"\r": "a carriage return",
+};
+
 /** `git` subcommands that only read repository state. */
 const READ_ONLY_SUBCOMMANDS = new Set([
 	"status",
@@ -443,8 +454,14 @@ function retargetsTree(token: string): boolean {
  * {@link checkReadOnlyGit}.
  */
 function checkSingleGitCommand(command: string, phrasing: ModePhrasing): GitCheck {
-	if (SHELL_META.test(command) || hasShellEscape(command)) {
-		return { ok: false, reason: `shell substitution and redirection are not allowed ${phrasing.whileDoing}.` };
+	// A quoted parenthesis is no attempted injection: name it, and how to write it without.
+	const meta = SHELL_META.exec(command)?.[0] ?? (hasShellEscape(command) ? "\\" : undefined);
+	if (meta !== undefined) {
+		const what = META_NAME[meta] ?? `a \`${meta}\``;
+		return {
+			ok: false,
+			reason: `${what} cannot be told from substitution ${phrasing.whileDoing}, and this guard reads no quoting, so write the argument without it (\`git log --grep='fix'\`).`,
+		};
 	}
 
 	const argv = command.split(/\s+/).map(unquote);
