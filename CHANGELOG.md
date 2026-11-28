@@ -234,6 +234,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a claim is drawn under the label its owner's record holds now, so a rename moves its
+  roster row, the `session status` listing and every conflict sentence together instead of leaving two
+  surfaces on the name captured at claim time. The claim file still keeps that captured label, which is
+  the fallback for a reader the owner's record has left — an offline roster still names the session its
+  row was written for.
+
 - `board`: a landing keeps a card's extension when the change is code and the `test/` ledgers only
   ride beside it. The count that decides whether the extension is where the work is treated every
   `test/` path as somewhere else, so `session-bus`'s record with the manifest and the dependency

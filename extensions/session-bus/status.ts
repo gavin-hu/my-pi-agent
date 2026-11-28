@@ -12,6 +12,7 @@
  * and the prune stays with the next tool or command call.
  */
 
+import { claimsWithLiveLabels } from "../../lib/session-files.ts";
 import { readMailLedger, unaccountedOf, untoldIn } from "../../lib/session-mail.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { WatchingState } from "./mail-watch.ts";
@@ -66,7 +67,13 @@ export function createStatusReader(options: StatusReaderOptions): StatusReader {
 				? records.filter((session) => session.id === record()?.id || stateOf(session) !== "quiet")
 				: records;
 			const ours = new Set(sessions.filter((session) => stateOf(session) !== "gone").map((session) => session.id));
-			const claims = (await bus.claims()).filter((claim) => !liveOnly || ours.has(claim.owner));
+			// The label is a rendering of the id, as the status rule is: a claim is drawn under the name
+			// its owner's record holds now, and the captured one is the fallback for a record that is gone.
+			// Every record is the map, not the `liveOnly` rows: a quiet owner still has a current name.
+			const claims = claimsWithLiveLabels(
+				(await bus.claims()).filter((claim) => !liveOnly || ours.has(claim.owner)),
+				records,
+			);
 			// One pass answers every mail question this read has: each row's count, the mail in the
 			// inboxes no record holds, and the files this build cannot parse. Mail is counted per
 			// record, so a pruned record's messages would have no row to hang a number on — the ids

@@ -165,4 +165,36 @@ describe("a claim request", () => {
 		caller.pi.events.emit(SESSION_RELEASE_REQUEST, { paths: ["src/api"] });
 		expect(await createBusStore({ dir }).sessions()).toEqual([]);
 	});
+
+	test("a renamed holder's conflict names the name its record holds now", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const holder = eventSession(dir, "s2", "billing-core");
+		const caller = eventSession(dir, "s1", "api-core");
+		await askClaim(holder.pi, holder.ctx, ["src/api"]);
+		await holder.bus.join({ label: "renamed-core" });
+
+		expect(await askClaim(caller.pi, caller.ctx, ["src/api"])).toEqual({
+			ok: true,
+			claimed: [],
+			conflicts: [{ path: "src/api", owner: "s2", ownerLabel: "renamed-core" }],
+		});
+		// The file keeps the name it captured: a reader with no record of the id falls back to it.
+		expect((await createBusStore({ dir }).claims())[0]?.ownerLabel).toBe("billing-core");
+
+		await holder.bus.stop();
+		await caller.bus.stop();
+	});
+
+	test("the status read draws a renamed session's claim under its current name", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const holder = eventSession(dir, "s2", "billing-core");
+		await askClaim(holder.pi, holder.ctx, ["src/api"]);
+		await holder.bus.join({ label: "renamed-core" });
+
+		const read = await holder.bus.snapshot();
+		expect(read.claims.map((claim) => [claim.path, claim.ownerLabel])).toEqual([["src/api", "renamed-core"]]);
+		expect(read.sessions.find((row) => row.id === "s2")?.label).toBe("renamed-core");
+
+		await holder.bus.stop();
+	});
 });

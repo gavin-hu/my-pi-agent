@@ -10,6 +10,7 @@
 import { rm, stat } from "node:fs/promises";
 import {
 	busPaths,
+	claimsWithLiveLabels,
 	dropIfEmpty,
 	dropStaleTemps,
 	ensureDir,
@@ -233,6 +234,14 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		return (await readDocuments(claimsDir, parseClaimRecord)).records.sort((a, b) => a.path.localeCompare(b.path));
 	}
 
+	/**
+	 * Conflicts as a caller prints them: each owner is named by the label its record holds now, and the
+	 * one captured at claim time is the fallback for an owner no record names.
+	 */
+	async function liveConflicts(conflicts: readonly ClaimConflict[]): Promise<ClaimConflict[]> {
+		return conflicts.length === 0 ? [] : claimsWithLiveLabels(conflicts, await readSessions());
+	}
+
 	async function claimOne(
 		path: string,
 		owner: string,
@@ -324,7 +333,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 				conflicts.push({ path, owner: held.owner, ownerLabel: held.ownerLabel });
 			}
 		}
-		if (conflicts.length > 0) return { claimed: [], conflicts };
+		if (conflicts.length > 0) return { claimed: [], conflicts: await liveConflicts(conflicts) };
 		if (seams.afterCheck) await seams.afterCheck();
 		const claimed: string[] = [];
 		const created: string[] = [];
@@ -333,7 +342,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			if (result.conflict) {
 				for (const done of created) await releaseOne(done, owner);
 				const { owner: holder, ownerLabel: holderLabel } = result.conflict;
-				return { claimed: [], conflicts: [{ path, owner: holder, ownerLabel: holderLabel }] };
+				return { claimed: [], conflicts: await liveConflicts([{ path, owner: holder, ownerLabel: holderLabel }]) };
 			}
 			claimed.push(path);
 			if (result.created) created.push(path);
