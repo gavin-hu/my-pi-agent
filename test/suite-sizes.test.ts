@@ -81,7 +81,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/web-access/fetch/fetch.test.ts": 1097,
 	"extensions/web-access/search/search.test.ts": 975,
 	"extensions/worktree/flow.test.ts": 825,
-	"extensions/worktree/git.test.ts": 893,
+	"extensions/worktree/git.test.ts": 845,
 	"lib/workflow/rules.test.ts": 673,
 	// `session.test.ts` left this ledger by splitting its `who` cases into `who.test.ts` (#915):
 	// the reset gave that question a second row to consider, and one suite asked it twice.

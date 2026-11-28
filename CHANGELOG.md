@@ -272,6 +272,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `worktree`: a lock whose reason names a process's pid but a session id that process no longer runs is
+  stale, so `enter` takes back a tree the same process locked before a `/new` instead of refusing it as
+  "locked by a live session", and says which replaced session it reclaimed. The id in the reason is
+  what separates that case from a peer's lock: another live pid still refuses, and a dead one still
+  clears. `prune` decides the same way, and the list's `staleLock` keeps the pid-only answer until a
+  card gives it a session to compare against.
+
 - `session-bus`: a record write that fails says so — one line on stderr when a streak of failures
   starts and one when a whole clean tick ends it, never one per tick. The swallow was two layers
   down: the record's `flush()` resolved on a failed `writeSession`, so the heartbeat's own catch
