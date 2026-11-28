@@ -8,18 +8,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `session-bus`: one record, one parser. `sessions/<id>.json` was parsed by three modules under two
-  policies — the bus's `isSession`, the roster's `isSessionPayload`, and `session-label.ts`'s own copy —
-  so a record whose optional `watch` was the wrong shape was refused by the bus while the page still drew
-  its row, and that row owned no claim and no name. The shape (`SessionRecord`, `ClaimRecord`) and the
-  parser now live beside the file layer in `lib/session-files.ts`, one `readDocuments` walks a directory
-  for all three readers, and an optional field of the wrong shape costs the field rather than the record.
-  **A record missing a required field (`pid`, `cwd`, `repoRoot`, `startedAt`) stops drawing a row on the
-  Team tab**: the roster now agrees with the bus about which files are sessions, which is the answer the
-  change exists for and the one a reader of the old page will notice. A record the parser refuses is
-  named by `pruneRecords` and left on disk — named, not deleted, because an older build must not destroy
-  a newer build's record.
-
 - `board`: a `round` read puts the ids that need a signature above the board — `awaiting approval · #6` —
   where it used to draw the same card once per group it belonged to (six cards became ten rows) with no
   heading counted. The collapsed line carries that tally instead of the owner count, every body section
@@ -86,6 +74,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   here, and it is one message per owner, six paths named and the rest counted.
 
 ### Changed
+
+- `session-bus`: one record, one parser. `sessions/<id>.json` was parsed by three modules under two
+  policies — the bus's `isSession`, the roster's `isSessionPayload`, and `session-label.ts`'s own copy —
+  so a record whose optional `watch` was the wrong shape was refused by the bus while the page still drew
+  its row, and that row owned no claim and no name. The shape (`SessionRecord`, `ClaimRecord`) and the
+  parser now live beside the file layer in `lib/session-files.ts`, one `readDocuments` walks a directory
+  for all three readers, and an optional field of the wrong shape costs the field rather than the record.
+  **A record missing a required field (`pid`, `cwd`, `repoRoot`, `startedAt`) stops drawing a row on the
+  Team tab**: the roster now agrees with the bus about which files are sessions, which is the answer the
+  change exists for and the one a reader of the old page will notice. A record the parser refuses is
+  named by `pruneRecords` and left on disk — named, not deleted, because an older build must not destroy
+  a newer build's record.
 
 - `board`: **`/board stop` stops working** — the word is `/board exit`, and a line typed with the old one
   is refused by the command's own "not a word this command knows — try" list, which now names `exit` among
