@@ -42,7 +42,10 @@ session's.
 
 **Phases.** `planning` is a draft the plan workflow opened, `active` is being
 pursued, and `achieved` is done. Only the workflow opens a draft, and approving a
-plan finalizes it from the plan's own `Goal` — there is no second dialog.
+plan finalizes it from the plan's own `Goal` — there is no second dialog. A draft
+plan mode is left without approving becomes `active` at the next turn boundary, or
+at a session load or `/tree` — whichever reads the branch first — so the rail can
+read `planning` for the rest of the turn the mode was left in.
 
 **Restatement.** The objective is injected as a `[SESSION GOAL]` bullet before
 each turn; it does not enter the transcript.
