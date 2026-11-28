@@ -30,6 +30,15 @@ export interface WatchConfig {
 	maxMatches: number;
 	/** Raw lines kept per watcher for the `logs` action. */
 	maxLogLines: number;
+	/**
+	 * Bytes kept per watcher for the `logs` action.
+	 *
+	 * A count is not a size: `LineSplitter` emits lines up to 1 MiB, so `maxLogLines` alone let one
+	 * watcher hold gigabytes of them. The tail is held to this many bytes of whole lines, except
+	 * that the newest line is kept even when it alone is over — a tail that emptied itself would
+	 * read as a broken watcher rather than as a bound that held.
+	 */
+	maxLogBytes: number;
 	/** Lines returned to the model by `matches`/`logs` when unspecified. */
 	matchLines: number;
 	/**
@@ -54,6 +63,7 @@ export const DEFAULT_CONFIG: WatchConfig = {
 	maxRecords: 50,
 	maxMatches: 200,
 	maxLogLines: 500,
+	maxLogBytes: 1_048_576,
 	matchLines: 50,
 	matchChars: 4_096,
 	pollMs: 500,
@@ -70,6 +80,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 		maxRecords: clampInteger(raw.maxRecords, base.maxRecords, 1, 1000),
 		maxMatches: clampInteger(raw.maxMatches, base.maxMatches, 1, 5000),
 		maxLogLines: clampInteger(raw.maxLogLines, base.maxLogLines, 1, 5000),
+		maxLogBytes: clampInteger(raw.maxLogBytes, base.maxLogBytes, 1_024, 8_388_608),
 		matchLines: clampInteger(raw.matchLines, base.matchLines, 1, 2000),
 		// Never above 1 MiB, the largest line the splitter emits, so the cap is a bound and
 		// not a wish; never below a screenful, so a reader's line still matches whole.

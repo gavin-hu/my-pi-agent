@@ -283,6 +283,7 @@ The settings screen has no row for it; `wakeOnMatch` is a `bytefly.json` edit.
 | `maxRecords` | integer | `50` | `1`–`1000` | Records kept in the table, running and finished together; past it `add` drops the oldest finished watcher. |
 | `maxMatches` | integer | `200` | `1`–`5000` | Matches kept per watcher before the oldest are dropped. |
 | `maxLogLines` | integer | `500` | `1`–`5000` | Raw lines kept per watcher for `logs`. |
+| `maxLogBytes` | integer | `1048576` | `1024`–`8388608` | Bytes kept per watcher for `logs`, counted in UTF-8. The tail holds whole lines under this, except that the newest line is kept even when it alone is over — a tail that emptied itself would read as a broken watcher. `maxLogLines` is a count and a line reaches 1 MiB, so this is the size bound that one leaves open. |
 | `matchLines` | integer | `50` | `1`–`2000` | Lines returned by `matches` and `logs` when the call omits a count. |
 | `matchChars` | integer | `4096` | `1024`–`262144` | Longest prefix of a line a pattern or exclude is run against — the bound on what one line can cost, because the work grows with the square of the prefix: one unselective line measured ~150 ms at 16 KiB and ~9 ms at this default, while every surface prints at most 200 characters of a line. A pattern `add` accepts is bounded by this number per line: that is the other half of the budget, and not a proof the pattern is safe. |
 | `pollMs` | integer | `500` | `100`–`60000` | File poll interval; watchers do not use `fs.watch`. |
