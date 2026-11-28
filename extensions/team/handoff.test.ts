@@ -23,7 +23,7 @@ afterAll(() => temps.flush());
 const harness = (options: TeamSuiteOptions = {}) => teamSuite(temps.track, options);
 
 describe("assign", () => {
-	test("joins before it sends, then sends the handoff, then records the owner", async () => {
+	test("joins before it sends, so the peer is named a session the bus can reach", async () => {
 		const board = harness({
 			duringSend: () => {
 				// The handoff's last line sends the peer to this session for its two gates, so the label
@@ -57,7 +57,7 @@ describe("assign", () => {
 		expect((await (await store()).read(id))?.owner).toBeUndefined();
 	});
 
-	test("writes the owner first, then sends the handoff", async () => {
+	test("records the owner before it sends, so a repeat of the verb is the retry", async () => {
 		let id = "";
 		const { call, seed, sent, store } = harness({
 			duringSend: async () => {

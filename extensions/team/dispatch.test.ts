@@ -1,10 +1,10 @@
 /**
- * The handoff: its text, its length cap, and how a nested `session send` becomes a
- * result or a throw.
+ * What the bus writes on the lead's behalf: the handoff, the offer and the ask, the length
+ * cap the three share, and the owner a handoff records.
  *
- * The transport is where "send first, assign second" gets its meaning, so the cases
- * pin both directions — a clean outcome with the labels it wrote for, and a failed
- * one whose message is what the lead reads.
+ * The card is written before any of these messages exists, so the cases pin what a peer reads
+ * about a card that is already its own — the one condition a reclaim can still change — and
+ * what a peer the roster cannot name becomes, which is an owner and never an id.
  */
 
 import { describe, expect, test } from "bun:test";

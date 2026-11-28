@@ -51,15 +51,17 @@ The peer is told at its next turn; the card's owner is `billing-core`, and the l
 
 ## Reference
 
-**Actions.** Three, and every one of them reaches another session. `assign` (card, `to`, `note?`) joins, then
-sends a handoff, then records the owner — read from the team *after* the message, so a stopped record cannot
-become the owner — and whether the bus took it: `told` means written,
-not read, because mail is pruned after a day; a handoff whose write lost the race names both outcomes in its own
-body — leave a rival's card alone, or claim one the write left nobody's; a completed contract tells the lead,
-and `approve` tells the holder; `offer` (card, `note?`) broadcasts the card and records only the moment it was
-offered, so the first peer to claim it wins; `ask` (`to`, `question?`) sends one peer a question and writes
-nothing else: its own ask id, and the answering session by id, so a reply sets `replyTo "<id>"` and the
-bus prints it as `re: <id>`.
+**Actions.** Three, and every one of them reaches another session. `assign` (card, `to`, `note?`) joins, records
+the owner, then sends the handoff — the owner from the one read of the team that also names the peers a message
+could not reach, so the peer reads a card that already holds it — and says whether the bus took it: `told` means
+written, not read, because mail is pruned after a day. That order is the point rather than a habit: a write no
+rule allowed sends nobody a message at all, and a send that fails leaves the card owned with the handoff owed, so
+running the same verb again is the retry rather than a second attempt at a first one. A handoff that loses the
+race to a reclaim names the one condition that survives — if the board shows another owner, leave it alone and
+ask the lead. A completed contract tells the lead, and `approve` tells the holder; `offer` (card, `note?`)
+broadcasts the card and records only the moment it was offered, so the first peer to claim it wins; `ask` (`to`,
+`question?`) sends one peer a question and writes nothing else: its own ask id, and the answering session by id, so
+a reply sets `replyTo "<id>"` and the bus prints it as `re: <id>`.
 
 `/team`'s stalled line names the door: `board reclaim 1, 2 — api-core stopped`. A field an action does
 not read is refused, naming the verb that takes it — `offer` takes no `to`, and `assign` and `ask` refuse
