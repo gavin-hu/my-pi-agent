@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: `/sessions forget <label|id>…` frees a stopped session's name at once — its record
+  and claims go, its unread mail becomes unaccounted for `drop`, and a live or quiet record is refused
+  naming its holder. A killed process used to hold its label for the whole `SESSION_TTL_MS` window, and
+  the lead's name is what `team.lead` compares, so nothing could sign until it freed; `/team exit` was a
+  session's door and a crash had none. The door acts on the same `stateOf` `gone` the row shows, removes
+  with `releaseAll` then `removeSession`, and refuses two records under one label by naming their ids
+  rather than guessing, because a replicated store can hold two machines' sessions under one name. The
+  two sentences that describe a gone holder and the gone row name it, through one `forgetCommand`
+  spelling in `protocol.ts`. A shorter TTL, release-on-crash and `join --force` were rejected: the name
+  is the signature, so only a person may hand it on.
+
 - `board`: a `round` read puts the ids that need a signature above the board — `awaiting approval · #6` —
   where it used to draw the same card once per group it belonged to (six cards became ten rows) with no
   heading counted. The collapsed line carries that tally instead of the owner count, every body section

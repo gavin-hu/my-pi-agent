@@ -35,6 +35,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../errors.ts";
+import { sanitizeLine } from "../format.ts";
 import { sameLabel, sessionIdOf } from "../session-label.ts";
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
 import {
@@ -201,7 +202,7 @@ async function fixOf(
 ): Promise<{ fix?: string }> {
 	if (error === NO_BUS_ERROR) return { fix: "Turn the `session-bus` extension on in `/bytefly`." };
 	const held = await heldLabel(session, ctx, label);
-	return held === undefined ? {} : { fix: heldFix(held) };
+	return held === undefined ? {} : { fix: heldFix(held, label) };
 }
 
 /**
@@ -212,10 +213,12 @@ async function fixOf(
  * whose name comes back on its own. Both end in the same warning, because the other way past
  * a held name is the one door that renames, and renaming is what costs a lead its signature.
  */
-function heldFix(state: RosterState): string {
+function heldFix(state: RosterState, label: string): string {
 	const rename = "a lead that renames loses its signature, because the gates compare `team.lead` by label";
+	// The name a person can free is the one they typed: `/sessions forget` is a command of the bus
+	// this refusal comes from, so the sentence spells it out rather than pointing at a tool call.
 	return state === "gone"
-		? `The bus forgets that record when its heartbeat ages out; joining under another name works now, though ${rename}.`
+		? `The bus forgets that record when its heartbeat ages out, or a person runs \`/sessions forget ${sanitizeLine(label)}\`; joining under another name works now, though ${rename}.`
 		: `Only that session stopping frees the name, or join under another name now, though ${rename}.`;
 }
 

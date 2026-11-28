@@ -25,6 +25,7 @@ editing — and the board refuses a write outside the card's `paths` in `execute
 | Broadcast an event | `session send to "*" kind "event" text "…"` |
 | Read your mail | `session inbox`, or `session read` to show it and keep it (the waiting line counts files, so `read` leaves it) |
 | See mail no session holds, and clear one | the board's summary counts it; `/sessions drop` names each, and `<id>` clears one |
+| Free a stopped session's name | `/sessions forget <label\|id>…` — its record and claims go now, and its unread mail becomes unaccounted for `drop` |
 | Claim files before editing | `session claim paths ["src/api"]` |
 | Release a claim, or take a peer's | `session release paths ["src/api"]`, or `x` on the board; with `holder tom`, from the seat |
 | Be woken by mail | a board/team join asks for it; `session join wake: true` for a bare session |
@@ -76,7 +77,9 @@ its record ages out, and each file still ends at its own TTL. That door is a com
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its layer. A duplicate
 label gets a short id suffix, and a label is reserved while the bus keeps its owner's record —
-ten minutes past the last heartbeat — so a crashed session has not freed its name.
+ten minutes past the last heartbeat — so a crashed session has not freed its name. A person frees
+it sooner with `/sessions forget <label>`: the record and its claims go, and its unread mail
+becomes unaccounted for `drop`.
 
 **Claims.** A claim names the machine that made it and ends on that machine's heartbeat: another
 machine's is judged by its row in `hosts/`, this machine's by the owner's record, never by a pid.
