@@ -50,10 +50,10 @@ describe("the facts a record says", () => {
 		expect(recordFacts(peerRow(peer), NOW)).toEqual([
 			{ label: "state", value: "live" },
 			{ label: "watch", value: "watch on" },
+			{ label: "mail", value: "3 unread · 1 claim" },
 			{ label: "up", value: "2h" },
 			{ label: "last", value: "3m ago" },
 			{ label: "mode", value: `tui · ${shortId("fedcba654321")}` },
-			{ label: "mail", value: "3 unread · 1 claim" },
 		]);
 	});
 

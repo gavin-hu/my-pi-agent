@@ -103,12 +103,14 @@ export function recordFacts(row: SessionRow, now: number): RecordFact[] {
 	const session = row.session;
 	const state = session.state === "gone" ? "gone · process gone" : session.state;
 	return [
+		// Ordered by what a reader acts on, because the block's line is one clipped line on a narrow
+		// board: the count that needs a reader comes before the identity the pane shows in full.
 		{ label: "state", value: state },
 		{ label: "watch", value: watchWords(session.watching) },
+		{ label: "mail", value: `${session.unread} unread · ${plural(row.claims.length, "claim")}` },
 		{ label: "up", value: formatAge(now, session.startedAt) },
 		{ label: "last", value: ageText(now, session.lastSeen) },
 		{ label: "mode", value: `${sanitizeLine(session.mode)} · ${shortId(session.id)}` },
-		{ label: "mail", value: `${session.unread} unread · ${plural(row.claims.length, "claim")}` },
 	];
 }
 
