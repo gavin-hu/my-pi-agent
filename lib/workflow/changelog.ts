@@ -7,12 +7,12 @@
  * file through git and writes back what this returns, so a suite proves the insertion without a
  * repository or a temporary directory.
  *
- * The prose is the card's title, and a title is a sentence whose first word is capitalised, while
- * the bullets beside it all open lowercase. {@link lowerFirst} takes that capital back for a plain
- * word and leaves every other spelling alone: a code span, an acronym, and a two-letter name like
- * `Pi` are the author's, not this module's. What can still land lowercased is a three-letter proper
- * noun, and the fix there is a reworded title — guessing which words the tree capitalises would be
- * a second spelling of its own names.
+ * The prose is the card's title, and a title is a sentence whose first word is capitalised, while the
+ * bullets beside it all open lowercase. {@link lowerFirst} takes that capital back — an article
+ * always, and a plain word of three letters or more — and leaves an acronym, a code span, and a
+ * two-letter name like `Pi` as the author wrote them. Two residuals remain, and both are the title's
+ * to fix: an opener like `In` or `It` keeps its capital at two letters, and a three-letter name
+ * (`Bun`) is lowercased with the imperatives.
  */
 
 import type { CardType } from "./kind.ts";
@@ -58,17 +58,26 @@ export function headingFor(type: CardType | undefined): ChangelogSection {
 	}
 }
 
+/** An article opens a sentence and is never a name, so its capital always goes. */
+const ARTICLE = /^(A|An)(?=\s)/;
+
 /** The first word of a title, when it is one a bullet would open lowercase. */
 const PLAIN_WORD = /^([A-Z][a-z]{2,})(?=\s|$)/;
 
 /**
- * `text` with its first word lowercased when that word is plain, and untouched otherwise.
+ * `text` with its first word lowercased when that word is an article or a plain one, and untouched otherwise.
  *
- * Three letters is the threshold: `The`, `A` card's neighbours and the rest of the lowercase
- * vocabulary pass, while `Pi`, `AI` and `JSON` — the two-letter names and the acronyms — do not.
- * A code span opening the title is left as it is, because the spelling there is the surface's own.
+ * `A` and `An` are named rather than measured: at one and two letters they are the openers a
+ * word-length rule leaves capitalised while no reader would call either a name, and "A card's paths
+ * are claims" is a card title this board really holds. Every other opener of three letters or more
+ * loses its capital, which is what takes the imperatives (`Land`, `Add`) with it. What stays as the
+ * author wrote it is a two-letter word that is not an article — `In`, `It` — an acronym, or a code
+ * span; and a three-letter name the tree capitalises (`Bun`) is lowercased with the rest, because a
+ * vocabulary of the tree's names is a second spelling of them.
  */
 export function lowerFirst(text: string): string {
+	const article = ARTICLE.exec(text)?.[1];
+	if (article !== undefined) return `${article.toLowerCase()}${text.slice(article.length)}`;
 	const word = PLAIN_WORD.exec(text)?.[1];
 	if (word === undefined) return text;
 	return `${word.toLowerCase()}${text.slice(word.length)}`;

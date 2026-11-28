@@ -54,8 +54,19 @@ describe("the first word of a bullet", () => {
 		expect(lowerFirst("The landing writes the bullet")).toBe("the landing writes the bullet");
 	});
 
+	test("an article loses its capital, because neither `A` nor `An` is ever a name", () => {
+		// The opener a word-length rule gets wrong: one and two letters, and a card title this board
+		// really holds — "A card's `paths` are claims". A bullet is permanent once it lands.
+		expect(lowerFirst("A card's paths are claims")).toBe("a card's paths are claims");
+		expect(lowerFirst("An extension factory only registers")).toBe("an extension factory only registers");
+	});
+
 	test("a two-letter name keeps it, which is what protects `Pi`", () => {
 		expect(lowerFirst("Pi loads each extension once")).toBe("Pi loads each extension once");
+		// The residual, pinned so the header's claim stays the code's: a two-letter word that is not an
+		// article is left alone, and so is the three-letter name the header names.
+		expect(lowerFirst("In a landing the order is the promise")).toBe("In a landing the order is the promise");
+		expect(lowerFirst("Bun installs once per worktree")).toBe("bun installs once per worktree");
 	});
 
 	test("an acronym keeps it, and so does a code span that opens the title", () => {
