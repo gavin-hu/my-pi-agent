@@ -9,9 +9,9 @@
  * directories and clean up in one `afterAll`.
  */
 
-import { managedPath } from "../../test/helpers/fixtures/worktree.ts";
+import { age, keptWorktree, managedPath, prune } from "../../test/helpers/fixtures/worktree.ts";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, realpathSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { createExecRunner, defaultBranch } from "../../lib/git/index.ts";
@@ -793,30 +793,6 @@ describe("isolation gaps", () => {
 });
 
 describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
-	/** Well past the default 7-day prune age, with no wall clock involved. */
-	const AGED_MS = 30 * 86_400_000;
-
-	/** Create a clean worktree and leave it behind, as a previous session would. */
-	async function keptWorktree(repo: string, name: string): Promise<string> {
-		const harness = await bootWorktree(repo);
-		await harness.action("enter", { name });
-		await harness.action("exit", { remove: false });
-		return managedPath(repo, name);
-	}
-
-	/** Backdate a worktree on disk and in the registry. */
-	function age(repo: string, dir: string): void {
-		const seconds = AGED_MS / 1000;
-		utimesSync(dir, seconds, seconds);
-		touchRecord(join(repo, "worktrees.json"), dir, AGED_MS);
-	}
-
-	async function prune(repo: string): Promise<string> {
-		const harness = await bootWorktree(repo);
-		const result = await harness.action("prune", {});
-		return result.content[0].text;
-	}
-
 	test("removes an aged clean worktree and keeps a recent one", async () => {
 		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-");
 		temps.track(repo);
@@ -844,30 +820,6 @@ describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
 		const result = await harness.action("prune", {});
 		expect(result.content[0].text).toContain(`${dir} (current)`);
 		expect(existsSync(dir)).toBe(true);
-	});
-
-	test("keeps a worktree locked by a live process", async () => {
-		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-live-");
-		temps.track(repo);
-		temps.track(remote);
-		const dir = await keptWorktree(repo, "live");
-		await execP("git", ["worktree", "lock", "--reason", `pi:${process.pid}:sess`, dir], { cwd: repo });
-		age(repo, dir);
-
-		expect(await prune(repo)).toContain(`${dir} (locked)`);
-		expect(existsSync(dir)).toBe(true);
-	});
-
-	test("unlocks and prunes a worktree locked by a dead process", async () => {
-		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-dead-");
-		temps.track(repo);
-		temps.track(remote);
-		const dir = await keptWorktree(repo, "dead");
-		await execP("git", ["worktree", "lock", "--reason", "pi:999999:sess", dir], { cwd: repo });
-		age(repo, dir);
-
-		expect(await prune(repo)).toContain(`Removed ${dir}`);
-		expect(existsSync(dir)).toBe(false);
 	});
 
 	test("keeps a worktree that contains work", async () => {

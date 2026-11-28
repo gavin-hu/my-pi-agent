@@ -1,27 +1,32 @@
 /**
- * The enter capability: whose checkout an enter may touch.
+ * The enter capability: whose checkout an enter may touch, and what a sweep may take.
  *
  * `enter` reopens an existing worktree at its old tip and resets a clean, not-ahead one to
  * the fresh base, so the lock is read first: a live session's lock refuses the entry, and a
- * lock whose owner is gone is taken over. Every case creates a real repository, so the suite
- * is gated by `test/helpers/slow-suite.ts`.
+ * lock whose owner is gone — or whose reason names this process under a session id it no
+ * longer runs — is taken over. Every case that touches a repository is gated by
+ * `test/helpers/slow-suite.ts`; the owner rule itself is pure and runs everywhere.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { messageOf } from "../../lib/errors.ts";
-import { execP, makeRepo } from "../../test/helpers/git.ts";
+import { isPidAlive } from "../../lib/spawn.ts";
+import { execP, makeRepo, makeRepoWithRemote } from "../../test/helpers/git.ts";
 import {
+	age,
 	bootWorktree,
+	keptWorktree,
 	makeBareWorktreePi,
 	makeTempTracker,
 	managedPath,
+	prune,
 	testConfig,
 } from "../../test/helpers/fixtures/worktree.ts";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
-import { isIgnored, listManagedWorktrees } from "./git.ts";
+import { isIgnored, isStaleLock, listManagedWorktrees, replacedSessionOf } from "./git.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -44,14 +49,53 @@ async function lockOf(repo: string, dir: string): Promise<string | undefined> {
 		?.locked;
 }
 
+describe("the lock's owner", () => {
+	const self = { pid: process.pid, sessionId: "test-session" };
+
+	test("a dead pid is stale, whatever the rest of the reason says", () => {
+		expect(isStaleLock("pi:999999:sess", self)).toBe(true);
+	});
+
+	test("this process's own lock under a session id it no longer runs is stale", () => {
+		const reason = `pi:${self.pid}:older-session`;
+		expect(isStaleLock(reason, self)).toBe(true);
+		// The id is what `enter` names in the sentence it prints, from the same parse.
+		expect(replacedSessionOf(reason, self)).toBe("older-session");
+	});
+
+	test("this process's own current lock is not stale", () => {
+		expect(isStaleLock(`pi:${self.pid}:${self.sessionId}`, self)).toBe(false);
+		expect(replacedSessionOf(`pi:${self.pid}:${self.sessionId}`, self)).toBeUndefined();
+	});
+
+	test("another live pid is not stale, so a peer's tree is never taken", () => {
+		// The parent process is alive for the length of this run; the guard makes a broken
+		// premise fail loudly rather than pass by accident.
+		expect(isPidAlive(process.ppid)).toBe(true);
+		expect(isStaleLock(`pi:${process.ppid}:sess`, self)).toBe(false);
+	});
+
+	test("a reason with no grammar, or no id in it, is not stale", () => {
+		expect(isStaleLock("no reason recorded", self)).toBe(false);
+		expect(isStaleLock(`pi:${self.pid}:`, self)).toBe(false);
+	});
+
+	test("without a self the answer is the pid's alone, which is what the display reads", () => {
+		// The registry passes no `self`, so an own-earlier lock still shows as held there. Pinned
+		// so a later change to the display has to notice this line rather than drift into it.
+		expect(isStaleLock(`pi:${self.pid}:older-session`)).toBe(false);
+	});
+});
+
 describe.skipIf(!runSlowSuites)("entering a checkout another session holds", () => {
-	test("refuses a live session's lock and leaves the checkout where it is", async () => {
+	test("refuses a lock held by another live pid and leaves the checkout where it is", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-held-"));
 		const dir = await makeCheckout(repo, "held");
 		const before = await headOf(dir);
-		// A pid that is alive and a session that is not this one: the lock is another
-		// session's claim, whether or not that session is still in this checkout.
-		const reason = `pi:${process.pid}:other-session`;
+		// Another process's pid, alive for the length of this run: a stranger's claim, which is
+		// exactly what must keep refusing now that this process's own lock does not.
+		expect(isPidAlive(process.ppid)).toBe(true);
+		const reason = `pi:${process.ppid}:other-session`;
 		await execP("git", ["worktree", "lock", "--reason", reason, dir], { cwd: repo });
 		// The base moves on, so an enter that kept to the old reuse rules would reset the
 		// clean, not-ahead checkout to this commit.
@@ -100,6 +144,24 @@ describe.skipIf(!runSlowSuites)("entering a checkout another session holds", () 
 		expect(await lockOf(repo, dir)).toBe(`pi:${process.pid}:test-session`);
 	});
 
+	test("takes back its own lock when the reason names a session id it no longer runs", async () => {
+		// What a `/new` leaves: this process wrote the lock under the id it had before, and the
+		// pid is still alive, so the pid alone answered "held by a live session" and locked the
+		// process out of its own tree.
+		const repo = temps.track(await makeRepo("pi-wt-own-older-"));
+		const dir = await makeCheckout(repo, "older");
+		await execP("git", ["worktree", "lock", "--reason", `pi:${process.pid}:older-session`, dir], { cwd: repo });
+
+		const harness = await bootWorktree(repo);
+		const text = (await harness.action("enter", { name: "older" })).content[0].text;
+
+		expect(text).toContain("Entered worktree");
+		expect(text).toContain(
+			"Took back this process's own earlier lock: session older-se wrote it, and no session runs that id now.",
+		);
+		expect(await lockOf(repo, dir)).toBe(`pi:${process.pid}:test-session`);
+	});
+
 	test("re-enters a checkout this session already holds, and exits it cleanly", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-own-"));
 		const dir = await makeCheckout(repo, "own");
@@ -112,6 +174,45 @@ describe.skipIf(!runSlowSuites)("entering a checkout another session holds", () 
 		// Git refuses to remove a locked worktree, so this passes only if enter recorded the
 		// lock it already held.
 		expect((await harness.action("exit", { remove: true })).content[0].text).toContain(`Removed worktree ${dir}`);
+	});
+});
+
+describe.skipIf(!runSlowSuites)("a sweep and a lock", () => {
+	test("takes back its own earlier lock, and prunes the tree it was holding", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-own-");
+		temps.track(repo);
+		temps.track(remote);
+		const dir = await keptWorktree(repo, "own");
+		await execP("git", ["worktree", "lock", "--reason", `pi:${process.pid}:older-session`, dir], { cwd: repo });
+		age(repo, dir);
+
+		expect(await prune(repo)).toContain(`Removed ${dir}`);
+		expect(existsSync(dir)).toBe(false);
+	});
+
+	test("keeps a tree locked by another live pid", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-peer-");
+		temps.track(repo);
+		temps.track(remote);
+		const dir = await keptWorktree(repo, "peer");
+		expect(isPidAlive(process.ppid)).toBe(true);
+		await execP("git", ["worktree", "lock", "--reason", `pi:${process.ppid}:sess`, dir], { cwd: repo });
+		age(repo, dir);
+
+		expect(await prune(repo)).toContain(`${dir} (locked)`);
+		expect(existsSync(dir)).toBe(true);
+	});
+
+	test("unlocks and prunes a tree locked by a dead process", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-dead-");
+		temps.track(repo);
+		temps.track(remote);
+		const dir = await keptWorktree(repo, "dead");
+		await execP("git", ["worktree", "lock", "--reason", "pi:999999:sess", dir], { cwd: repo });
+		age(repo, dir);
+
+		expect(await prune(repo)).toContain(`Removed ${dir}`);
+		expect(existsSync(dir)).toBe(false);
 	});
 });
 

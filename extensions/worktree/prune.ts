@@ -19,7 +19,7 @@ import {
 	worktreeRemove,
 } from "./git.ts";
 import { reconcileRegistry, removeRecord, type WorktreeRecord, registryFileFor } from "./registry.ts";
-import { getActive } from "./runtime.ts";
+import { getActive, lockSelfFor } from "./runtime.ts";
 
 /**
  * Age in days from the most recent evidence of use: the registry's
@@ -62,6 +62,7 @@ export async function pruneWorktreesResult(pi: ExtensionAPI, ctx: ExtensionConte
 	const byPath = new Map<string, WorktreeRecord>(registry.worktrees.map((record) => [record.path, record]));
 	const branch = await defaultBranch(createExecRunner(pi), root);
 	const current = getActive();
+	const self = lockSelfFor(ctx);
 	const removed: string[] = [];
 	const kept: string[] = [];
 
@@ -71,7 +72,7 @@ export async function pruneWorktreesResult(pi: ExtensionAPI, ctx: ExtensionConte
 			continue;
 		}
 		if (entry.locked !== undefined) {
-			if (isStaleLock(entry.locked)) {
+			if (isStaleLock(entry.locked, self)) {
 				await unlockWorktree(pi, root, entry.path);
 			} else {
 				kept.push(`${entry.path} (locked)`);

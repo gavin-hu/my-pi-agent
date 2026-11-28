@@ -212,7 +212,9 @@ export async function statusOf(
 ): Promise<CheckoutStatus> {
 	const path = entry.path;
 	const locked = entry.locked !== undefined;
-	const staleLock = locked && entry.locked ? isStaleLock(entry.locked) : false;
+	// No `self`: the display keeps the pid-only answer, so an own-earlier lock still reads as held
+	// here. #1026's scope leaves it, and `isStaleLock`'s doc says so rather than a comment per caller.
+	const staleLock = entry.locked !== undefined && isStaleLock(entry.locked);
 	const base: CheckoutStatus = {
 		path,
 		branch: entry.branch,
