@@ -173,6 +173,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the landing proof reads `test/suite-manifest.ts`'s line and block comments as comments
+  before it scans the declarations, so a note holding an unmatched bracket can no longer end a
+  group's list early — the read that came back short allowed the deletion the guard refuses, and
+  silently, because no declaration looked removed.
+
 - `board`: a landing no longer refuses a suite renamed under a name another extension also uses. The
   proof read a removed declaration by its stem across the whole tree, so `session-bus`'s
   `presence.test.ts` becoming `record.test.ts` matched `wechat`'s `conversation/presence.test.ts` and

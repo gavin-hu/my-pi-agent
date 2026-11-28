@@ -392,15 +392,16 @@ export function suiteFileOf(owner: SuiteOwner, stem: string): string {
 }
 
 /**
- * The declarations a manifest text makes, each with its group, with brackets and strings stepped
- * over so a wrapped group reads as one that is not (#905). Read as text: the base's copy exists only
- * in git.
+ * The declarations a manifest text makes, each with its group, with comments, brackets and strings
+ * stepped over so a wrapped group reads as one that is not (#905). Read as text: the base's copy
+ * exists only in git.
  *
  * `undefined` when `EXTENSION_SUITES` is missing or does not close: a reader that cannot see the
  * layout must refuse, not judge an empty set.
  */
 export function declaredSuites(text: string): DeclaredSuite[] | undefined {
-	const extensions = literalBody(text, "EXTENSION_SUITES");
+	const clean = withoutComments(text);
+	const extensions = literalBody(clean, "EXTENSION_SUITES");
 	if (extensions === undefined) return undefined;
 	const groups = extensionGroups(extensions);
 	if (groups === undefined) return undefined;
@@ -410,12 +411,23 @@ export function declaredSuites(text: string): DeclaredSuite[] | undefined {
 	}
 	for (const [constant, owner] of Object.entries(FLAT_GROUPS)) {
 		// A list the text does not declare contributes nothing; `land-hotspot.test.ts` pins the four names.
-		if (!text.includes(`export const ${constant}`)) continue;
-		const body = literalBody(text, constant);
+		if (!clean.includes(`export const ${constant}`)) continue;
+		const body = literalBody(clean, constant);
 		if (body === undefined) return undefined;
 		for (const stem of quotedWords(body)) found.push({ stem, owner });
 	}
 	return found;
+}
+
+/**
+ * The manifest with its line and block comments removed, quoted strings kept. Without it a note
+ * holding an unmatched `[` ends the literal scan early — the next declaration then reads as nothing
+ * and a deletion the guard exists to refuse is allowed, silently.
+ */
+function withoutComments(text: string): string {
+	return text.replace(/"(?:[^"\\]|\\.)*"|\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (piece) =>
+		piece.startsWith('"') ? piece : "",
+	);
 }
 
 /** The literal a constant is assigned, without its brackets: `= { … }` or `= [ … ]`. */
