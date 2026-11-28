@@ -127,6 +127,20 @@ describe("watch runtime", () => {
 		);
 	});
 
+	test("keeps the record of a child that started and then failed", () => {
+		// The boundary the refusal must not cross: a child that a spawn reported and that then emits
+		// `error` has lines that were read, so its record stays and says how it ended. Only a spawn
+		// that never produced a process leaves nothing behind.
+		const { h, ctx } = runtimeHarness(suite);
+		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
+
+		h.children[0]?.emit("error", new Error("spawn EBADF"));
+
+		expect(h.runtime.list()).toHaveLength(1);
+		expect(h.runtime.get(watch.id)?.status).toBe("error");
+		expect(h.runtime.get(watch.id)?.error).toBe("spawn EBADF");
+	});
+
 	test("keeps the table inside maxRecords by dropping the oldest finished watcher", () => {
 		// Every finished record still holds its matches and raw lines; without a bound a session
 		// that watched one command after another grew the table for as long as it ran (see #173).

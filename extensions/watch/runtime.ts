@@ -329,8 +329,17 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		}
 	};
 
-	const startCommand = (w: Internal): void => {
-		const error = children.start(
+	/**
+	 * Start a command watcher's child, and hand back the spawn's failure when there was one.
+	 *
+	 * A spawn that throws is answered before a process exists: `children.start` catches it and
+	 * leaves the slot empty, so nothing was read and the caller must not keep a record — this
+	 * returns the message and mutates nothing, and {@link add} refuses the call. A child that
+	 * starts and then emits `error` is a different case and stays in the sink below, because it
+	 * has lines that were read.
+	 */
+	const startCommand = (w: Internal): string | undefined =>
+		children.start(
 			w,
 			w.source.command ?? "",
 			{ cwd: w.source.cwd ?? process.cwd() },
@@ -353,11 +362,6 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 				},
 			},
 		);
-		if (error === undefined) return;
-		w.status = "error";
-		w.error = error;
-		w.endedAt = now();
-	};
 
 	const tick = (): void => {
 		if (disposed) return;
@@ -432,8 +436,17 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 			seq: 0,
 		};
 		watches.set(w.id, w);
+		if (source.kind === "command") {
+			const failure = startCommand(w);
+			if (failure !== undefined) {
+				// Nothing started and nothing was read, so the record goes with the refusal. The id is a
+				// counter, not a slot, so it stays burned: a stale line naming `w1` cannot address a
+				// watcher this call never created.
+				watches.delete(w.id);
+				throw new Error(`the command did not start, so nothing is watching: ${failure}`);
+			}
+		}
 		evictFinished();
-		if (source.kind === "command") startCommand(w);
 		ensureClock();
 		ui.paint();
 		return record(w);
