@@ -19,8 +19,8 @@ lowers `CEILING` in the same commit.
   editing; with no card, open one.
   [`docs/extensions/board.md`](./docs/extensions/board.md) owns the states and signs.
 - Be short and direct: answer before editing; state agreement or disagreement.
-- Ask before adding a runtime dependency, or removing a function that looks intentional.
-  Add no backward compatibility unless asked.
+- Ask before adding a runtime dependency or removing a function that looks intentional. Add no
+  backward compatibility unless asked.
 - If an instruction conflicts with this file, ask first.
 
 ## Commands
@@ -32,7 +32,7 @@ bun run check            # before landing: format, types, tests
 ```
 
 - A gated git suite (`rewind`, `worktree`, `session-bus`'s real-repository tests) skips
-  unless `CI` or `PI_SLOW_TESTS=1`: touching one means `PI_SLOW_TESTS=1 bun test`.
+  unless `CI` or `PI_SLOW_TESTS=1`: run `PI_SLOW_TESTS=1 bun test` for one.
 - A new package-level test goes into `ROOT_SUITES` in `test/suite-manifest.ts`,
   compared exactly.
 - A peer bump is proved against the newest published Pi by CI's `compat` job; never
@@ -48,7 +48,7 @@ bun run check            # before landing: format, types, tests
 - Shared names live in `lib/tool-names.ts`; shared glyphs and status keys in
   `lib/tui/glyphs.ts`.
 - An entry pays for its static graph: a module nothing needs before the first draw loads
-  with `import()` where it is used (`lib/lazy.ts`); `test/dependencies.test.ts` holds the
+  with `import()` where used (`lib/lazy.ts`); `test/dependencies.test.ts` holds the
   budget, which may only fall.
 - State that must survive `/resume` and `/tree` lives in tool-result `details` or a
   custom entry, rebuilt from the branch. Widgets are derived, never authoritative.
@@ -65,7 +65,7 @@ bun run check            # before landing: format, types, tests
 Three are gated; the fourth is review-only.
 
 - **One body, one owner.** A helper two extensions need lives in `lib/`, never in both;
-  `test/shared-helpers.test.ts` fails a body identical to an existing one.
+  `test/shared-helpers.test.ts` fails an identical body.
 - **No module grows.** One job per module, its name saying which. Past 600 lines a module
   is named in `LONG_MODULES` in `test/module-sizes.test.ts` with that responsibility, at a
   line count that may only fall, and at exactly 600 in `AT_THE_BAR`.
@@ -107,9 +107,9 @@ Three are gated; the fourth is review-only.
   owns every one; `test/prompt-budget.test.ts` the ceilings.
 - A tool rename updates `test/naming.test.ts` and the catalog table in both entry READMEs;
   a command rename updates its `docs/extensions/` page.
-- A behaviour change updates the catalog in both entry READMEs, the relevant `docs/`
-  guide, and `CHANGELOG.md` under `## [Unreleased]`. A removal also sweeps the `docs/` and
-  `lib/` READMEs naming what it took away.
+- A behaviour change updates the catalog in both entry READMEs and the relevant `docs/`
+  guide; the landing writes its `CHANGELOG.md` bullet, so a branch never edits it. A removal
+  also sweeps the `docs/` and `lib/` READMEs naming it.
 - Renaming a heading or moving a file means fixing every relative link and `#anchor`;
   `test/doc-links.test.ts` resolves them.
 

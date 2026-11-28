@@ -82,15 +82,17 @@ ladder rather than one flat namespace.
 | [`workflow/proven-remove.ts`](./workflow/proven-remove.ts) | Removing a file only when proved: `removeIfProven`. |
 | [`workflow/claims.ts`](./workflow/claims.ts) | The bus's path claims as a card's lane wants them: `holdPaths`, `reclaimHeld`. |
 | [`workflow/join.ts`](./workflow/join.ts) | The session's team standing: `onTeam`, `joinTeam`, `TeamState`, `standingOf`, `teamStatus`, `NOT_ON_TEAM`, `createMemberTools`, `solo`. |
-| [`workflow/seat.ts`](./workflow/seat.ts) | The actor a page reads as, derived from `team.lead`. |
+| [`workflow/seat.ts`](./workflow/seat.ts) | The actor a page reads as, from `team.lead`. |
 | [`workflow/signs.ts`](./workflow/signs.ts) | What a sign is: who may write one (`Lead`, `isLead`, `personActor`/`isPerson`), what it records (`signMark`/`signedAs`), and which one still speaks (`laneReview`, `signStale`, `currentReview`, and the four bodies as the page receives them) — with `HolderFact` and the note cap's one arithmetic. |
 | [`workflow/lead.ts`](./workflow/lead.ts) | The gate ladder: who may move, sign, close or take a card back, the spot-check's own write and the run it holds to the contract's command, and every sentence that says why not — the words the ladder itself builds. |
-| [`workflow/land.ts`](./workflow/land.ts) | The landing verb: `landCard`, `landSubject`, `parseNumstat`, `RunGit`. |
+| [`workflow/changelog.ts`](./workflow/changelog.ts) | The `[Unreleased]` line: `headingFor`, `insertBullet`, `lowerFirst`, `CHANGELOG_SECTIONS`. |
+| [`workflow/land-subject.ts`](./workflow/land-subject.ts) | A landing's words: `landScope`, `landTitle`, `landSubject`, `landBullet`. |
+| [`workflow/land.ts`](./workflow/land.ts) | The landing verb: `landCard`, `parseNumstat`, `RunGit`. |
 | [`workflow/suite-declarations.ts`](./workflow/suite-declarations.ts) | What a merge may delete: `declaredSuites`, `EXTENSION_SUITES`, `suiteFileOf`, `SuiteOwner`, `DeclaredSuite`, `withoutComments`, `literalBody`, `extensionGroups`. |
 | [`workflow/round.ts`](./workflow/round.ts) | The lead's round: `gateOf`, `unassigned`. |
 | [`workflow/round-text.ts`](./workflow/round-text.ts) | The round's rows: `withLiveOwner`, `LEAD_ROUND`, `teamPhrase`. |
 | [`workflow/skipped.ts`](./workflow/skipped.ts) | The sentence for the card files a board refused. |
-| [`workflow/view.ts`](./workflow/view.ts) | The page's snapshot: the one shape a client is allowed to know. |
+| [`workflow/view.ts`](./workflow/view.ts) | The page's snapshot: the shape a client knows. |
 | [`workflow/page-pointer.ts`](./workflow/page-pointer.ts) | How a session finds a page already serving, and proves a stale note dead before taking it over. |
 | [`workflow/verify.ts`](./workflow/verify.ts) | The acceptance command a contract names and the one run a spot-check records: `runVerification` (a shell in the card's directory, bounded and tree-killed, its output tail kept for the refusal), `verifiedCommand`, `verifySpotCheck` for both sign doors, and `shaOf` for the commit the sign carries. |
 | [`workflow/tone.ts`](./workflow/tone.ts) | What colour a lane, a reason, and a decision row wear, the words and rank a decision wears, and the order a queue reads them in, as the tables both surfaces read. |

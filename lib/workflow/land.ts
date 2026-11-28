@@ -3,8 +3,11 @@
  *
  * `review` runs the card's own check in the tree the work was made in; this puts that tree on
  * trunk, and it runs the commands itself rather than through a shell so every argument is one
- * this module wrote. The order is the safety argument — fetch, the checkout's equality with the
- * remote, the signed commit's ancestry, the merge, the proof, the push — and anything that fails
+ * this module wrote — bar one: the `CHANGELOG.md` bullet it writes into the merge, which is the
+ * whole of the difference between the landed tree and the signed one, and the changelog comparison
+ * at the proof is what holds that difference to the line it generated. The order is the safety
+ * argument — fetch, the checkout's equality with the remote, the signed commit's ancestry, the
+ * branch's own changelog, the merge, the proof, the push — and anything that fails
  * after the merge undoes it with `reset --keep`, never `--hard`: the checkout this runs in is
  * shared, and a peer's edit can land between a `status` check and the undo, so the undo refuses
  * rather than eating a file that is not ours.
@@ -14,10 +17,12 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { messageOf } from "../errors.ts";
-import { posixPath } from "../path.ts";
+import { headingFor, insertBullet } from "./changelog.ts";
+import { landBullet, landSubject } from "./land-subject.ts";
 import type { RunGit } from "../git/runner.ts";
 import type { Card } from "./card.ts";
 import { type DeclaredSuite, declaredSuites, suiteFileOf } from "./suite-declarations.ts";
@@ -37,11 +42,13 @@ export const SUITE_HOTSPOT = "test/suite-manifest.ts";
 /**
  * The files whose deletions mean a landing lost work rather than rewrote it.
  *
- * A card appends here from another branch, so a merge that removes a line has overwritten
- * somebody's newest record instead of carrying it — the one failure the numstat can catch. The
- * manifest is the one file the layout gate forces a deletion in: a suite's removal deletes its
- * line, so a removed line is a rewrite only when the merge still carries the suite it named
- * (`removedSuitesAbove`).
+ * A card used to append here from another branch, so a merge that removed a line had overwritten
+ * somebody's newest record instead of carrying it. The changelog's bullet now belongs to the
+ * landing, which reads that file itself (`changelogPlan`), so the count below is the second opinion
+ * on a rule the comparison already holds — and the list stays here because a hand landing is still
+ * reviewed by it. The manifest is the one file the layout gate forces a deletion in: a suite's
+ * removal deletes its line, so a removed line is a rewrite only when the merge still carries the
+ * suite it named (`removedSuitesAbove`).
  */
 export const APPEND_HOTSPOTS: readonly string[] = [CHANGELOG_HOTSPOT, SUITE_HOTSPOT];
 
@@ -59,6 +66,8 @@ export const LAND_TIMEOUT_MS = 120_000;
 export const VERB_SOURCES: readonly string[] = [
 	fileURLToPath(import.meta.url),
 	fileURLToPath(new URL("./suite-declarations.ts", import.meta.url)),
+	fileURLToPath(new URL("./changelog.ts", import.meta.url)),
+	fileURLToPath(new URL("./land-subject.ts", import.meta.url)),
 ];
 
 /** The sha256 of every source in order, or `undefined` when one could not be read. */
@@ -104,6 +113,15 @@ export interface LandOptions {
 	 * way it says "the push was refused", and the default is the real read of {@link VERB_SOURCES}.
 	 */
 	fingerprint?: () => string | undefined;
+	/**
+	 * How the generated bullet reaches `CHANGELOG.md` in the checkout.
+	 *
+	 * The second fact a suite cannot fake through {@link RunGit}: the base's text comes from `git
+	 * show`, but the write is a file operation and a scripted landing names a `cwd` no repository
+	 * has. `writeFileSync` in production, a recorder in a case — which is also how a case holds the
+	 * verb to the exact text it wrote.
+	 */
+	write?: (path: string, text: string) => void;
 }
 
 /** One numstat row, as the proof reports it. */
@@ -129,122 +147,6 @@ export type LandAnswer =
 			pushed: string;
 	  }
 	| { error: string };
-
-/**
- * A card's title often opens with its scope — `board:`, or the `docs(board):` a typed title uses.
- *
- * It is read twice and must mean one thing both times: `landSubject` strips it so the subject
- * states the scope once, and `landScope` takes it as the scope when the paths name no extension.
- */
-const TITLE_SCOPE = /^([\w-]+\([^)]*\)|[\w-]+):\s*/;
-
-/** The extension a path names: `extensions/<name>/<file>`, or the bare directory `extensions/<name>`. */
-const EXTENSION_PATH = /^extensions\/([^/]+)(?:\/|$)/;
-
-/** The extension a path names, if it names one. */
-function extensionOf(path: string): string | undefined {
-	return EXTENSION_PATH.exec(path)?.[1];
-}
-
-/** A path's top-level directory, or `undefined` for a file at the repository root. */
-function topOf(path: string): string | undefined {
-	const [top, ...rest] = path.split("/");
-	return rest.length === 0 ? undefined : top;
-}
-
-/** The documentation a reader keeps beside the code: a card whose subject is one of these is `docs` work. */
-const DOCS_ROOT = new Set(["AGENTS.md", "CONTRIBUTING.md", "README.md", "README.zh-CN.md"]);
-
-/**
- * The area a path names: its top-level directory, unless that is `extensions` — a container, not an
- * area — or, for a file at the repository root, `docs` when that file is documentation.
- *
- * `package.json` and `CHANGELOG.md` name no area on purpose. Both ride another card's work: the
- * manifest is bumped beside the code it describes, and the changelog bullet rides every card, so
- * either one answering would let a rider outvote the work it accompanies. #932 is what the table is
- * for — `CONTRIBUTING.md`'s roster, with `test/drift.test.ts` holding its word ceiling, landed
- * `merge(test)` because the one test file was the only path with a directory to name.
- */
-function areaOf(path: string): string | undefined {
-	const top = topOf(path);
-	if (top !== undefined) return top === "extensions" ? undefined : top;
-	return DOCS_ROOT.has(path) ? "docs" : undefined;
-}
-
-/**
- * The surface a path names when it is not `name`'s: another extension, or a top-level area other
- * than `lib`. The shared tree, the extension's own page, and a root file are part of the card's
- * work, so they are not something else.
- */
-function namedElsewhere(path: string, name: string): string | undefined {
-	const other = extensionOf(path);
-	if (other !== undefined) return other === name ? undefined : other;
-	const top = topOf(path);
-	if (top === undefined || top === "lib" || path === `docs/extensions/${name}.md`) return undefined;
-	return top;
-}
-
-/**
- * The scope a card earns: the one extension its paths name, else the one its title names, else
- * the area its first path is in, else `board`.
- *
- * Paths win, because a card that moves a module and its extension is the extension's work (#853
- * was `merge(plan)` with `lib/mode-state.ts` among its paths) — but only when that extension is
- * where the card's work is. It holds while the paths in it are not outnumbered by the paths that
- * name something else, an area other than `lib` or a second extension, and a tie stays with the
- * extension. #931 is what the count is for: one corrected docstring in another extension's suite,
- * against three `docs/` paths, landed `merge(wechat)` over a card that changed no wechat
- * behaviour, and a landed sha cannot be repaired. `lib/`, the extension's own page
- * (`docs/extensions/<name>.md`), and a root file never count against it.
- *
- * The title is next, because a card whose work lives in `lib/` names no extension at all and its
- * title already says which surface it belongs to — `#868` would otherwise land `merge(board)`
- * under a `session-bus:` title. The area is the rung after that (`lib`, `docs`, `test`), so a
- * lib-only card is not the landing tool's work either; `board` is left for a card that names
- * nothing, which is the one case where the door's own name is the only one left.
- *
- * A path is data: `posixPath` normalises the spelling before anything reads it, so one card earns
- * one scope whatever machine typed it, and a bare `extensions/<name>` counts as that extension
- * because a card whose paths are directories names it just as clearly as one whose paths are files.
- */
-export function landScope(card: Pick<Card, "title" | "paths">): string {
-	const paths = card.paths.map(posixPath);
-	const names = paths.map(extensionOf).filter((name): name is string => name !== undefined);
-	const [first] = names;
-	if (first !== undefined && names.every((name) => name === first)) {
-		// A `test/` ledger rides a card that changes the extension's OWN code, and is the work of one
-		// that does not: no such code plus a root ledger is a sweep, whatever else the card touches.
-		const own = paths.some((path) => extensionOf(path) === first && !path.endsWith(".test.ts"));
-		const ledger = paths.filter((path) => areaOf(path) === "test").length;
-		if (own || ledger === 0) {
-			const elsewhere = paths.filter(
-				(path) => namedElsewhere(path, first) !== undefined && !(own && areaOf(path) === "test"),
-			).length;
-			if (names.length >= elsewhere) return first;
-		}
-	}
-
-	const titled = TITLE_SCOPE.exec(card.title)?.[1];
-	if (titled !== undefined) return titled;
-
-	for (const path of paths) {
-		const area = areaOf(path);
-		if (area !== undefined) return area;
-	}
-	return "board";
-}
-
-/**
- * The merge subject a card earns: `merge(<scope>): <title> (#<id>)`.
- *
- * Derived rather than supplied, because a landed sha cannot be repaired: a title is already the
- * sentence about what moved, and the one `scope:` prefix a title often carries is dropped so the
- * subject states it once.
- */
-export function landSubject(card: Pick<Card, "id" | "title" | "paths">): string {
-	const title = card.title.replace(TITLE_SCOPE, "").replace(/\s+/g, " ").trim();
-	return `merge(${landScope(card)}): ${title} (#${card.id})`;
-}
 
 /** A sha as a sentence spells it. */
 function short(sha: string): string {
@@ -359,16 +261,25 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	// The verb this process holds is the one a landing would run: the files it imported are the files
 	// on disk. It is the last read-only refusal, because every check above names a remedy a holder can
 	// act on, and a stale process must not mask one.
+	// The branch's own changelog, read before anything is merged: the bullet is this verb's to write,
+	// so this is where a branch that wrote one is told to drop it rather than where a merge conflicts.
+	const changelog = await changelogPlan(call, base, branchTip.out, card);
+	if ("error" in changelog) return changelog;
+
 	const stale = staleVerb(options.fingerprint);
 	if (stale !== undefined) return { error: stale };
 
 	const subject = landSubject(card);
-	const merged = await call(["merge", "--no-ff", "-m", subject, branchTip.out]);
+	// The merge is left uncommitted for one reason: the bullet has to be in the commit that carries it,
+	// so the landed tree holds the line the proof names, and no second commit goes unsigned.
+	const merged = await call(["merge", "--no-ff", "--no-commit", branchTip.out]);
 	if (!merged.ok) {
 		// A conflict leaves a half-merge behind: abort it, so the branch is the one it was.
 		await call(["merge", "--abort"]);
 		return { error: `the merge conflicts; the branch is untouched — \`/board exit\`, then resolve it by hand.` };
 	}
+	const written = await writeChangelog(call, cwd, changelog.text, subject, options.write);
+	if (written !== undefined) return written;
 
 	const mergeSha = await call(["rev-parse", "HEAD"]);
 	if (!mergeSha.ok) {
@@ -379,7 +290,8 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	}
 	const merge = mergeSha.out;
 
-	// The card's one guarantee: the tree the lead signed is the tree that lands.
+	// The signed tree is what the merge carries: the one line this verb wrote is the whole of the
+	// difference, and the changelog read below holds the landed tree to it.
 	const carries = await call(["merge-base", "--is-ancestor", reviewed.sha, merge]);
 	if (!carries.ok) {
 		await undo();
@@ -396,20 +308,21 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 		};
 	}
 	const rows = parseNumstat(numstat.out);
-	// A bullet has no legitimate deletion; a foot reference moves when a version is cut, and the cut
-	// adds one beside it. `changelogPointers` is the read that tells the two apart.
-	if (rows.some((row) => row.deleted > 0 && row.path === CHANGELOG_HOTSPOT)) {
-		const pointers = await changelogPointers(call, base, merge);
-		if (pointers.kind === "failed") {
-			await undo();
-			return { error: `${pointers.message}: the merge was undone and nothing was pushed.` };
-		}
-		if (!pointers.rewritten) {
-			await undo();
-			return {
-				error: `the landing deletes lines in ${CHANGELOG_HOTSPOT}, which are appended and not rewritten: the merge was undone and nothing was pushed.`,
-			};
-		}
+	// The landed tree against the signed one, read from the merge's own tree rather than from the file
+	// this verb wrote: the two differ by exactly this card's bullet, so a hook, a filter, or a stray
+	// write that changed anything else is caught here instead of landing.
+	const landed = await call(["show", `${merge}:${CHANGELOG_HOTSPOT}`]);
+	if (!landed.ok) {
+		await undo();
+		return {
+			error: `could not read the merge's ${CHANGELOG_HOTSPOT} (${firstLine(landed.out)}): the merge was undone and nothing was pushed.`,
+		};
+	}
+	if (landed.out !== changelog.text.trim()) {
+		await undo();
+		return {
+			error: `the merge's ${CHANGELOG_HOTSPOT} is not this card's bullet on top of the base: expected\n  ${changelog.bullet}\na bullet is appended by the landing, never edited: the merge was undone and nothing was pushed.`,
+		};
 	}
 	// The manifest's deletion is the one a suite's removal requires, so it is judged by the suite it
 	// names: gone from the merge is a removal, still there is a rewritten record.
@@ -501,35 +414,106 @@ async function removedSuitesAbove(
  */
 const FOOT_REFERENCE = /^\[[^\]]+\]:\s+https?:\/\//;
 
+/** The changelog's foot references, trimmed: the lines a version cut rewrites and no reader of the list sees. */
+function referencesOf(text: string): string[] {
+	return text
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => FOOT_REFERENCE.test(line));
+}
+
+/** The file without those lines, so a cut's rewrites can be set aside on both sides of a comparison. */
+function withoutReferences(text: string): string {
+	return text
+		.split("\n")
+		.filter((line) => !FOOT_REFERENCE.test(line.trim()))
+		.join("\n");
+}
+
+/** What a landing is about to write: the bullet, and the file with it in place. */
+interface ChangelogPlan {
+	/** The generated line, named in a refusal and in the proof. */
+	bullet: string;
+	/** The whole file, one final newline restored, which is what the landing writes. */
+	text: string;
+}
+
 /**
- * Whether a landing rewrote the changelog's foot references rather than its records.
+ * The changelog this landing will leave behind, or why it will not land.
  *
- * **Every** removed line must be a reference and at least one must arrive with it: "every" is what
- * keeps a bullet beside a rewritten reference refused, and the addition is what a cut always makes.
- * The lines come from `git diff -U0`, because the numstat counts a bullet and a pointer the same.
+ * Read from the two trees rather than from the checkout, because the branch's own copy is what a
+ * merge would carry: a branch that wrote a bullet is the contention this verb exists to remove, and
+ * a version cut is the one edit that rides — its foot references, and only those, may differ.
  */
-async function changelogPointers(
+async function changelogPlan(
 	call: (args: string[]) => Promise<Call>,
 	base: string,
-	merge: string,
-): Promise<{ kind: "failed"; message: string } | { kind: "checked"; rewritten: boolean }> {
-	const diff = await call(["diff", "--unified=0", base, merge, "--", CHANGELOG_HOTSPOT]);
-	if (!diff.ok) {
-		return { kind: "failed", message: `could not read the changelog's removed lines (${firstLine(diff.out)})` };
+	tip: string,
+	card: Card,
+): Promise<ChangelogPlan | { error: string }> {
+	const before = await call(["show", `${base}:${CHANGELOG_HOTSPOT}`]);
+	if (!before.ok) {
+		return { error: `could not read the base's ${CHANGELOG_HOTSPOT} (${firstLine(before.out)}).` };
 	}
-	const removed: string[] = [];
-	let added = false;
-	for (const line of diff.out.split("\n")) {
-		// The file header only: a removed line whose text begins with `--` would render as `--- …`.
-		if (line.startsWith("--- a/") || line.startsWith("+++ b/") || line.startsWith("\\")) continue;
-		if (line.startsWith("-")) {
-			removed.push(line.slice(1).trim());
-		} else if (line.startsWith("+") && FOOT_REFERENCE.test(line.slice(1).trim())) {
-			added = true;
-		}
+	const branch = await call(["show", `${tip}:${CHANGELOG_HOTSPOT}`]);
+	if (!branch.ok) {
+		return { error: `could not read the branch's ${CHANGELOG_HOTSPOT} (${firstLine(branch.out)}).` };
 	}
-	const rewritten = removed.length > 0 && removed.every((line) => FOOT_REFERENCE.test(line)) && added;
-	return { kind: "checked", rewritten };
+	const bullet = landBullet(card);
+	if (withoutReferences(before.out) !== withoutReferences(branch.out)) {
+		return {
+			error: `the branch edits ${CHANGELOG_HOTSPOT}: a landing writes the bullet itself, so drop that change — the line it will land is\n  ${bullet}`,
+		};
+	}
+	const from = referencesOf(before.out);
+	const to = referencesOf(branch.out);
+	if (from.join("\n") !== to.join("\n") && to.length <= from.length) {
+		return {
+			error: `the branch rewrites ${CHANGELOG_HOTSPOT}'s foot references without the new version's line, which is what a cut adds.`,
+		};
+	}
+	const text = insertBullet(branch.out, headingFor(card.type), bullet);
+	if (text === undefined) {
+		return {
+			error: `${CHANGELOG_HOTSPOT} has no \`## [Unreleased]\` window: a bullet is written there and nowhere else.`,
+		};
+	}
+	// `call` trims its answer, so the file is rebuilt with the newline every line of it ended on.
+	return { bullet, text: `${text}\n` };
+}
+
+/** The write, and the two commands that put it in the merge; `undefined` when all three worked. */
+async function writeChangelog(
+	call: (args: string[]) => Promise<Call>,
+	cwd: string,
+	text: string,
+	subject: string,
+	write: ((path: string, text: string) => void) | undefined,
+): Promise<{ error: string } | undefined> {
+	const undo = () => call(["merge", "--abort"]);
+	try {
+		(write ?? writeFileSync)(join(cwd, CHANGELOG_HOTSPOT), text);
+	} catch (error) {
+		await undo();
+		return {
+			error: `could not write ${CHANGELOG_HOTSPOT} (${messageOf(error)}): the merge was undone and nothing was pushed.`,
+		};
+	}
+	const staged = await call(["add", "--", CHANGELOG_HOTSPOT]);
+	if (!staged.ok) {
+		await undo();
+		return {
+			error: `could not stage ${CHANGELOG_HOTSPOT} (${firstLine(staged.out)}): the merge was undone and nothing was pushed.`,
+		};
+	}
+	const committed = await call(["commit", "-m", subject]);
+	if (!committed.ok) {
+		await undo();
+		return {
+			error: `could not commit the merge (${firstLine(committed.out)}): the merge was undone and nothing was pushed.`,
+		};
+	}
+	return undefined;
 }
 
 /**

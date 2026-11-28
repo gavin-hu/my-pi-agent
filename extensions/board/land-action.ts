@@ -42,6 +42,14 @@ export interface LandDoorOptions {
 	card: string | undefined;
 	/** The bus seam, for the notice the holder gets; the production default is `createDeliver(pi)`. */
 	notify?: Deliver;
+	/**
+	 * How the generated bullet reaches `CHANGELOG.md`; the production default is `writeFileSync`.
+	 *
+	 * The door passes it on rather than owning it, for the reason `notify` is here: a suite asks the
+	 * door's own questions and names no repository, and the write is the one step of a landing that
+	 * needs a real directory.
+	 */
+	write?: (path: string, text: string) => void;
 }
 
 /** The answer the tool wraps: the landing's line, or the sentence that stopped it. */
@@ -99,6 +107,7 @@ export async function landCardDoor(options: LandDoorOptions): Promise<LandDoorAn
 		cwd: resolveEffectiveCwd(ctx.cwd),
 		reviewed: { sha: evidence.sha, branch: evidence.branch },
 		run: createExecRunner(pi),
+		...(options.write === undefined ? {} : { write: options.write }),
 	});
 	if ("error" in answer) return { kind: "refused", error: answer.error, card };
 	const told = await tellHolder({

@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { BRANCH, cleanLanding, landingWith, MERGE } from "../../test/helpers/land-git.ts";
+import { BRANCH, cleanLanding, LANDED, landingWith, MERGE, REVIEWED } from "../../test/helpers/land-git.ts";
 import { IMPORTED_LAND_FINGERPRINT, VERB_SOURCES } from "./land.ts";
 
 /** The sentence a refusal answers with, for the two cases that assert its words. */
@@ -18,14 +18,66 @@ function errorOf(result: { error: string } | object): string {
 	return "error" in result ? result.error : "";
 }
 
+describe("the landing's order and its argv", () => {
+	// Here rather than in `extensions/board/land.test.ts`, which sits under its 400-line bar: the order
+	// is the verb's own fact, and the suite that drives the staleness guard is the one that reads it.
+	test("lands a reviewed card: fetch, equality, ancestry, the branch's changelog, merge, proof, push", async () => {
+		const { git, written, answer } = landingWith(cleanLanding());
+		const result = await answer;
+		if ("error" in result) throw new Error(result.error);
+		expect(result.merge).toBe(MERGE);
+		expect(result.pushed).toBe("origin main");
+		expect(result.rows).toEqual([
+			{ path: "CHANGELOG.md", added: 2, deleted: 0 },
+			{ path: "extensions/board/lead-gate.test.ts", added: 59, deleted: 0 },
+		]);
+		expect(git.calls.map((args) => args[0])).toEqual([
+			"fetch",
+			"rev-parse",
+			"status",
+			"rev-parse",
+			"rev-parse",
+			"rev-parse",
+			"show",
+			"show",
+			"merge",
+			"add",
+			"commit",
+			"rev-parse",
+			"merge-base",
+			"diff",
+			"show",
+			"push",
+		]);
+		// The merge is the card's subject, the branch the review named, and nothing else — and it is
+		// left uncommitted, so the commit that follows carries the bullet the proof reads.
+		expect(git.argv("merge").at(0)).toEqual(["merge", "--no-ff", "--no-commit", REVIEWED]);
+		expect(git.argv("commit").at(0)).toEqual([
+			"commit",
+			"-m",
+			"merge(board): land is a reviewed card's verb, not a mode exit (#856)",
+		]);
+		// The write is the file itself, not a description of one: the merge's tree is compared to it.
+		expect(written).toEqual([{ path: "/checkout/CHANGELOG.md", text: LANDED }]);
+		// A named ref, and never a force.
+		expect(git.calls.at(-1)).toEqual(["push", "origin", "main:main"]);
+	});
+});
+
 describe("the landing verb's fingerprint", () => {
-	test("is the pair of files that decide a landing, and both are what a refusal names", () => {
-		// One file is not the judgement: this one decides the merge and `suite-declarations.ts` decides
-		// what the merge may delete, so a guard that hashed only the first would pass a stale reader —
-		// and a stale reader permits the deletion the proof exists to refuse.
-		expect(VERB_SOURCES.map((path) => path.split("/").at(-1))).toEqual(["land.ts", "suite-declarations.ts"]);
-		// The digest is over *both* reads, built here from the files rather than taken from the constant: a
-		// guard that hashed one of the pair would pass a stale reader, which is the half-fix this replaces.
+	test("is the files that decide a landing, and every one is what a refusal names", () => {
+		// One file is not the judgement: this one decides the merge, `suite-declarations.ts` decides what
+		// the merge may delete, and `changelog.ts` decides the one line the landing writes — so a guard
+		// that hashed fewer would pass a stale rule, and a stale reader permits the deletion the proof
+		// exists to refuse.
+		expect(VERB_SOURCES.map((path) => path.split("/").at(-1))).toEqual([
+			"land.ts",
+			"suite-declarations.ts",
+			"changelog.ts",
+			"land-subject.ts",
+		]);
+		// The digest is over *every* read, built here from the files rather than taken from the constant: a
+		// guard that hashed one of them would pass a stale reader, which is the half-fix this replaces.
 		const expected = createHash("sha256");
 		for (const path of VERB_SOURCES) expected.update(readFileSync(path));
 		expect(IMPORTED_LAND_FINGERPRINT).toBe(expected.digest("hex"));
@@ -38,8 +90,8 @@ describe("the landing verb's fingerprint", () => {
 		// Both sources, because one digest cannot say which of them moved: naming one would be a guess.
 		expect(errorOf(result)).toContain("land.ts");
 		expect(errorOf(result)).toContain("suite-declarations.ts");
-		// The order is the promise: every refusal a holder can act on has already spoken, and nothing
-		// is merged or pushed by a process whose rule is stale.
+		// The order is the promise: every refusal a holder can act on has already spoken — the branch's
+		// own changelog included — and nothing is merged or pushed by a process whose rule is stale.
 		expect(git.calls.map((args) => args[0])).toEqual([
 			"fetch",
 			"rev-parse",
@@ -47,6 +99,8 @@ describe("the landing verb's fingerprint", () => {
 			"rev-parse",
 			"rev-parse",
 			"rev-parse",
+			"show",
+			"show",
 		]);
 		expect(git.argv("merge")).toEqual([]);
 		expect(git.argv("push")).toEqual([]);

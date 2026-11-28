@@ -159,7 +159,11 @@ const CEILINGS: readonly Ceiling[] = [
 	// plus shorter `action`, `query`, `path`, `verify` and `priority` descriptions. `review`'s
 	// `session send` parenthetical and `list`'s group names were deliberately kept: each is a fact
 	// stated nowhere else on this surface.
-	{ tool: "board", max: 6_197, guidelines: 361, longest: 150 },
+	// 6,197 → 6,181 after #1018: `review` gained the one line a lead signs against — a landed tree is
+	// the signed one plus its `CHANGELOG.md` bullet (+71) — paid for by the step list `land` no longer
+	// restates, and by `move`, `claim`, `contract`, `approve`, `shelve` and `review` each giving up a
+	// word they said twice.
+	{ tool: "board", max: 6_181, guidelines: 361, longest: 150 },
 	// 3,111 before the verb list stopped being written twice; 2,349 after `claim`/`reclaim` left;
 	// 2,335 when `action` became a string enum and the bus's bounds moved into the schema.
 	{ tool: "team", max: 2_335, guidelines: 662, longest: 167 },
