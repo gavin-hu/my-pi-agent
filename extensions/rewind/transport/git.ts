@@ -7,6 +7,12 @@
  * {@link RunGit}, so the algorithms are testable with a fake runner and use
  * `pi.exec` in production. Snapshots are built through a temporary index
  * (`GIT_INDEX_FILE`) so the user's real index and HEAD are never modified.
+ *
+ * Pathspecs are read literally through `--literal-pathspecs`, not with a
+ * `:(literal)` prefix: a prefix is magic, and magic is what
+ * `GIT_LITERAL_PATHSPECS` in the environment turns off — a Pi tool shell sets
+ * it. The option keeps a path read back from `git diff` naming itself rather
+ * than a glob, whatever the caller's environment says.
  */
 
 import { existsSync } from "node:fs";
@@ -131,17 +137,6 @@ export async function readTreeReset(runGit: RunGit, cwd: string, commit: string,
 }
 
 /**
- * A pathspec that matches `path` literally.
- *
- * The paths come from `git diff` output, so a file named `weird[1].txt` is a real
- * possibility; without `:(literal)` git would read it as a glob and restore the
- * wrong thing (or nothing).
- */
-function literalPathspec(path: string): string {
-	return `:(literal)${path}`;
-}
-
-/**
  * The changed paths between two trees, with how each changed.
  *
  * One call replaces the separate added-path and changed-count queries, so the
@@ -156,8 +151,8 @@ export async function nameStatus(
 	to: string,
 	paths?: readonly string[],
 ): Promise<ChangedPath[]> {
-	const args = ["diff", "--no-color", "-M", "--name-status", from, to, "--"];
-	if (paths) args.push(...paths.map(literalPathspec));
+	const args = ["--literal-pathspecs", "diff", "--no-color", "-M", "--name-status", from, to, "--"];
+	if (paths) args.push(...paths);
 	const result = await runGit(args, { cwd });
 	return result.code === 0 ? parseNameStatus(result.stdout) : [];
 }
@@ -175,8 +170,8 @@ export async function diffStat(
 	to: string,
 	paths?: readonly string[],
 ): Promise<string> {
-	const args = ["diff", "--no-color", "-M", "--stat", from, to, "--"];
-	if (paths) args.push(...paths.map(literalPathspec));
+	const args = ["--literal-pathspecs", "diff", "--no-color", "-M", "--stat", from, to, "--"];
+	if (paths) args.push(...paths);
 	const result = await runGit(args, { cwd });
 	return result.code === 0 ? result.stdout.trim() : "";
 }
@@ -197,7 +192,7 @@ export async function restorePaths(
 	paths: readonly string[],
 ): Promise<void> {
 	if (paths.length === 0) return;
-	await run(runGit, ["checkout", commit, "--", ...paths.map(literalPathspec)], {
+	await run(runGit, ["--literal-pathspecs", "checkout", commit, "--", ...paths], {
 		cwd,
 		env: { GIT_INDEX_FILE: indexFile },
 	});

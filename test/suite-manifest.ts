@@ -278,7 +278,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"subagent-background",
 	],
 	question: ["dialogs", "tools", "view/question-screen", "extension"],
-	rewind: ["state/runtime", "transport/store", "extension"],
+	rewind: ["state/runtime", "transport/git", "transport/store", "extension"],
 	subagent: [
 		"agents",
 		"run",

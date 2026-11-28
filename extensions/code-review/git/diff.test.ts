@@ -11,6 +11,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { RunGit } from "../../../lib/git/index.ts";
 import { execP, makeRepo, makeRepoWithRemote, makeTempTracker, runGit } from "../../../test/helpers/git.ts";
 import { comparisonOf } from "../../../test/helpers/review-scope.ts";
 import { MAX_BASE_LENGTH } from "../scope.ts";
@@ -111,6 +112,28 @@ describe("a branch review", () => {
 		// comparison a write is graded against.
 		expect(branch.snapshot.files.map((file) => file.rel)).toEqual(change.snapshot.files.map((file) => file.rel));
 		expect(branch.snapshot.fingerprint).not.toBe(change.snapshot.fingerprint);
+	});
+
+	test("reads a glob-named file's own diff, names it literally, and asks git for no process-wide switch", async () => {
+		const repo = await featureRepo();
+		writeFileSync(join(repo, "weird[1].ts"), "export const w = 1;\n");
+		await execP("git", ["add", "weird[1].ts"], { cwd: repo });
+		const calls: Array<{ args: string[]; env: Record<string, string> | undefined }> = [];
+		const recording: RunGit = (args, options) => {
+			calls.push({ args, env: options.env });
+			return runGit(args, options);
+		};
+		const outcome = await createReviewReaderFrom(recording, repo).snapshot(comparisonOf("change"));
+		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
+		expect(outcome.snapshot.files.find((file) => file.rel === "weird[1].ts")?.add).toBe(1);
+		// Literal handling is one option on the call, not an env the runner would apply to `process.env`
+		// for the length of it and so hand to every other git call in the process (#990). Git tries the
+		// literal name before the glob, so a path that exists in either side reads right either way: the
+		// argv is what holds this half.
+		expect(
+			calls.filter((call) => call.args[0] === "--literal-pathspecs" && call.args.at(-1) === "weird[1].ts").length,
+		).toBe(1);
+		expect(calls.filter((call) => call.env !== undefined)).toEqual([]);
 	});
 });
 

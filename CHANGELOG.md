@@ -185,6 +185,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   newest line kept even when it alone is over — and the buffer moved into `logs.ts`, so `runtime.ts`
   hands the job over instead of growing into it.
 
+- `code-review`, `rewind`: one file's diff no longer flips git's pathspec handling for the whole
+  process, and a path is matched literally even where the environment says otherwise. The review read
+  each file with `GIT_LITERAL_PATHSPECS` set, and the runner applies an `env` to `process.env` for the
+  length of a call, so a rewind snapshot taken in the same session inherited it and `git restore` then
+  refused with `pathspec ':(literal)README.md' did not match any file(s) known to git`. Both now pass
+  `--literal-pathspecs` on the call and set no environment — which also holds under a shell that
+  already exports the variable, as a Pi tool shell does.
+
 - `watch`: `add` answered `Watching w1` for a command that never started — the spawn threw, a record
   went in with `status: "error"`, and the model read success and then read an empty match list as a
   clean log. The failure is the reply now: `the command did not start, so nothing is watching:
