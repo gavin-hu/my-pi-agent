@@ -353,3 +353,30 @@ describe("a tree with no work of its own", () => {
 		}
 	});
 });
+
+describe("the base a tree is judged against", () => {
+	test("keeps the base on the record a sign stores, and drops only the gate's own questions", async () => {
+		const answer = await verifiedCommand(
+			"bun test",
+			"/repo",
+			async () => ({ exit: 0, output: "", killed: false }),
+			() => 1,
+			async () => ({
+				sha: "1d3a8ce3",
+				carries: true,
+				base: "origin/main",
+				behind: { base: "origin/main", sha: "20fdf9c7" },
+			}),
+		);
+		expect(answer).toEqual({
+			verified: {
+				cmd: "bun test",
+				exit: 0,
+				at: 1,
+				root: "/repo",
+				sha: "1d3a8ce3",
+				behind: { base: "origin/main", sha: "20fdf9c7" },
+			},
+		});
+	});
+});

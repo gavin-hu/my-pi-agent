@@ -41,8 +41,13 @@ describe("a spot-check of a card whose contract names a command", () => {
 
 	test("records the run the signer's call made, and the card closes on it", () => {
 		const card = verifying();
-		const signed = stepOf(card, { kind: "review", verified: run() }, LEAD);
-		expect(signed.review?.verified).toEqual(run());
+		const signed = stepOf(
+			card,
+			{ kind: "review", verified: { ...run(), behind: { base: "origin/main", sha: "20fdf9c7" } } },
+			LEAD,
+		);
+		// The base rides the run rather than a second field, so a sign keeps the landing's warning.
+		expect(signed.review?.verified).toEqual({ ...run(), behind: { base: "origin/main", sha: "20fdf9c7" } });
 		// The run is what `done` reads, so the ordinary path stays open.
 		expect(accepted(applyOp(signed, doneOf(signed), CORE, NOW, boardOf(signed))).card.lane).toBe("done");
 	});

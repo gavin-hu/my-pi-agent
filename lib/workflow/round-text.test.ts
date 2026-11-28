@@ -218,8 +218,25 @@ describe("the run clause three surfaces print", () => {
 	test("is the same body the browser receives, safe to splice into a script", () => {
 		expect(RAN_CLAUSE_JS).toBe(String(ranClause));
 		const browserClause = new Function(`return (${RAN_CLAUSE_JS});`)() as typeof ranClause;
-		const run = { cmd: VERIFY, exit: 0, at: NOW, root: "/repo", branch: "main", checkout: true } as const;
+		const run = {
+			cmd: VERIFY,
+			exit: 0,
+			at: NOW,
+			root: "/repo",
+			branch: "main",
+			checkout: true,
+			behind: { base: "origin/main", sha: "20fdf9c7" },
+		} as const;
 		expect(browserClause(run)).toBe(ranClause(run));
+	});
+
+	test("names the base that moved, and says nothing when it has not", () => {
+		// The fact is the landing's, not the run's: a tree behind its base signs a tree the merge will not
+		// reproduce, and the holder pays for it with a sync merge and a second sign.
+		expect(ranClause({ cmd: VERIFY, exit: 0, at: NOW, behind: { base: "origin/main", sha: "20fdf9c7" } })).toBe(
+			" · ran `bun run check` (exit 0) · origin/main moved to 20fdf9c7: sync before the merge, or the sign names a tree the landing will not reproduce",
+		);
+		expect(ranClause({ cmd: VERIFY, exit: 0, at: NOW })).toBe(" · ran `bun run check` (exit 0)");
 	});
 });
 

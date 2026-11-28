@@ -152,6 +152,17 @@ export interface Verification {
 	 * "they were not there". Absent on signs written before this was recorded.
 	 */
 	sizeGates?: SizeGatesOutcome;
+	/**
+	 * The base branch's tip, when it holds a commit this tree does not — the landing's own warning.
+	 *
+	 * A sign names a tree, and the landing merges it into a base that may have moved since; a reader
+	 * who cannot tell learns it as a delta proof at the merge, or as a second sign. `base` is the ref
+	 * git named for the repository's default branch (`origin/main` where a remote calls it that, which
+	 * is also the ref the landing proof names) and `sha` its tip, so a record says which branch moved
+	 * rather than assuming one. Absent when the base was already in the tree, and on every sign
+	 * written before this was recorded.
+	 */
+	behind?: { base: string; sha: string };
 }
 
 /**
@@ -295,7 +306,21 @@ export function isVerification(value: unknown): value is Verification {
 	if (!optionalText(run.branch)) return false;
 	if (run.checkout !== undefined && run.checkout !== true) return false;
 	if (run.sizeGates !== undefined && !isSizeGatesOutcome(run.sizeGates)) return false;
+	if (run.behind !== undefined && !isBehind(run.behind)) return false;
 	return optionalText(run.sha);
+}
+
+/**
+ * The base a sign was behind: a ref git named and its tip, both non-empty.
+ *
+ * A file somebody can edit is the reason this is checked rather than read: a `behind` with a number
+ * for a branch or no `sha` at all is a record this build wrote wrong, not a sign from an older one,
+ * so it is refused with the rest of the sign instead of read as an absence.
+ */
+function isBehind(value: unknown): boolean {
+	if (typeof value !== "object" || value === null) return false;
+	const behind = value as Record<string, unknown>;
+	return typeof behind.base === "string" && behind.base !== "" && typeof behind.sha === "string" && behind.sha !== "";
 }
 
 /**

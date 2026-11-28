@@ -124,6 +124,14 @@ export interface TreeFacts {
 	carries?: boolean;
 	/** The branch that answer was taken against, so a refusal can name both ends. */
 	base?: string;
+	/**
+	 * The base's tip, when it holds a commit this tree does not — the fact a landing pays for.
+	 *
+	 * A sign names a tree and the landing merges it into a base that may have moved since, so a review
+	 * that cannot say so costs the holder a sync merge, a second `verify` and a second sign. Absent when
+	 * the base was already in the tree, and when git could not answer either end.
+	 */
+	behind?: { base: string; sha: string };
 }
 
 /**
@@ -251,6 +259,7 @@ export function treeOf(pi: Pick<ExtensionAPI, "exec">, paths: TreePaths = PLATFO
 		// Both ends, or no answer: a tree whose commit git cannot name has nothing to compare, and a
 		// base it cannot name is no evidence either — the same rule as a roster that would not read.
 		const carries = base === undefined || sha === undefined ? undefined : await carriedPast(runGit, cwd, base);
+		const behind = base === undefined ? undefined : await behindBase(runGit, cwd, base);
 		// Resolved, because the two sides do not arrive in one spelling: git for Windows prints the
 		// common directory with forward slashes while a cwd is native, and a POSIX literal under a
 		// Windows cwd disagrees the same way. `dirname` alone compares bytes, and never matched there.
@@ -261,6 +270,7 @@ export function treeOf(pi: Pick<ExtensionAPI, "exec">, paths: TreePaths = PLATFO
 			...(checkout ? { checkout: true as const } : {}),
 			...(carries === undefined ? {} : { carries }),
 			...(base === undefined ? {} : { base }),
+			...(behind === undefined ? {} : { behind }),
 		};
 	};
 }
@@ -277,6 +287,35 @@ async function carriedPast(runGit: RunGit, cwd: string, base: string): Promise<b
 	if (answer === undefined) return undefined;
 	if (answer.code === 0) return false;
 	return answer.code === 1 ? true : undefined;
+}
+
+/**
+ * The base's tip, when HEAD does not already contain it: {@link carriedPast}'s reverse question.
+ *
+ * The ref asked about is the remote's (`origin/<base>`) when the repository has one, because the
+ * landing fetches before it merges and a local branch left stale by an unfetched remote would answer
+ * about a commit nobody is landing onto. A repository with no remote asks about the local branch, so
+ * a working copy without `origin` still gets the fact.
+ *
+ * `merge-base --is-ancestor <ref> HEAD` exits 0 when the base is already in the tree, 1 when it holds
+ * a commit this tree lacks, and anything else is a read that failed — which asserts nothing, the same
+ * rule `carriedPast` follows, because a base nobody can place is not evidence of a synced one. The tip
+ * is read second and its own failure is a silence too: a branch named beside a sha that would not read
+ * is worse than no sentence at all.
+ */
+async function behindBase(
+	runGit: RunGit,
+	cwd: string,
+	base: string,
+): Promise<{ base: string; sha: string } | undefined> {
+	const remote = "origin/" + base;
+	const found = await runGit(["rev-parse", "--verify", "--quiet", remote], { cwd }).catch(() => undefined);
+	const ref = found?.code === 0 ? remote : base;
+	const ahead = await runGit(["merge-base", "--is-ancestor", ref, "HEAD"], { cwd }).catch(() => undefined);
+	if (ahead === undefined || ahead.code !== 1) return undefined;
+	const tip = await runGit(["rev-parse", ref], { cwd }).catch(() => undefined);
+	const sha = tip?.code === 0 ? tip.stdout.trim() : "";
+	return sha === "" ? undefined : { base: ref, sha };
 }
 
 /**

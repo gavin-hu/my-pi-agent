@@ -196,7 +196,19 @@ export function ranClause(run: Verification | undefined): string {
 		run.sizeGates === undefined || !("skipped" in run.sizeGates)
 			? ""
 			: " · size gates: skipped (" + run.sizeGates.skipped + ")";
-	return " · ran `" + run.cmd + "`" + where + " (" + facts + ")" + gates;
+	// The landing's warning, and the reason it is here rather than in a sentence of its own: this is the
+	// one clause every surface prints, so a sync owed costs the holder nothing to discover. The base's
+	// own name is printed, because it is whatever the remote calls it, and nothing here calls a helper
+	// the page's splice does not carry.
+	const moved =
+		run.behind === undefined
+			? ""
+			: " · " +
+				run.behind.base +
+				" moved to " +
+				run.behind.sha +
+				": sync before the merge, or the sign names a tree the landing will not reproduce";
+	return " · ran `" + run.cmd + "`" + where + " (" + facts + ")" + gates + moved;
 }
 
 /** The same body, as the browser receives it: one wording for what ran, on both surfaces. */
