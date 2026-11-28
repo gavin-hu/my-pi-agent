@@ -206,12 +206,12 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		const reason = () => page.textContent('#lane-backlog .board-row[data-card="1"] .bf-row__reason');
 		await expect(reason()).resolves.toBe("waits on #2 (execute) Wire retries into the webhook");
 		// Another session finishes the blocker: its revision moves and the waiting card's own
-		// record does not, so only the derived `waits` can say this frame is news.
+		// record does not, so only the derived edge can say this frame is news.
 		await advance(board.store, "2", "done", { owner: CORE }, clock.now() + 20_000);
 		// The Done lane is folded at this fixture's size, so its cards are drawn and hidden.
 		await page.locator('#lane-done .board-row[data-card="2"]').waitFor({ state: "attached", timeout: PAINT_MS });
-		// It waits on nothing now, so the line is the card's own last note again.
-		await expect(reason()).resolves.toBe(NOTE);
+		// It waits on nothing now, so the edge is drawn the other way round: ready, readied by #2.
+		await expect(reason()).resolves.toBe("ready — waited on #2");
 	});
 
 	test("marks the card that moved and the one that just arrived, and then lets the mark go", async () => {

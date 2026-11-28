@@ -144,6 +144,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `todo`: the lag reminder counted a memory note, a team message, a WeChat send, an app launch and a
+  served review page as work on the checkout. Each declares `readOnlyHint: false` — they write the
+  agent directory or reach outside the tree — so the hint fall-through spent a whole model request on
+  a list that had not fallen behind, and three of them with no list asked for one. The set of calls
+  that cannot change a checkout now names them beside the session trackers, so the reminder fires
+  only for a call that can; `job`, `watch` and `worktree` stay work, because they start a command in
+  the tree or move it, and `board land` is named as the work it already was.
+
 - `board`: a card parked in `blocked` without a recorded block no longer wears the block's label over
   somebody's last note — the line reads `blocked — last note: …`, so a reader knows the sentence is
   history rather than the reason somebody parked it. The kind and the tone do not move: the card is

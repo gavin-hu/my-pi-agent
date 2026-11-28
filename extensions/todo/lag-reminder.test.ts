@@ -152,6 +152,25 @@ describe("lag reminder integration", () => {
 		expect(await emitFirst(open.pi, "agent_before_settle", settle, open.ctx)).toBeDefined();
 	});
 
+	test("does not remind for a call that cannot change a checkout", async () => {
+		// `memory`, `team`, `send_wechat`, `open_path` and `code_review` all declare
+		// `readOnlyHint: false` — a note, a bus verb, a send, an app launch, a served page — so the
+		// hint alone counted each as work on the tree. `code_review` is not `board review`: the board
+		// verb runs the contract's command in a checkout, while this one serves a page.
+		const { pi, ctx } = await started([resultEntry([pending("one")])]);
+		const calls = ["memory", "team", "send_wechat", "open_path", "code_review"];
+		pi.allTools = calls.map((name) => ({ name, annotations: { readOnlyHint: false } }));
+		for (const toolName of calls) {
+			await emit(pi, "tool_execution_end", { type: "tool_execution_end", toolName }, ctx);
+			// Asked after each one, so a regression names the call that caused it.
+			expect(await emitFirst(pi, "agent_before_settle", settle, ctx), toolName).toBeUndefined();
+		}
+
+		// An edit in the same session still continues, so the case cannot pass by going quiet.
+		await emit(pi, "tool_execution_end", work, ctx);
+		expect(await emitFirst(pi, "agent_before_settle", settle, ctx)).toBeDefined();
+	});
+
 	test("three read-only children with no list ask for nothing, and three writing children still ask", async () => {
 		// The reported defect: three delegated explorations counted as three file writes, so the
 		// empty-list rule asked for a list nobody had started. The writing run is the other half —
