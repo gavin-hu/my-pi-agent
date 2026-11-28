@@ -44,25 +44,6 @@ export function boundOf(spec: string | undefined): BoundRead {
 }
 
 /**
- * The bound a `/board archive` tail names, or the sentence refusing it.
- *
- * The command's grammar, beside the spec it reads, so the one mistake that matters is a case
- * rather than a reading of the handler: `/board archive 30d` with the flag left off is a word
- * that looks exactly like a card id, and what it must produce is a refusal that swept nothing.
- */
-export function boundFromCommand(rest: readonly string[]): BoundRead {
-	const [flag, spec, ...extra] = rest;
-	if (rest.length === 0) return { ok: true };
-	if (flag !== "--older-than" || spec === undefined || extra.length > 0) {
-		return {
-			ok: false,
-			error: "`/board archive` takes `--older-than <age>` — 30d, 12h, 90m — and nothing else. Nothing was swept.",
-		};
-	}
-	return boundOf(spec);
-}
-
-/**
  * When a card finished, as far as its own file says.
  *
  * `laneSince` is the fact — the stamp of the transition into the lane the card is in — and a file

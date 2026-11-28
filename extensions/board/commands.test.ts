@@ -1,10 +1,9 @@
 /**
- * `/board` — the words it knows, and what each one does to the page.
+ * `/board` — what each word does to the page.
  *
- * The command is a parser over the lifecycle, so a fake page records what it was
- * asked for and the context records what the user is told. A word the command does
- * not know is a warning that lists the ones it does, because a silent no-op reads
- * like a broken command.
+ * The command is a parser over the lifecycle, so a fake page records what it was asked for and the
+ * context records what the user is told. The words themselves — the table, the flags, the refusals
+ * and the completion — are `words.test.ts`'s, because this suite crossed its bar holding both.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -14,12 +13,10 @@ import {
 	fakeBoardPage,
 	fakeBoardSession,
 	fakeBoardTeam,
-	pageWithNoRecording,
+	fakeLeadDoor,
+	runBoard as run,
 } from "../../test/helpers/board-command.ts";
-import type { BoardSession } from "../../lib/workflow/session.ts";
-import { signOf } from "../../lib/workflow/signs.ts";
-import { BOARD_COMMAND, BOARD_WORDS, type BoardWord, type LeadDoor, registerCommands } from "./commands.ts";
-import type { TeamJoin } from "./join.ts";
+import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 import type { BoardPage, StaleDrop } from "./page.ts";
 
 /** A page this session watches rather than serves. */
@@ -63,42 +60,6 @@ function stalePage(dropped: StaleDrop = "dropped"): { page: BoardPage; calls: st
 			closeAll: async () => {},
 		},
 	};
-}
-
-/** The seat's door as the command needs it: what it was asked, and whether a seat was on. */
-function fakeLeadDoor(was = true): LeadDoor & { calls: string[] } {
-	const calls: string[] = [];
-	return {
-		calls,
-		enter: async () => {
-			calls.push("enter");
-		},
-		exit: async () => {
-			calls.push("exit");
-			return was;
-		},
-	};
-}
-
-/** The command as the host invokes it. */
-async function run(
-	args: string,
-	options: { page?: BoardPage; team?: TeamJoin; session?: BoardSession; lead?: LeadDoor } = {},
-) {
-	const { page: recording, calls } = fakeBoardPage();
-	const target = options.page ?? recording;
-	const session = options.session ?? fakeBoardSession();
-	const fake = createFakePi();
-	registerCommands(fake.pi, session, target, {
-		...(options.team === undefined ? {} : { team: options.team }),
-		...(options.lead === undefined ? {} : { lead: options.lead }),
-	});
-	const command = fake.commands.get(BOARD_COMMAND);
-	if (!command) throw new Error("the board command was not registered");
-	// The id the fixture's session reports, so the roster it seeds is the record a join left.
-	const { ctx, notifications } = fakeCtx({ sessionId: "s-lead" });
-	await command.handler(args, ctx);
-	return { calls, notifications, command, ctx, session };
 }
 
 describe("/board", () => {
@@ -315,76 +276,5 @@ describe("/board", () => {
 		const { notifications } = await run("stop", { page: stale.page, lead });
 		expect(lead.calls).toEqual(["exit"]);
 		expect(notifications.at(-1)).toBe("board: dropped team-lead's note for :4812 — it answered nobody · lead mode off");
-	});
-
-	/** A word as the warning lists it: the word and its card slot, never its flags. */
-	const short = (entry: BoardWord): string => `/board ${entry.word}${entry.card ? " <id>" : ""}`;
-	/** A word as the description carries it: the same, with the flags it leaves out. */
-	const long = (entry: BoardWord): string =>
-		`${entry.word}${entry.card ? " <id>" : ""}${entry.flags === undefined ? "" : ` ${entry.flags}`}`;
-
-	test("names every word it accepts, in the order a user meets them", () => {
-		// The vocabulary is the user-facing contract, so it is literal here: the card verb, the sweep
-		// flag, the two signs with theirs, then the page's own words.
-		expect(BOARD_WORDS).toEqual([
-			{ word: "next", card: false },
-			{ word: "archive", card: false, flags: "[--older-than <age>]" },
-			{ word: "approve", card: true },
-			{ word: "review", card: true, flags: "[--root <tree>] [--override <why>]" },
-			{ word: "status", card: false },
-			{ word: "stop", card: false },
-			{ word: "team", card: false },
-		]);
-	});
-
-	test("takes a card on exactly the words the parser signs", () => {
-		// Two owners of one fact would drift: the table says a word takes a card id, and `signOf` says
-		// which words are signs. They are the same set, and this is what keeps them so.
-		expect(BOARD_WORDS.filter((entry) => entry.card).map((entry) => entry.word)).toEqual(
-			BOARD_WORDS.map((entry) => entry.word).filter((word) => signOf(word) !== undefined),
-		);
-	});
-
-	test("no longer knows the word exit, and lists the ones it has", async () => {
-		const lead = fakeLeadDoor(true);
-		const { calls, notifications } = await run("exit", { lead });
-		expect(calls).toEqual([]);
-		expect(lead.calls).toEqual([]);
-		expect(notifications.at(-1)).toBe(
-			`board: "exit" is not a word this command knows — try ${BOARD_WORDS.map(short).join(", ")}`,
-		);
-	});
-
-	test("warns about a word it does not know, and lists the ones it does", async () => {
-		const { calls, notifications } = await run("scrub");
-		expect(calls).toEqual([]);
-		expect(notifications.at(-1)).toContain(`try ${BOARD_WORDS.map(short).join(", ")}`);
-	});
-
-	test("completes only the words it has, whatever case it is typed in", async () => {
-		const fake = createFakePi();
-		registerCommands(fake.pi, fakeBoardSession(), pageWithNoRecording());
-		const command = fake.commands.get(BOARD_COMMAND);
-		const complete = (prefix: string) => command.getArgumentCompletions(prefix);
-		const values = (prefix: string) => complete(prefix)?.map((item: { value: string }) => item.value);
-		expect(values("st")).toEqual(["status", "stop"]);
-		expect(values("t")).toEqual(["team"]);
-		expect(complete("x")).toBeNull();
-		expect(complete("st more")).toBeNull();
-		// The handler lowercases what it parses, so `/board ST 4` signs: the completion agrees.
-		expect(values("St")).toEqual(["status", "stop"]);
-		expect(values("ST")).toEqual(["status", "stop"]);
-		expect(values("  T")).toEqual(["team"]);
-	});
-
-	test("names itself in the command table", async () => {
-		const fake = createFakePi();
-		registerCommands(fake.pi, fakeBoardSession(), pageWithNoRecording());
-		const description = fake.commands.get(BOARD_COMMAND)?.description ?? "";
-		// The words are parsed by this file and described here, so the table says which of them the
-		// lead's session is for: a description that offers a peer the sign contradicts the gate.
-		expect(description).toContain("sign its two gates as the lead");
-		// The usage tail is the table's, in its order and with its flags: one word, one spelling.
-		expect(description).toContain(`: /board [${BOARD_WORDS.map(long).join(" | ")}]`);
 	});
 });

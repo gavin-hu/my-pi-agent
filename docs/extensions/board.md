@@ -73,10 +73,10 @@ A folded card names that merge in `landed`; the argument is checked at or below 
 the caller resolved no landing for at all is refused as unchecked, while a spot-check that named no commit closes
 with nothing to prove.
 
-**Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints the URL, and a
-remote turn says the browser needs this machine); `/board next` starts a new session at a boundary; `/board approve
-<id>` and `review <id> [--root <tree>]` sign, `archive` sweeps, `status` prints the seat, repository, port, and tabs,
-and `stop` ends the page and the seat together: leaving the seat costs the live round, and `/board` re-takes both.
+**Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints the URL);
+`/board next` starts a new session at a boundary; `/board approve <id>` and `review <id> [--root <tree>]` sign,
+`archive` sweeps, `status` prints the seat, repository, port, and tabs, and `stop` ends the page and the seat together,
+which costs the live round. A word refuses a flag it does not declare or a word it does not take, naming the ones it has.
 
 **Who signs.** The lead is `team.lead` in `bytefly.json` (default `gavin`), and the page serves as that name; an
 empty lead lets only the person sign and serves no page. A session signs only while it is the lead, never while

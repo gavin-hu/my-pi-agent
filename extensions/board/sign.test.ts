@@ -389,9 +389,9 @@ describe("/board review --override", () => {
 	test("refuses the flag with nothing after it, and on a word that takes no override", async () => {
 		const board = await signingBoard();
 		await closedByHand(board, board.me);
-		expect(await board.say("review 1 --override")).toBe("board: override needs the one line saying why.");
+		expect(await board.say("review 1 --override")).toBe("board: review --override needs the one line saying why");
 		expect(await board.say("approve 1 --override closed anyway")).toBe(
-			"board: approve takes no --override — a contract is approved while it is in plan",
+			"board: approve takes no --override — it takes none: /board approve <id>",
 		);
 		board.temps.flush();
 	});

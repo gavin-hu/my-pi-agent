@@ -6,18 +6,17 @@
  * `archive` folds finished cards away. All three are the lead's: the gate reads the label of the
  * session that typed the line, which is the lead's own whenever that session serves the page, and a
  * board naming no lead has nobody to read, so the person's sign is the one door it keeps. Everything
- * else opens the page. The command is a thin parser — the lifecycle is `page.ts`'s, the transitions
- * are `lib/workflow/steps.ts`'s — so the idle grace and `session_shutdown` close the same server
- * this opens.
+ * else opens the page. One row per word (`BOARD_WORDS`) carries its spelling, its sign and its flags,
+ * so the help, the completer and the parser cannot spell the vocabulary differently; the lifecycle is
+ * `page.ts`'s, so the idle grace and `session_shutdown` close this same server.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
 import type { ArtifactProof } from "../../lib/workflow/artifact.ts";
 import { cardRef, normalizeCardId, type Card } from "../../lib/workflow/card.ts";
-import type { Lead } from "../../lib/workflow/contract.ts";
-import { isLead, personActor, type Sign, signMark, signOf } from "../../lib/workflow/signs.ts";
-import type { Verification } from "../../lib/workflow/contract.ts";
+import type { Lead, Verification } from "../../lib/workflow/contract.ts";
+import { isLead, personActor, type Sign, signMark } from "../../lib/workflow/signs.ts";
 import type { Actor, CardOp } from "../../lib/workflow/rules.ts";
 import { landedClause, ranClause } from "../../lib/workflow/round-text.ts";
 import { plural } from "../../lib/format.ts";
@@ -26,41 +25,135 @@ import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { messageOf } from "../../lib/errors.ts";
-import { createDeliver, createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import type { Deliver } from "../../lib/session-tool.ts";
+import { createDeliver, createTeamJoin, type Deliver, type TeamJoin } from "../../lib/session-tool.ts";
 import { type TeamState, teamLine } from "./join.ts";
 import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 
 /** The command's name, which is also the word a user types. */
 export const BOARD_COMMAND = "board";
 
-/** One word `/board` accepts: how a user writes it, and what may follow it. */
+/** One flag a word accepts: its spelling, what it takes, and what a missing value says. */
+export interface BoardFlag {
+	/** The flag itself, lowercased: what the parser folds a typed flag to. */
+	name: string;
+	/** Whether it takes the next word, or owns the rest of the line. */
+	arg: "value" | "rest";
+	/** The value as the usage line spells it, and as the sentence refusing an empty one says it. */
+	slot: string;
+	needs: string;
+}
+
+/** One word `/board` accepts: how a user writes it, what may follow it, and what it does. */
 export interface BoardWord {
 	/** The word itself, lowercased: what the handler parses and the completer offers. */
 	word: string;
-	/** Whether a card id follows — the two signs take one, and nothing else does. */
-	card: boolean;
-	/** The flags the word accepts, spelled as a user writes them; absent when it takes none. */
-	flags?: string;
+	/** The sign, on the two words that write one — who are also the only words taking a card. */
+	sign?: Sign;
+	/** The flags it accepts; absent when it takes none, which refuses every flag by name. */
+	flags?: readonly BoardFlag[];
+	/** What the word does, given its row and the words that row's grammar read. */
+	run: Runner;
+}
+
+/** The flags this build has, each written once: `--older-than <age>`, `--root <tree>`, `--override <why>`. */
+const AGE_FLAG: BoardFlag = { name: "--older-than", arg: "value", slot: "<age>", needs: "an age — 30d, 12h, 90m" };
+const ROOT_FLAG: BoardFlag = { name: "--root", arg: "value", slot: "<tree>", needs: "a tree" };
+const OVERRIDE_FLAG: BoardFlag = { name: "--override", arg: "rest", slot: "<why>", needs: "the one line saying why" };
+
+/** A line's words, once its row has read them: the card, the flags, and what nothing claimed. */
+export interface WordParse {
+	/** The card a sign names, folded to lowercase; absent when the line names none. */
+	card?: string;
+	/** The row's flags, by name, each with the value it was given. */
+	flags: ReadonlyMap<string, string>;
+	/** Words nothing claimed: a stray token, or a card on a word that takes none. */
+	extra: readonly string[];
 }
 
 /**
- * The words the command accepts, in the order a user is likely to want them: the two card verbs,
- * the two signatures, then the page's own.
- *
- * One table, three surfaces — the description the host shows, the line a mistyped word gets, and
- * the completer — so a word is added once and no help can spell the vocabulary differently. The
- * `card` column is the one fact `signOf` also answers, and the suite pins the two together.
+ * Read a word's tail against its row: the card, the flags, and what nothing claimed. One pass, because
+ * a flag's value is the word after it and `--override` owns the rest of the line. A flag the row does
+ * not declare is refused by name rather than read as a card or silently dropped, which is what a
+ * hand-counted scan does to `/board review 4 --rote x`.
  */
-export const BOARD_WORDS: readonly BoardWord[] = [
-	{ word: "next", card: false },
-	{ word: "archive", card: false, flags: "[--older-than <age>]" },
-	{ word: "approve", card: true },
-	{ word: "review", card: true, flags: "[--root <tree>] [--override <why>]" },
-	{ word: "status", card: false },
-	{ word: "stop", card: false },
-	{ word: "team", card: false },
-];
+function parseWords(
+	row: BoardWord,
+	words: readonly string[],
+): { ok: true; parsed: WordParse } | { ok: false; error: string } {
+	const flags = new Map<string, string>();
+	const extra: string[] = [];
+	let card: string | undefined;
+	for (let at = 0; at < words.length; at += 1) {
+		const token = words[at] ?? "";
+		const name = token.toLowerCase();
+		if (!name.startsWith("--")) {
+			// The card is the first bare word on a sign; any other bare word is one nothing takes.
+			if (row.sign !== undefined && card === undefined) card = name;
+			else extra.push(token);
+			continue;
+		}
+		const flag = row.flags?.find((entry) => entry.name === name);
+		if (flag === undefined) return { ok: false, error: refuseFlag(row, name) };
+		const value = flag.arg === "rest" ? words.slice(at + 1).join(" ") : words[at + 1];
+		if (value === undefined || value === "" || value.startsWith("--")) {
+			return { ok: false, error: `${row.word} ${name} needs ${flag.needs}` };
+		}
+		flags.set(name, value);
+		if (flag.arg === "rest") break;
+		at += 1;
+	}
+	return { ok: true, parsed: { ...(card === undefined ? {} : { card }), flags, extra } };
+}
+
+/** The refusal a flag the word does not declare gets: the flags it does have, or the word's usage. */
+function refuseFlag(row: BoardWord, name: string): string {
+	const flags = row.flags ?? [];
+	if (flags.length === 0) return `${row.word} takes no ${name} — it takes none: ${usageOf(row)}`;
+	return `${row.word} takes no ${name} — try ${flags.map(writtenOf).join(", ")}`;
+}
+
+/** The whole line refusing words the row does not take — where the parser's errors are fragments. */
+function extraRefusal(row: BoardWord): string {
+	return `board: ${row.word} takes ${row.sign === undefined ? "no words" : "one card"} — try ${usageOf(row)}`;
+}
+
+function writtenOf(flag: BoardFlag): string {
+	return `${flag.name} ${flag.slot}`;
+}
+
+function cardSlotOf(row: BoardWord): string {
+	return row.sign === undefined ? "" : " <id>";
+}
+
+function spelledOf(row: BoardWord): string {
+	const flags = (row.flags ?? []).map(writtenOf).join(" ");
+	return `${row.word}${cardSlotOf(row)}${flags === "" ? "" : ` ${flags}`}`;
+}
+
+function usageOf(row: BoardWord): string {
+	return `/board ${spelledOf(row)}`;
+}
+
+/**
+ * The usage line the description carries: every word with its flags, the one surface with room for
+ * them. The mistype warning answers a different question, so `wordHelp` keeps the short form.
+ */
+function usageLine(): string {
+	return `/board [${BOARD_WORDS.map(spelledOf).join(" | ")}]`;
+}
+
+/** The words a mistyped word is corrected with: the word and its card slot, never its flags. */
+function wordHelp(): string {
+	return BOARD_WORDS.map((row) => `/board ${row.word}${cardSlotOf(row)}`).join(", ");
+}
+
+/** A line for the person, and the tone it is shown in: a failure is not the same news as a sign. */
+type Line = { text: string; tone: "info" | "warning" | "error" };
+
+/** Tell the person one line, in the tone it is news in. */
+function say(ctx: ExtensionCommandContext, line: Line): void {
+	ctx.ui.notify(line.text, line.tone);
+}
 
 /**
  * The seat's two moves, as the command needs them: taking it when the page it just
@@ -72,13 +165,135 @@ export interface LeadDoor {
 	exit(ctx: ExtensionCommandContext): Promise<boolean>;
 }
 
+/** Everything a word acts on: the page, the session behind it, and the doors the caller handed in. */
+interface Door {
+	pi: ExtensionAPI;
+	session: BoardSession;
+	page: BoardPage;
+	team: TeamJoin;
+	notify?: Deliver;
+	verify?: VerifyRun;
+	lead?: LeadDoor;
+}
+
+/** What one word does, given its row and the words that row's grammar read. */
+type Runner = (door: Door, ctx: ExtensionCommandContext, row: BoardWord, parsed: WordParse) => Promise<void>;
+
+const runNext: Runner = async (door, ctx, _row, parsed) => {
+	// The boundary is this session's own: what it still holds is the one fact that decides whether
+	// a fresh transcript is a start or an escape. A `blocked` card is parked by somebody else's
+	// decision, so it does not hold the door — and can say so on the next session's own line.
+	if (parsed.extra.length > 0) return say(ctx, { text: NEXT_TAKES_NO_CARD, tone: "warning" });
+	const refusal = nextRefusal(await heldOrFailure(door.session, ctx));
+	if (refusal !== undefined) return say(ctx, { text: refusal, tone: "warning" });
+	// A replacement mid-stream is the one call whose order the host documents: waiting first is
+	// what `rewind` does before it replaces a view, and a command is the door this is safe at.
+	if (!ctx.isIdle()) await ctx.waitForIdle();
+	const { cancelled } = await ctx.newSession();
+	if (cancelled) say(ctx, { text: NEXT_CANCELLED, tone: "warning" });
+};
+
+const runArchive: Runner = async (door, ctx, row, parsed) => {
+	// The lead's door to the sweep the tool already had: one rule for both, so the count the
+	// rollup prints and the cards this moves cannot be two sets. The flag is read before the
+	// store is even opened, because a spec a person mistyped must not reach a sweep that would
+	// take every finished card.
+	if (parsed.extra.length > 0) {
+		return say(ctx, {
+			text: `board: archive takes ${writtenOf(AGE_FLAG)} and nothing else. Nothing was swept.`,
+			tone: "warning",
+		});
+	}
+	const { boundOf, sweepFinished, sweepText } = await import("./archive.ts");
+	const read = boundOf(parsed.flags.get(AGE_FLAG.name));
+	if (!read.ok) return say(ctx, { text: `board: ${read.error}`, tone: "warning" });
+	// The sweep writes as the session that asked for it, by the same rule the two signs follow:
+	// the lead's own label, or the person's when the board names no lead to write as.
+	const write = await leadWrite(door, ctx, row.word);
+	if ("refused" in write) return say(ctx, { text: `board: ${write.refused}`, tone: "warning" });
+	const swept = await sweepFinished(write.store, write.actor, door.session.now(), undefined, read.bound);
+	say(ctx, { text: `board: ${sweepText(swept)}`, tone: swept.failed.length > 0 ? "warning" : "info" });
+};
+
+/** The one door the two signs share: a factory, so `signLine` is handed a `Sign` and not a row. */
+function runSign(sign: Sign): Runner {
+	return async (door, ctx, _row, parsed) => {
+		say(ctx, await signLine(door, ctx, sign, parsed));
+	};
+}
+
+const runStatus: Runner = async (door, ctx, row, parsed) => {
+	if (parsed.extra.length > 0) return say(ctx, { text: extraRefusal(row), tone: "warning" });
+	// The bus's record answers first: a disarm through `/session join` never reaches this
+	// session, so the remembered standing is only the answer when the bus cannot give one.
+	const { teamStatus } = await import("../../lib/workflow/join.ts");
+	say(ctx, { text: statusLine(await door.page.status(), await teamStatus(door.session, ctx)), tone: "info" });
+};
+
+const runStop: Runner = async (door, ctx, row, parsed) => {
+	if (parsed.extra.length > 0) return say(ctx, { text: extraRefusal(row), tone: "warning" });
+	// Reading the page first, and leaving the seat second: the seat is what the page implied,
+	// so every ending below is one fact — this session serves nothing now, and the tools are
+	// back. Leaving the seat before `stop` is what `exit` used to be for; a seat without its
+	// page is the one state that made a second word necessary, and it is gone.
+	const status = await door.page.status();
+	const left = door.lead === undefined ? false : await door.lead.exit(ctx);
+	const off = left ? " · lead mode off" : "";
+	// A note nobody answers is not a page to leave for the next session to trip over:
+	// it is dropped here, and the line says whose it was.
+	if (status.stale === true) {
+		const dropped = await door.page.dropStale(ctx);
+		return say(ctx, { text: `${dropLine(dropped, status)}${off}`, tone: "info" });
+	}
+	// A page another session serves is that session's to stop, and saying whose it is is the answer.
+	if (status.attached === true) {
+		return say(ctx, {
+			text: `board: nothing to stop here — ${status.seat} serves this repository on :${status.port}${off}`,
+			tone: "info",
+		});
+	}
+	const stopped = await door.page.stop();
+	// The word is this session saying it serves nothing now: the page clears the seat too
+	// when it closes itself (the idle grace), and both writes are the same fact.
+	door.session.serve(undefined);
+	say(ctx, { text: `${stopped ? "board: stopped" : "board: not running"}${off}`, tone: "info" });
+};
+
+const runTeam: Runner = async (door, ctx, row, parsed) => {
+	if (parsed.extra.length > 0) return say(ctx, { text: extraRefusal(row), tone: "warning" });
+	await openPage(door, ctx, "team");
+};
+
+/**
+ * The words the command accepts, in the order a user is likely to want them: the two card verbs, the
+ * two signatures, then the page's own. One table, four surfaces — the description, the mistyped-word
+ * line, the completer and the parser — so a word is added once. A row's card slot is its `sign`.
+ */
+export const BOARD_WORDS: readonly BoardWord[] = [
+	{ word: "next", run: runNext },
+	{ word: "archive", flags: [AGE_FLAG], run: runArchive },
+	{ word: "approve", sign: "approve", run: runSign("approve") },
+	{ word: "review", sign: "review", flags: [ROOT_FLAG, OVERRIDE_FLAG], run: runSign("review") },
+	{ word: "status", run: runStatus },
+	{ word: "stop", run: runStop },
+	{ word: "team", run: runTeam },
+];
+
 export function registerCommands(
 	pi: ExtensionAPI,
 	session: BoardSession,
 	page: BoardPage,
 	deps: { team?: TeamJoin; notify?: Deliver; verify?: VerifyRun; lead?: LeadDoor } = {},
 ): void {
-	const team = deps.team ?? createTeamJoin(pi);
+	const door: Door = {
+		pi,
+		session,
+		page,
+		team: deps.team ?? createTeamJoin(pi),
+		notify: deps.notify,
+		verify: deps.verify,
+		lead: deps.lead,
+	};
 	pi.registerCommand(BOARD_COMMAND, {
 		description: `Open the shared board in a local browser, sign its two gates as the lead, take the lead's seat, or fold the finished cards away: ${usageLine()}`,
 		getArgumentCompletions: (prefix: string) => {
@@ -94,166 +309,54 @@ export function registerCommands(
 			// the one reason a sign can carry is the person's own sentence and not a lowercased one.
 			const [first = "", ...rest] = args.trim().split(/\s+/);
 			const word = first.toLowerCase();
-			const sign = signOf(word);
-			if (sign !== undefined) {
-				const line = await signLine(pi, session, sign, rest, ctx, deps.notify, deps.verify);
-				ctx.ui.notify(line.text, line.tone);
-				return;
+			const row = BOARD_WORDS.find((entry) => entry.word === word);
+			if (row === undefined) {
+				if (word === "") return openPage(door, ctx, "board");
+				const text = `board: "${word}" is not a word this command knows — try ${wordHelp()}`;
+				return say(ctx, { text, tone: "warning" });
 			}
-			if (word === "archive") {
-				// The lead's door to the sweep the tool already had: one rule for both, so the count the
-				// rollup prints and the cards this moves cannot be two sets. The flag is read before the
-				// store is even opened, because a spec a person mistyped must not reach a sweep that would
-				// take every finished card.
-				const { boundFromCommand, sweepFinished, sweepText } = await import("./archive.ts");
-				const read = boundFromCommand(rest);
-				if (!read.ok) {
-					ctx.ui.notify(`board: ${read.error}`, "warning");
-					return;
-				}
-				const store = await session.store(ctx.cwd);
-				const lead = store.config().lead;
-				// The sweep writes as the session that asked for it, by the same rule the two signs follow:
-				// the lead's own label, or the person's when the board names no lead to write as.
-				const who = await session.who(ctx, ctx.cwd);
-				const refused = leadDoor(word, who, lead);
-				if (refused !== undefined) {
-					ctx.ui.notify(`board: ${refused}`, "warning");
-					return;
-				}
-				const swept = await sweepFinished(
-					store,
-					lead === "" ? personActor() : who,
-					session.now(),
-					undefined,
-					read.bound,
-				);
-				ctx.ui.notify(`board: ${sweepText(swept)}`, swept.failed.length > 0 ? "warning" : "info");
-				return;
-			}
-			if (word === "status") {
-				// The bus's record answers first: a disarm through `/session join` never reaches this
-				// session, so the remembered standing is only the answer when the bus cannot give one.
-				const { teamStatus } = await import("../../lib/workflow/join.ts");
-				ctx.ui.notify(statusLine(await page.status(), await teamStatus(session, ctx)), "info");
-				return;
-			}
-			if (word === "stop") {
-				// Reading the page first, and leaving the seat second: the seat is what the page implied,
-				// so every ending below is one fact — this session serves nothing now, and the tools are
-				// back. Leaving the seat before `stop` is what `exit` used to be for; a seat without its
-				// page is the one state that made a second word necessary, and it is gone.
-				const status = await page.status();
-				const left = deps.lead === undefined ? false : await deps.lead.exit(ctx);
-				const off = left ? " · lead mode off" : "";
-				// A note nobody answers is not a page to leave for the next session to trip over:
-				// it is dropped here, and the line says whose it was.
-				if (status.stale === true) {
-					const dropped = await page.dropStale(ctx);
-					ctx.ui.notify(`${dropLine(dropped, status)}${off}`, "info");
-					return;
-				}
-				// A page another session serves is that session's to stop, and saying whose it is is the answer.
-				if (status.attached === true) {
-					ctx.ui.notify(
-						`board: nothing to stop here — ${status.seat} serves this repository on :${status.port}${off}`,
-						"info",
-					);
-					return;
-				}
-				const stopped = await page.stop();
-				// The word is this session saying it serves nothing now: the page clears the seat too
-				// when it closes itself (the idle grace), and both writes are the same fact.
-				session.serve(undefined);
-				ctx.ui.notify(`${stopped ? "board: stopped" : "board: not running"}${off}`, "info");
-				return;
-			}
-			if (word === "next") {
-				// The boundary is this session's own: what it still holds is the one fact that decides whether
-				// a fresh transcript is a start or an escape. A `blocked` card is parked by somebody else's
-				// decision, so it does not hold the door — and can say so on the next session's own line.
-				const refusal =
-					rest.length > 0 ? nextRefusal({ argued: rest[0] ?? "" }) : nextRefusal(await heldOrFailure(session, ctx));
-				if (refusal !== undefined) {
-					ctx.ui.notify(refusal, "warning");
-					return;
-				}
-				// A replacement mid-stream is the one call whose order the host documents: waiting first is
-				// what `rewind` does before it replaces a view, and a command is the door this is safe at.
-				if (!ctx.isIdle()) await ctx.waitForIdle();
-				const { cancelled } = await ctx.newSession();
-				if (cancelled) ctx.ui.notify(NEXT_CANCELLED, "warning");
-				return;
-			}
-			if (word !== "" && word !== "team") {
-				ctx.ui.notify(`board: "${word}" is not a word this command knows — try ${wordHelp()}`, "warning");
-				return;
-			}
-			const started = await page.start(ctx, word === "team" ? "team" : "board");
-			// A failed start has already said why. Otherwise the seat is set from the page's own
-			// answer — the page a session serves is a role, and every name this session writes and
-			// is addressed by follows from it — and the join happens here, because opening the page
-			// is the lead's one action.
-			if (started.kind === "failed") return;
-			// An attached start stands this session down: the page answers under the seat that serves
-			// it, so this session's own seat is not one to keep. The seat is left before `serve` is
-			// told nothing, so the door reads the seat it had rather than a page already gone.
-			const stoodDown = started.kind !== "served" && deps.lead !== undefined ? await deps.lead.exit(ctx) : false;
-			session.serve(started.kind === "served" ? started.seat : undefined);
-			// The join is `lib/workflow/join.ts`'s one rule, loaded here so a session that never opens the
-			// page pays nothing for it: it asks when the bus does not hold this session under the seat's
-			// name, and repeats a disarmed watch as the disarmed join the user asked for.
-			const { joinTeam } = await import("../../lib/workflow/join.ts");
-			const joined = await joinTeam(session, team, ctx, (await session.who(ctx, ctx.cwd)).label);
-			// The address is on the line because the browser is not the only way in: a machine
-			// with no default browser prints it here, and a tab closed by mistake is one
-			// command from being opened again.
-			ctx.ui.notify(
-				started.kind === "attached"
-					? `board: ${started.seat} is serving this repository on :${started.port} — viewing · open ${started.url}${teamLine(joined)}${stoodDown ? " · lead mode off" : ""}`
-					: `board: ${started.seat} serving ${started.repo} on :${started.port} · open ${started.url}${teamLine(joined)}`,
-				"info",
-			);
-			// Serving the page is the seat: the page answers under this session's name, so
-			// the pane takes the mode the name already implies. An `attached` start stands
-			// the session down — someone else's page is serving — and leaves the seat it held.
-			if (started.kind === "served" && deps.lead !== undefined) {
-				await deps.lead.enter(ctx);
-				ctx.ui.notify("lead mode on: sign and dispatch; /board stop to write.", "info");
-			}
+			const read = parseWords(row, rest);
+			if (!read.ok) return say(ctx, { text: `board: ${read.error}`, tone: "warning" });
+			return row.run(door, ctx, row, read.parsed);
 		},
 	});
 }
 
-/** The card slot a word takes, as a user writes it: nothing for the words that take none. */
-function cardSlot(entry: BoardWord): string {
-	return entry.card ? " <id>" : "";
-}
-
-/** One word as a user writes it, flags included: what the description needs. */
-function usageOf(entry: BoardWord): string {
-	return `${entry.word}${cardSlot(entry)}${entry.flags === undefined ? "" : ` ${entry.flags}`}`;
-}
-
 /**
- * The usage line the description carries: every word, its slots spelled once.
- *
- * This is the one surface with room for the flags, and the one a person reads to find out what a
- * word takes. The warning below answers a different question, so it keeps the short form.
+ * The page's own door: serve it, or watch somebody else's, and say which on one line. The seat is set
+ * from the page's answer and the join happens here, because opening the page is the lead's one action.
  */
-function usageLine(): string {
-	return `/board [${BOARD_WORDS.map(usageOf).join(" | ")}]`;
-}
-
-/** The words a mistyped word is corrected with: the word and its card slot, never its flags. */
-function wordHelp(): string {
-	return BOARD_WORDS.map((entry) => `/board ${entry.word}${cardSlot(entry)}`).join(", ");
-}
-
-/** A line for the person, and the tone it is shown in: a failure is not the same news as a sign. */
-interface SignLine {
-	text: string;
-	tone: "info" | "warning" | "error";
+async function openPage(door: Door, ctx: ExtensionCommandContext, view: "board" | "team"): Promise<void> {
+	const started = await door.page.start(ctx, view);
+	// A failed start has already said why. Otherwise the seat is set from the page's own answer.
+	if (started.kind === "failed") return;
+	// An attached start stands this session down: the page answers under the seat that serves
+	// it, so this session's own seat is not one to keep. The seat is left before `serve` is
+	// told nothing, so the door reads the seat it had rather than a page already gone.
+	const stoodDown = started.kind !== "served" && door.lead !== undefined ? await door.lead.exit(ctx) : false;
+	door.session.serve(started.kind === "served" ? started.seat : undefined);
+	// The join is `lib/workflow/join.ts`'s one rule, loaded here so a session that never opens the
+	// page pays nothing for it: it asks when the bus does not hold this session under the seat's
+	// name, and repeats a disarmed watch as the disarmed join the user asked for.
+	const { joinTeam } = await import("../../lib/workflow/join.ts");
+	const joined = await joinTeam(door.session, door.team, ctx, (await door.session.who(ctx, ctx.cwd)).label);
+	// The address is on the line because the browser is not the only way in: a machine
+	// with no default browser prints it here, and a tab closed by mistake is one
+	// command from being opened again.
+	say(ctx, {
+		text:
+			started.kind === "attached"
+				? `board: ${started.seat} is serving this repository on :${started.port} — viewing · open ${started.url}${teamLine(joined)}${stoodDown ? " · lead mode off" : ""}`
+				: `board: ${started.seat} serving ${started.repo} on :${started.port} · open ${started.url}${teamLine(joined)}`,
+		tone: "info",
+	});
+	// Serving the page is the seat: the page answers under this session's name, so
+	// the pane takes the mode the name already implies. An `attached` start stands
+	// the session down — someone else's page is serving — and leaves the seat it held.
+	if (started.kind === "served" && door.lead !== undefined) {
+		await door.lead.enter(ctx);
+		say(ctx, { text: "lead mode on: sign and dispatch; /board stop to write.", tone: "info" });
+	}
 }
 
 /**
@@ -268,16 +371,9 @@ interface SignLine {
  * lead to write as. The message that follows is the tool's too: a command cannot call a tool, so
  * `announce` sends by the request the bus answers.
  */
-async function signLine(
-	pi: ExtensionAPI,
-	session: BoardSession,
-	sign: Sign,
-	words: readonly string[],
-	ctx: ExtensionCommandContext,
-	notify: Deliver | undefined,
-	verify?: VerifyRun,
-): Promise<SignLine> {
-	const { id: rawCard, override, root, rootError } = signWords(words);
+async function signLine(door: Door, ctx: ExtensionCommandContext, sign: Sign, parsed: WordParse): Promise<Line> {
+	const override = parsed.flags.get(OVERRIDE_FLAG.name);
+	const root = parsed.flags.get(ROOT_FLAG.name);
 	/**
 	 * The run a spot-check records, or the sentence that stops it.
 	 *
@@ -287,8 +383,6 @@ async function signLine(
 	const verifiedFor = async (
 		store: BoardStore,
 		cardId: string,
-		override: string | undefined,
-		root: string | undefined,
 		actor: Actor,
 	): Promise<{ verified: Verification } | { error: string } | undefined> => {
 		const card = await store.read(cardId).catch(() => undefined);
@@ -304,21 +398,13 @@ async function signLine(
 			// The tree the review names, or the session's own: `--root` is the card's worktree (or a checkout
 			// at its commit) when the signer is not in it.
 			cwd: root === undefined ? resolveEffectiveCwd(ctx.cwd) : resolve(resolveEffectiveCwd(ctx.cwd), root),
-			run: verify ?? module.defaultVerifyRun(),
-			now: () => session.now(),
-			tree: module.treeOf(pi),
+			run: door.verify ?? module.defaultVerifyRun(),
+			now: () => door.session.now(),
+			tree: module.treeOf(door.pi),
 		});
 	};
-	if (rootError !== undefined) return { text: `board: ${rootError}`, tone: "info" };
-	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
+	const id = parsed.card === undefined ? undefined : normalizeCardId(parsed.card);
 	if (id === undefined) return { text: `board: ${sign} needs a card id — try /board ${sign} 4`, tone: "info" };
-	// Two signs, one flag: an approval is a contract read, and nothing about a close belongs on it.
-	if (override !== undefined && sign === "approve") {
-		return { text: "board: approve takes no --override — a contract is approved while it is in plan", tone: "info" };
-	}
-	if (root !== undefined && sign === "approve") {
-		return { text: "board: approve takes no --root — a contract is approved in plan", tone: "info" };
-	}
 	// The store is a repository read and a file write, and a command has nowhere else to report
 	// what they throw: without this the person sees a raw command error instead of a line.
 	let result: MutateResult;
@@ -326,26 +412,24 @@ async function signLine(
 	let lead: string;
 	let actor: Actor;
 	try {
-		store = await session.store(ctx.cwd);
-		lead = store.config().lead;
 		// The gate before anything it gates: a sign typed where the lead is not costs no plan read and
 		// starts no process. The session that serves the page is the lead, so the label read here is the
 		// one a person writes under after `/board`.
-		const who = await session.who(ctx, ctx.cwd);
-		const refused = leadDoor(sign, who, lead);
-		if (refused !== undefined) return { text: `board: ${refused}`, tone: "warning" };
-		// A board that names no lead has nobody to write as, so the person's sign is the one door it has.
-		actor = lead === "" ? personActor() : who;
+		const write = await leadWrite(door, ctx, sign);
+		if ("refused" in write) return { text: `board: ${write.refused}`, tone: "warning" };
+		store = write.store;
+		lead = write.lead;
+		actor = write.actor;
 		// An approval covers the plan the card names as well as its wording, so it is proved before
 		// the write — the same proof the tool hands in, from the one module that reads it. A
 		// spot-check needs none: the `done` move proves the plan then.
 		const proof = sign === "approve" ? await import("./proof.ts") : undefined;
-		const artifact = proof === undefined ? undefined : await proof.provedPlan(session, ctx.cwd, store, id);
+		const artifact = proof === undefined ? undefined : await proof.provedPlan(door.session, ctx.cwd, store, id);
 		// The run rides the sign here too: this door is the person's, so it executes the command the
 		// contract names exactly as the tool's does, through the one body both doors share.
-		const evidence = sign === "review" ? await verifiedFor(store, id, override, root, actor) : undefined;
+		const evidence = sign === "review" ? await verifiedFor(store, id, actor) : undefined;
 		if (evidence !== undefined && "error" in evidence) return { text: `board: ${evidence.error}`, tone: "info" };
-		result = await store.mutate(id, signOp(sign, override, artifact, evidence?.verified), actor, session.now());
+		result = await store.mutate(id, signOp(sign, override, artifact, evidence?.verified), actor, door.session.now());
 	} catch (error) {
 		return { text: `board: ${sign} ${cardRef(id)} failed — ${messageOf(error)}`, tone: "error" };
 	}
@@ -380,26 +464,12 @@ async function signLine(
 		by,
 		actor,
 		ctx,
-		deliver: notify ?? createDeliver(pi),
-		at: session.now(),
-		audience: { roster: () => session.roster(ctx.cwd), now: () => session.now() },
+		deliver: door.notify ?? createDeliver(door.pi),
+		at: door.session.now(),
+		audience: { roster: () => door.session.roster(ctx.cwd), now: () => door.session.now() },
 	});
 	const clause = settled.line?.trim();
 	return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
-}
-
-/**
- * Whether the session that typed the word may use the lead's door, or the line refusing it.
- *
- * The page's session is the lead — `/board` sets the seat from its own answer — so a sign or a sweep
- * typed there is the lead's, and one typed in any other session is somebody's else. A board that
- * names no lead has no door to check and keeps the person's sign, which is why an unset lead passes.
- * The sentence names the session, the lead and the message that reaches it, because the way out is
- * the lead's own keyboard rather than another spelling of the same word here.
- */
-function leadDoor(word: string, who: Pick<Actor, "label">, lead: Lead): string | undefined {
-	if (lead === "" || isLead(who, lead)) return undefined;
-	return `/board ${word} is the lead's: this session is ${who.label} and team.lead is ${lead} — ask ${lead} with \`session send\``;
 }
 
 /** The operation one `/board` line makes: the word, the reason it may carry, and the plan it proved. */
@@ -416,40 +486,44 @@ function signOp(
 	return { kind: "approve", ...(artifact === undefined ? {} : { artifact }) };
 }
 
-/** The flag that turns a `review` into the close a gate was not asked for. */
-const OVERRIDE_FLAG = "--override";
-
-/** The flag that names the tree a `review` runs in. */
-const ROOT_FLAG = "--root";
+/** Who a write is made as, on the store the gate allowed it on. */
+interface LeadWrite {
+	store: BoardStore;
+	lead: Lead;
+	actor: Actor;
+}
 
 /**
- * A sign's words: the card it names, the tree a review runs in, and the reason the rest of the line
- * gives.
- *
- * `review 4 --root /path/to/card --override closed on my instruction` — the reason is everything
- * after the override flag, unquoted, so a sentence with spaces in it is one argument rather than a
- * quoting rule nobody remembers. `--root` must come before `--override` for the same reason: the
- * override owns the rest of the line. A flag with nothing after it is refused rather than silently
- * falling back to the session's tree.
+ * Open the store for a word that writes, and answer whether this session may: the store, the lead the
+ * board names, and the actor a line typed here is written as. One body for the sweep and the two
+ * signs, because the order is the rule — the label is read before a plan is read or a process started,
+ * and a second copy of that order is how two doors come to gate differently.
  */
-function signWords(words: readonly string[]): {
-	id: string | undefined;
-	override: string | undefined;
-	root: string | undefined;
-	rootError: string | undefined;
-} {
-	const lower = (word: string): string => word.toLowerCase();
-	const overrideAt = words.findIndex((word) => lower(word) === OVERRIDE_FLAG);
-	const beforeOverride = overrideAt === -1 ? words : words.slice(0, overrideAt);
-	const rootAt = beforeOverride.findIndex((word) => lower(word) === ROOT_FLAG);
-	const root = rootAt === -1 ? undefined : beforeOverride[rootAt + 1];
-	const named = rootAt === -1 ? beforeOverride : beforeOverride.slice(0, rootAt);
-	return {
-		id: named[0] === undefined ? undefined : named[0].toLowerCase(),
-		override: overrideAt === -1 ? undefined : words.slice(overrideAt + 1).join(" "),
-		root,
-		rootError: rootAt !== -1 && root === undefined ? "review --root needs a tree" : undefined,
-	};
+async function leadWrite(
+	door: Door,
+	ctx: ExtensionCommandContext,
+	word: string,
+): Promise<LeadWrite | { refused: string }> {
+	const store = await door.session.store(ctx.cwd);
+	const lead = store.config().lead;
+	const who = await door.session.who(ctx, ctx.cwd);
+	const refused = leadDoor(word, who, lead);
+	if (refused !== undefined) return { refused };
+	return { store, lead, actor: lead === "" ? personActor() : who };
+}
+
+/**
+ * Whether the session that typed the word may use the lead's door, or the line refusing it.
+ *
+ * The page's session is the lead — `/board` sets the seat from its own answer — so a sign or a sweep
+ * typed there is the lead's, and one typed in any other session is somebody's else. A board that
+ * names no lead has no door to check and keeps the person's sign, which is why an unset lead passes.
+ * The sentence names the session, the lead and the message that reaches it, because the way out is
+ * the lead's own keyboard rather than another spelling of the same word here.
+ */
+function leadDoor(word: string, who: Pick<Actor, "label">, lead: Lead): string | undefined {
+	if (lead === "" || isLead(who, lead)) return undefined;
+	return `/board ${word} is the lead's: this session is ${who.label} and team.lead is ${lead} — ask ${lead} with \`session send\``;
 }
 
 /** One line for `/board status`: the page this session serves, watches, or does not have. */
@@ -485,11 +559,15 @@ export function dropLine(dropped: StaleDrop, status: BoardPageStatus): string {
 /** The one failure a replacement can report, because the replacement is the thing that says nothing. */
 export const NEXT_CANCELLED = "board: the new session was cancelled — nothing was replaced";
 
+/** What a card typed after `next` gets: the boundary is the session's, not the word's. */
+export const NEXT_TAKES_NO_CARD =
+	"board: /board next takes no card — the session it starts finds yours on its first turn";
+
 /**
- * What a boundary has to answer: the cards this session still holds, the word typed past `next`, or a
- * read that failed. One of the three, because nothing else is a reason to refuse a new session.
+ * What a boundary has to answer: the cards this session still holds, or a read that failed. One of
+ * the two, because nothing else is a reason to refuse a new session.
  */
-export type NextAsk = { argued: string } | { unreadable: true } | { held: readonly Card[] };
+export type NextAsk = { unreadable: true } | { held: readonly Card[] };
 
 /**
  * Why `/board next` will not start a session yet, or `undefined` when the boundary is clear.
@@ -501,9 +579,6 @@ export type NextAsk = { argued: string } | { unreadable: true } | { held: readon
  * since the check is what proves nothing is open; the line names the door that skips the check.
  */
 export function nextRefusal(ask: NextAsk): string | undefined {
-	if ("argued" in ask) {
-		return "board: /board next takes no card — the session it starts finds yours on its first turn";
-	}
 	if ("unreadable" in ask) {
 		return "board: /board next could not read the board just now — nothing is proved about your cards; /new starts a session anyway";
 	}

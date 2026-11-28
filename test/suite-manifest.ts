@@ -92,6 +92,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"page-note",
 		"page-open",
 		"commands",
+		"words",
 		"next",
 		"sign",
 		"sign-no-lead",

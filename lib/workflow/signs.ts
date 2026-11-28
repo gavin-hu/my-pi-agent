@@ -99,14 +99,6 @@ export function isLead(actor: Pick<Actor, "label">, lead: Lead): boolean {
 export type Sign = "approve" | "review";
 export type { NoticeField } from "./contract.ts";
 
-/** The two signs, in the order a person is likely to want them. */
-const SIGN_KINDS: readonly Sign[] = ["approve", "review"];
-
-/** `word` as one of the two signs, or `undefined` when it is not one. */
-export function signOf(word: string): Sign | undefined {
-	return SIGN_KINDS.find((sign) => sign === word);
-}
-
 /**
  * The spot-check this execution made, whether or not the card has since outgrown it.
  *
