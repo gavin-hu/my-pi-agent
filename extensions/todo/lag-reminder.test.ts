@@ -201,6 +201,25 @@ describe("lag reminder integration", () => {
 		expect(result).toBeUndefined();
 	});
 
+	test("does not offer a continuation the host cannot run", async () => {
+		// The host commits a boundary's proposed entries before it reads the preview
+		// (`agent-session.js:1591` vs `1597`), so a reminder offered with no runnable
+		// context left lands on the branch with nothing to read it and reports the
+		// continuation as an error.
+		const refused = await started([resultEntry([pending("one")])]);
+		await emit(refused.pi, "tool_execution_end", work, refused.ctx);
+		const unrunnable = { ...settle, context: { canContinue: false } };
+		expect(await emitFirst(refused.pi, "agent_before_settle", unrunnable, refused.ctx)).toBeUndefined();
+
+		// The other half, on its own session because the reminder is capped at one per
+		// user turn: the same boundary with runnable context still reminds, so this case
+		// cannot pass by the gate going quiet.
+		const ran = await started([resultEntry([pending("one")])]);
+		await emit(ran.pi, "tool_execution_end", work, ran.ctx);
+		const runnable = { ...settle, context: { canContinue: true } };
+		expect(await emitFirst(ran.pi, "agent_before_settle", runnable, ran.ctx)).toBeDefined();
+	});
+
 	test("a new user turn clears the lag window and expires the reminder", async () => {
 		const { pi, ctx } = await started([resultEntry([pending("one")])]);
 		await emit(pi, "tool_execution_end", work, ctx);

@@ -115,6 +115,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `todo`: the lag reminder is no longer offered into a boundary the host cannot continue. The host
+  commits what a boundary proposes before it reads the preview, so a reminder offered with no runnable
+  context left landed on the branch as a message nothing would read and reported the continuation as an
+  error; the handler now reads `context.canContinue` and asks for nothing when it says no. Where the
+  context can carry it, the reminder is what it was.
+
 - `board`: a `done` move handed no landing verdict is refused as unchecked, the way a missing plan proof already
   was, so a caller that forgot to resolve the branch cannot close a card on an omission. The verdict grew the third
   shape it always needed — `none`, for a spot-check that named no commit or a branch with nothing to land — which is a
