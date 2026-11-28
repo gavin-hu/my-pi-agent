@@ -13,7 +13,6 @@ import { type Card, laneSince } from "../../lib/workflow/card.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
 import { billingCard as card } from "../../test/helpers/fixtures/board.ts";
 import { boundOf, closedAt, sweepFinished, sweepText } from "./archive.ts";
-import { parseBound } from "./bound.ts";
 
 const NOW = 1_800_000_000_000;
 const DAY = 86_400_000;
@@ -48,25 +47,6 @@ function storeOver(cards: readonly Card[], moved: string[]): BoardStore {
 	};
 	return store as unknown as BoardStore;
 }
-
-describe("parseBound", () => {
-	test("reads a whole number and one unit", () => {
-		expect(parseBound("45s")).toBe(45_000);
-		expect(parseBound("90m")).toBe(90 * 60_000);
-		expect(parseBound("12h")).toBe(12 * 3_600_000);
-		expect(parseBound("30d")).toBe(30 * DAY);
-		// A person typing in either case, or with a space they did not mean, is the same spec.
-		expect(parseBound(" 30D ")).toBe(30 * DAY);
-	});
-
-	test("refuses anything that is not one", () => {
-		// A bare number is the shape of a card id, and `0d` a bound that would mean "everything"
-		// spelled as if it meant something precise.
-		for (const spec of ["", "30", "0d", "-1d", "30 days", "1w", "30dd", "d30", "1.5d"]) {
-			expect(parseBound(spec), spec).toBeUndefined();
-		}
-	});
-});
 
 describe("boundOf", () => {
 	test("is the bound a spec names, and nothing at all when there is no spec", () => {

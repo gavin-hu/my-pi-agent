@@ -118,6 +118,13 @@ export interface MailWatch {
 	wantsWake(): boolean;
 	/** Read the inbox without consuming it, queueing what is new; no-op when unarmed. */
 	poll(): Promise<void>;
+	/**
+	 * A poll whose failure costs the caller nothing.
+	 *
+	 * The standing line counts files, so the call that removed one refreshes the depth there and then
+	 * rather than waiting for the tick: a failed refresh costs the line a turn, never the mail.
+	 */
+	refresh(): Promise<void>;
 	/** Mail that arrived and has not been reported yet, oldest first. */
 	pending(): BusMessage[];
 	/** Mark mail as told — reported, or consumed — so no notice repeats it. */
@@ -260,6 +267,7 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 		size: () => inboxSize,
 		wantsWake: () => mode === "wake",
 		poll: pollOnce,
+		refresh: () => pollOnce().catch(() => {}),
 		pending: () => [...pendingMail],
 		markReported,
 		stop: disarm,

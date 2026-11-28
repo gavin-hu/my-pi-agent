@@ -19,6 +19,7 @@ import type {
 	BusMessage,
 	ClaimConflict,
 	ClaimRecord,
+	CleanResult,
 	DropResult,
 	ForgetResult,
 	SessionStatus,
@@ -178,6 +179,22 @@ export function formatDrop(result: DropResult): string {
 		);
 	}
 	return lines.length > 0 ? lines.join("\n") : "Nothing dropped.";
+}
+
+/**
+ * What a clean did: the mail that went, and how much the inbox still holds.
+ *
+ * The age is the cutoff the sweep was given — what the person typed, or the message TTL's own
+ * spelling when they typed none — so the sentence names the rule that ran rather than a rounding of
+ * it. The count left is the inbox's depth now, which is the half a person checks next.
+ */
+export function formatClean(result: CleanResult, olderThan: string): string {
+	const aged = sanitizeLine(olderThan);
+	const went =
+		result.removed === 0
+			? `No mail older than ${aged} was in this session's inbox.`
+			: `Cleaned ${plural(result.removed, "message")} older than ${aged}.`;
+	return result.left === 0 ? `${went} The inbox is empty.` : `${went} ${plural(result.left, "message")} left.`;
 }
 
 /**

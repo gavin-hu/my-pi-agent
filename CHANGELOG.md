@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: `/sessions` speaks three words — clean, drop, forget — completes them, and confirms each (#1029)
+
 - `scripts`: `bun run check --parallel=<n>` runs the whole gate at n workers — the flag is forwarded into
   both test commands and never chosen by the gate, so a bare run builds exactly the chain it always built,
   and a test step that took 30 s or more prints one line naming the flag, timed from the step rather than

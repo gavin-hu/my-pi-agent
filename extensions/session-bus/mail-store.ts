@@ -27,7 +27,7 @@ import {
 } from "../../lib/session-files.ts";
 import { type BusMessage, isBusMessage, listMessages } from "../../lib/session-mail.ts";
 import type { BusStore } from "./store.ts";
-import type { DropResult, KeptMail } from "./types.ts";
+import type { CleanResult, DropResult, KeptMail } from "./types.ts";
 
 /**
  * The message id a file name holds.
@@ -47,6 +47,12 @@ export type MailStore = Pick<BusStore, "peek" | "inbox"> & {
 	 * held inboxes given, because the records are the store's to read and this module never loads it.
 	 */
 	pruneMail(input: { now: number; messageTtlMs: number; own: string }, held: ReadonlySet<string>): Promise<void>;
+	/**
+	 * Clear this session's own inbox of the mail older than `olderThanMs`.
+	 *
+	 * One inbox, never a peer's: the door a person opens for mail that reached them and went unread.
+	 */
+	cleanInbox(input: { now: number; olderThanMs: number; own: string }): Promise<CleanResult>;
 	/**
 	 * Remove mail `ids` name from inboxes no record holds — with the holders given, because the
 	 * records are the store's to read and this module never loads `store.ts`.
@@ -106,6 +112,34 @@ export function createMailStore(dir: string): MailStore {
 		// In the order it walked: the page a read shows is the front it deleted, and a message's
 		// own `at` cannot reorder it after the fact.
 		return { messages, unreadable };
+	}
+
+	/**
+	 * End the mail in one inbox that is older than `cutoffMs`, and answer how many files went.
+	 *
+	 * One body for both doors that remove mail by age: the heartbeat's TTL sweep, over this session's
+	 * inbox and every inbox no record holds, and `clean`, which takes one inbox and a cutoff a person
+	 * chose. A file with no readable `at` has no clock of its own, so its mtime is the one it gets:
+	 * the cutoff still ends mail this build cannot read instead of keeping it forever.
+	 */
+	async function sweepInbox(directory: string, at: number, cutoffMs: number): Promise<number> {
+		let removed = 0;
+		for (const file of await listJson(directory)) {
+			const path = join(directory, file);
+			const message = readJsonAs(path, isBusMessage);
+			const written = message
+				? message.at
+				: await stat(path).then(
+						(info) => info.mtimeMs,
+						() => at,
+					);
+			if (at - written <= cutoffMs) continue;
+			await rm(path, { force: true });
+			removed++;
+		}
+		await dropStaleTemps(directory);
+		await dropIfEmpty(directory);
+		return removed;
 	}
 
 	return {
@@ -174,25 +208,21 @@ export function createMailStore(dir: string): MailStore {
 				// This session's inbox, and every inbox no record holds: a live peer's is its own to
 				// sweep, which is the ledger's "unheld" rule applied to the clock.
 				if (name !== mine && held.has(name)) continue;
-				const directory = join(inboxRoot, name);
-				for (const file of await listJson(directory)) {
-					const path = join(directory, file);
-					const message = readJsonAs(path, isBusMessage);
-					if (message) {
-						if (at - message.at > messageTtlMs) await rm(path, { force: true });
-						continue;
-					}
-					// A file with no readable `at` has no clock of its own, so its mtime is the one it
-					// gets: the TTL still ends mail this build cannot read instead of keeping it forever.
-					const written = await stat(path).then(
-						(info) => info.mtimeMs,
-						() => at,
-					);
-					if (at - written > messageTtlMs) await rm(path, { force: true });
-				}
-				await dropStaleTemps(directory);
-				await dropIfEmpty(directory);
+				await sweepInbox(join(inboxRoot, name), at, messageTtlMs);
 			}
+		},
+
+		/**
+		 * Clear this session's own inbox of the mail older than `olderThanMs`.
+		 *
+		 * The count left is read from the files that stayed, so the sentence a person reads is the
+		 * inbox's next state rather than an echo of what the sweep meant to do.
+		 */
+		async cleanInbox({ now: at, olderThanMs, own }: { now: number; olderThanMs: number; own: string }) {
+			const directory = inboxDir(own);
+			const removed = await sweepInbox(directory, at, olderThanMs);
+			const left = (await listJson(directory).catch(() => [] as string[])).length;
+			return { removed, left };
 		},
 	};
 }

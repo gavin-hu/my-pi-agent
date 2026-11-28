@@ -314,6 +314,23 @@ describe("the /sessions screen", () => {
 		expect(view.render(80).join("\n")).toContain("not on the bus");
 	});
 
+	test("keeps the frame's word in every scope's header, and says open for the mail", () => {
+		const view = screen(snapshot(busBoard(), [busMessage()]), events());
+		// The frame keeps the word a reader entered through, and the scope is appended to it — so the
+		// hint that says `Tab claims` points at a word that is on the screen when it is pressed.
+		const sessions = view.render(80).join("\n");
+		expect(sessions).toContain("Sessions");
+		expect(sessions).not.toContain("Sessions · Sessions");
+		view.handleInput("\t");
+		const inbox = view.render(80).join("\n");
+		expect(inbox).toContain("Sessions · Inbox");
+		// This pane consumes nothing, and `read` is a tool's word that does.
+		expect(inbox).toContain("Enter open");
+		expect(inbox).not.toContain("Enter read");
+		view.handleInput("\t");
+		expect(view.render(80).join("\n")).toContain("Sessions · Claims");
+	});
+
 	test("keeps the scope key and the action in a narrow hint row", () => {
 		const view = screen(snapshot(busBoard(), [busMessage()]), events());
 		const sessions = view.render(46).join("\n");

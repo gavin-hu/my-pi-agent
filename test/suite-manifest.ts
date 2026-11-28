@@ -317,6 +317,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	watch: ["files", "format", "logs", "pattern", "runtime", "tools", "stray-field", "view/watch-screen"],
 	serve: ["registry", "extension"],
 	"session-bus": [
+		"door",
 		"format",
 		"hosts",
 		"label",

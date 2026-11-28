@@ -33,6 +33,7 @@ import { claimsConflict, keepsOverlap } from "./overlap.ts";
 import type {
 	ClaimConflict,
 	ClaimRecord,
+	CleanResult,
 	DeliveryFailure,
 	DropResult,
 	InboxPeek,
@@ -157,6 +158,13 @@ export interface BusStore {
 	 * peer's mail on every tick, and mail nobody owns still finds its way out.
 	 */
 	pruneMail(input: { now: number; messageTtlMs: number; own: string }): Promise<void>;
+	/**
+	 * Clear this session's own inbox of the mail older than `olderThanMs`.
+	 *
+	 * One inbox, and never a peer's: `clean` is a person's door onto the mail that reached this
+	 * session, and the answer counts what went and what stayed.
+	 */
+	cleanInbox(input: { now: number; olderThanMs: number; own: string }): Promise<CleanResult>;
 }
 
 /** The seam a claim batch offers a suite: where inside the batch a rival can be put. */
@@ -563,6 +571,9 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			// unheld, and an inbox nobody holds is what this session may end.
 			const held = new Set((await readSessions()).map((session) => storedName(session.id)));
 			return (await mailStore()).pruneMail(input, held);
+		},
+		async cleanInbox(input) {
+			return (await mailStore()).cleanInbox(input);
 		},
 	};
 }

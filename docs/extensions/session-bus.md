@@ -24,6 +24,7 @@ editing — and the board refuses a write outside the card's `paths` in `execute
 | Message one session | `session send to billing-web text "the API route is free"` |
 | Broadcast an event | `session send to "*" kind "event" text "…"` |
 | Read your mail | `session inbox`, or `session read` to show it and keep it (the waiting line counts files, so `read` leaves it) |
+| Clear this session's own old mail | `/sessions clean [<age>]` — this inbox alone, older than the age or past the message TTL; it asks first |
 | See mail no session holds, and clear one | the board's summary counts it; `/sessions drop` names each, and `<id>` clears one |
 | Free a stopped session's name | `/sessions forget <label\|id>…` — its record and claims go now, and its unread mail becomes unaccounted for `drop` |
 | Claim files before editing | `session claim paths ["src/api"]` |
@@ -40,6 +41,11 @@ editing — and the board refuses a write outside the card's `paths` in `execute
 The board lists every session with its unread count and claims, plus your own identity. `Tab`
 cycles Sessions, Inbox, and Claims, `Enter` opens the focused row, `w` toggles listening, and `x`
 releases a claim you hold — after a confirmation. It joins nothing by itself, and the `watch on` / `watch wake` chip is your own watch, not the row under the cursor.
+
+The three words past the board are the door's own, and each asks before it destroys: `/sessions
+clean 2h` clears this session's mail older than two hours — no age means the message TTL, and it
+never joins — `/sessions drop <id>` clears mail no record holds, and `/sessions forget <label>`
+frees a stopped session's name. `Tab` completes the words and their arguments; a typo is named, and the board opens.
 
 ## Reference
 
@@ -73,16 +79,16 @@ burst told, so the number falls with nothing deleted, and both surfaces draw tha
 A notice previews five messages, so `session read` is what shows the rest; a file this build
 cannot parse is named rather than counted, and its TTL is the only thing that ends it. Mail whose
 recipient's record was pruned has no row to hang a number on, and `session status` names it under
-`Unaccounted (N)`, where `/sessions drop <id>` clears one. A heartbeat
-ends expired mail in its own inbox and in the ones no record holds; a stopped inbox is swept once
-its record ages out, and each file still ends at its own TTL. That door is a command, not a
-`session` action: a message is evidence, and the store refuses an id a record's inbox holds.
+`Unaccounted (N)`, where `/sessions drop <id>` clears one. A heartbeat ends expired mail in its
+own inbox and in the ones no record holds; a stopped inbox is swept once its record ages out, and
+each file still ends at its own TTL. `/sessions clean [<age>]` is that sweep on a person's word:
+this inbox alone, older than the age or the message TTL. Both are commands, not `session` actions: a message is evidence, and the store refuses an id a record's inbox holds.
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its layer. A duplicate
 label gets a short id suffix, and a label is reserved while the bus keeps its owner's record —
 ten minutes past the last heartbeat — so a crashed session has not freed its name. A person frees
-it sooner with `/sessions forget <label>`: the record and its claims go, and its unread mail
-becomes unaccounted for `drop`.
+it sooner with `/sessions forget <label>` — asked first, when there is a screen to ask on: the
+record and its claims go, and its unread mail becomes unaccounted for `drop`.
 
 **Claims.** A claim names the machine that made it and ends on that machine's heartbeat: another
 machine's is judged by its row in `hosts/`, this machine's by the owner's record, never by a pid.
