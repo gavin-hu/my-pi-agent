@@ -68,4 +68,25 @@ describe("the handler", () => {
 		const off = await guardedBoard({ track: temps.track, claim: false, bus: true });
 		expect(await off.call("plan", { action: "enter" })).toBeUndefined();
 	});
+
+	test("allows plan entry once the moving call ends, where the same window without it refuses", async () => {
+		// One turn, one cache window: `guardedBoard` never fires `before_agent_start`, so the guard's
+		// read for the claim and the entry after it are the same memo — which is the bug's shape.
+		const next = await guardedBoard({ track: temps.track, claim: false });
+		const store = await next.harness.runtime.store(next.harness.cwd);
+		const me = await next.harness.runtime.who(next.harness.ctx, next.harness.cwd);
+		// The guard runs before the tool does, so the case is the tool: the claim lands between them.
+		expect(await next.call("board", { action: "claim", card: next.card.id })).toBeUndefined();
+		await store.mutate(next.card.id, { kind: "claim" }, me, next.harness.now);
+		// The half that makes the mechanism legible: the set that guard cached is the one from before
+		// the write, so an entry in the same window is refused — that refusal is the bug, and the end
+		// event below is the only thing that lifts it.
+		const stale = await next.call("plan", { action: "enter" });
+		expect(stale?.block).toBe(true);
+		expect(stale?.reason).toContain("plan mode needs a card you hold");
+		const [ended] = next.harness.fake.pi.handlers.get("tool_execution_end") ?? [];
+		if (ended === undefined) throw new Error("the board registers no tool_execution_end handler");
+		await ended({ toolName: "board" }, next.harness.ctx);
+		expect(await next.call("plan", { action: "enter" })).toBeUndefined();
+	});
 });

@@ -355,6 +355,16 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		return reason === undefined ? undefined : { block: true, reason };
 	});
 
+	// The other half of the memo, and the half `laneRefusal` cannot do: it clears the set *before* a
+	// moving call, so the read it makes for that call caches the set as it was before the write landed.
+	// A claim would then leave every later `plan` `enter` in the turn answering from the empty set it
+	// walked in with, until some other call re-read it (#962). Clearing here, when the call is over,
+	// is the read after the write. The event fires for a failed call too, and a re-read then costs
+	// nothing; `read` is deliberately untouched, because it is the branch line and has its own points.
+	pi.on("tool_execution_end", (event) => {
+		if (MOVING_TOOLS.includes(event.toolName)) heldNow = undefined;
+	});
+
 	// `before_agent_start` injects one per session; a `/resume` replays the old ones, so keep only
 	// the newest and the transcript cannot stack them.
 	pi.on("context", async (event) => {
