@@ -341,6 +341,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   module moves; the row's list is a second owner of `round-text.ts`'s vocabulary, and splicing a shared constant is the
   follow-up rather than a gate that does not exist.
 
+- `plan`: a plan saved or presented without a `## Steps` heading now says which list was counted — the whole document's
+  shallowest list, a Context or Risks bullet included — instead of seeding those bullets as todo steps in silence. The
+  over-cap refusal names the missing heading as its likely cause too, and the dead `preview` helper goes with it. The
+  fallback itself is unchanged: a plan with no such heading is still executable, because the heading is a convention
+  rather than a gate.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added

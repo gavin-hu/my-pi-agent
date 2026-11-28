@@ -15,10 +15,8 @@ import { GOAL_TOOL } from "../../lib/tool-names.ts";
 import { useEnv } from "../../test/helpers/env.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { resultEntry, todoEntry } from "../../test/helpers/fixtures/goal.ts";
-import { makePlanPi, planCtx } from "../../test/helpers/fixtures/plan.ts";
+import { makePlanPi, planCtx, planAct as act, planEnter as enter, planExec } from "../../test/helpers/fixtures/plan.ts";
 import { planReview, REVIEW_TUI, renderReview } from "../../test/helpers/plan-view.ts";
-import { callTool } from "../../test/helpers/tools.ts";
-import type { PlanAction } from "./runtime.ts";
 import { createPlanRuntime, PLAN_TOOL } from "./runtime.ts";
 import { createPlanPolicy } from "./policy.ts";
 import { registerTools } from "./tools.ts";
@@ -42,14 +40,6 @@ afterAll(() => {
 	rmSync(AGENT, { recursive: true, force: true });
 });
 
-/** The exec seam the fake `pi` calls: every cwd is its own repository root. */
-function repoExec(dir: string) {
-	return async (command: string, args: string[]) =>
-		command === "git" && args[0] === "rev-parse"
-			? { stdout: `${dir}\n`, stderr: "", code: 0 }
-			: { stdout: "", stderr: "", code: 1 };
-}
-
 /** A plan tool registered the way the extension registers it. */
 function harness() {
 	const fake = makePlanPi({
@@ -57,22 +47,11 @@ function harness() {
 		// A normal install has `goal` registered by its sibling extension; the
 		// approval probes for it before recording the session goal.
 		allTools: [{ name: GOAL_TOOL }],
-		exec: repoExec(root),
+		exec: planExec(root),
 	});
 	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
 	registerTools(fake.pi, runtime);
 	return { ...fake, runtime, plan: fake.tools.get(PLAN_TOOL) };
-}
-
-/** The folded tool's one action, as Pi calls it. */
-function act(plan: unknown, action: PlanAction, params: Record<string, unknown>, ctx: unknown) {
-	return callTool(plan, { ...params, action }, ctx);
-}
-
-/** Enter plan mode through the real tool, in a repository rooted at `root`. */
-async function enter(plan: unknown, runtime: { isEnabled(): boolean }) {
-	await act(plan, "enter", {}, planCtx({ confirm: true, cwd: root }).ctx);
-	expect(runtime.isEnabled()).toBe(true);
 }
 
 /** Save a plan through the real tool and return its path. */
@@ -141,7 +120,7 @@ describe("the approval question", () => {
 describe("the facts exit hands the screen", () => {
 	test("counts the plan's steps and promises the goal", async () => {
 		const { plan, runtime } = harness();
-		await enter(plan, runtime);
+		await enter(plan, runtime, root);
 		const path = await savePlan(plan, "# Plan\n\n## Steps\n- [ ] one\n- [ ] two");
 
 		const { ctx, customCalls } = planCtx({ mode: "tui", custom: { action: "keep" }, cwd: root });
@@ -154,7 +133,7 @@ describe("the facts exit hands the screen", () => {
 		// The list already holds both steps, so an approval adds nothing: the question must
 		// drop the clause rather than promise a merge the run will not make.
 		const { plan, runtime } = harness();
-		await enter(plan, runtime);
+		await enter(plan, runtime, root);
 		const path = await savePlan(plan, "# Plan\n\n## Steps\n- [ ] one\n- [ ] two");
 
 		const { ctx, customCalls } = planCtx({
@@ -175,7 +154,7 @@ describe("the facts exit hands the screen", () => {
 
 	test("drops the goal when the user's own goal is already final", async () => {
 		const { plan, runtime } = harness();
-		await enter(plan, runtime);
+		await enter(plan, runtime, root);
 		const path = await savePlan(plan, "# Plan\n\n## Steps\n- [ ] one");
 
 		const { ctx, customCalls } = planCtx({
@@ -192,7 +171,7 @@ describe("the facts exit hands the screen", () => {
 
 	test("refuses a blank plan before any screen opens", async () => {
 		const { plan, runtime } = harness();
-		await enter(plan, runtime);
+		await enter(plan, runtime, root);
 		const path = await savePlan(plan, "# Plan\n\n## Steps\n- [ ] one");
 		// A hand-edited or truncated file: `write` refuses empty content, so this is
 		// the only way a blank plan reaches the review.

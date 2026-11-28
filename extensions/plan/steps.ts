@@ -234,8 +234,11 @@ function stepsSection(plan: string): { start: number; end: number } | undefined 
  * of one-liners is built — `todos.ts`'s merge — not here, which is why a 60-item
  * section of 11 repeats is refused rather than quietly tracked as 49.
  */
-function topLevelItems(plan: string, cap: number = MAX_STEPS): PlanListItem[] {
-	const section = stepsSection(plan);
+function topLevelItems(
+	plan: string,
+	cap: number = MAX_STEPS,
+	section: ReturnType<typeof stepsSection> = stepsSection(plan),
+): PlanListItem[] {
 	const items = scanListItems(plan).filter(
 		(item) => section === undefined || (item.line > section.start && item.line < section.end),
 	);
@@ -310,14 +313,22 @@ export interface PlanStepSummary {
 	total: number;
 	/** Items longer than {@link MAX_STEP_LENGTH}, whose text is elided in the todo list. */
 	elided: number;
+	/**
+	 * Whether the list is the plan's `Steps` section. False means it was read from the
+	 * whole document, where every shallowest-level bullet — a Context or a Risks bullet
+	 * included — is a step, and approval seeds it.
+	 */
+	hasStepsSection: boolean;
 }
 
-/** Uncapped step count and elision count; `extractPlanSteps` is the capped view. */
+/** Uncapped step count, elision count, and the source those counts came from. */
 export function planStepSummary(plan: string): PlanStepSummary {
-	const items = topLevelItems(plan, Number.POSITIVE_INFINITY);
+	const section = stepsSection(plan);
+	const items = topLevelItems(plan, Number.POSITIVE_INFINITY, section);
 	return {
 		total: items.length,
 		elided: items.filter((item) => item.step.content.length > MAX_STEP_LENGTH).length,
+		hasStepsSection: section !== undefined,
 	};
 }
 

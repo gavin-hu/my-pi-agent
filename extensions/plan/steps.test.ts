@@ -128,10 +128,9 @@ describe("step extraction", () => {
 	test("keeps a long step whole, and caps the list at its item count", () => {
 		const long = "x".repeat(MAX_STEP_LENGTH + 50);
 		const [step] = extractPlanSteps(`1. ${long}`);
-		// Extraction is the file's view; shortening belongs to the surfaces that show one line.
+		// Extraction is the file's view; shortening belongs to the surfaces that show one line,
+		// and the case below owns those two assertions.
 		expect(step.content).toBe(long);
-		expect(elideStep(long).length).toBe(MAX_STEP_LENGTH);
-		expect(elideStep(long).endsWith("…")).toBe(true);
 
 		const plan = Array.from({ length: MAX_STEPS + 10 }, (_, i) => `${i + 1}. step ${i}`).join("\n");
 		expect(extractPlanSteps(plan)).toHaveLength(MAX_STEPS);
@@ -204,13 +203,22 @@ describe("step extraction — the Steps section", () => {
 describe("step summary and text match", () => {
 	test("counts past the cap and counts steps whose text will be shortened", () => {
 		const plan = Array.from({ length: MAX_STEPS + 3 }, (_, index) => `${index + 1}. step ${index}`).join("\n");
-		expect(planStepSummary(plan)).toEqual({ total: MAX_STEPS + 3, elided: 0 });
-		expect(planStepSummary(`1. ${"x".repeat(MAX_STEP_LENGTH + 1)}\n2. Short`)).toEqual({ total: 2, elided: 1 });
+		expect(planStepSummary(plan)).toEqual({ total: MAX_STEPS + 3, elided: 0, hasStepsSection: false });
+		expect(planStepSummary(`1. ${"x".repeat(MAX_STEP_LENGTH + 1)}\n2. Short`)).toEqual({
+			total: 2,
+			elided: 1,
+			hasStepsSection: false,
+		});
 	});
 
-	test("scopes the count to the Steps section", () => {
+	test("scopes the count to the Steps section, and says when the plan has none", () => {
 		const plan = ["## Context", "- prose", "## Steps", "- One", "- Two"].join("\n");
-		expect(planStepSummary(plan)).toEqual({ total: 2, elided: 0 });
+		expect(planStepSummary(plan)).toEqual({ total: 2, elided: 0, hasStepsSection: true });
+		// No heading: the shallowest list anywhere is the plan, a Context or Risks bullet
+		// included, and that is the list the `write` result and the `exit` refusal report.
+		const swallowed = ["## Context", "- prose", "## Risks", "- risk"].join("\n");
+		expect(planStepSummary(swallowed)).toEqual({ total: 2, elided: 0, hasStepsSection: false });
+		expect(extractPlanSteps(swallowed).map((step) => step.content)).toEqual(["prose", "risk"]);
 	});
 
 	test("matches step text ignoring case, surrounding space, and collapsed whitespace", () => {

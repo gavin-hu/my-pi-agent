@@ -221,6 +221,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"retention",
 		"prune",
 		"steps",
+		"steps-source",
 		"todos",
 		"feedback",
 		"feedback-settle",
