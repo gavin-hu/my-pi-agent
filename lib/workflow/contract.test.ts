@@ -20,6 +20,19 @@ import {
 	normalizeContractField,
 	normalizeInstruction,
 } from "./contract.ts";
+import {
+	accepted,
+	applyOp,
+	boardOf,
+	CONTRACT,
+	CORE,
+	finished,
+	NOW,
+	OTHER,
+	proved,
+	pulled,
+	written,
+} from "../../test/helpers/fixtures/board-rules.ts";
 
 const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s", verify: "bun run check" };
 
@@ -245,5 +258,38 @@ describe("isContract and isSign", () => {
 		expect(isSign({ by: "you", at: 0, byInstruction: "" })).toBe(false);
 		expect(isSign({ by: "you", at: 0, byInstruction: "two\nlines" })).toBe(false);
 		expect(isSign({ by: "you", at: 0, byInstruction: "x".repeat(MAX_CONTRACT + 1) })).toBe(false);
+	});
+});
+
+describe("a plan file another card records", () => {
+	// The record's suite rather than the step's: `rules.test.ts` holds `describe("the contract")` at a
+	// declared 673 in `test/suite-sizes.test.ts`, where an entry may only fall — so this pair lives beside
+	// the record the collision protects instead of costing that file a split. Both cases run through
+	// `applyOp`, because the rule is the state machine's and not a helper's.
+	test("is refused, naming the card that holds it", () => {
+		const held = finished();
+		const heldPlan = held.planPath;
+		if (heldPlan === undefined) throw new Error("the fixture's finished card records no plan");
+		const second = pulled("961", OTHER);
+		const op = { kind: "contract" as const, artifact: proved(heldPlan), ...CONTRACT };
+		const answered = applyOp(second, op, OTHER, NOW, boardOf(held, second));
+		// The sentence is the assertion, not just the refusal: a case that only expects `ok: false` would
+		// pass on any other refusal the state machine happened to give.
+		expect(answered.ok ? "" : answered.error).toContain(`#${held.id} holds; a plan is one card's`);
+	});
+
+	test("still records on the card that already holds it, because that is the re-plan", () => {
+		const card = written();
+		const changed = accepted(
+			applyOp(
+				card,
+				{ kind: "contract", artifact: proved(), ...CONTRACT, goal: "A different promise" },
+				CORE,
+				NOW,
+				boardOf(card),
+			),
+		);
+		expect(changed.changed).toBe(true);
+		expect(changed.card.contract?.goal).toBe("A different promise");
 	});
 });

@@ -339,7 +339,7 @@ function prepare(
 		case "note":
 			return note(card, op.text, actor, now, op.ownerLabel);
 		case "contract":
-			return contractOp(card, op, actor);
+			return contractOp(card, op, actor, board);
 		case "approve":
 			return approve(card, op, actor, now, board, config);
 		case "review":

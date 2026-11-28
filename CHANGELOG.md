@@ -128,6 +128,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a `contract` naming a plan file another card records is refused, naming that card — a plan is one card's, and a
+  second record would let a re-plan rewrite the bytes whose wording a peer approved, which neither the existence check nor
+  the artifact gate can see. The card's own path still records, because that is the re-plan, and the refusal sits after the
+  parse and before a field is built, so a refused contract leaves nothing half-applied.
+
 - `board`: `paths` are prefixes, said where they are met — the refusal past the twelve-entry cap now names the
   route (`A path is a prefix, so name the directory its files share`), the `paths` field says `(prefixes)` in the
   words it already spent, and the guide explains the number instead of only the door. The cap stays twelve: a

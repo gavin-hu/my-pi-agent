@@ -95,9 +95,9 @@ async function seed(
 ): Promise<void> {
 	const store = await board.runtime.store(board.ctx.cwd);
 	const me = await board.runtime.who(board.ctx, board.ctx.cwd);
-	// The plan is a real file in this board's plan store: `move` re-checks it, so a seed
-	// that named a path to nothing would be a board the tool refuses.
-	await advance(store, id, lane, { owner: me, planPath: await writePlan(board) }, NOW);
+	// The plan is a real file in this board's plan store: `move` re-checks it, so a seed naming a path
+	// to nothing would be refused. One per card, because a plan is one card's — two on `one.md` collide.
+	await advance(store, id, lane, { owner: me, planPath: await writePlan(board, `${id}.md`) }, NOW);
 }
 
 /** A plan file in this board's plan store, which is what `contract` requires. */

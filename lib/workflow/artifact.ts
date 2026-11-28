@@ -14,7 +14,8 @@
  * one already executing has to come back to `plan` first, which is why {@link contractRoute}
  * is here rather than in each caller. One resolution body answers both: the store's rules
  * come from `plans/paths.ts`, so the board and the plan tool cannot disagree about what a
- * plan path is.
+ * plan path is. And a third at `contract`, asked of the cards rather than the store: whether
+ * the file is already some other card's — {@link planCollision}.
  *
  * The board still never reads a plan. A `stat` is the whole check, which is why this module
  * is the only place the board touches the plan store.
@@ -221,6 +222,27 @@ export function artifactRefusal(card: Card, artifact: ArtifactProof | undefined)
 	return check.record === card.planPath
 		? undefined
 		: `${cardRef(card.id)}'s plan changed while it was being read; ${contractRoute(card)}`;
+}
+
+/**
+ * Why a card may not record a plan file another card already records, or `undefined` when it may.
+ *
+ * `contract` is the one step that points a card at a file, and a file is one card's: a second card
+ * recording it would let a re-plan elsewhere rewrite the bytes whose wording a peer approved, and
+ * nothing downstream notices — {@link planIsGone} asks whether the file is *there*, and
+ * {@link artifactRefusal} compares the recorded name rather than its contents. The card's own record
+ * is skipped, because that is the re-plan and the sign it drops is its own.
+ *
+ * It lives here rather than beside `indexOf` in `links.ts`, although it reads cards and no plan store:
+ * the question is what a recorded plan belongs to, {@link artifactRefusal} next door is the precedent
+ * for that half living here, and `links.ts` owns what a card's *other* fields point at.
+ */
+export function planCollision(card: Pick<Card, "id">, record: string, cards: Iterable<Card>): string | undefined {
+	for (const other of cards) {
+		if (other.id === card.id || other.planPath !== record) continue;
+		return `${cardRef(card.id)} would record the plan ${cardRef(other.id)} holds; a plan is one card's, and \`plan\` action \`write\` saves a new name — record the one it returns.`;
+	}
+	return undefined;
 }
 
 /**

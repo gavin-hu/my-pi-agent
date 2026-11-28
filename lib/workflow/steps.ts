@@ -15,7 +15,7 @@
  */
 
 import { listOf } from "../format.ts";
-import { type ArtifactProof, artifactRefusal, proved } from "./artifact.ts";
+import { type ArtifactProof, artifactRefusal, planCollision, proved } from "./artifact.ts";
 import {
 	type Card,
 	type CardOwner,
@@ -286,9 +286,16 @@ export function note(card: Card, raw: unknown, actor: Actor, now: number, ownerL
  * does not read — so a changed line or a different plan drops the signature. The plan is required —
  * a contract is a promise plus the agreement it will be read against, and a card whose
  * contract names no artifact has nothing to execute. A contract call that names nothing at
- * all is refused rather than quietly changing nothing.
+ * all is refused rather than quietly changing nothing. And the file is one card's: a path
+ * another card records is refused, because a sign covers the file as well as the words, and
+ * a re-plan on the other card would rewrite it without either gate noticing.
  */
-export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>, actor: Actor): Prepared {
+export function contractOp(
+	card: Card,
+	op: Extract<CardOp, { kind: "contract" }>,
+	actor: Actor,
+	board: BoardIndex,
+): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; its plan cannot change.` };
 	if (card.lane !== "plan") {
 		return { error: `${cardRef(card.id)} is in ${card.lane}; its contract is written in plan.` };
@@ -316,6 +323,11 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 	if ("error" in artifact) return { error: artifact.error };
 	const parsedPlan = normalizePlanPath(artifact.record);
 	if ("error" in parsedPlan) return { error: parsedPlan.error };
+	// One plan is one card's: a file another card already records is refused here, before a single
+	// field is built, so a refused contract leaves the card exactly as it was. It cannot be asked
+	// earlier — the comparison needs the parsed record — and it must not be asked later.
+	const taken = planCollision(card, parsedPlan.path, board.values());
+	if (taken !== undefined) return { error: taken };
 	const rePointed = parsedPlan.path !== card.planPath;
 	if (rePointed) fields.planPath = parsedPlan.path;
 	if (Object.keys(changed).length > 0) fields.contract = mergedContract(card.contract, changed);
