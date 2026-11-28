@@ -72,10 +72,12 @@ it, and `enter` refuses one whose lock belongs to a live session — by `name` a
 `path` alike — rather than reopening or resetting it underneath that session. A lock
 whose owner is gone is taken over, and so is this process's own lock when its reason
 names a session id the process no longer runs: a `/new` replaces the id, and the pid
-alone would otherwise lock the process out of its own tree. That lock is held by a
-worktree the session created or took over; entering an unlocked checkout by path does
-not lock it. A clean, unused worktree older than `pruneAfterDays` is eligible;
-everything else is kept and named.
+alone would otherwise lock the process out of its own tree. A start then reconciles
+the locks the process left behind — the tree it is standing in is locked again under
+the session running now, and the rest are released. That lock is held by a worktree
+the session created or took over; entering an unlocked checkout by path does not lock
+it. A clean, unused worktree older than `pruneAfterDays` is eligible; everything else is
+kept and named.
 
 **Child sessions.** A `pi` started from inside a session binds to the same
 worktree, read-only for the lifecycle, so a delegated run cannot exit or prune
