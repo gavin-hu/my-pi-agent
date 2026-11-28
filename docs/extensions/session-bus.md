@@ -38,9 +38,8 @@ editing — and the board refuses a write outside the card's `paths` in `execute
 /sessions
 ```
 
-The board lists every session with its unread count and claims, plus your own identity. `Tab`
-cycles Sessions, Inbox, and Claims, `Enter` opens the focused row, `w` toggles listening, and `x`
-releases a claim you hold — after a confirmation. It joins nothing by itself, and the `watch on` / `watch wake` chip is your own watch, not the row under the cursor.
+The board lists every session with its mark — `gone`, `not listening` — beside its unread count and claims, plus your own identity; the summary's unread is this session's own mail, the number the Inbox tab draws, and a pane prints the record's facts, claims included.
+`Tab` cycles Sessions, Inbox, and Claims, `Enter` opens the focused row and is offered only while there is one, `w` toggles listening (the chip reads `you: watch …` on every scope), and `x` releases a claim you hold — offered only under your own — after a confirmation. It joins nothing by itself.
 
 The three words past the board are the door's own, and each asks before it destroys: `/sessions
 clean 2h` clears this session's mail older than two hours — no age means the message TTL, and it
