@@ -87,7 +87,10 @@ with claims below and above it. Two sessions claiming overlapping paths at once 
 `src` and `src/api` are two files — so each batch re-reads after publishing: the claim written first
 keeps, the smaller session id decides a tie in one tick, and the loser gives its batch back and is
 told who holds the path. Paths resolve against your working directory and are stored relative to the
-repository root; the repository itself cannot be claimed, and there is no forced takeover.
+repository root; the repository itself cannot be claimed, and there is no forced takeover. A claim
+is visibility, never enforcement: nothing refuses a write to a path it holds. A card's `paths` bounds
+that card's own file tools and shell, never a peer's write, and a merge is the only place an overlap
+is refused — the board's [limits](board.md#limits) state all three.
 
 **Where it lives.** `~/.pi/agent/repos/<repo-id>/session-bus/`, beside the board, so never committed —
 `sessions/`, `hosts/<host>.json`, `claims/`, `inbox/`. This machine's name is `presence/host.json`,
