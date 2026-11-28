@@ -115,6 +115,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `paths` are prefixes, said where they are met — the refusal past the twelve-entry cap now names the
+  route (`A path is a prefix, so name the directory its files share`), the `paths` field says `(prefixes)` in the
+  words it already spent, and the guide explains the number instead of only the door. The cap stays twelve: a
+  prefix set of twelve covers what a file list could not, and past that the work is spread wider than one card
+  describes. The sentence is the bus's too, because `claimsConflict` nests a directory claim and a file claim, so
+  the same advice holds for a claim list.
+
 - `board`: the write gate judges `job` and `watch` by the action a call names, so `job start`/`send` and
   `watch add` need the card in `execute` while their reads do not — the two tools that run a command were
   falling through a table that named tools for a lane. `kill`, `stop` and `clear` stay allowed: they clean up

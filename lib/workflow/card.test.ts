@@ -90,7 +90,9 @@ describe("normalizePathHints", () => {
 
 	test("refuses too many hints, and a non-string one", () => {
 		const many = Array.from({ length: MAX_PATHS + 1 }, (_, index) => `src/${index}`);
-		expect(normalizePathHints(many)).toEqual({ error: `at most ${MAX_PATHS} paths are allowed.` });
+		expect(normalizePathHints(many)).toEqual({
+			error: `at most ${MAX_PATHS} paths are allowed. A path is a prefix, so name the directory its files share.`,
+		});
 		expect(normalizePathHints(["src", 7])).toEqual({ error: "every path must be a string." });
 	});
 

@@ -216,7 +216,9 @@ export function overLimit(what: string, length: number, limit: number): string {
  * two that carry a value are functions and the fixed one is a constant.
  */
 export function tooManyPaths(limit: number): string {
-	return `at most ${limit} paths are allowed.`;
+	// Both readings are prefixes — a card's hint in the write gate, a claim in the bus's overlap rule —
+	// so the route a reader needs past the cap is the same for each: the directory, not its files.
+	return `at most ${limit} paths are allowed. A path is a prefix, so name the directory its files share.`;
 }
 
 /** A path entry that cleans to nothing, or that its caller treats as empty. */
