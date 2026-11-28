@@ -13,6 +13,9 @@
  * drives every refusal without a repository and a second landing cannot see the first's memory.
  */
 
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { messageOf } from "../errors.ts";
 import { posixPath } from "../path.ts";
 import type { RunGit } from "../git/runner.ts";
@@ -45,6 +48,40 @@ export const APPEND_HOTSPOTS: readonly string[] = [CHANGELOG_HOTSPOT, SUITE_HOTS
 /** How long one git command may take before the seam gives up on it. */
 export const LAND_TIMEOUT_MS = 120_000;
 
+/**
+ * The files whose text *is* the landing's judgement.
+ *
+ * This module decides the merge; `suite-declarations.ts` decides what the merge may delete, because
+ * `removedSuitesAbove` refuses a deletion only for a declaration its reader still finds — so a stale
+ * reader permits the deletion the guard exists to refuse. The pair is the verb, and a third module
+ * joining it belongs in this list. Read through `import.meta.url`, never the landing checkout.
+ */
+export const VERB_SOURCES: readonly string[] = [
+	fileURLToPath(import.meta.url),
+	fileURLToPath(new URL("./suite-declarations.ts", import.meta.url)),
+];
+
+/** The sha256 of every source in order, or `undefined` when one could not be read. */
+function verbFingerprint(sources: readonly string[] = VERB_SOURCES): string | undefined {
+	const hash = createHash("sha256");
+	for (const path of sources) {
+		try {
+			hash.update(readFileSync(path));
+		} catch {
+			return undefined;
+		}
+	}
+	return hash.digest("hex");
+}
+
+/**
+ * The digest this process imported, exported so a suite can answer "unchanged" with the real value.
+ *
+ * `undefined` is a source that could not be read at import, and it refuses rather than throwing: a
+ * module that threw here would take the landing door down instead of refusing one call.
+ */
+export const IMPORTED_LAND_FINGERPRINT = verbFingerprint();
+
 /** What a landing needs: the card, the tree it was signed in, and the git seam. */
 export interface LandOptions {
 	/** The card being landed: its title and paths write the subject, and nothing else is read. */
@@ -60,6 +97,13 @@ export interface LandOptions {
 	reviewed: { sha: string; branch: string };
 	/** The git seam: `createExecRunner` in production, a fake in a suite. */
 	run: RunGit;
+	/**
+	 * The verb's fingerprint as this process holds it, recomputed at land time.
+	 *
+	 * The one fact a suite cannot fake through {@link RunGit}: a case says "moved" or `undefined` the
+	 * way it says "the push was refused", and the default is the real read of {@link VERB_SOURCES}.
+	 */
+	fingerprint?: () => string | undefined;
 }
 
 /** One numstat row, as the proof reports it. */
@@ -220,6 +264,26 @@ interface Call {
 }
 
 /**
+ * Why the verb this process holds is not the one a landing would run, or `undefined` when it is.
+ *
+ * Both sentences name every source, because one digest cannot say which of them moved or which could
+ * not be read, and a refusal that guessed would be a fact nobody checked. Neither says `/reload`
+ * fixes it: `/reload` keeps a `lib/` module another extension already loaded, so a restart is the
+ * door that does.
+ */
+function staleVerb(seam: (() => string | undefined) | undefined): string | undefined {
+	const current = seam === undefined ? verbFingerprint() : seam();
+	const sources = VERB_SOURCES.map((path) => `\`${path}\``).join(" and ");
+	if (IMPORTED_LAND_FINGERPRINT === undefined || current === undefined) {
+		return `could not read the landing verb's own files (${sources}): this process cannot prove it holds the rule on disk, so restart Pi before landing — \`/reload\` keeps a \`lib/\` module another extension already loaded.`;
+	}
+	if (current !== IMPORTED_LAND_FINGERPRINT) {
+		return `${sources} changed since this process imported them: a landing would run the verb from before the edit, so restart Pi before landing — \`/reload\` keeps a \`lib/\` module another extension already loaded.`;
+	}
+	return undefined;
+}
+
+/**
  * Land `options.card`, or answer why not.
  *
  * Every refusal that leaves the branch alone says so; every refusal after the merge says the
@@ -291,6 +355,12 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 			error: `\`${reviewed.branch}\` is at ${short(branchTip.out)}, not ${short(reviewed.sha)}: the branch moved past the sign — review it again.`,
 		};
 	}
+
+	// The verb this process holds is the one a landing would run: the files it imported are the files
+	// on disk. It is the last read-only refusal, because every check above names a remedy a holder can
+	// act on, and a stale process must not mask one.
+	const stale = staleVerb(options.fingerprint);
+	if (stale !== undefined) return { error: stale };
 
 	const subject = landSubject(card);
 	const merged = await call(["merge", "--no-ff", "-m", subject, branchTip.out]);
