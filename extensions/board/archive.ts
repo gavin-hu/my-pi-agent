@@ -15,10 +15,10 @@
 import { textResult } from "../../lib/tool-result.ts";
 import { type Card, cardArg, cardRef, laneSince } from "../../lib/workflow/card.ts";
 import { archivableOf } from "../../lib/workflow/round.ts";
-import { plural } from "../../lib/format.ts";
+import { parseAge, plural } from "../../lib/format.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
-import { parseBound, type SweepBound } from "./bound.ts";
+import type { SweepBound } from "./bound.ts";
 import { formatArchived } from "./format.ts";
 import { refusal } from "./result.ts";
 import type { BoardArgs } from "./schema.ts";
@@ -36,7 +36,7 @@ export type BoundRead = { ok: true; bound?: SweepBound } | { ok: false; error: s
  */
 export function boundOf(spec: string | undefined): BoundRead {
 	if (spec === undefined) return { ok: true };
-	const ms = parseBound(spec);
+	const ms = parseAge(spec);
 	if (ms === undefined) {
 		return { ok: false, error: `"${spec}" is not an age — write one like 30d, 12h, or 90m. Nothing was swept.` };
 	}

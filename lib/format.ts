@@ -151,6 +151,29 @@ export function ageWords(age: string): string {
 /** {@link ageWords} as the page's bundle receives it. */
 export const AGE_WORDS_JS = pageSource(ageWords);
 
+/** One unit an age may name, in milliseconds. */
+const AGE_UNITS: Readonly<Record<string, number>> = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
+
+/**
+ * An age as a width in milliseconds: `30d`, `12h`, `90m`, `45s`, and nothing else.
+ *
+ * The spelling is parsed once for every door that reads one — the board's archive bound and a
+ * shelf's `until`, and the bus's `clean` — while each door keeps its own sentence for a spec it
+ * cannot read, because "nothing was swept" and "no mail was cleared" are two promises. A whole
+ * number and one unit letter, so the spec a person mistypes is refused here rather than reaching
+ * a sweep, and refused again before it could read as a card id. Zero is not an age: a sweep that
+ * means everything says nothing at all. Value-only: a caller turns a width into a moment against
+ * its own now.
+ */
+export function parseAge(spec: string): number | undefined {
+	const match = /^([0-9]{1,6})([smhd])$/.exec(spec.trim().toLowerCase());
+	if (match === null) return undefined;
+	const unit = AGE_UNITS[match[2] ?? ""];
+	const amount = Number(match[1]);
+	if (unit === undefined || !Number.isInteger(amount) || amount <= 0) return undefined;
+	return amount * unit;
+}
+
 /** `1 tool`, `3 tools`: a tool count with the right word. */
 export function formatToolCount(count: number): string {
 	const n = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
