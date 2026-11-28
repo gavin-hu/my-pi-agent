@@ -103,6 +103,9 @@ export function cleanLanding(overrides: Record<string, Answer | Answer[]> = {}) 
 		"rev-parse HEAD": [{ stdout: `${BASE}\n` }, { stdout: `${MERGE}\n` }],
 		"rev-parse origin/main": { stdout: `${BASE}\n` },
 		"rev-parse worktree-one": { stdout: `${REVIEWED}\n` },
+		// A synced branch forks at the tip it is landed onto, so every existing case reads the changelog
+		// against the base; the cases that are *behind* name their own fork and are the card's evidence.
+		[`merge-base ${BASE}`]: { stdout: `${BASE}\n` },
 		[`show ${BASE}:CHANGELOG.md`]: { stdout: CHANGELOG },
 		[`show ${REVIEWED}:CHANGELOG.md`]: { stdout: CHANGELOG },
 		[`show ${MERGE}:CHANGELOG.md`]: { stdout: LANDED },
