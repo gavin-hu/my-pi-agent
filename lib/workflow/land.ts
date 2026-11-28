@@ -367,35 +367,125 @@ interface RemovedSuite {
 	path: string;
 }
 
-/**
- * The stems a manifest declares: every quoted string but a quoted group key.
- *
- * A key is `"web-access":` and a stem is `"fetch/schema",`; an unquoted key (`wechat:`) contributes
- * nothing. Read from the file rather than from a diff line, because a group may be wrapped on one
- * line: a line's first quoted string is then the key, so a reflow would read as the removal of
- * `"web-access"` and a suite dropped from that line would read as nothing at all.
- */
-function declaredStems(text: string): Set<string> {
-	const stems = new Set<string>();
-	for (const quoted of text.matchAll(/"([^"]+)"(\s*:)?/g)) {
-		if (quoted[2] !== undefined) continue;
-		if ((quoted[1] ?? "") !== "") stems.add(quoted[1] ?? "");
-	}
-	return stems;
+/** The group that declared a suite, which is what says where its file lives. */
+export type SuiteOwner = { kind: "extension"; key: string } | { kind: "lib" } | { kind: "script" } | { kind: "root" };
+
+/** One suite a manifest declares: the stem, and the group it sits in. */
+export interface DeclaredSuite {
+	stem: string;
+	owner: SuiteOwner;
+}
+
+/** The owner of each flat list, by the constant that holds it. */
+const FLAT_GROUPS: Readonly<Record<string, SuiteOwner>> = {
+	LIB_SUITES: { kind: "lib" },
+	SCRIPT_SUITES: { kind: "script" },
+	ROOT_SUITES: { kind: "root" },
+};
+
+/** Where a suite's file lives, one shape per owner: a copy of the manifest's, bound by `land-hotspot.test.ts`. */
+export function suiteFileOf(owner: SuiteOwner, stem: string): string {
+	if (owner.kind === "extension") return `extensions/${owner.key}/${stem}.test.ts`;
+	if (owner.kind === "lib") return `lib/${stem}.test.ts`;
+	if (owner.kind === "script") return `scripts/${stem}.test.ts`;
+	return `test/${stem}.test.ts`;
 }
 
 /**
- * The suites a landing stopped declaring that the merge still carries.
+ * The declarations a manifest text makes, each with its group, with brackets and strings stepped
+ * over so a wrapped group reads as one that is not (#905). Read as text: the base's copy exists only
+ * in git.
  *
- * A removed declaration is legitimate when the suite it named left the tree, because the layout gate
- * requires both directions: a declared suite must exist, and an existing one must be declared. It is
- * a rewrite when the merge still has the suite — the record another card appended, dropped.
+ * `undefined` when `EXTENSION_SUITES` is missing or does not close: a reader that cannot see the
+ * layout must refuse, not judge an empty set.
+ */
+export function declaredSuites(text: string): DeclaredSuite[] | undefined {
+	const extensions = literalBody(text, "EXTENSION_SUITES");
+	if (extensions === undefined) return undefined;
+	const groups = extensionGroups(extensions);
+	if (groups === undefined) return undefined;
+	const found: DeclaredSuite[] = [];
+	for (const group of groups) {
+		for (const stem of quotedWords(group.body)) found.push({ stem, owner: { kind: "extension", key: group.key } });
+	}
+	for (const [constant, owner] of Object.entries(FLAT_GROUPS)) {
+		// A list the text does not declare contributes nothing; `land-hotspot.test.ts` pins the four names.
+		if (!text.includes(`export const ${constant}`)) continue;
+		const body = literalBody(text, constant);
+		if (body === undefined) return undefined;
+		for (const stem of quotedWords(body)) found.push({ stem, owner });
+	}
+	return found;
+}
+
+/** The literal a constant is assigned, without its brackets: `= { … }` or `= [ … ]`. */
+function literalBody(text: string, name: string): string | undefined {
+	const at = text.indexOf(`export const ${name}`);
+	if (at < 0) return undefined;
+	const assigned = text.indexOf("=", at);
+	if (assigned < 0) return undefined;
+	const open = text.slice(assigned).search(/[[{]/);
+	if (open < 0) return undefined;
+	const from = assigned + open;
+	const close = matchingClose(text, from);
+	return close === undefined ? undefined : text.slice(from + 1, close);
+}
+
+/** The index of the bracket closing the one at `from`, with quoted strings stepped over. */
+function matchingClose(text: string, from: number): number | undefined {
+	const opener = text[from];
+	const closer = opener === "{" ? "}" : "]";
+	let depth = 0;
+	for (let index = from; index < text.length; index += 1) {
+		const char = text[index];
+		if (char === '"') {
+			const end = text.indexOf('"', index + 1);
+			if (end < 0) return undefined;
+			index = end;
+		} else if (char === opener) {
+			depth += 1;
+		} else if (char === closer) {
+			depth -= 1;
+			if (depth === 0) return index;
+		}
+	}
+	return undefined;
+}
+
+/** Every double-quoted word in a literal body. */
+function quotedWords(body: string): string[] {
+	return [...body.matchAll(/"([^"]*)"/g)].map((match) => match[1] ?? "");
+}
+
+/** The `key: [ … ]` groups of `EXTENSION_SUITES`, or `undefined` when one does not close. */
+function extensionGroups(body: string): Array<{ key: string; body: string }> | undefined {
+	const groups: Array<{ key: string; body: string }> = [];
+	const pattern = /(?:"([^"]+)"|([A-Za-z_$][\w$]*))\s*:\s*\[/g;
+	let match = pattern.exec(body);
+	while (match !== null) {
+		const open = match.index + match[0].length - 1;
+		const close = matchingClose(body, open);
+		if (close === undefined) return undefined;
+		groups.push({ key: match[1] ?? match[2] ?? "", body: body.slice(open + 1, close) });
+		pattern.lastIndex = close;
+		match = pattern.exec(body);
+	}
+	return groups;
+}
+
+/** A declaration's identity: the group it sat in, and the stem it named. */
+function declarationKey(entry: DeclaredSuite): string {
+	const owner = entry.owner.kind === "extension" ? `extensions/${entry.owner.key}` : entry.owner.kind;
+	return `${owner}:${entry.stem}`;
+}
+
+/**
+ * The declarations a landing stopped making while the merge still carries their file.
  *
- * The match is by stem, because the group an entry sat in is not on its line and re-spelling
- * `declaredSuiteFiles`' four owner shapes (`test/suite-manifest.ts`) inside `lib/` would be a second
- * copy of a layout rule. The bias is therefore conservative: a stem two groups share, with one of
- * them still in the merge, refuses the landing and names what it found. A blocked removal is a
- * message; an allowed rewrite is lost data.
+ * A removal is legitimate when the suite left the tree; it is a rewrite when the merge still has it.
+ * The unit is the declaration: several groups declare `runtime`, `tools`, `format` and `presence`,
+ * so a stem's absence does not say which group lost it — only the file that group's shape spells may
+ * refuse. A surviving file, or a manifest this cannot read, still refuses and names what it found.
  */
 async function removedSuitesAbove(
 	call: (args: string[]) => Promise<Call>,
@@ -406,19 +496,26 @@ async function removedSuitesAbove(
 	if (!before.ok) return { kind: "failed", message: `could not read the base manifest (${firstLine(before.out)})` };
 	const after = await call(["show", `${merge}:${SUITE_HOTSPOT}`]);
 	if (!after.ok) return { kind: "failed", message: `could not read the merge's manifest (${firstLine(after.out)})` };
-	const kept = declaredStems(after.out);
-	const removed = [...declaredStems(before.out)].filter((stem) => !kept.has(stem));
+	const from = declaredSuites(before.out);
+	const to = declaredSuites(after.out);
+	if (from === undefined || to === undefined) {
+		return { kind: "failed", message: `could not read the groups ${SUITE_HOTSPOT} declares` };
+	}
+	const kept = new Set(to.map(declarationKey));
+	const removed = from.filter((entry) => !kept.has(declarationKey(entry)));
 	if (removed.length === 0) return { kind: "checked", alive: [] };
 	const tree = await call(["ls-tree", "-r", "--name-only", merge]);
 	if (!tree.ok) return { kind: "failed", message: `could not read the merge's files (${firstLine(tree.out)})` };
-	const files = tree.out
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line !== "");
+	const files = new Set(
+		tree.out
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((line) => line !== ""),
+	);
 	const alive: RemovedSuite[] = [];
-	for (const stem of removed) {
-		const path = files.find((file) => file === `${stem}.test.ts` || file.endsWith(`/${stem}.test.ts`));
-		if (path !== undefined) alive.push({ stem, path });
+	for (const entry of removed) {
+		const path = suiteFileOf(entry.owner, entry.stem);
+		if (files.has(path)) alive.push({ stem: entry.stem, path });
 	}
 	return { kind: "checked", alive };
 }

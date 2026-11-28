@@ -13,9 +13,18 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { declaredSuites, suiteFileOf } from "../../lib/workflow/land.ts";
+import {
+	declaredRootSuites,
+	declaredSuiteFiles,
+	EXTENSION_SUITES,
+	LIB_SUITES,
+	ROOT_SUITES,
+	SCRIPT_SUITES,
+} from "../../test/suite-manifest.ts";
 import { BASE, cleanLanding, landingWith, MERGE } from "../../test/helpers/land-git.ts";
 
-/** A landing that changes the suite manifest: the two files the proof reads, and the merge's tree. */
 /**
  * A landing that changes the suite manifest: the two files the proof reads, and the merge's tree.
  *
@@ -37,6 +46,17 @@ function manifestLanding(options: { before: string; after: string; files: readon
 function manifest(stems: readonly string[]): string {
 	const entries = stems.map((stem) => `\t\t"${stem}",`).join("\n");
 	return `export const EXTENSION_SUITES: Record<string, readonly string[]> = {\n\tbytefly: [\n${entries}\n\t],\n};\n`;
+}
+
+/** A manifest with these groups, as the file spells a key (quoted or not) and its stems. */
+function groupedManifest(groups: Readonly<Record<string, readonly string[]>>): string {
+	const body = Object.entries(groups)
+		.map(([key, stems]) => {
+			const name = /^[A-Za-z_$][\w$]*$/.test(key) ? key : `"${key}"`;
+			return `\t${name}: [${stems.map((stem) => `"${stem}"`).join(", ")}],`;
+		})
+		.join("\n");
+	return `export const EXTENSION_SUITES: Record<string, readonly string[]> = {\n${body}\n};\n`;
 }
 
 /** The head of both wrapped-group manifests below: one group, on one line either side. */
@@ -158,6 +178,75 @@ describe("the landing proof's append hotspots", () => {
 		expect(result.error).toContain('"footer/budget" (extensions/bytefly/footer/budget.test.ts)');
 		expect(result.error).toContain("the merge was undone");
 		expect(git.argv("reset").at(0)).toEqual(["reset", "--keep", BASE]);
+		expect(git.argv("push")).toEqual([]);
+	});
+
+	test("lands a rename whose old stem another group also spells", async () => {
+		// #992's shape, which blocked the landing: `presence` leaves `session-bus` for `record`, and
+		// `wechat` declares the stem `conversation/presence` — a different declaration that happens to
+		// end with the same file basename. The group is what decides which file answers.
+		const { git, answer } = landingWith(
+			manifestLanding({
+				before: groupedManifest({ "session-bus": ["presence", "record"], wechat: ["conversation/presence"] }),
+				after: groupedManifest({ "session-bus": ["record"], wechat: ["conversation/presence"] }),
+				files: ["extensions/session-bus/record.test.ts", "extensions/wechat/conversation/presence.test.ts"],
+				patch: '@@ -2,5 +2,4 @@\n-\t"session-bus": ["presence", "record"],\n+\t"session-bus": ["record"],\n',
+			}),
+		);
+		expect(await answer).toMatchObject({ merge: MERGE });
+		expect(git.argv("reset")).toEqual([]);
+		expect(git.argv("push")).toHaveLength(1);
+	});
+
+	test("undoes a declaration dropped while its own group's file survives", async () => {
+		// The bias the fix must keep: the stem is gone from `session-bus` and its file is still in the
+		// merge — a rewritten record, whatever another group declares.
+		const { git, answer } = landingWith(
+			manifestLanding({
+				before: groupedManifest({ "session-bus": ["presence"], wechat: ["conversation/presence"] }),
+				after: groupedManifest({ wechat: ["conversation/presence"] }),
+				files: ["extensions/session-bus/presence.test.ts", "extensions/wechat/conversation/presence.test.ts"],
+				patch: '@@ -2,2 +2,1 @@\n-\t"session-bus": ["presence"],\n',
+			}),
+		);
+		const result = await answer;
+		if (!("error" in result)) throw new Error("expected the landing to be refused");
+		expect(result.error).toContain('"presence" (extensions/session-bus/presence.test.ts)');
+		expect(git.argv("reset").at(0)).toEqual(["reset", "--keep", BASE]);
+		expect(git.argv("push")).toEqual([]);
+	});
+
+	test("reads the manifest this repository ships, and resolves it to the layout's own paths", () => {
+		// The copy of the four shapes is bound to the original here: the guard's reader and resolver
+		// must reproduce `declaredSuiteFiles` and `declaredRootSuites` from the same text, or the two
+		// readers have drifted and only this case notices.
+		const text = readFileSync(new URL("../../test/suite-manifest.ts", import.meta.url), "utf8");
+		const declared = declaredSuites(text);
+		if (declared === undefined) throw new Error("the guard could not read the manifest it ships with");
+		const paths = new Set(declared.map((entry) => suiteFileOf(entry.owner, entry.stem)));
+		const expected = [...declaredSuiteFiles(), ...declaredRootSuites()];
+		expect([...paths].filter((path) => !expected.includes(path))).toEqual([]);
+		expect(expected.filter((path) => !paths.has(path))).toEqual([]);
+		const count =
+			Object.values(EXTENSION_SUITES).reduce((total, stems) => total + stems.length, 0) +
+			LIB_SUITES.length +
+			SCRIPT_SUITES.length +
+			ROOT_SUITES.length;
+		expect(declared).toHaveLength(count);
+	});
+
+	test("undoes a landing when the manifest's groups cannot be read", async () => {
+		// A guard that cannot read the layout must not allow a deletion: this base's object never
+		// closes, so no declaration can be attributed and the landing refuses instead of reading the
+		// file as declaring nothing.
+		const before =
+			'export const EXTENSION_SUITES: Record<string, readonly string[]> = {\n\tbytefly: [\n\t\t"footer/budget",\n\t],\n';
+		const { git, answer } = landingWith(
+			manifestLanding({ before, after: before, files: [], patch: "@@ -2,3 +2,2 @@\n" }),
+		);
+		const result = await answer;
+		if (!("error" in result)) throw new Error("expected the landing to be refused");
+		expect(result.error).toContain("could not read the groups test/suite-manifest.ts declares");
 		expect(git.argv("push")).toEqual([]);
 	});
 

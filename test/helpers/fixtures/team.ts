@@ -5,7 +5,7 @@
  * The board is real (a temp agent directory and a temp repository), so a case asserts the
  * card the store ends up with rather than a double's idea of it; the bus is a seam, because
  * a handoff's order is what the tool owns, and the one failure a real board will not stage on
- * demand — a write that throws after the message landed — is a second. The caller owns the
+ * demand — a write that throws before any message exists — is a second. The caller owns the
  * temp directories and their teardown — a `bun:test` hook is per file — and every call builds
  * its own closure, so no two cases share a board, a message, or a join.
  */

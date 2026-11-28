@@ -173,6 +173,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a landing no longer refuses a suite renamed under a name another extension also uses. The
+  proof read a removed declaration by its stem across the whole tree, so `session-bus`'s
+  `presence.test.ts` becoming `record.test.ts` matched `wechat`'s `conversation/presence.test.ts` and
+  the merge was undone; each declaration now keeps the group it sat in, and only the file that
+  group's own shape spells can refuse it — so a shared stem is judged against its own suite, while a
+  declaration dropped under a surviving file still refuses and names it.
 - `session-bus`: a session's record is written through one serialized writer, so a change made while
   another write was in flight — a turn starting under a heartbeat, a cursor trimmed under the turn —
   can no longer be overwritten by the older snapshot that write took, and a `leave` or a quit can no

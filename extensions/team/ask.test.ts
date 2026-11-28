@@ -8,10 +8,11 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import type { Peer } from "../../lib/session-tool.ts";
+import { type Peer, MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
+import { askText } from "./dispatch.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -132,5 +133,34 @@ describe("ask", () => {
 		// Two verbs read `card`, so the refusal names both rather than the nearest one.
 		expect(result.details.error).toBe("ask does not act on card: `assign` and `offer` take it.");
 		expect(sent).toEqual([]);
+	});
+});
+
+describe("askText", () => {
+	const byId = { to: "7f3a91c2", byId: true };
+
+	test("puts the question first and names the ask and the one way back", () => {
+		const text = askText("is #162 ready for review?", "a1b2c3d4", byId);
+		expect(text.startsWith("Ask a1b2c3d4: is #162 ready for review?")).toBe(true);
+		expect(text).toContain('session send to "7f3a91c2" (a session id, not a label)');
+		// The reply sets the envelope field rather than only a prose prefix: the bus prints it as
+		// `re: <id>` on the row, and the ask says so.
+		expect(text).toContain('replyTo "a1b2c3d4"');
+		expect(text).toContain("re: a1b2c3d4");
+		expect(text).toContain("nothing is waiting on it");
+	});
+
+	test("says when the way back is a label, because the bus held no id", () => {
+		// The fallback has to read as one: a peer that took a label for an id would send the answer to
+		// whatever holds that label next, which is what the id exists to avoid.
+		const text = askText("any blockers?", "a1b2c3d4", { to: "billing-lead", byId: false });
+		expect(text).toContain('session send to "billing-lead" (the label');
+		expect(text).toContain("the bus holds no id for this session");
+	});
+
+	test("clips at the bus's limit, like every other body here", () => {
+		const text = askText("x".repeat(MAX_MESSAGE_TEXT * 2), "a1b2c3d4", byId);
+		expect(text.length).toBe(MAX_MESSAGE_TEXT);
+		expect(text.endsWith("…")).toBe(true);
 	});
 });
