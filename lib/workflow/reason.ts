@@ -111,7 +111,11 @@ export function reasonFor(card: ReasonCard, ago: (at: number) => string): Reason
 				text: card.blocked.note ?? "blocked on a " + (kind === undefined ? "decision" : kind),
 			};
 		}
-		return { kind: "blocked", text: last === undefined ? "blocked, with nothing recorded" : last.text };
+		// A card with no block at all still has one thing to say, and it says which: the last
+		// note is somebody's prose, not a block anybody recorded, so the sentence owns that
+		// rather than the block's label speaking for it.
+		if (last === undefined) return { kind: "blocked", text: "blocked, with nothing recorded" };
+		return { kind: "blocked", text: "blocked — last note: " + last.text };
 	}
 	if (card.lane === "backlog") {
 		// The shelf outranks an offer and a note, because it is the decision the card is under: a

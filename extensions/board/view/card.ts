@@ -99,7 +99,8 @@ export const BOARD_CARD_JS = String.raw`(function () {
     // the tool's refusal name one list.
     if (card.waits !== undefined) return { text: "waits on " + card.waits, kind: "waiting" };
     // The same edge read the other way, for the pool card that has stopped waiting. The record
-    // settles what outranks it, so this branch is the whole of the precedence on this side.
+    // has already dropped a shelf and an offer, so both still outrank this; what is left beneath
+    // it is a note, which is history and yields to the one fact that decides what happens next.
     if (card.ready !== undefined) return { text: "ready \u2014 waited on " + card.ready, kind: "ready" };
     return reasonFor(card, ago);
   }
