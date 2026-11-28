@@ -5,6 +5,7 @@ import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import {
 	busPaths,
+	claimsWithLiveLabels,
 	dropIfEmpty,
 	dropStaleTemps,
 	listJson,
@@ -82,6 +83,28 @@ describe("listJson", () => {
 
 	test("a directory that is not there holds none", async () => {
 		expect(await listJson(join(tempDir("pi-bus-absent-"), "nothing"))).toEqual([]);
+	});
+});
+
+describe("claimsWithLiveLabels", () => {
+	/** A claim as the bus stores it: the label captured at the write, before any reader resolves it. */
+	const claim = (owner: string, ownerLabel: string) => ({ path: "src/api", owner, ownerLabel, at: 100 });
+
+	test("names a claim by its owner's current label, keeping the rest of the record", () => {
+		expect(claimsWithLiveLabels([claim("s-1", "billing-core")], [{ id: "s-1", label: "renamed-core" }])).toEqual([
+			{ path: "src/api", owner: "s-1", ownerLabel: "renamed-core", at: 100 },
+		]);
+	});
+
+	test("keeps the captured label for an owner no record names", () => {
+		expect(claimsWithLiveLabels([claim("s-1", "billing-core")], [{ id: "s-2", label: "peer" }])).toEqual([
+			claim("s-1", "billing-core"),
+		]);
+	});
+
+	test("returns the claim itself where the names already agree", () => {
+		const kept = claim("s-1", "billing-core");
+		expect(claimsWithLiveLabels([kept], [{ id: "s-1", label: "billing-core" }])[0]).toBe(kept);
 	});
 });
 
