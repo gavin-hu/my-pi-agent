@@ -35,9 +35,11 @@ export interface WatchConfig {
 	/**
 	 * Longest prefix of a line a pattern or exclude is run against.
 	 *
-	 * A pattern is model-authored and matched synchronously on the poll clock, so the input it
-	 * is handed is a budget: `LineSplitter` emits up to 1 MiB per line, while every surface
-	 * clips a line to 200 characters before printing it.
+	 * A pattern is model-authored and matched synchronously on the poll clock, so the prefix is a
+	 * time budget as well as an input budget: `LineSplitter` emits up to 1 MiB a line and every
+	 * surface clips one to 200 characters, while the work grows with the square of the prefix. One
+	 * unselective line measured ~145 ms at 16 KiB and ~9 ms at the shipped 4 KiB. This bounds what
+	 * a line can cost; it does not make a pattern safe.
 	 */
 	matchChars: number;
 	/** File poll interval. */
@@ -53,7 +55,7 @@ export const DEFAULT_CONFIG: WatchConfig = {
 	maxMatches: 200,
 	maxLogLines: 500,
 	matchLines: 50,
-	matchChars: 16_384,
+	matchChars: 4_096,
 	pollMs: 500,
 };
 
