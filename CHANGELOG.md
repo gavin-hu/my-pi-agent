@@ -367,6 +367,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   quoting, and tells the caller to write the argument without it. The grammar is unchanged and stays the safe
   half: a quoted grouping character is still refused.
 
+- `subagent`: a session can no longer fan out past its own bound. Each call capped only its own concurrency, and
+  sibling calls are deliberately parallel, so a turn's worth of `tasks` batches multiplied the pool — six calls of
+  eight could mean twenty-four child processes, each a full `pi`. A call now reserves what it plans to start against
+  a session-wide eight, is refused whole when that would exceed it rather than half-running a batch, and releases
+  what it reserved when it settles. The background board keeps its own count, `backgroundMax`, and the two are
+  counted apart rather than pretending to be one pool.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
