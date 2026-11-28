@@ -3,7 +3,9 @@
  *
  * Past 600 lines a module is named in LONG_MODULES with the one responsibility that keeps it
  * whole and its own height, so staying oversized costs a stated reason and a height that only
- * falls. The suites have their own bar, in `suite-sizes.test.ts`.
+ * falls. A module at exactly 600 is named in AT_THE_BAR instead, so a trim that lands on the bar
+ * rather than under it is a reviewed decision rather than an accident. The suites have their own
+ * bar, in `suite-sizes.test.ts`.
  */
 
 import { existsSync } from "node:fs";
@@ -43,17 +45,62 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  */
 const LONG_MODULE_TOTAL = 2420;
 
+/** One scanned module: its repository path, and its height. */
+interface ModuleSize {
+	relative: string;
+	lines: number;
+}
+
+/** Every module the bar measures — an extension's, `lib/`'s, `scripts/`'s — with its height. */
+function modules(): ModuleSize[] {
+	const found: ModuleSize[] = [];
+	for (const root of [extensionsDir, libDir, scriptsDir]) {
+		for (const file of sourceFiles(root)) found.push({ relative: file.slice(repo.length + 1), lines: lineCount(file) });
+	}
+	return found;
+}
+
+/**
+ * Modules at exactly the bar, each with the responsibility that keeps it whole.
+ *
+ * This is the only list in which sitting exactly at the bar is deliberate: past it a module needs
+ * `LONG_MODULES`, and below it nobody asks. A module trimmed to 600 rather than under it is a
+ * decision nobody wrote down, so one at the bar fails until it is named here, and an entry whose
+ * module left the bar fails as stale. There is no height and no total to ratchet — the bar stays
+ * where it is, and this records the choice.
+ */
+const AT_THE_BAR: Record<string, string> = {
+	"extensions/board/commands.ts": "one table of words over the page's lifecycle, which page.ts owns",
+	"extensions/bytefly/panel/tui.ts": "one frame around three sections, so the screen does not change shape",
+	"extensions/plan/web-client.ts": "one composition root: every rule the page has lives in its own web-*.ts",
+};
+
+/** Modules at exactly the bar that no entry names, which is how a trim lands unnoticed. */
+function atBarOffenders(scanned: readonly ModuleSize[], named: Readonly<Record<string, string>>): string[] {
+	return scanned
+		.filter((module) => module.lines === MAX_MODULE_LINES && named[module.relative] === undefined)
+		.map(
+			(module) =>
+				`${module.relative}: ${module.lines} lines, exactly at the bar; split it, or name it in AT_THE_BAR and say what keeps it whole`,
+		);
+}
+
+/** Entries whose module is gone, or no longer sits at exactly the bar. */
+function staleAtBar(named: Readonly<Record<string, string>>, scanned: readonly ModuleSize[]): string[] {
+	const heights = new Map(scanned.map((module) => [module.relative, module.lines]));
+	return Object.keys(named)
+		.filter((relative) => heights.get(relative) !== MAX_MODULE_LINES)
+		.map((relative) => `${relative}: not a module at exactly ${MAX_MODULE_LINES} lines; delete the entry`);
+}
+
 describe("module sizes", () => {
 	test("a module over the line bar states the responsibility that keeps it whole", () => {
-		const offenders: string[] = [];
-		for (const root of [extensionsDir, libDir, scriptsDir]) {
-			for (const file of sourceFiles(root)) {
-				const relative = file.slice(repo.length + 1);
-				const lines = lineCount(file);
-				if (lines <= MAX_MODULE_LINES || LONG_MODULES[relative] !== undefined) continue;
-				offenders.push(`${relative}: ${lines} lines; split it, or name it in LONG_MODULES with the one responsibility`);
-			}
-		}
+		const offenders = modules()
+			.filter((module) => module.lines > MAX_MODULE_LINES && LONG_MODULES[module.relative] === undefined)
+			.map(
+				(module) =>
+					`${module.relative}: ${module.lines} lines; split it, or name it in LONG_MODULES with the one responsibility`,
+			);
 		expect(offenders).toEqual([]);
 	});
 
@@ -82,5 +129,43 @@ describe("module sizes", () => {
 		expect(total, "lower LONG_MODULE_TOTAL with the file: a split lowers it, nothing raises it").toBe(
 			LONG_MODULE_TOTAL,
 		);
+	});
+
+	test("a module at exactly the bar is named for review", () => {
+		expect(
+			atBarOffenders(modules(), AT_THE_BAR),
+			"a trim that lands exactly on the bar is a decision nobody wrote down",
+		).toEqual([]);
+	});
+
+	test("an AT_THE_BAR entry names a module still at the bar", () => {
+		expect(staleAtBar(AT_THE_BAR, modules())).toEqual([]);
+	});
+});
+
+/** A scan as a case hands one in, so the checks can be exercised on a fixture. */
+function scanOf(heights: Record<string, number>): ModuleSize[] {
+	return Object.entries(heights).map(([relative, lines]) => ({ relative, lines }));
+}
+
+describe("the at-the-bar checks", () => {
+	test("fails a module at exactly the bar with no entry, and passes 599 and 601", () => {
+		// The tree names its three, so the wrong value is manufactured here: a case that has never
+		// failed is a case nobody knows holds.
+		expect(atBarOffenders(scanOf({ "extensions/a/at.ts": MAX_MODULE_LINES }), {})).toHaveLength(1);
+		expect(atBarOffenders(scanOf({ "extensions/a/under.ts": MAX_MODULE_LINES - 1 }), {})).toEqual([]);
+		expect(atBarOffenders(scanOf({ "extensions/a/over.ts": MAX_MODULE_LINES + 1 }), {})).toEqual([]);
+	});
+
+	test("passes a named module at the bar", () => {
+		const named = { "extensions/a/at.ts": "one responsibility, so it stays whole" };
+		expect(atBarOffenders(scanOf({ "extensions/a/at.ts": MAX_MODULE_LINES }), named)).toEqual([]);
+	});
+
+	test("fails an entry whose module left the bar, in either direction", () => {
+		const named = { "extensions/a/at.ts": "why" };
+		expect(staleAtBar(named, scanOf({ "extensions/a/at.ts": MAX_MODULE_LINES - 1 }))).toHaveLength(1);
+		expect(staleAtBar(named, scanOf({ "extensions/a/at.ts": MAX_MODULE_LINES + 1 }))).toHaveLength(1);
+		expect(staleAtBar(named, scanOf({}))).toHaveLength(1);
 	});
 });
