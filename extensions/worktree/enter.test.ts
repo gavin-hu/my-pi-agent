@@ -10,13 +10,14 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { messageOf } from "../../lib/errors.ts";
 import { isPidAlive } from "../../lib/spawn.ts";
 import { execP, makeRepo, makeRepoWithRemote } from "../../test/helpers/git.ts";
 import {
 	age,
 	bootWorktree,
+	emitEvent,
 	keptWorktree,
 	makeBareWorktreePi,
 	makeTempTracker,
@@ -27,6 +28,8 @@ import {
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { isIgnored, isStaleLock, listManagedWorktrees, replacedSessionOf } from "./git.ts";
+import { reconcileOwnLocks } from "./locks.ts";
+import { ENV_ROOT } from "./runtime.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -213,6 +216,110 @@ describe.skipIf(!runSlowSuites)("a sweep and a lock", () => {
 
 		expect(await prune(repo)).toContain(`Removed ${dir}`);
 		expect(existsSync(dir)).toBe(false);
+	});
+});
+
+describe.skipIf(!runSlowSuites)("a start after the context id changes", () => {
+	/** Lock a checkout as an earlier session of this process would have. */
+	async function lockedEarlier(repo: string, dir: string): Promise<void> {
+		await execP("git", ["worktree", "lock", "--reason", `pi:${process.pid}:older-session`, dir], { cwd: repo });
+	}
+
+	test("renews the tree the session stands in, and releases one it left", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-start-own-");
+		temps.track(repo);
+		temps.track(remote);
+		const standing = await keptWorktree(repo, "standing");
+		const left = await keptWorktree(repo, "left");
+		await lockedEarlier(repo, standing);
+		await lockedEarlier(repo, left);
+
+		const harness = await bootWorktree(repo);
+		const note = await withEnv({ [ENV_ROOT]: standing }, () => reconcileOwnLocks(harness.pi, harness.ctx));
+
+		expect(note).toContain(`Renewed this session's lock on ${basename(standing)}`);
+		expect(note).toContain(`Released a lock this session's previous context left on ${basename(left)}`);
+		expect(await lockOf(repo, standing)).toBe(`pi:${process.pid}:test-session`);
+		expect(await lockOf(repo, left)).toBeUndefined();
+	});
+
+	test("renews nothing when the cwd is the checkout, and releases every own-stale lock", async () => {
+		// The fallback's direction: a checkout contains no managed tree, and no tree contains the
+		// checkout. Reversed, this would renew a tree nobody is standing in.
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-start-cwd-");
+		temps.track(repo);
+		temps.track(remote);
+		const first = await keptWorktree(repo, "first");
+		const second = await keptWorktree(repo, "second");
+		await lockedEarlier(repo, first);
+		await lockedEarlier(repo, second);
+
+		const harness = await bootWorktree(repo);
+		const note = await withEnv({ [ENV_ROOT]: undefined }, () => reconcileOwnLocks(harness.pi, harness.ctx));
+
+		expect(note).not.toContain("Renewed");
+		expect(note).toContain("Released 2 locks");
+		expect(await lockOf(repo, first)).toBeUndefined();
+		expect(await lockOf(repo, second)).toBeUndefined();
+	});
+
+	test("leaves a peer's lock and a dead pid's alone, even for the standing tree", async () => {
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-start-peer-");
+		temps.track(repo);
+		temps.track(remote);
+		const peer = await keptWorktree(repo, "peer");
+		const dead = await keptWorktree(repo, "dead");
+		expect(isPidAlive(process.ppid)).toBe(true);
+		await execP("git", ["worktree", "lock", "--reason", `pi:${process.ppid}:sess`, peer], { cwd: repo });
+		await execP("git", ["worktree", "lock", "--reason", "pi:999999:sess", dead], { cwd: repo });
+
+		const harness = await bootWorktree(repo);
+		// The peer's tree is the one this session claims to stand in, so a rule that renewed by
+		// standing rather than by pid would take it.
+		const note = await withEnv({ [ENV_ROOT]: peer }, () => reconcileOwnLocks(harness.pi, harness.ctx));
+
+		expect(note).toBeUndefined();
+		expect(await lockOf(repo, peer)).toBe(`pi:${process.ppid}:sess`);
+		expect(await lockOf(repo, dead)).toBe("pi:999999:sess");
+	});
+
+	test("a re-lock that fails says the tree is open, instead of passing quietly", async () => {
+		// The one outcome the notice must carry: the unlock succeeded and the lock did not, so the
+		// standing tree is open until the next start. Silence here would be the state this module
+		// exists to prevent, arriving as `undefined`.
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-start-fail-");
+		temps.track(repo);
+		temps.track(remote);
+		const dir = await keptWorktree(repo, "unlocked");
+		await lockedEarlier(repo, dir);
+
+		const harness = await bootWorktree(repo);
+		const run = harness.pi.exec.bind(harness.pi);
+		harness.pi.exec = async (command: string, args: string[], options: unknown) =>
+			args.includes("lock") ? { code: 1, stdout: "", stderr: "lock refused" } : run(command, args, options);
+		const note = await withEnv({ [ENV_ROOT]: dir }, () => reconcileOwnLocks(harness.pi, harness.ctx));
+
+		expect(note).toContain(`Could not re-lock ${basename(dir)}: it is unlocked until the next start.`);
+		expect(await lockOf(repo, dir)).toBeUndefined();
+	});
+
+	test("a non-startup start reconciles before the environment is cleared", async () => {
+		// The wiring, and the card's shape: an empty branch (nothing restored) with `ENV_ROOT` at a
+		// tree this pid locked under an older id. Remove the call and this case has no note and an
+		// old reason.
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-start-wired-");
+		temps.track(repo);
+		temps.track(remote);
+		const dir = await keptWorktree(repo, "wired");
+		await lockedEarlier(repo, dir);
+
+		const harness = await bootWorktree(repo);
+		await withEnv({ [ENV_ROOT]: dir }, async () => {
+			await emitEvent(harness.pi, "session_start", { reason: "new" }, harness.ctx);
+		});
+
+		expect(harness.ctx.notices.some((message: string) => message.includes("Renewed this session's lock"))).toBe(true);
+		expect(await lockOf(repo, dir)).toBe(`pi:${process.pid}:test-session`);
 	});
 });
 

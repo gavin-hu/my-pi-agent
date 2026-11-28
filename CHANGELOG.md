@@ -274,6 +274,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `worktree`: a worktree lock can outlive the state that names it, and exit has no door to it (#1027)
+
 - `worktree`: a lock whose reason names a process's pid but a session id that process no longer runs is
   stale, so `enter` takes back a tree the same process locked before a `/new` instead of refusing it as
   "locked by a live session", and says which replaced session it reclaimed. The id in the reason is
