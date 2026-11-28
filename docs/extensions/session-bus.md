@@ -61,6 +61,9 @@ the session advances its count — and a row's state comes from its recipient's 
 holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch
 is armed, so a peer that will not be woken reads as one. The record carries the turn too:
 stamped on `agent_start`, dropped on `agent_settled`, counted only beside a fresh heartbeat.
+A record that cannot be written says so: one `session-bus: heartbeat failed: …` line on stderr when
+a streak starts, and one `… recovered` when a whole tick beats again — never one per tick, so a
+failing write is visible without owning the terminal.
 It names the machine that wrote it: another machine's record — a store can live where a sync client
 replicates it — is judged by its heartbeat alone, so it reads `quiet`, never `gone`, once that ages.
 The Team tab draws a row per machine saying when it was last seen, and names it on a session there.

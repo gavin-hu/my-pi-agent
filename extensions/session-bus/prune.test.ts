@@ -19,7 +19,7 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle } from "../../test/helpers/process.ts";
 import { createSessionBus } from "./runtime.ts";
-import { createBusStore } from "./store.ts";
+import { type BusStore, createBusStore } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -184,6 +184,63 @@ describe("the heartbeat's sweep", () => {
 		for (const tick of ticks) tick();
 		for (let attempt = 0; attempt < 100 && (await untoldOf(dir, "h1")) > 0; attempt += 1) await settle(2);
 		expect(await untoldOf(dir, "h1")).toBe(0);
+		await session.stop();
+	});
+
+	test("a record that cannot be written says so once, and once when the beat returns", async () => {
+		const dir = temps.track(tempDir("pi-session-bus-"));
+		const ticks: Array<() => void> = [];
+		const lines: string[] = [];
+		const base = createBusStore({ dir });
+		// The store fails whole ticks while this holds, so the streak is the test's to end.
+		const broken = { on: false };
+		const store: BusStore = {
+			...base,
+			async writeSession(target) {
+				if (broken.on) throw new Error("disk full");
+				await base.writeSession(target);
+			},
+		};
+		const session = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 10,
+			watchMs: 0,
+			alive: () => true,
+			startTokenFn: () => "started-here",
+			store,
+			stderr: (line) => lines.push(line),
+			interval: (_ms, callback) => {
+				ticks.push(callback);
+				return () => {};
+			},
+		});
+		await session.start(
+			fakeCtx({ cwd: "/repo", sessionId: "h1", sessionName: "live", mode: "tui", hasUI: true }).ctx as ExtensionContext,
+		);
+		await session.join({ listen: false });
+		broken.on = true;
+		const tick = ticks[0] as () => void;
+
+		// Two failing ticks are one line: the streak is the fact, never the tick.
+		tick();
+		await settle(20);
+		expect(lines).toEqual(["session-bus: heartbeat failed: disk full\n"]);
+		tick();
+		await settle(20);
+		expect(lines).toHaveLength(1);
+
+		// The third writes, so the whole tick finishes and the beat says it is back.
+		broken.on = false;
+		tick();
+		await settle(20);
+		expect(lines).toEqual(["session-bus: heartbeat failed: disk full\n", "session-bus: heartbeat recovered\n"]);
+
+		// And a healthy tick after that is ordinary: one line per transition, not per tick.
+		tick();
+		await settle(20);
+		expect(lines).toHaveLength(2);
 		await session.stop();
 	});
 });

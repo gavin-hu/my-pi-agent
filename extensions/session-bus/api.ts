@@ -57,6 +57,12 @@ export interface SessionBusOptions {
 	heartbeatMs?: number;
 	/** Inbox-watch poll interval; 0 disables it (tests). */
 	watchMs?: number;
+	/**
+	 * Test seam: where the heartbeat's failure and recovery lines go.
+	 *
+	 * The default is `process.stderr` — the one place a session with no tool call open can read them.
+	 */
+	stderr?: (line: string) => void;
 	/** Test seam: the repeating timer behind the heartbeat and the poll. */
 	interval?: RepeatTimer;
 	sessionTtlMs?: number;

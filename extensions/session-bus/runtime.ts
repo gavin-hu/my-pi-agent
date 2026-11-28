@@ -179,7 +179,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const { createLabels } = await import("./labels.ts");
 			labels = createLabels({ pi, store, record, sessionId: id, stateOf, now, sessionTtlMs });
 			const { createRecordWriter } = await import("./record.ts");
-			writer = createRecordWriter({ store: () => store, record: () => record, joined: () => joined });
+			writer = createRecordWriter({ store: () => store, record: () => record, joined: () => joined }, options.stderr);
 			await writer.adopt();
 			await mailWatch.restore(storedWatchMode(await store.session(record.id)));
 			// A served row is one this process was already on the bus with, so the start joins it as a
@@ -228,26 +228,24 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 */
 	function armHeartbeat(): void {
 		if (heartbeatMs <= 0 || stopHeartbeat) return;
-		stopHeartbeat = interval(heartbeatMs, () => {
-			void (async () => {
-				if (!record || !store || !labels || !writer) return;
-				record.lastSeen = now();
-				// The cursor names mail the inbox may have lost since the last poll, and a session that
-				// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
-				// grow with every message the session ever read.
-				await writer.trim();
-				// A heartbeat that resumed after a long pause can find its label taken; the tick is
-				// where a revived session notices and yields, before the one write carries both.
-				const yielded = await labels.settle();
-				await writer.save();
-				// The machine's row beats with the session: a claim lapses on it.
-				if (identity) await store.writeHost(identity, now());
-				if (yielded) labels.publish();
-				// The one prune that opens inbox files rides the clock the message TTL is measured in,
-				// so no action pays for mail nobody is waiting on. It takes this session's inbox and
-				// the ones no record holds; a peer's mail is that peer's to end.
-				await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
-			})().catch(() => {});
+		stopHeartbeat = writer?.startBeat(heartbeatMs, interval, async () => {
+			if (!record || !store || !labels || !writer) return;
+			record.lastSeen = now();
+			// The cursor names mail the inbox may have lost since the last poll, and a session that
+			// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
+			// grow with every message the session ever read.
+			await writer.trim();
+			// A heartbeat that resumed after a long pause can find its label taken; the tick is
+			// where a revived session notices and yields, before the one write carries both.
+			const yielded = await labels.settle();
+			await writer.save();
+			// The machine's row beats with the session: a claim lapses on it.
+			if (identity) await store.writeHost(identity, now());
+			if (yielded) labels.publish();
+			// The one prune that opens inbox files rides the clock the message TTL is measured in,
+			// so no action pays for mail nobody is waiting on. It takes this session's inbox and
+			// the ones no record holds; a peer's mail is that peer's to end.
+			await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
 		});
 	}
 

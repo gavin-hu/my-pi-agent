@@ -18,6 +18,8 @@
  * join write the same id again.
  */
 
+import { messageOf } from "../../lib/errors.ts";
+import type { RepeatTimer } from "../../lib/timer.ts";
 import type { BusStore } from "./store.ts";
 import type { SessionRecord } from "./types.ts";
 
@@ -53,6 +55,22 @@ export interface RecordWriter {
 	save(): Promise<void>;
 	/** A run began, or settled: the turn's two edges, one field. */
 	writeTurn(at: number | undefined): Promise<void>;
+	/**
+	 * What the beat says: no argument is a tick that finished, an error is one that failed.
+	 *
+	 * One line when a streak of failures starts and one when it ends, never one per tick — a 10 s
+	 * repeat would otherwise own the terminal. A write that fails here is the one silence a session
+	 * on the bus must not have: peers read a record nobody writes as a quiet session.
+	 */
+	beat(error?: unknown): void;
+	/**
+	 * Run `body` on `interval` under the beat's report, and answer the stop function.
+	 *
+	 * The tick's ending is this module's rule, not the caller's: `flush` swallows a failed write, so a
+	 * body that returns is not the same fact as a clean record. Recovery therefore waits for a whole
+	 * tick whose writes all landed — a healthy write behind a failing inbox sweep is not recovery.
+	 */
+	startBeat(ms: number, interval: RepeatTimer, body: () => Promise<void>): () => void;
 	/** Stop accepting writes and drain what is queued, before the row can be removed. */
 	close(): Promise<void>;
 	/** Accept writes again: a `leave` followed by a join serves the same id. */
@@ -65,10 +83,46 @@ function sameIds(left: readonly string[] | undefined, right: readonly string[]):
 	return current.length === right.length && right.every((id) => current.includes(id));
 }
 
-export function createRecordWriter(options: RecordWriterOptions): RecordWriter {
+export function createRecordWriter(
+	options: RecordWriterOptions,
+	/** Where the beat's two lines go. The default is the terminal's stderr. */
+	sink?: (line: string) => void,
+): RecordWriter {
 	const { store, record, joined } = options;
 	let writing: Promise<void> = Promise.resolve();
 	let accepting = true;
+	const report = sink ?? ((line: string) => void process.stderr.write(line));
+	let failing = false;
+	/**
+	 * Whether a write failed since the last tick ended.
+	 *
+	 * `flush` swallows its rejection, so the tick that contains a failed write still resolves: without
+	 * this, its end would call a failing tick clean. One clean tick after it is what recovers.
+	 */
+	let failedWrite = false;
+
+	/**
+	 * The beat's transition: a failure starts a streak, a finished tick ends it.
+	 *
+	 * Reported once each, because the state is the fact a reader needs and the tick count is not.
+	 * `flush` reports its own failure — it swallows the rejection, so a caller that only watched the
+	 * heartbeat's end would see a failed write as a tick that succeeded.
+	 */
+	function beat(error?: unknown): void {
+		if (error === undefined) {
+			if (failedWrite) {
+				failedWrite = false;
+				return;
+			}
+			if (!failing) return;
+			failing = false;
+			report("session-bus: heartbeat recovered\n");
+			return;
+		}
+		if (failing) return;
+		failing = true;
+		report(`session-bus: heartbeat failed: ${messageOf(error)}\n`);
+	}
 
 	/**
 	 * Queue one write of the record as it stands when the write runs.
@@ -87,7 +141,10 @@ export function createRecordWriter(options: RecordWriterOptions): RecordWriter {
 				if (bus === undefined || target === undefined) return;
 				await bus.writeSession(target);
 			})
-			.catch(() => {});
+			.catch((error: unknown) => {
+				failedWrite = true;
+				beat(error);
+			});
 		return writing;
 	}
 
@@ -125,6 +182,17 @@ export function createRecordWriter(options: RecordWriterOptions): RecordWriter {
 		},
 
 		save: flush,
+
+		beat,
+
+		startBeat(ms, interval, body) {
+			return interval(ms, () => {
+				void body().then(
+					() => beat(),
+					(error) => beat(error),
+				);
+			});
+		},
 
 		async writeTurn(at) {
 			// A session that never joined stamps nobody: the same gate the turn's own write had,
