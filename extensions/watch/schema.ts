@@ -17,6 +17,8 @@ import { overLimit } from "../../lib/format.ts";
 
 /** Longest accepted label. */
 export const MAX_LABEL = 120;
+/** Longest accepted watcher id. Ids are counters — `w1` — and a token this long is generous. */
+export const MAX_ID = 64;
 /** Longest accepted pattern or exclude expression. */
 export const MAX_PATTERN = 2000;
 /** Longest accepted path or command string. */
@@ -29,10 +31,14 @@ export const MAX_LINES = 2000;
 
 export const WatchParams = Type.Object({
 	action: StringEnum(WATCH_ACTIONS, {
-		description:
-			"`add` starts a watcher; `list` and `clear` act on all, the rest by `id`. Each action's fields are in their own descriptions.",
+		description: "`add` starts a watcher; `list` and `clear` act on all, the rest by `id`.",
 	}),
-	id: Type.Optional(Type.String({ description: "`status`/`matches`/`logs`/`stop`: required. Watcher id, e.g. `w1`." })),
+	id: Type.Optional(
+		Type.String({
+			maxLength: MAX_ID,
+			description: "`status`/`matches`/`logs`/`stop`: required. Watcher id, e.g. `w1`.",
+		}),
+	),
 	path: Type.Optional(
 		Type.String({ maxLength: MAX_SOURCE, description: "`add`: file to tail — exactly one of `path` or `command`." }),
 	),
@@ -43,7 +49,10 @@ export const WatchParams = Type.Object({
 		}),
 	),
 	cwd: Type.Optional(
-		Type.String({ description: "Working directory for a command source; defaults to the session cwd." }),
+		Type.String({
+			maxLength: MAX_SOURCE,
+			description: "Working directory for a command source; defaults to the session cwd.",
+		}),
 	),
 	pattern: Type.Optional(
 		Type.String({
@@ -124,6 +133,8 @@ export function normalizeCall(raw: unknown): WatchCall {
 	const id = optionalString(args.id);
 	const requireId = (): string => {
 		if (!id) throw new Error(`"${action}" requires an id (e.g. "w1").`);
+		// The published schema bounds it, and this is the path codemode meets without the schema.
+		if (id.length > MAX_ID) throw new Error(overLimit("id", id.length, MAX_ID));
 		return id;
 	};
 	const optionalLines = (): number | undefined => {
@@ -174,6 +185,7 @@ export function normalizeCall(raw: unknown): WatchCall {
 			const label = optionalString(args.label);
 			if (label && label.length > MAX_LABEL) throw new Error(overLimit("label", label.length, MAX_LABEL));
 			const cwd = optionalString(args.cwd);
+			if (cwd && cwd.length > MAX_SOURCE) throw new Error(overLimit("cwd", cwd.length, MAX_SOURCE));
 
 			return {
 				action: "add",

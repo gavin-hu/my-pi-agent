@@ -173,6 +173,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`: a bare `clear` reported a tidy table while watchers were still running — it skipped them
+  and answered `Nothing to clear.`, and with some cleared it answered a satisfied `Cleared 2
+  watchers.` with a third still going — so the reply now names what it left and the `all:true` that
+  stops it. `add` took a `cwd` or an `id` of any length, neither bounded at the schema nor in
+  `normalizeCall`, where a caller that bypasses the schema meets the check.
+
 - `watch`: the raw output a watcher keeps was bounded by line count alone, and a line reaches 1 MiB,
   so `maxLogLines` 500 across twenty watchers was about ten gigabytes of retained strings. The same
   tail is bounded in UTF-8 bytes now — `maxLogBytes`, 1 MiB by default, whole lines under it and the
