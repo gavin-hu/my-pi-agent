@@ -52,8 +52,8 @@ describe("formatRound", () => {
 		// lead, and one line each is what says both.
 		expect(formatRound(cards, buildRound(cards, NOW)).split("\n")).toEqual([
 			"2 owners · 4 features · 1 unassigned · 0 shelved · 0 unplanned · 0 awaiting approval · 1 awaiting review · 0 untold · 1 blocked · 0 unwritten · 1 done, 1 archivable",
-			"billing-core (2): #2 execute, #3 blocked",
-			"billing-other (0 live, 1 done)",
+			"billing-core (2 cards): #2 execute, #3 blocked",
+			"billing-other (0 cards, 1 done)",
 			"unassigned (1): #1 backlog",
 			"unreviewed (1): #2 execute",
 			"blocked (1): #3 blocked — gateway",
@@ -80,7 +80,7 @@ describe("formatRound", () => {
 	test("an owner who finished everything keeps its line and its count", () => {
 		const cards = [card("4", { lane: "done", owner: { label: "billing-other" } })];
 		const lines = formatRound(cards, buildRound(cards, NOW)).split("\n");
-		expect(lines).toContain("billing-other (0 live, 1 done)");
+		expect(lines).toContain("billing-other (0 cards, 1 done)");
 	});
 
 	test("names a contract that is still missing a line, which is the one a lead looks at", () => {
@@ -169,14 +169,14 @@ describe("the owners who are only history", () => {
 		// prints what it printed before the fold existed.
 		const cards = [...finished, working];
 		const lines = formatRound(cards, buildRound(cards, NOW)).split("\n");
-		expect(lines.some((line) => line.startsWith("billing-old (0 live, 1 done)"))).toBe(true);
+		expect(lines.some((line) => line.startsWith("billing-old (0 cards, 1 done)"))).toBe(true);
 		expect(lines.some((line) => line.startsWith("2 owners with no record"))).toBe(false);
 	});
 
 	test("keep a row when the bus knows them, even holding nothing", () => {
 		const lines = formatRound(finished, buildRound(finished, NOW), bus("billing-old", "billing-older")).split("\n");
-		expect(lines).toContain("billing-old (0 live, 1 done)");
-		expect(lines).toContain("billing-older (0 live, 2 done)");
+		expect(lines).toContain("billing-old (0 cards, 1 done)");
+		expect(lines).toContain("billing-older (0 cards, 2 done)");
 		expect(lines.some((line) => line.includes("with no record"))).toBe(false);
 	});
 
@@ -184,7 +184,7 @@ describe("the owners who are only history", () => {
 		// An owner the bus has no record of and that holds nothing is history; one holding a card
 		// is the row a lead acts on, and folding it would hide a free card behind a count.
 		const lines = formatRound([working], buildRound([working], NOW), bus()).split("\n");
-		expect(lines).toContain("billing-core (1): #4 execute");
+		expect(lines).toContain("billing-core (1 card): #4 execute");
 	});
 
 	test("read as one owner when there is only one", () => {

@@ -322,7 +322,7 @@ describe("list", () => {
 		// The group survives its last card finishing, and the line says so plainly
 		// instead of leaving a bare "0" next to a teammate who did the work.
 		expect(result.details.round?.owners.map((group) => group.label)).toEqual([LEAD]);
-		expect(resultText(result)).toContain(`${LEAD} (0 live, 1 done)`);
+		expect(resultText(result)).toContain(`${LEAD} (0 cards, 1 done)`);
 	});
 
 	test("folds the owners a bus has no record of into one line, in the Team tab's words", async () => {
@@ -346,7 +346,7 @@ describe("list", () => {
 		await call({ action: "claim", card: "3" });
 		const result = await call({ action: "list", round: true });
 		expect(resultText(result)).toContain("2 owners with no record · 2 done");
-		expect(resultText(result)).not.toContain("billing-old (0 live, 1 done)");
+		expect(resultText(result)).not.toContain("billing-old (0 cards, 1 done)");
 		// The details are unchanged: the fold is what the text does, not what the rollup holds.
 		// Both sides sorted: `LEAD` is the name this session derives from its id, so its
 		// spelling is the vocabulary's business and the order here is not a reading.

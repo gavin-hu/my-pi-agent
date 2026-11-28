@@ -54,7 +54,7 @@ export function gateOf(card: Card): Gate | undefined {
 }
 
 /**
- * One owner, the live cards it holds, and the ones it finished.
+ * One owner, the open cards it holds, and the ones it finished.
  *
  * `T` is what the caller handed in: the rollup never builds a card, so a snapshot whose
  * cards carry derived facts hands them back on the same terms it received them.
@@ -68,7 +68,7 @@ export interface RoundGroup<T extends Card = Card> {
 
 /** The lead's rollup of one board. */
 export interface RoundSummary<T extends Card = Card> {
-	/** Every owner the board names, ordered by label, with its live cards and the ones it finished. */
+	/** Every owner the board names, ordered by label, with its open cards and the ones it finished. */
 	owners: RoundGroup<T>[];
 	/** `backlog` cards nobody has taken, and nobody has set aside. */
 	unassigned: T[];

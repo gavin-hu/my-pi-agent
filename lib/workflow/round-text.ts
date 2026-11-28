@@ -164,8 +164,12 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 		}
 		// An owner who finished everything is still listed, with what it finished: the
 		// count says which kind of work is left, and an empty list is a legitimate answer.
+		// The noun is `cards`, never `live`: the tail two lines below counts the sessions that
+		// are live, and one word for both nouns is the message a seat read as a dead session.
 		const counts =
-			group.done.length > 0 ? `${group.cards.length} live, ${group.done.length} done` : `${group.cards.length}`;
+			group.done.length > 0
+				? `${plural(group.cards.length, "card")}, ${group.done.length} done`
+				: plural(group.cards.length, "card");
 		const listed = group.cards.map((card) => brief(card)).join(", ");
 		lines.push(listed === "" ? `${group.label} (${counts})` : `${group.label} (${counts}): ${listed}`);
 	}
