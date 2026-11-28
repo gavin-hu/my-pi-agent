@@ -197,6 +197,7 @@ describe("joinTeam", () => {
 		// names the person's door, because waiting is no longer the only one.
 		writeBusRecord(busDir, { id: "s-peer", label: LABEL, lastSeen: NOW, pid: 2 ** 22 + 7 });
 		const state = await joinTeam(session, team, ctx, LABEL);
+		expect("error" in state && state.fix).toContain("heartbeat ages out");
 		expect("error" in state && state.fix).toContain("/sessions forget");
 	});
 
