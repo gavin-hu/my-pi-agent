@@ -316,6 +316,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   because the panel's first row is not index 0 and the review's keys are a table rather
   than the matcher's.
 
+- `goal`: the page no longer promises a check the extension does not have. `/goal done` does name the todo items still
+  open — `openTodoNote` appends them to the result (`extensions/goal/format.ts:66`) — but the goal closes anyway, and
+  nothing re-checks when those items later close, because `extensions/goal` registers no settle hook and `achieved`
+  deliberately skips `goalPhase`. So `docs/extensions/goal.md`'s "so the goal cannot claim more than the work shows"
+  becomes what happens: the list is in front of you at the moment the goal closes. Limits says the count is a notice
+  beside the decision rather than a refusal in front of it, which is the design the tool already had. No code moves; a
+  settle hook on a closed list is its own card.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
