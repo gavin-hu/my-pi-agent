@@ -147,6 +147,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ask its caller for a page instead. Plan mode keeps its own interactive search: this narrows what a child
   may do, and still sandboxes nothing.
 
+- `subagent`: a child cannot delegate further. Every child's environment now carries
+  `PI_SUBAGENT_CHILD`, so a delegation started from inside one is refused with a sentence that
+  names the rule instead of spawning a grandchild, and `subagent` is dropped from a child's
+  `--tools` even when its file declares it. The refusal is the load-bearing half: an agent that
+  declares no tools inherits the whole default set, which no allowlist there can narrow — the hole
+  that let a user or project agent recurse without a cap.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached

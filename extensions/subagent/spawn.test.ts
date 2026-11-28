@@ -8,8 +8,8 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { runSingleAgent, type RunOptions } from "./run.ts";
-import { tempDir } from "../../test/helpers/env.ts";
+import { CHILD_ENV, runSingleAgent, type RunOptions } from "./run.ts";
+import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { makeFakeSpawn } from "../../test/helpers/fixtures/subagent.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
@@ -64,6 +64,20 @@ describe("the child's process group", () => {
 		// started, and the argv is the binary's own, so no shell is involved.
 		expect(children[0]?.options?.detached).toBe(process.platform !== "win32");
 		expect(children[0]?.options?.shell).toBe(false);
+	});
+
+	test("marks the child so a grandchild cannot delegate, and leaves this process alone", async () => {
+		const probe = "PI_SUBAGENT_CHILD_TEST_PROBE";
+		await withEnv({ [probe]: "kept" }, async () => {
+			const { spawn, children } = makeFakeSpawn((child) => child.close(0));
+			await runSingleAgent(options({ spawn }));
+			expect(children[0]?.options?.env?.[CHILD_ENV]).toBe("1");
+			// Merged, not replaced: a proxy or token the parent already carries still reaches it.
+			expect(children[0]?.options?.env?.[probe]).toBe("kept");
+			// The marker is written on the spawn and not into `process.env`: set here instead, every
+			// later delegation in this session would refuse itself.
+			expect(process.env[CHILD_ENV]).toBeUndefined();
+		});
 	});
 
 	test("signals the tree, not the pid alone, and forces the escalation", async () => {

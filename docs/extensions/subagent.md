@@ -93,7 +93,12 @@ trusted, so a repository cannot inject a prompt by adding a file.
   the record.
 - Children inherit your model and thinking level unless the agent overrides them.
 - A subagent's tools are granted, not filtered: `reviewer` holds the same `bash` a
-  `worker` does, and only its prompt keeps it to `git diff/log/show`.
+  `worker` does, and only its prompt keeps it to `git diff/log/show`. One name is the
+  exception — `subagent` is dropped from a child's allowlist even when its file declares it.
+- A child cannot delegate further. Every child's environment carries a marker, and a
+  delegation started from inside one is refused with that sentence rather than spawning a
+  grandchild. The refusal is the gate rather than the allowlist: an agent that declares no
+  `tools` inherits your whole default set, which no list of ours can narrow.
 
 ## Settings
 
