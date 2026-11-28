@@ -44,7 +44,10 @@ and the watcher that reads its log.
 pattern, optional `exclude`, `caseSensitive`, `fromStart`, and `wake`;
 `list`, `status`, `matches`, `logs`, `stop`, and `clear` manage what exists.
 A pattern written the way the tool prints it — `/ERROR/`, `/ERROR/i` — is read as
-that expression, delimiters included.
+that expression, delimiters included: the printer escapes a `/` in the body (`/api\/v1/i`),
+and a pattern with a bare slash, which no print produced, is kept as the expression it reads
+as. `status` names `wake` on its own line rather than inside the pattern, so a copied pattern
+never carries it back in.
 
 **Commands.** `/watch` (screen or list), `/watch list`, `/watch matches <id>`,
 `/watch logs <id>`, `/watch stop <id>`, `/watch clear [all]`. On the screen:

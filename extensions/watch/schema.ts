@@ -10,7 +10,8 @@
 import { Type, type Static } from "typebox";
 import { optionalString } from "../../lib/json.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
-import { assertSafePattern, readPattern } from "./format.ts";
+import { assertSafePattern } from "./pattern.ts";
+import { readPattern } from "./format.ts";
 import { WATCH_ACTIONS, type WatchAction } from "./types.ts";
 import { overLimit } from "../../lib/format.ts";
 
