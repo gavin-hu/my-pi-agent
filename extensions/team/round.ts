@@ -21,12 +21,20 @@ import { formatRound, holdingLine, withLiveOwner } from "../../lib/workflow/roun
 /**
  * How many of the round's own lines print before it says how many it left out.
  *
- * The work a dead owner left behind and the closing count print on top of it: those are the reason
- * a lead reads the round, and cutting them to hold a number would be the wrong trade. The elision
- * counts the rollup alone, so "… N more" is a count a reader can act on, and it names the surface
- * that draws the rest. The count is the part of the round a reader can ask for whole: `/team who`.
+ * The round is one notify with two growing parts, each bounded at its own number: the rollup at this
+ * many lines, and the verbs a lead may type at {@link MAX_STALLED_LINES}. Each elision says how many
+ * it left out and which surface draws the rest, so neither part can grow into a screen.
  */
 export const MAX_ROUND_LINES = 10;
+
+/**
+ * How many reclaim lines print before the rest become one elision.
+ *
+ * Five is the page's number, not a second one: the Team tab's queue folds its rows at five and puts
+ * the rest behind a control, so a lead reading the terminal and a lead reading the tab meet the same
+ * fold and the same count.
+ */
+export const MAX_STALLED_LINES = 5;
 
 /**
  * The round as the lines a lead reads: the rollup, then a count of who is live.
@@ -43,13 +51,19 @@ export function roundText(cards: readonly Card[], now: number, roster?: readonly
 	// and the presence line all speak of owners by their label.
 	const named = cards.map((card) => withLiveOwner(card, roster));
 	const round = buildRound(named, now);
-	// The cap covers the rollup: what a dead owner left, and who is here at all, follow it whole.
+	// First of the two bounded parts: the rollup, elided at its own number.
 	const lines = formatRound(named, round, roster).split("\n");
 	const shown = lines.slice(0, MAX_ROUND_LINES);
 	if (lines.length > MAX_ROUND_LINES) {
 		shown.push(`… ${plural(lines.length - MAX_ROUND_LINES, "line")} more — /board draws the whole round`);
 	}
-	for (const line of stalledLines(named, roster, now)) shown.push(line);
+	// The second: the verbs a lead can type, folded at the page's own number, with the rest counted
+	// and a door beside the count.
+	const stalled = stalledLines(named, roster, now);
+	for (const line of stalled.slice(0, MAX_STALLED_LINES)) shown.push(line);
+	if (stalled.length > MAX_STALLED_LINES) {
+		shown.push(`… ${plural(stalled.length - MAX_STALLED_LINES, "owner")} more — /board shows them`);
+	}
 	// The tail is the count a reader can ask for whole as `/team who`, so both read one grouping:
 	// `presenceGroups` is the only place this module asks `rosterStateOf`.
 	const who =
