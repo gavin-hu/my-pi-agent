@@ -603,7 +603,7 @@ only the transcript speaks it.
 Why a card sits where it does, as one rule for the card face, the lead's queue, and the
 transcript. `REASON_KINDS` is every kind there is, and `reasonFor(card, ago)` answers a
 `Reason` — a `ReasonKind` and one sentence — for
-an unanswered offer, a blocked card's recorded reason, a contract's missing line, an approval
+an unanswered offer, a blocked card's recorded reason (or its last note, named as such, on a card that never recorded one), a contract's missing line, an approval
 nobody gave, a spot-check nobody did, and a finished card's commit. The card face, the lead's
 queue, and the transcript read this one body, because the states it names would otherwise be
 three sentences that drift.

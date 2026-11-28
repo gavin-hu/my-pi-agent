@@ -78,6 +78,15 @@ describe("reasonFor", () => {
 		).toBe("blocked on a decision");
 	});
 
+	test("a blocked card with no block record names the note its sentence came from", () => {
+		// The branch had no case, which is how the block's label came to speak for prose nobody
+		// recorded as a block. The sentence says where it came from; the kind stays blocked, so the
+		// face keeps the one visible line the lane needs.
+		expect(
+			reasonFor(card({ lane: "blocked", owner, notes: [{ by: "x", at: 1, text: "updated the fixture" }] }), ago),
+		).toEqual({ kind: "blocked", text: "blocked — last note: updated the fixture" });
+	});
+
 	test("a plan card names the missing contract line, then the approval it needs", () => {
 		expect(
 			reasonFor(card({ lane: "plan", owner, contract: { goal: "g", acceptance: "", scopeOut: "" } }), ago),
