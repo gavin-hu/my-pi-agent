@@ -1,6 +1,9 @@
 /**
- * The `/sessions` board's bus: this session, two peers, three held paths, one
- * unread message, and the inbox watch armed.
+ * The `/sessions` board's bus: this session, two peers — one of them not listening and one whose
+ * process is gone — three held paths, one unread message, and the inbox watch armed.
+ *
+ * Both marks the board can draw are here because the frame is what a reader learns them from: a
+ * capture with three healthy rows would show neither.
  */
 
 import type { BoardSnapshot } from "../../../extensions/session-bus/types.ts";
@@ -24,6 +27,9 @@ export const BUS_BOARD: BoardSnapshot = {
 				lastSeen: now - 2_000,
 				unread: 1,
 				state: "live",
+				// The same watch the summary chip draws: one frame cannot say `you: watch on` and
+				// `watch: not recorded` about one session.
+				watching: { armed: true, wake: false },
 			},
 			{
 				id: "8c14de60a2f1",
@@ -36,6 +42,7 @@ export const BUS_BOARD: BoardSnapshot = {
 				lastSeen: now - 4_000,
 				unread: 0,
 				state: "live",
+				watching: { armed: false, wake: false },
 			},
 			{
 				id: "a71f90c3e5b2",
@@ -46,8 +53,8 @@ export const BUS_BOARD: BoardSnapshot = {
 				mode: "rpc",
 				startedAt: now - 12 * 60_000,
 				lastSeen: now - 9_000,
-				unread: 0,
-				state: "live",
+				unread: 1,
+				state: "gone",
 			},
 		],
 		claims: [

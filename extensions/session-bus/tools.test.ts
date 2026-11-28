@@ -350,7 +350,7 @@ describe("session tool", () => {
 			{ expanded: false },
 			fakeTheme,
 		);
-		expect(rendered.render(80).join("\n")).toContain("1 session · 0 claims · watch wake");
+		expect(rendered.render(80).join("\n")).toContain("1 session · 0 claims · you: watch wake");
 	});
 
 	test("the collapsed status is one line at 80, gone and not-on-bus included", () => {

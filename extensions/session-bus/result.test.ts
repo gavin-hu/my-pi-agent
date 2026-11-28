@@ -117,13 +117,15 @@ describe("the expanded result block", () => {
 
 describe("the collapsed result line", () => {
 	test("status counts read in the plural and name the watch", () => {
-		expect(collapsedLine(fakeTheme, { action: "status", status: busBoard() })).toBe("3 sessions · 3 unread · 2 claims");
+		// The unread cell is this session's own mail — `busBoard()`'s `me` has none — so the bus's three
+		// unread are the peer rows' business, and the bar counts what the Inbox tab counts.
+		expect(collapsedLine(fakeTheme, { action: "status", status: busBoard() })).toBe("3 sessions · 2 claims");
 		expect(
 			collapsedLine(fakeTheme, {
 				action: "status",
 				status: { ...busBoard(), watching: { armed: true, wake: true } },
 			}),
-		).toContain("watch wake");
+		).toContain("you: watch wake");
 	});
 
 	test("a gone session and a reader that has not joined are the board's own cells", () => {

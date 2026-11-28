@@ -57,13 +57,18 @@ describe("session rows", () => {
 		expect(line).not.toContain("\n");
 	});
 
-	test("summarizes sessions, unread, claims, and the watch", () => {
+	test("summarizes sessions, this session's unread, claims, and the watch", () => {
 		const rows = sessionRows(busBoard());
 		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("3 sessions");
-		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("3 unread");
 		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("2 claims");
-		expect(summaryCells(fakeTheme, rows, { armed: true, wake: false }).join(" · ")).toContain("watch on");
-		expect(summaryCells(fakeTheme, rows, { armed: true, wake: true }).join(" · ")).toContain("watch wake");
+		// The word means this session's inbox — the Inbox tab counts the same mail — so a peer's three
+		// unread are its own row's, not this number's.
+		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).not.toContain("unread");
+		const mine = sessionRows(busStatus([busSession({ id: "abcdef123456", label: "frontend", unread: 2 })]));
+		expect(summaryCells(fakeTheme, mine, undefined).join(" · ")).toContain("2 unread");
+		// One chip, one spelling: the Inbox and Claims summaries print the same words.
+		expect(summaryCells(fakeTheme, rows, { armed: true, wake: false }).join(" · ")).toContain("you: watch on");
+		expect(summaryCells(fakeTheme, rows, { armed: true, wake: true }).join(" · ")).toContain("you: watch wake");
 		const single = sessionRows(busStatus([busSession({ id: "s1", label: "solo" })]));
 		expect(summaryCells(fakeTheme, single, undefined).join(" · ")).toBe("1 session · 0 claims");
 	});
@@ -79,35 +84,28 @@ describe("session rows", () => {
 		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("1 gone");
 		const crashed = rows.find((row) => row.session.id === "s2");
 		if (!crashed) throw new Error("no row");
-		// The row's own counts would read "0 unread" for a session nothing can answer.
+		// The mark sits beside the count rather than in its place: a dead peer's unread mail is still
+		// mail this reader has to deal with, and it was invisible while `gone` stood where it goes.
 		const line = sessionRowLine(crashed, fakeTheme, 80);
 		expect(line).toContain("gone");
-		expect(line).not.toContain("0 unread");
+		expect(line).toContain("0 unread");
 		expect(sessionDetailBlock(crashed, 12_000).join("\n")).toContain("process gone");
 		// The block names the door that frees the name, where the row shows the problem.
 		expect(sessionDetailBlock(crashed, 12_000).join("\n")).toContain("/sessions forget crashed");
 	});
 
-	test("the focus block names the cwd, at most two claims, and identity", () => {
+	test("the focus block is the cwd and the record's facts, and no claim paths", () => {
 		const rows = sessionRows(busBoard());
 		const block = sessionDetailBlock(rows[1] as never, 12_000);
 		expect(block[0]).toBe("cwd: /repo/frontend");
-		expect(block[1]).toBe("claims: src/api, src/api/routes.ts");
-		expect(block[2]).toContain("mode: tui");
-		// An age now comes from the one helper, so a two-second-old heartbeat reads in words rather
-		// than in a duration: `formatAge` calls anything inside 45 seconds `now`.
-		expect(block[2]).toContain("last seen: just now");
-		expect(block.join("\n")).not.toContain("3 unread");
-
-		const many = busStatus(
-			[busSession({ id: "s1" })],
-			[
-				busClaim({ path: "a", owner: "s1", ownerLabel: "solo" }),
-				busClaim({ path: "b", owner: "s1", ownerLabel: "solo" }),
-				busClaim({ path: "c", owner: "s1", ownerLabel: "solo" }),
-			],
-		);
-		expect(sessionDetailBlock(sessionRows(many)[0] as never, 12_000)[1]).toBe("claims: a, b +1 more");
+		expect(block[1]).toContain("mode: tui");
+		// An age comes from the one helper, so a two-second-old heartbeat reads in words rather than
+		// in a duration: `formatAge` calls anything inside 45 seconds `now`.
+		expect(block[1]).toContain("last: just now");
+		// The claims are the pane's to list; the facts line says how many there are.
+		expect(block[1]).toContain("mail: 3 unread · 2 claims");
+		expect(block.join("\n")).not.toContain("src/api");
+		expect(block).toHaveLength(2);
 	});
 });
 
@@ -161,7 +159,8 @@ describe("the /sessions screen", () => {
 		expect(lines[0]).toContain("Sessions");
 		expect(lines.join("\n")).toContain("3 sessions");
 		expect(lines.join("\n")).toContain("frontend · you");
-		expect(lines.join("\n")).toContain("claims: src/api, src/api/routes.ts");
+		// The block is the cwd and the record's facts; the claims themselves are the pane's.
+		expect(lines.join("\n")).toContain("state: live");
 		expect(lines.join("\n")).toContain("w watch on");
 		expect(lines.join("\n")).toContain("Tab inbox");
 		expectBounded(lines, 80);
@@ -217,7 +216,10 @@ describe("the /sessions screen", () => {
 		const list = view.render(80).join("\n");
 		expect(list).toContain("Claims");
 		expect(list).toContain("2 claims");
-		expect(list).toContain("x release");
+		// The chip and `w` are this session's on every scope; `x` is not offered under a peer's claim,
+		// because the verb would refuse it — the hint says what the key can do.
+		expect(list).toContain("w watch");
+		expect(list).not.toContain("x release");
 
 		view.handleInput("x");
 		expect(view.render(80).join("\n")).toContain("backend's claim; not released.");
@@ -262,7 +264,9 @@ describe("the /sessions screen", () => {
 		expect(pane).toContain("backend");
 		expect(pane).toContain("/repo/frontend");
 		expect(pane).toContain("src/api");
-		expect(pane).toContain("last seen");
+		// The pane prints the record's facts, the same owner the focus block reads.
+		for (const fact of ["state", "watch", "up", "last", "mode", "mail"]) expect(pane).toContain(fact);
+		expect(pane).not.toContain("Nothing to show.");
 		expect(pane).not.toContain("following");
 		view.handleInput("\x1b");
 		expect(view.currentDetailId()).toBeUndefined();
@@ -341,7 +345,43 @@ describe("the /sessions screen", () => {
 		view.handleInput("\t");
 		const claims = view.render(46).join("\n");
 		expect(claims).toContain("Tab sessions");
-		expect(claims).toContain("x release");
+		// A peer's claim: the chip and the key that works, and no verb the row would refuse.
+		expect(claims).toContain("w watch");
+		expect(claims).not.toContain("x release");
+	});
+
+	test("prints the record's facts in a pane, and says when it holds nothing", () => {
+		const view = screen(snapshot(busStatus([busSession({ id: "abcdef123456", label: "frontend" })])), events());
+		view.handleInput("\r");
+		const pane = view.render(80).join("\n");
+		// A recorded session is never the base's empty body: it has facts, and the one thing it does
+		// not have is said out loud.
+		expect(pane).toContain("No claims held.");
+		expect(pane).not.toContain("Nothing to show.");
+		for (const fact of ["state", "watch", "up", "last", "mode", "mail"]) expect(pane).toContain(fact);
+	});
+
+	test("offers Enter only while there is a row to open", () => {
+		const empty = screen(snapshot(busStatus([])), events())
+			.render(80)
+			.join("\n");
+		expect(empty).toContain("w watch");
+		expect(empty).not.toContain("Enter open");
+		const full = screen(snapshot(busBoard()), events()).render(80).join("\n");
+		expect(full).toContain("Enter open");
+	});
+
+	test("prints one watch chip on every scope, and counts this session's mail", () => {
+		const status = { ...busBoard(), watching: { armed: true, wake: true } };
+		const view = screen(snapshot(status, [busMessage()]), events());
+		// The sessions summary counts the self row, which is the same number the Inbox tab draws.
+		expect(view.render(80).join("\n")).toContain("you: watch wake");
+		view.handleInput("\t");
+		const inbox = view.render(80).join("\n");
+		expect(inbox).toContain("you: watch wake");
+		expect(inbox).toContain("1 unread message");
+		view.handleInput("\t");
+		expect(view.render(80).join("\n")).toContain("you: watch wake");
 	});
 
 	test("every scope fits the width", () => {
