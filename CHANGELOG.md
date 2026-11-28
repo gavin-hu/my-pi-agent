@@ -173,6 +173,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `code-review`, `rewind`: one file's diff no longer flips git's pathspec handling for the whole
+  process. The review read each file with `GIT_LITERAL_PATHSPECS` set, and the runner applies an `env`
+  to `process.env` for the length of a call, so a rewind snapshot taken in the same session inherited
+  it: `git restore` then refused with `pathspec ':(literal)README.md' did not match any file(s) known
+  to git`, and a listing came back empty instead. Literal handling is the one path's now — `lib/git`'s
+  `literalPathspec` builds `:(literal)<path>`, which rewind already used — and the reader sets no
+  environment at all.
+
 - `watch`: `add` answered `Watching w1` for a command that never started — the spawn threw, a record
   went in with `status: "error"`, and the model read success and then read an empty match list as a
   clean log. The failure is the reply now: `the command did not start, so nothing is watching:
