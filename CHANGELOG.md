@@ -134,6 +134,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   case at all. No code moves — no `contract` field, no gate that scans a card — and `AGENTS.md` and `CONTRIBUTING.md`
   are untouched, because each is an exact word ceiling that may only fall.
 
+- `skills`: `next` and `refactor` now say where a commit goes — the branch the work is on, never `main` — where both
+  told a holder not to commit until asked, a prohibition that stopped two cards one step short of the review that
+  records a sha. `AGENTS.md` carries the same rule in one clause, a card's branch taking its commit as each step
+  finishes: the sentence still measures twelve words, so the file's ceiling holds at 979.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached

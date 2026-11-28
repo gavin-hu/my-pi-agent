@@ -32,4 +32,4 @@ change. These are the rules that keep that promise — the rest is ordinary work
 
 - Run the full check, not only the narrow command, and compare against the baseline.
 - Report the diff's shape, what the check said, and what is still risky or unverified.
-- Do not commit unless the user asks.
+- Commit on the branch the work is on, and never on `main`.

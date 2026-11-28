@@ -118,7 +118,7 @@ Three are gated; the fourth is review-only.
 [`CONTRIBUTING.md#branch-flow`](./CONTRIBUTING.md#branch-flow) owns the flow: a worktree
 per task, before plan mode; a `--no-ff` merge, no rebase, no branch head pushed to `main`.
 
-- Never commit unless the user asks; then commit as each step finishes.
+- Commit on the card's branch as each step finishes; never on `main`.
 - Stage explicit paths; never `git add -A`, `git add .`, `git reset --hard`,
   `git checkout .`, `git clean -fd`, `git stash`, `git commit --no-verify`, or force-push
   `main`.
