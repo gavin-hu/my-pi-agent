@@ -4,7 +4,7 @@
  * The board's rows, the `session` tool's expanded block and the detail pane used to describe one
  * record three ways: the rows dropped the mark the text listing prints, the pane printed three
  * facts, and a claim-less session's pane read `Nothing to show.` beside a record with plenty to
- * say. These cases hold the one owner — `recordFacts` for the facts, `peerMark` for the mark — and
+ * say. These cases hold the one owner — `sessionFacts` for the facts, `peerMark` for the mark — and
  * the sentence the whole card turns on: the mark a row prints is the mark `formatStatus` prints.
  *
  * A suite of its own because `view/session-list.test.ts` has to stay under the 400-line bar, and
@@ -16,7 +16,7 @@ import { busClaim, busSession, busStatus } from "../../../test/helpers/fixtures/
 import { fakeTheme } from "../../../test/helpers/fakes.ts";
 import { formatStatus } from "../format.ts";
 import { shortId } from "../protocol.ts";
-import { markOf, recordFacts, sessionDetailBlock, sessionRows, sessionRowLine, watchWords } from "../rows.ts";
+import { markOf, sessionFacts, sessionDetailBlock, sessionRows, sessionRowLine, watchWords } from "../rows.ts";
 
 const NOW = 1_800_000_000_000;
 const MINUTE = 60_000;
@@ -44,7 +44,7 @@ describe("the facts a record says", () => {
 			lastSeen: NOW - 3 * MINUTE,
 			watching: { armed: true, wake: false },
 		});
-		expect(recordFacts(peerRow(peer), NOW)).toEqual([
+		expect(sessionFacts(peerRow(peer), NOW)).toEqual([
 			{ label: "state", value: "live" },
 			{ label: "watch", value: "watch on" },
 			{ label: "mail", value: "3 unread · 1 claim" },
@@ -56,7 +56,7 @@ describe("the facts a record says", () => {
 
 	test("says a gone process in the state, and never loses the watch", () => {
 		const peer = busSession({ label: "backend", id: "fedcba654321", state: "gone", unread: 2 });
-		const facts = recordFacts(peerRow(peer), NOW);
+		const facts = sessionFacts(peerRow(peer), NOW);
 		// One word for the state the row marks, and `process gone` stays: the pane is where a reader
 		// finds out the process is dead and what to do about it.
 		expect(facts[0]).toEqual({ label: "state", value: "gone · process gone" });

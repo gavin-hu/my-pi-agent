@@ -99,7 +99,7 @@ export function watchWords(watching: SessionRecord["watching"]): string {
  * session has run and `last` when it was last heard from — the two clocks a peer is judged on —
  * and `mail` is that session's own unread beside the claims it holds.
  */
-export function recordFacts(row: SessionRow, now: number): RecordFact[] {
+export function sessionFacts(row: SessionRow, now: number): RecordFact[] {
 	const session = row.session;
 	const state = session.state === "gone" ? "gone · process gone" : session.state;
 	return [
@@ -294,7 +294,7 @@ export function summaryCells(
  * count, so the block keeps the height a fourth row of them would cost.
  */
 export function sessionDetailBlock(row: SessionRow, now: number): string[] {
-	const facts = recordFacts(row, now)
+	const facts = sessionFacts(row, now)
 		.map((fact) => `${fact.label}: ${fact.value}`)
 		.join(SEPARATORS.item);
 	const lines = [`cwd: ${sanitizeLine(row.session.cwd)}`, facts];

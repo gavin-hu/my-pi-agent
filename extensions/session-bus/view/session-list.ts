@@ -23,7 +23,7 @@ import {
 	type SessionRow,
 	claimRowLine,
 	messageRowLine,
-	recordFacts,
+	sessionFacts,
 	sessionDetailBlock,
 	sessionRowLine,
 	sessionRows,
@@ -68,7 +68,7 @@ function messageProse(message: BusMessage): string {
 
 /** The pane's facts: the record's own, drawn by the same owner the focus block reads. */
 function paneFacts(theme: Theme, row: SessionRow, now: number, width: number): string[] {
-	return recordFacts(row, now).map((fact) =>
+	return sessionFacts(row, now).map((fact) =>
 		keyValueRow(theme, width, { label: fact.label, labelWidth: 10, value: fact.value }),
 	);
 }
