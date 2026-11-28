@@ -234,6 +234,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a record write that fails says so — one line on stderr when a streak of failures
+  starts and one when a whole clean tick ends it, never one per tick. The swallow was two layers
+  down: the record's `flush()` resolved on a failed `writeSession`, so the heartbeat's own catch
+  never saw the commonest failure and every peer read the session as merely quiet. The writer owns
+  the report for that reason, and a tick that carried a failed write is not clean: recovery is the
+  next whole tick, so a healthy write behind a failing inbox sweep cannot flap the two lines.
+
 - `session-bus`: a start after a `/reload` keeps the record its session already has, so a renamed row no
   longer comes back as Pi's transcript name at a fresh start time. Pi's `/reload` is one process and one
   session id — a `session_shutdown` and a `session_start` milliseconds apart — so the shutdown keeps the
