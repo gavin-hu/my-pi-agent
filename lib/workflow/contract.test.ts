@@ -14,6 +14,7 @@ import {
 	isContract,
 	isHandoff,
 	isSign,
+	isVerification,
 	MAX_CONTRACT,
 	mergedContract,
 	missingContractFields,
@@ -291,5 +292,24 @@ describe("a plan file another card records", () => {
 		);
 		expect(changed.changed).toBe(true);
 		expect(changed.card.contract?.goal).toBe("A different promise");
+	});
+});
+
+describe("the run a sign records", () => {
+	/** A run of one command, which is the shape every record has. */
+	const RUN = { cmd: "bun run check", exit: 0, at: NOW };
+
+	test("keeps the base that moved, which is a fact about the tree and not the command", () => {
+		// `behind` is the landing's warning, recorded beside the run so the page can print it without git.
+		expect(isVerification({ ...RUN, behind: { base: "origin/main", sha: "20fdf9c7" } })).toBe(true);
+		expect(isVerification(RUN)).toBe(true);
+	});
+
+	test("refuses a base it cannot read, because a record it cannot trust is not an older record", () => {
+		// The file is hand-editable, so a shape this build never writes is a refusal rather than an absence.
+		expect(isVerification({ ...RUN, behind: { base: 3, sha: "20fdf9c7" } })).toBe(false);
+		expect(isVerification({ ...RUN, behind: { base: "origin/main" } })).toBe(false);
+		expect(isVerification({ ...RUN, behind: { base: "", sha: "20fdf9c7" } })).toBe(false);
+		expect(isVerification({ ...RUN, behind: "origin/main" })).toBe(false);
 	});
 });
