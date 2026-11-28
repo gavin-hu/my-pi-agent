@@ -22,6 +22,7 @@ import { busToolSession as session, joinBusSession as joins } from "../../test/h
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import sessionBus from "./index.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
+import { type BusStore, createBusStore } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -86,8 +87,40 @@ describe("leaving the bus", () => {
 		await owner.stop();
 	});
 
+	test("a leave that cannot land hands the session back with its watch still armed", async () => {
+		const dir = scratchDir(temps, "pi-leave-");
+		// The real store, failing at the one call a successful leave ends on: `releaseAll` returns and
+		// the removal throws. That is the path the old double never reached, because it refused at
+		// `bus.leave()` itself — and a permissions trick would be a no-op on Windows and under root.
+		const real = createBusStore({ dir });
+		const store: BusStore = {
+			...real,
+			async removeSession() {
+				throw new Error("the sessions directory is not writable");
+			},
+		};
+		const bus = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo/peer", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			watchMs: 0,
+			store,
+		});
+		const { ctx } = fakeCtx({ cwd: "/repo/peer", sessionId: "s2", sessionName: "tom" });
+		await bus.start(ctx);
+		await bus.join({ label: "tom", wake: true });
+
+		await expect(bus.leave()).rejects.toThrow(/not writable/);
+
+		// The session is on the bus again, exactly as it was — and the watch is the half a disarm
+		// cannot bring back, so it must never have been stopped.
+		expect((await bus.status()).onBus).toBe(true);
+		expect(bus.wantsWake()).toBe(true);
+	});
+
 	test("keeps the id a card is owned by, so the next join is the same session", async () => {
-		const { tom } = await pair("pi-leave-");
+		const { tom, gavin } = await pair("pi-leave-");
 		const before = (await tom.bus.status()).me.id;
 		expect(before).toBe("s2");
 
@@ -97,6 +130,10 @@ describe("leaving the bus", () => {
 		const after = await tom.bus.status();
 		expect(after.onBus).toBe(true);
 		expect(after.me.id).toBe(before);
+		// The leave closed the record's writer, so the row a peer reads is what says the join's
+		// write landed: `onBus` is this session's own flag, and the disk is what a peer acts on.
+		const peer = await gavin.bus.status();
+		expect(peer.sessions.map((row) => row.label)).toContain("tom");
 	});
 
 	test("stops the watch that would speak for a session on no bus", async () => {

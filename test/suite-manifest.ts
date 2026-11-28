@@ -322,7 +322,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"prune",
 		"store",
 		"mail-watch",
-		"presence",
+		"record",
 		"runtime",
 		"watch-restore",
 		"watching",

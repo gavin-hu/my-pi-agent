@@ -116,6 +116,16 @@ export function wasServed(started: SessionRecord, sessionId: string): boolean {
 }
 
 /**
+ * What a pane that does not own its session's row is told when it asks to leave with it.
+ *
+ * It lives beside {@link ownsRow}, the rule it answers: a `/resume` in a second pane registers one
+ * session id twice, and the pane that is leaving must not strip the row — or the claims — of the one
+ * still working under it. The sentence names whose the row is, because the door that works is the
+ * other pane's.
+ */
+export const OTHER_PANE = "another pane holds this session's record, so this one has nothing to give up";
+
+/**
  * Whether this process may end `owner`'s row: it wrote it, or there is none to end.
  *
  * The one rule behind it: a `/resume` in a second pane registers the same session id twice, so a pane
