@@ -1,10 +1,11 @@
 /**
- * What the bus writes on the lead's behalf: the handoff, the offer and the ask, the length
- * cap the three share, and the owner a handoff records.
+ * The notice text `lib/workflow/notice.ts` composes: a handoff, an offer, and the owner one records.
  *
- * The card is written before any of these messages exists, so the cases pin what a peer reads
- * about a card that is already its own — the one condition a reclaim can still change — and
- * what a peer the roster cannot name becomes, which is an owner and never an id.
+ * No `notice.ts` lives beside this file — the module is `lib/workflow/`'s, shared by `board` and
+ * `team` — and the ask's own sentence is `ask.test.ts`'s, because the verb that mints it owns it.
+ * The card is written before any of these messages exists, so the cases pin what a peer reads about
+ * a card that is already its own — the one condition a reclaim can still change — and what a peer
+ * the roster cannot name becomes, which is an owner and never an id.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -12,7 +13,6 @@ import type { Card } from "../../lib/workflow/card.ts";
 import { askLead } from "../../lib/workflow/contract.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
-import { askText } from "./dispatch.ts";
 import { actorFor, handoffText, noticeText, offerText, ownerFor } from "../../lib/workflow/notice.ts";
 
 /** The lead a case hands the builder: the name a sign has to carry. */
@@ -172,34 +172,5 @@ describe("ownerFor", () => {
 		// draw that label would inherit every write on the card.
 		expect(ownerFor("billing-core", [], { at: 9 }).handoff).toEqual({ at: 9, unresolved: true });
 		expect(ownerFor("billing-core", [], { at: 9 }).id).toBeUndefined();
-	});
-});
-
-describe("askText", () => {
-	const byId = { to: "7f3a91c2", byId: true };
-
-	test("puts the question first and names the ask and the one way back", () => {
-		const text = askText("is #162 ready for review?", "a1b2c3d4", byId);
-		expect(text.startsWith("Ask a1b2c3d4: is #162 ready for review?")).toBe(true);
-		expect(text).toContain('session send to "7f3a91c2" (a session id, not a label)');
-		// The reply sets the envelope field rather than only a prose prefix: the bus prints it as
-		// `re: <id>` on the row, and the ask says so.
-		expect(text).toContain('replyTo "a1b2c3d4"');
-		expect(text).toContain("re: a1b2c3d4");
-		expect(text).toContain("nothing is waiting on it");
-	});
-
-	test("says when the way back is a label, because the bus held no id", () => {
-		// The fallback has to read as one: a peer that took a label for an id would send the answer to
-		// whatever holds that label next, which is what the id exists to avoid.
-		const text = askText("any blockers?", "a1b2c3d4", { to: "billing-lead", byId: false });
-		expect(text).toContain('session send to "billing-lead" (the label');
-		expect(text).toContain("the bus holds no id for this session");
-	});
-
-	test("clips at the bus's limit, like every other body here", () => {
-		const text = askText("x".repeat(MAX_MESSAGE_TEXT * 2), "a1b2c3d4", byId);
-		expect(text.length).toBe(MAX_MESSAGE_TEXT);
-		expect(text.endsWith("…")).toBe(true);
 	});
 });
