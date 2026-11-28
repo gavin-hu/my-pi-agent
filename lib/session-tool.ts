@@ -31,7 +31,7 @@ import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { messageOf } from "./errors.ts";
 import { sanitizeLine } from "./format.ts";
 import type { MessageKind } from "./session-mail.ts";
-import { type PeerRow, type RosterState, watchingOf } from "./session-roster.ts";
+import { type PeerRow, type RosterState } from "./session-roster.ts";
 import { SESSION_TOOL } from "./tool-names.ts";
 
 /**
@@ -366,6 +366,9 @@ export async function listPeers(ctx: ExtensionToolContext): Promise<Peer[] | und
 	if (typeof status !== "object" || status === null) return undefined;
 	const sessions = (status as { sessions?: unknown }).sessions;
 	if (!Array.isArray(sessions)) return undefined;
+	// Loaded here rather than at the top: `session-files.ts` is the bus's own file layer, and a
+	// static import of it from this module would reach every entry's registration graph.
+	const { watchingOf } = await import("./session-files.ts");
 	const peers: Peer[] = [];
 	for (const entry of sessions) {
 		if (typeof entry !== "object" || entry === null) continue;

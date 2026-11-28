@@ -21,6 +21,7 @@
  */
 
 import type { RepeatTimer } from "../../lib/timer.ts";
+import { isWatchMode } from "../../lib/session-files.ts";
 import type { BusMessage, InboxPeek, SessionRecord, WatchMode } from "./types.ts";
 
 export interface MailWatchOptions {
@@ -55,10 +56,6 @@ export function watchPair(mode: WatchMode): WatchingState {
 }
 
 /** Whether a value is a mode: the three words are the whole set, so a hand edit can miss it. */
-function isWatchMode(value: unknown): value is WatchMode {
-	return value === "off" || value === "on" || value === "wake";
-}
-
 /**
  * The mode a stored pair spells, for a record written before the mode existed.
  *

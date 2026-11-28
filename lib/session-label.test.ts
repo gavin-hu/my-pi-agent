@@ -292,9 +292,15 @@ describe("readSessionLabel", () => {
 		return dir;
 	}
 
-	/** A record in the shape the bus writes, including the directories a legacy record is scoped by. */
+	/**
+	 * A record in the shape the bus writes, including the directories a legacy record is scoped by.
+	 *
+	 * The required fields are filled in unless a case names them: since #994 this reader requires
+	 * what the bus requires, so a fixture without `pid` would describe a file no writer produces.
+	 */
 	function write(dir: string, name: string, record: Record<string, unknown>): void {
-		writeFileSync(join(dir, SESSIONS_DIR_NAME, name), JSON.stringify({ mode: "tui", ...record }), "utf-8");
+		const full = { mode: "tui", pid: process.pid, cwd: dir, repoRoot: dir, startedAt: 50, lastSeen: 100, ...record };
+		writeFileSync(join(dir, SESSIONS_DIR_NAME, name), JSON.stringify(full), "utf-8");
 	}
 
 	test("finds the record in the store the bus files it in", async () => {

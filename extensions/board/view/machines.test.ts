@@ -43,6 +43,12 @@ function busWithStudio(now: number): string {
 			id: "s-there",
 			label: "billing-api",
 			mode: "tui",
+			// A record carries every field the one writer emits: since #994 the page's roster
+			// requires what the bus requires, so a four-field session would not draw at all.
+			pid: 0,
+			cwd: "/repo",
+			repoRoot: "/repo",
+			startedAt: now - 600_000,
 			lastSeen: now - 60_000,
 			host: STUDIO,
 			watching: { armed: true, wake: true },
