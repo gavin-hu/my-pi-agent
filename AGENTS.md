@@ -33,7 +33,7 @@ bun run check            # before landing: format, types, tests
 
 - A gated git suite (`rewind`, `worktree`, `session-bus`'s real-repository tests) skips
   unless `CI` or `PI_SLOW_TESTS=1`: touching one means `PI_SLOW_TESTS=1 bun test`.
-- A new package-level test goes into `ROOT_TEST_FILES` in `test/layout.test.ts`,
+- A new package-level test goes into `ROOT_SUITES` in `test/suite-manifest.ts`,
   compared exactly.
 - A peer bump is proved against the newest published Pi by CI's `compat` job; never
   commit one.
