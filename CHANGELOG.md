@@ -96,6 +96,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: the landing runs the verb from its own process, so the card that changes the verb has to bootstrap its own entry (#1028)
+
 - `board`: the landing writes the changelog bullet from the merge subject, so nobody appends at the head (#1018)
 
 - `test`: the boundary gate and the layer gate read their edges from one AST reader, so a comment or a
