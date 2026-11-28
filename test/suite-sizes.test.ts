@@ -54,7 +54,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/file-browse/view/pages.test.ts": 1205,
 	"extensions/plan/web-page.test.ts": 408,
 	"extensions/file-read/tool.test.ts": 678,
-	"extensions/goal/extension.test.ts": 724,
+	"extensions/goal/extension.test.ts": 706,
 	"extensions/goal/tools.test.ts": 792,
 	"extensions/memory/store.test.ts": 655,
 	"extensions/memory/view/memory-picker.test.ts": 406,
@@ -124,7 +124,7 @@ const LONG_SUITES: Record<string, number> = {
  * `any` ban's pass moved eight suites' doubles into `test/helpers/` for the same reason and took
  * 124 more off it.
  */
-const LONG_SUITE_TOTAL = 47336;
+const LONG_SUITE_TOTAL = 47318;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 
