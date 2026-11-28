@@ -418,6 +418,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   session meant to be read-only — while a start stays refused where it was. The board takes the policy as one
   predicate, so the key and both hints cannot disagree about what is on offer.
 
+- `board`: a spot-check now says when the base branch has moved past the tree it signed. `review` recorded the run
+  and the tree, and nothing about whether that tree still contained `origin/main`, so the landing discovered it as a
+  delta proof and a second sign — #982 paid that twice in one afternoon, once per card that landed while it waited.
+  The sign's own record grows one fact (`behind`: the ref git named and its tip) and the clause every surface already
+  prints names it: `origin/main moved to 20fdf9c7: sync before the merge, or the sign names a tree the landing will
+  not reproduce`. Nothing is refused and nothing is merged — a lead may still sign and land in one pass while the
+  base is steady, which is the clean form this makes visible rather than conditional.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
