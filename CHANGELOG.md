@@ -154,6 +154,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   declares no tools inherits the whole default set, which no allowlist there can narrow — the hole
   that let a user or project agent recurse without a cap.
 
+- `watch`: a line's pattern budget is a time budget, and its default falls fourfold. `matchChars`
+  bounded only the input a model-authored pattern is shown, while the work grows with the square of
+  that prefix: one unselective line measured ~2.4 ms at 2 KiB, ~9 ms at 4, ~36 ms at 8 and ~145 ms
+  at the shipped 16 — for `\w+$`, `.*ERROR` and `a+$` alike, with the poll clock frozen through every
+  one of them. The default is now 4 096, ~9 ms a line, and still twenty times the 200 characters any
+  surface prints; the clamp keeps its ceiling, so a deliberate override still buys 16 KiB and pays
+  what it costs. This is the bound, not the check: a pattern that gets past the gate now sits on a
+  line whose worst case is milliseconds, which is the point — not that the line is safe.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached
