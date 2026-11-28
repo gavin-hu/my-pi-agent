@@ -234,6 +234,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a start after a `/reload` keeps the record its session already has, so a renamed row no
+  longer comes back as Pi's transcript name at a fresh start time. Pi's `/reload` is one process and one
+  session id — a `session_shutdown` and a `session_start` milliseconds apart — so the shutdown keeps the
+  row as a `/new` does, writing no heartbeat it did not earn, and any start whose session id already has a
+  row adopts that row's `label`, `startedAt` and watch pair, writing only this process's `pid`, `host`, start
+  token and context over them. `startRecord` now hands back `{ record, served }`, so `served` is a fact
+  rather than an inference from the ids, and it stays true only for a `/new`, the one start that joins. The
+  `/new` bullet under Added still lists a reload among the reasons that end the membership; the reload is
+  now the second reason that keeps it, and only a quit, a resume or a fork removes the row.
+
 - `board`: a landing keeps a card's extension when the change is code and the `test/` ledgers only
   ride beside it. The count that decides whether the extension is where the work is treated every
   `test/` path as somewhere else, so `session-bus`'s record with the manifest and the dependency

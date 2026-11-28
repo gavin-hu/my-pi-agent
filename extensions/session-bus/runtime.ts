@@ -153,8 +153,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// The record this process serves: a `/new` keeps the row it left, so a reset costs the
 			// transcript and nothing else. `own-record.ts` says which row, and why every guard
 			// fails toward minting one.
-			const { startRecord, wasServed } = await import("./own-record.ts");
-			record = await startRecord({
+			const { startRecord } = await import("./own-record.ts");
+			const started = await startRecord({
 				pi,
 				store,
 				context,
@@ -168,6 +168,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				fromGit: repo?.fromGit === true,
 				now: now(),
 			});
+			record = started.record;
 			// A record that outlived its process still says what that session was told, and a resume
 			// is that session: adopting its cursor keeps its old mail out of the count. A `/new` reads
 			// the row it serves, which is the row the previous transcript wrote.
@@ -184,7 +185,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// A served row is one this process was already on the bus with, so the start joins it as a
 			// resumed session would: the beat is what keeps a peer's prune from taking the row — and the
 			// claims a card is worked under — ten quiet minutes later.
-			if (wasServed(record, id)) {
+			if (started.served) {
 				await joinBus();
 				// The row kept the name; the transcript Pi holds did not. A minted start names nobody,
 				// because naming it would put a session that never joined on the bar.
@@ -381,8 +382,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			joined = false;
 			await writer?.close();
 			if (store && record && wasJoined) {
-				// The row's whole afterlife is `own-record.ts`'s: a `/new` keeps it for the process's
-				// next transcript, every other reason releases its claims and removes it.
+				// The row's whole afterlife is `own-record.ts`'s: a `/new` and a `/reload` keep it for
+				// the process's next start, every other reason releases its claims and removes it.
 				const { endRecord } = await import("./own-record.ts");
 				await endRecord({ store, record, pid, reason: event?.reason, now: now() });
 			}

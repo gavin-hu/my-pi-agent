@@ -70,7 +70,8 @@ export interface LeaveOutcome {
 
 export interface SessionBus {
 	/**
-	 * Load this session's records, serving the row a `/new` left behind.
+	 * Load this session's records, adopting the row this session already has, or serving the one a
+	 * `/new` left behind.
 	 *
 	 * The event is optional because a caller that is not the host's lifecycle has no reason to
 	 * give: a join request, a suite, a command. Without one, nothing is served and a record is
@@ -80,8 +81,9 @@ export interface SessionBus {
 	/**
 	 * Release this session's resources.
 	 *
-	 * `"new"` keeps the record and its claims, because the process goes on serving them under a
-	 * new transcript; every other reason ends the session and removes what it held.
+	 * `"new"` and `"reload"` keep the record and its claims, because the process goes on serving them
+	 * under a new transcript or a re-evaluated runtime; every other reason ends the session and removes
+	 * what it held.
 	 */
 	stop(event?: SessionShutdownEvent): Promise<void>;
 	/**
