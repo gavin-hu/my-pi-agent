@@ -198,7 +198,7 @@ async function leaveBlockers(session: BoardSession, ctx: ExtensionCommandContext
 	if (me.seat === true) {
 		blockers.push({
 			reason: "this session is serving the board's page",
-			door: "/board stop — ends the page and the seat together.",
+			door: "/board exit — ends the page and the seat together.",
 		});
 	}
 	const store = await session.store(ctx.cwd);

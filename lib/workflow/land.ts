@@ -306,14 +306,14 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 
 	const fetched = await call(["fetch", remote]);
 	if (!fetched.ok) {
-		return { error: `could not fetch ${remote} (${firstLine(fetched.out)}) — \`/board stop\` and land by hand.` };
+		return { error: `could not fetch ${remote} (${firstLine(fetched.out)}) — \`/board exit\` and land by hand.` };
 	}
 
 	const head = await call(["rev-parse", "--abbrev-ref", "HEAD"]);
 	if (!head.ok) return { error: `could not read this checkout's branch (${firstLine(head.out)}).` };
 	if (head.out !== branch) {
 		return {
-			error: `this checkout is on \`${head.out}\`, not \`${branch}\`: a landing runs in the checkout — \`/board stop\` and land by hand.`,
+			error: `this checkout is on \`${head.out}\`, not \`${branch}\`: a landing runs in the checkout — \`/board exit\` and land by hand.`,
 		};
 	}
 
@@ -321,7 +321,7 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	if (!status.ok) return { error: `could not read the working tree (${firstLine(status.out)}).` };
 	if (status.out !== "") {
 		return {
-			error: `this checkout has uncommitted changes: a landing starts from a clean tree — commit or stash them, then \`/board stop\` and land by hand.`,
+			error: `this checkout has uncommitted changes: a landing starts from a clean tree — commit or stash them, then \`/board exit\` and land by hand.`,
 		};
 	}
 
@@ -334,7 +334,7 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	}
 	if (local.out !== remoteTip.out) {
 		return {
-			error: `\`${branch}\` is not \`${remote}/${branch}\` (${short(local.out)} vs ${short(remoteTip.out)}): reconcile it first — \`/board stop\` and land by hand.`,
+			error: `\`${branch}\` is not \`${remote}/${branch}\` (${short(local.out)} vs ${short(remoteTip.out)}): reconcile it first — \`/board exit\` and land by hand.`,
 		};
 	}
 	/** The commit the merge starts from, and the one an undo returns to. */
@@ -367,7 +367,7 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	if (!merged.ok) {
 		// A conflict leaves a half-merge behind: abort it, so the branch is the one it was.
 		await call(["merge", "--abort"]);
-		return { error: `the merge conflicts; the branch is untouched — \`/board stop\`, then resolve it by hand.` };
+		return { error: `the merge conflicts; the branch is untouched — \`/board exit\`, then resolve it by hand.` };
 	}
 
 	const mergeSha = await call(["rev-parse", "HEAD"]);

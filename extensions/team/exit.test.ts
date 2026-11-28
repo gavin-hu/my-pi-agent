@@ -126,7 +126,7 @@ describe("what holds a session on the team", () => {
 
 		expect(asked).toEqual([]);
 		expect(notifications.at(-1)).toBe(
-			"team: still on the team — this session is serving the board's page.\n  /board stop — ends the page and the seat together.",
+			"team: still on the team — this session is serving the board's page.\n  /board exit — ends the page and the seat together.",
 		);
 	});
 
@@ -141,7 +141,7 @@ describe("what holds a session on the team", () => {
 		expect(line.split("\n")).toHaveLength(3);
 		expect(line).toContain("this session is serving the board's page and");
 		expect(line).toContain(`#${id} plan is yours.`);
-		expect(line).toContain("/board stop");
+		expect(line).toContain("/board exit");
 		expect(line).toContain(`board release ${id}`);
 	});
 });

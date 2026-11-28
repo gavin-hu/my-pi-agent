@@ -92,7 +92,7 @@ describe("the seat's own work", () => {
 		const { tool, store } = await seated();
 		const card = await store.create({ title: "Somebody's work", paths: [] }, { id: "peer", label: "api-core" }, 1_000);
 		const text = resultText(await tool.call({ action: "claim", card: card.id }));
-		expect(text).toContain("Lead mode holds the seat: `/board stop` before taking a card.");
+		expect(text).toContain("Lead mode holds the seat: `/board exit` before taking a card.");
 		const after = await store.read(card.id);
 		expect(after?.lane).toBe("backlog");
 		expect(after?.owner).toBeUndefined();

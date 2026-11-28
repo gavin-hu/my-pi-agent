@@ -96,7 +96,7 @@ the extension to turn on, a held label says whose it is, and with `team` toggled
 **Leaving.** `/team exit` is the inverse: the record goes, the claims it holds are released, the watch
 stops and the bar stops drawing the name. Two facts hold it back, each on its own line with the door that
 frees it: a card this session holds (`board release 935`), which with no record a peer could never take
-back, and the page's seat (`/board stop`), which the next sign would put back on the bus. Joining again —
+back, and the page's seat (`/board exit`), which the next sign would put back on the bus. Joining again —
 `/team join`, `/board`, or `session join` — puts the session back under the same id, and the tool returns with
 it at the next turn; delivered mail stays until `/sessions drop` clears it.
 

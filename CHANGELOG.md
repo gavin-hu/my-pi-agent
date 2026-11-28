@@ -53,7 +53,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `team`: `/team exit` takes this session off the team — the bus record, the claims it holds and its inbox
   watch all go, and the name leaves the bar — and refuses while a card is still yours (`board release 935`)
-  or while the session holds the page's seat (`/board stop`), because a card whose owner the bus has no
+  or while the session holds the page's seat (`/board exit`), because a card whose owner the bus has no
   record of waits for a person. The next send, claim, or card write puts the session back on the bus under
   the id a card names, and mail already delivered stays until `/sessions drop` clears it.
 
@@ -74,6 +74,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   here, and it is one message per owner, six paths named and the rest counted.
 
 ### Changed
+
+- `board`: **`/board stop` stops working** — the word is `/board exit`, and a line typed with the old one
+  is refused by the command's own "not a word this command knows — try" list, which now names `exit` among
+  the words. Nothing is aliased: a second spelling is how a vocabulary grows a dialect, and the refusal is
+  the migration message a person reads once. What the word *does* is unchanged, and that is what keeps
+  #866's merge in place — the page and the seat end together, so `exit` here means both, exactly what
+  `/team exit` means for a membership. That is also the reason for the rename: the team side already has
+  the door that ends a standing, and a person who has typed it should not learn a second word for the same
+  ending on the board. The page's own verbs keep their names (`page.stop()`, `board: stopped`), and the
+  release notes below keep the word they shipped.
 
 - `board`: `/board`'s words are one table, one flag parser and one line. Every word the command accepts
   is a row — its spelling, its sign, its flags and its run — so the description, the mistyped-word line, the

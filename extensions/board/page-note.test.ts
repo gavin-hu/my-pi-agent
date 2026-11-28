@@ -1,5 +1,5 @@
 /**
- * The note a session holds on somebody else's page: what `/board status` and `/board stop`
+ * The note a session holds on somebody else's page: what `/board status` and `/board exit`
  * read once the page behind it is gone.
  *
  * A page of its own, apart from `page.test.ts`'s seating and takeover, because this is the
