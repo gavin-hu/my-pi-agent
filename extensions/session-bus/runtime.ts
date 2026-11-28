@@ -141,7 +141,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// This machine's identity, made on first use: the host every record and claim names.
 			identity = options.host ?? (options.dir === undefined ? await ensureHostIdentity(agentDir) : undefined);
 			host = identity?.id;
-			store = createBusStore(host === undefined ? { dir } : { dir, host });
+			store = options.store ?? createBusStore(host === undefined ? { dir } : { dir, host });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
 			// Asked once, when the bus starts: a reused pid is settled from the record

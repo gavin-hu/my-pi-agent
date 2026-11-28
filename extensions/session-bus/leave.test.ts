@@ -12,8 +12,6 @@
  * quiet, the id kept — plus the answer a session that was on no bus gets.
  */
 import { afterAll, describe, expect, test } from "bun:test";
-import { chmod } from "node:fs/promises";
-import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { SESSION_LABEL_CHANNEL, type SessionLabelEvent } from "../../lib/session-label.ts";
 import { type LeaveResult, TEAM_LEAVE_REQUEST } from "../../lib/session-tool.ts";
@@ -24,6 +22,7 @@ import { busToolSession as session, joinBusSession as joins } from "../../test/h
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import sessionBus from "./index.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
+import { type BusStore, createBusStore } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -90,22 +89,34 @@ describe("leaving the bus", () => {
 
 	test("a leave that cannot land hands the session back with its watch still armed", async () => {
 		const dir = scratchDir(temps, "pi-leave-");
-		const tom = session(dir, "/repo/peer", "s2", "tom");
-		await tom.bus.start(tom.ctx);
-		await tom.bus.join({ label: "tom", wake: true });
+		// The real store, failing at the one call a successful leave ends on: `releaseAll` returns and
+		// the removal throws. That is the path the old double never reached, because it refused at
+		// `bus.leave()` itself — and a permissions trick would be a no-op on Windows and under root.
+		const real = createBusStore({ dir });
+		const store: BusStore = {
+			...real,
+			async removeSession() {
+				throw new Error("the sessions directory is not writable");
+			},
+		};
+		const bus = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo/peer", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			watchMs: 0,
+			store,
+		});
+		const { ctx } = fakeCtx({ cwd: "/repo/peer", sessionId: "s2", sessionName: "tom" });
+		await bus.start(ctx);
+		await bus.join({ label: "tom", wake: true });
 
-		// The removal is the half that fails: a sessions directory nobody may write leaves the row
-		// where it is. The watch is the half that a disarm cannot bring back, so it must survive.
-		const sessions = join(dir, "sessions");
-		await chmod(sessions, 0o555);
-		try {
-			await expect(tom.bus.leave()).rejects.toThrow();
-		} finally {
-			await chmod(sessions, 0o755);
-		}
+		await expect(bus.leave()).rejects.toThrow(/not writable/);
 
-		expect((await tom.bus.status()).onBus).toBe(true);
-		expect(tom.bus.wantsWake()).toBe(true);
+		// The session is on the bus again, exactly as it was — and the watch is the half a disarm
+		// cannot bring back, so it must never have been stopped.
+		expect((await bus.status()).onBus).toBe(true);
+		expect(bus.wantsWake()).toBe(true);
 	});
 
 	test("keeps the id a card is owned by, so the next join is the same session", async () => {

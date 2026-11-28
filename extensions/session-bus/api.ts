@@ -16,12 +16,20 @@ import type { HostIdentity } from "../../lib/session-files.ts";
 import type { LivenessFn, StartTokenFn } from "../../lib/spawn.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
 import type { WatchingState } from "./mail-watch.ts";
+import type { BusStore } from "./store.ts";
 import type { BusMessage, ClaimConflict, DeliveryFailure, DropResult, InboxPeek, SessionStatus } from "./types.ts";
 
 export interface SessionBusOptions {
 	now?: () => number;
 	/** Test seam: use this bus directory instead of the agent-dir layout. */
 	dir?: string;
+	/**
+	 * Test seam: the store this runtime reads and writes.
+	 *
+	 * The real one is built from `dir`. A case that needs a failure *inside* a call — the removal in
+	 * `leave`, rather than the door — hands a store that delegates to the real one and throws there.
+	 */
+	store?: BusStore;
 	/** Test seam: the process id this runtime registers as, so two can share one session id. */
 	pid?: number;
 	/** Test seam: whether a pid is running, so a suite never depends on the host's pids. */
