@@ -19,6 +19,7 @@
  */
 
 import { messageOf } from "../../lib/errors.ts";
+import type { RepeatTimer } from "../../lib/timer.ts";
 import type { BusStore } from "./store.ts";
 import type { SessionRecord } from "./types.ts";
 
@@ -27,8 +28,6 @@ export interface RecordWriterOptions {
 	record(): SessionRecord | undefined;
 	/** Whether the record is the bus's yet: a turn before a join stamps nobody. */
 	joined(): boolean;
-	/** Where the beat's two lines go. The default is the terminal's stderr. */
-	report?: (line: string) => void;
 }
 
 /** The record as its one writer: the cursor's fields, the turn, and the one write. */
@@ -64,6 +63,14 @@ export interface RecordWriter {
 	 * on the bus must not have: peers read a record nobody writes as a quiet session.
 	 */
 	beat(error?: unknown): void;
+	/**
+	 * Run `body` on `interval` under the beat's report, and answer the stop function.
+	 *
+	 * The tick's ending is this module's rule, not the caller's: `flush` swallows a failed write, so a
+	 * body that returns is not the same fact as a clean record. Recovery therefore waits for a whole
+	 * tick whose writes all landed — a healthy write behind a failing inbox sweep is not recovery.
+	 */
+	startBeat(ms: number, interval: RepeatTimer, body: () => Promise<void>): () => void;
 	/** Stop accepting writes and drain what is queued, before the row can be removed. */
 	close(): Promise<void>;
 	/** Accept writes again: a `leave` followed by a join serves the same id. */
@@ -76,11 +83,15 @@ function sameIds(left: readonly string[] | undefined, right: readonly string[]):
 	return current.length === right.length && right.every((id) => current.includes(id));
 }
 
-export function createRecordWriter(options: RecordWriterOptions): RecordWriter {
+export function createRecordWriter(
+	options: RecordWriterOptions,
+	/** Where the beat's two lines go. The default is the terminal's stderr. */
+	sink?: (line: string) => void,
+): RecordWriter {
 	const { store, record, joined } = options;
 	let writing: Promise<void> = Promise.resolve();
 	let accepting = true;
-	const report = options.report ?? ((line: string) => void process.stderr.write(line));
+	const report = sink ?? ((line: string) => void process.stderr.write(line));
 	let failing = false;
 	/**
 	 * Whether a write failed since the last tick ended.
@@ -173,6 +184,15 @@ export function createRecordWriter(options: RecordWriterOptions): RecordWriter {
 		save: flush,
 
 		beat,
+
+		startBeat(ms, interval, body) {
+			return interval(ms, () => {
+				void body().then(
+					() => beat(),
+					(error) => beat(error),
+				);
+			});
+		},
 
 		async writeTurn(at) {
 			// A session that never joined stamps nobody: the same gate the turn's own write had,

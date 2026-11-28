@@ -234,6 +234,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a record write that fails says so — one line on stderr when a streak of failures
+  starts and one when a whole clean tick ends it, never one per tick. The swallow was two layers
+  down: the record's `flush()` resolved on a failed `writeSession`, so the heartbeat's own catch
+  never saw the commonest failure and every peer read the session as merely quiet. The writer owns
+  the report for that reason, and a tick that carried a failed write is not clean: recovery is the
+  next whole tick, so a healthy write behind a failing inbox sweep cannot flap the two lines.
+
 - `session-bus`: a claim is drawn under the label its owner's record holds now, so a rename moves its
   roster row, the `session status` listing and every conflict sentence together instead of leaving two
   surfaces on the name captured at claim time. The claim file still keeps that captured label, which is

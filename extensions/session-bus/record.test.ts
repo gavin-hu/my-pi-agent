@@ -206,12 +206,9 @@ describe("the beat's report", () => {
 				await base.writeSession(target);
 			},
 		};
-		const writer = createRecordWriter({
-			store: () => store,
-			record: () => me,
-			joined: () => true,
-			report: (line) => lines.push(line),
-		});
+		const writer = createRecordWriter({ store: () => store, record: () => me, joined: () => true }, (line) =>
+			lines.push(line),
+		);
 		return { lines, broken, writer };
 	}
 
