@@ -60,6 +60,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and never an undo — and it is the seventh notice in the table, sent once like an offer rather than
   owed twice, keyed on the review the landing carried out.
 
+- `session-bus`: a claim that lapses is reported. Ten minutes past its owner's last heartbeat the prune
+  takes the path, and the session that ran the prune now leaves that owner one notice in its own inbox
+  naming what it lost — so a session that slept through the window reads the paths instead of editing
+  one a peer may already hold. The row and the mail come back on their own, which is why neither was the
+  loss to fix; the notice skips a claim another machine wrote, because mail reaches only the sessions
+  here, and it is one message per owner, six paths named and the rest counted.
+
 ### Changed
 
 - `todo`: the tool's description stopped stating what the model already reads elsewhere. Its whole-list

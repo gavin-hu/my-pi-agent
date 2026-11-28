@@ -137,6 +137,18 @@ export interface ClaimRecord {
 	host?: string;
 }
 
+/**
+ * What a prune took: the claims whose owners no longer hold them.
+ *
+ * An answer rather than a silence because the owner is the one session that cannot see a claim
+ * lapse — a peer waits for the path, so it may take it, and nothing tells the session that slept
+ * through it. `runtime.ts` says who may be told, in its own inbox.
+ */
+export interface LapsedClaims {
+	/** The claims this prune removed, each as its file held it. */
+	claims: ClaimRecord[];
+}
+
 /** What `session status` returns. */
 export interface SessionStatus {
 	me: { id: string; label: string };

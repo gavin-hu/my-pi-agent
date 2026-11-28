@@ -100,6 +100,11 @@ slot: over a card whose owner stopped, it prints `9 paths stay held by jack unti
 whose owner has stopped is not a card whose paths are free** — a peer reaching for one is refused by a
 conflict naming that owner, and before this door the seat could only describe the state.
 
+A claim ends on its owner's heartbeat, too: ten minutes past it the prune takes the paths, and the
+session that ran the prune leaves the owner one notice in its inbox naming them. So a session that
+slept through the window reads what it lost instead of editing a path a peer may now hold — the row
+and the mail it also lost come back on their own, and the claim is the one that does not.
+
 `session release paths [...] holder tom`, from the seat, moves those claims to the seat in one store
 call: they change hands rather than being dropped, so nothing is free in between for a third session
 to take, and `tom`'s own next claim is refused with a conflict naming the seat. A forgotten transfer

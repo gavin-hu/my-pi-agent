@@ -11,6 +11,7 @@ import { MESSAGE_KINDS, type MessageKind } from "../../lib/session-mail.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SESSION_TOOL } from "../../lib/tool-names.ts";
 import { memberOf } from "../../lib/json.ts";
+import type { ClaimRecord } from "./types.ts";
 
 /**
  * The label rules live in `lib/` because a label is shared vocabulary: the board
@@ -189,6 +190,51 @@ export function settleSend(input: {
 			...(about.value === undefined ? {} : { about: about.value }),
 		},
 	};
+}
+
+/** The most paths a lapse notice names before it counts the rest. */
+const NOTICE_PATHS = 6;
+
+/**
+ * The claims a lapse notice is owed for, grouped by owner.
+ *
+ * Two of the three skips are the bus's reach rather than a preference: a claim another machine wrote
+ * is judged by that machine's heartbeat, and mail reaches only the sessions here, so that owner is
+ * not told by this bus. The third is this session's own row — a session is its own recipient, and
+ * its housekeeping is not news to it.
+ */
+export function lapsedOwners(
+	claims: readonly ClaimRecord[],
+	view: { host?: string; self: string },
+): Map<string, ClaimRecord[]> {
+	const owners = new Map<string, ClaimRecord[]>();
+	for (const claim of claims) {
+		if (claim.owner === view.self) continue;
+		if (claim.host !== undefined && claim.host !== view.host) continue;
+		const held = owners.get(claim.owner);
+		if (held === undefined) owners.set(claim.owner, [claim]);
+		else held.push(claim);
+	}
+	return owners;
+}
+
+/**
+ * What one lapsed owner is told: the paths it no longer holds, and the one thing to do about them.
+ *
+ * The paths are named back because they are the whole of what it lost — a returning session knows
+ * its work, not which of its files a peer may now take — and at most six of them, so the notice
+ * stays a sentence. Their spelling is the store's, which is already sanitized, and this line is
+ * the last place a filename could carry a newline into a message body.
+ */
+export function lapseNotice(paths: readonly string[]): string {
+	const named = paths.slice(0, NOTICE_PATHS).join(", ");
+	const rest = paths.length - NOTICE_PATHS;
+	const counted = paths.length === 1 ? "1 path is" : `${paths.length} paths are`;
+	const again = paths.length === 1 ? "it" : "them";
+	const more = rest > 0 ? ` and ${rest} more` : "";
+	return sanitizeLine(
+		`claim lapse: ${counted} no longer yours — ${named}${more}. Claim ${again} again if the work is still yours.`,
+	);
 }
 
 /** A shared inbox limit. */
