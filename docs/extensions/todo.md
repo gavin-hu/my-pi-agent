@@ -66,13 +66,15 @@ interactive terminal; a scripted run gets the tool result only.
 - The list is per session: nothing is shared between sessions or machines.
 - The list can lag by a turn. Say "update the todos" and the model rewrites it;
   the extension also sends one reminder when substantial work lands without an
-  update. A planning call, a goal, a board card write and a bus message are not
-  work — they change session state and `~/.pi/agent`, never your files — so they
-  never trigger it. A `board review` is: it runs the card's verify command. A
-  delegated child is judged by the mode it was given: a read-only one is
-  investigation, a writing one is work. A list whose items are all completed gets
-  the same reminder once work carries on after it: the work needs a new item, not
-  an edit to a finished one.
+  update. Work means a call that can change your checkout: a planning call, a
+  goal, a board card write, a bus or team message, a memory note, a WeChat send,
+  an app launch and a review page are not work — they change session state,
+  `~/.pi/agent`, or something outside the tree — so they never trigger it. A
+  `board review` and a `board land` are: they run the card's verify command and
+  move the trunk. A delegated child is judged by the mode it was given: a
+  read-only one is investigation, a writing one is work. A list whose items are
+  all completed gets the same reminder once work carries on after it: the work
+  needs a new item, not an edit to a finished one.
 - A finished list stays readable in `/todos` until the model changes it.
 
 ## Settings

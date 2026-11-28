@@ -13,14 +13,23 @@
  * declare `readOnlyHint: false` are still caught.
  *
  * A hint answers "can it write anything?", which is not the question a list
- * needs: it needs "did the working tree change?". The session trackers below
- * write into the agent directory, and so does every board verb but `review`, and
- * so does a delegated child asked to read, and none of it is work.
+ * needs: it needs "did the working tree change?". The calls below reach the agent
+ * directory, the bus, or something outside the tree; a board verb that is not
+ * `review` or `land` does the same, and so does a delegated child asked to read.
+ * None of it is work.
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
 import { isBoardWork, isSubagentWork } from "../../lib/policy.ts";
-import { BOARD_TOOL, GOAL_TOOL, PLAN_TOOL, SESSION_TOOL, SUBAGENT_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
+import {
+	BOARD_TOOL,
+	GOAL_TOOL,
+	PLAN_TOOL,
+	SESSION_TOOL,
+	SUBAGENT_TOOL,
+	TEAM_TOOL,
+	TODO_TOOL,
+} from "../../lib/tool-names.ts";
 import { currentTodo, hasOpenTodos } from "./state.ts";
 import type { Todo } from "./types.ts";
 
@@ -35,23 +44,47 @@ const SHELL_TOOL_NAMES: ReadonlySet<string> = new Set(["bash", "powershell"]);
 export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit", ...SHELL_TOOL_NAMES]);
 
 /**
- * Tools that publish session state instead of changing the working tree: the
- * todo list, the goal, plan mode's plan file, and the bus. Every one of them
- * writes the agent directory — `~/.pi/agent` — and none reaches the checkout, so
- * a turn that only planned, recorded an objective, or sent a message did no work
- * and must not ask for a list. Every other writer is judged by its hint.
+ * Tools whose call cannot have changed the checkout, so a turn that used one has
+ * not fallen behind a list. Each name is here for its own reason rather than
+ * because they are alike: `todo`, `goal`, `plan` and `session` publish session
+ * state, `team` is the bus over the board, `memory` reads and writes the
+ * agent-directory store, and a WeChat send, an app launch and a served review page
+ * reach only outside the tree. Every other writer is judged by its hint.
+ *
+ * Four are spelled here rather than imported: this file already spells the built-in
+ * names (`write`, `edit`, the shells) the same way, and four names with one reader do
+ * not need a shared home. This set is then their only other reader, so a *new* call
+ * that cannot change a checkout has to be added here by hand — nothing else can
+ * declare it, and a false positive spends a model request while a missed reminder
+ * costs nothing. `job`, `watch` and `worktree` are deliberately absent: they start a
+ * command in a tree or move the checkout.
+ *
+ * `file-open`'s `readOnlyHint: false` is deliberate — plan mode admits tools by
+ * that hint, and launching an application must stay behind the normal policy — so
+ * `open_path` is excluded here, and the annotation is not touched.
  */
-export const SESSION_TOOL_NAMES: ReadonlySet<string> = new Set([TODO_TOOL, GOAL_TOOL, PLAN_TOOL, SESSION_TOOL]);
+export const NON_WORK_TOOL_NAMES: ReadonlySet<string> = new Set([
+	TODO_TOOL,
+	GOAL_TOOL,
+	PLAN_TOOL,
+	SESSION_TOOL,
+	TEAM_TOOL,
+	"memory",
+	"send_wechat",
+	"open_path",
+	"code_review",
+]);
 
 /**
- * Whether a finished tool call counts as work for lag detection. A session
- * tracker never does (its call is the state), a known mutator always does, and
- * any other tool counts only when it explicitly declares `readOnlyHint: false`.
+ * Whether a finished tool call counts as work for lag detection. A non-work tool
+ * never does, a known mutator always does, and any other tool counts only when it
+ * explicitly declares `readOnlyHint: false`.
  *
  * `board` is one tool over thirteen actions, so its hint says "may write" and
  * cannot answer this either: the action the result reports can. A card write is
- * state, because the board lives in the agent directory, and `review` is work,
- * because it runs the contract's command as a child process in a tree.
+ * state, because the board lives in the agent directory, while `review` is work
+ * because it runs the contract's command as a child process in a tree and `land`
+ * because it moves the trunk.
  *
  * `subagent` cannot answer it from its hint either, and does not have to: the
  * result reports which mode the child ran in. A read-only child is investigation
@@ -59,7 +92,7 @@ export const SESSION_TOOL_NAMES: ReadonlySet<string> = new Set([TODO_TOOL, GOAL_
  * this module's questions — which is why nothing below separates them.
  */
 export function isMutatingTool(toolName: string, annotations?: ToolAnnotations, details?: unknown): boolean {
-	if (SESSION_TOOL_NAMES.has(toolName)) return false;
+	if (NON_WORK_TOOL_NAMES.has(toolName)) return false;
 	if (toolName === BOARD_TOOL) return isBoardWork(details);
 	if (toolName === SUBAGENT_TOOL) return isSubagentWork(details);
 	if (MUTATING_TOOL_NAMES.has(toolName)) return true;

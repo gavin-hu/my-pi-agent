@@ -7,8 +7,8 @@ import {
 	isFileWrite,
 	isMutatingTool,
 	MUTATING_TOOL_NAMES,
+	NON_WORK_TOOL_NAMES,
 	type NudgeState,
-	SESSION_TOOL_NAMES,
 	shouldNudge,
 	TODO_NUDGE_MARKER,
 } from "./nudge.ts";
@@ -229,14 +229,24 @@ describe("nudge rules", () => {
 		for (const name of MUTATING_TOOL_NAMES) expect(isMutatingTool(name)).toBe(true);
 	});
 
-	test("a session tracker is not work, and not a file write", () => {
-		// plan, goal and the bus all declare `readOnlyHint: false` — they do write, a plan file and
-		// a session's messages in the agent directory — so the hint alone made a planning turn look
-		// like work and forced a reminder for a list nobody had fallen behind on.
-		expect([...SESSION_TOOL_NAMES].sort()).toEqual(["goal", "plan", "session", "todo"]);
-		for (const name of SESSION_TOOL_NAMES) {
-			expect(isMutatingTool(name, { readOnlyHint: false })).toBe(false);
-			expect(isFileWrite(name, { readOnlyHint: false })).toBe(false);
+	test("a call that cannot change a checkout is not work, and not a file write", () => {
+		// All nine declare `readOnlyHint: false` — a plan file and a session's messages in the agent
+		// directory, a memory note, a bus message, a WeChat send, an app launch, a review page — so
+		// the hint alone made a note, a message or an opened file look like work on the tree.
+		expect([...NON_WORK_TOOL_NAMES].sort()).toEqual([
+			"code_review",
+			"goal",
+			"memory",
+			"open_path",
+			"plan",
+			"send_wechat",
+			"session",
+			"team",
+			"todo",
+		]);
+		for (const name of NON_WORK_TOOL_NAMES) {
+			expect(isMutatingTool(name, { readOnlyHint: false }), name).toBe(false);
+			expect(isFileWrite(name, { readOnlyHint: false }), name).toBe(false);
 		}
 		// The exclusion is by name, so it cannot widen to a tool that merely sounds like one.
 		expect(isMutatingTool("plan_file", { readOnlyHint: false })).toBe(true);
@@ -312,6 +322,9 @@ describe("nudge rules", () => {
 	});
 
 	test("no list is due only after repeated work that wrote something", () => {
+		// The cases below read the constant rather than the number, so pin what the module promises:
+		// three writes is the point where unplanned work is worth a request, and one is not.
+		expect(IDLE_LIST_MUTATIONS).toBe(3);
 		expect(shouldNudge(state({ todos: [], mutations: IDLE_LIST_MUTATIONS - 1 }))).toBe(false);
 		expect(shouldNudge(state({ todos: [], mutations: IDLE_LIST_MUTATIONS }))).toBe(true);
 		expect(shouldNudge(state({ todos: [], writes: 0, mutations: IDLE_LIST_MUTATIONS }))).toBe(false);
