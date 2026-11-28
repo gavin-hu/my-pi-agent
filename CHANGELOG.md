@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts`: main's CI is green on Windows and against the newest published Pi again (#1035)
+
 ## [0.32.0] - 2026-11-28
 
 ### Added

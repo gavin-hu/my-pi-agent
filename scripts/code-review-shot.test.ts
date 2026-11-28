@@ -34,7 +34,10 @@ describe("the review shot's fixture", () => {
 				// A fixture is not a session: the shot withdrew the override rather than resolving through it.
 				expect(process.env[ENV_ROOT]).toBeUndefined();
 				const { current } = fixtureReview(dir);
-				expect(realpathSync(current.place().root)).toBe(realpathSync(dir));
+				// The production side reaches its root through `effectiveRealCwd`, which canonicalizes with
+				// `realpathSync.native`: comparing that against the short form Windows' `realpathSync`
+				// returns would fail on a runner whose temp path is 8.3.
+				expect(realpathSync.native(current.place().root)).toBe(realpathSync.native(dir));
 				const scope = presetScope("change", "main");
 				if (scope === undefined) throw new Error("the change preset has no default to resolve");
 				await current.openPage(scope, "change");
