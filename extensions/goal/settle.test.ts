@@ -7,6 +7,7 @@
  * to when it runs reddens here rather than in a case about a widget.
  */
 import { describe, expect, test } from "bun:test";
+import { PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { emit, emitCollect, makeFakePi } from "../../test/helpers/fakes.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
@@ -16,7 +17,7 @@ import type { Goal } from "./types.ts";
 const planning = (objective: string): Goal => ({ objective, status: "planning" });
 
 /** A branch that plan mode has turned on. */
-const PLAN_MODE_ON = { type: "custom", customType: "plan-mode", data: { enabled: true } };
+const PLAN_MODE_ON = { type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: { enabled: true } };
 
 describe("goal settle gate", () => {
 	test("settles a planning goal once plan mode is left without a plan", async () => {
