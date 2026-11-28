@@ -39,32 +39,6 @@ export const REASON_KINDS = [
 /** One kind of reason. */
 export type ReasonKind = (typeof REASON_KINDS)[number];
 
-/**
- * The pill a reason wears, one word per kind.
- *
- * A decision row and a mission card carry the reason as a shape rather than a sentence —
- * the numbered row has no room for a clause, and the whole of it is one hover away — so this
- * is the one table a pill's words come from. `waiting` and `ready` are here for the reason the
- * tone table gives: they are the dependency edge read both ways, and the card face invents both
- * from the two fields the snapshot derives, so a table without them would draw the default.
- */
-export const REASON_LABEL: Record<ReasonKind, string> = {
-	waiting: "waits",
-	ready: "ready",
-	blocked: "blocked",
-	offered: "offered",
-	shelved: "shelved",
-	contract: "no contract",
-	approval: "needs approval",
-	executing: "in progress",
-	review: "needs review",
-	done: "done",
-	note: "note",
-};
-
-/** {@link REASON_LABEL} as the browser bundle's own source, spliced in like the tone tables. */
-export const REASON_LABEL_JS = JSON.stringify(REASON_LABEL);
-
 /** One reason line: what it is about, and the sentence a reader gets. */
 export interface Reason {
 	kind: ReasonKind;
