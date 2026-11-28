@@ -26,7 +26,7 @@ import {
 import type { WatchRuntime } from "./runtime.ts";
 import { WatchParams, normalizeCall, type WatchArgs, type WatchCall } from "./schema.ts";
 import { WatchResult, type WatchResultInput } from "./render.ts";
-import { WATCH_FIELDS, type WatchDetails } from "./types.ts";
+import { WATCH_FIELDS, type WatchDetails, type WatchRecord } from "./types.ts";
 
 export const TOOL_NAME = "watch";
 
@@ -39,6 +39,15 @@ const GUIDELINES = [
 	"Add `wake: true` only when a match should start a turn immediately; otherwise matches are reported at the next turn.",
 	"Use `watch stop <id>` to stop a watcher and `watch clear` to drop stopped ones.",
 ];
+
+/** The sentence a `clear` appends when it left watchers running: what still runs, and the door out. */
+function stillRunning(watches: readonly WatchRecord[]): string {
+	const ids = watches.filter((watch) => watch.status === "running").map((watch) => watch.id);
+	if (ids.length === 0) return "";
+	return ids.length === 1
+		? `${ids[0]} is running; pass all:true to stop it.`
+		: `${ids.join(", ")} are running; pass all:true to stop them.`;
+}
 
 export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 	pi.registerTool({
@@ -149,12 +158,18 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 					case "clear": {
 						const result = runtime.clear(call.id, call.all ?? false);
 						if (result.refused) return errorResult("clear", result.refused);
-						return textResult(
-							result.cleared === 0
-								? "Nothing to clear."
-								: `Cleared ${result.cleared} watcher${result.cleared === 1 ? "" : "s"}.`,
-							{ action: "clear", cleared: result.cleared, watches: runtime.list() } satisfies WatchDetails,
-						);
+						const watches = runtime.list();
+						const cleared =
+							result.cleared === 0 ? "" : `Cleared ${result.cleared} watcher${result.cleared === 1 ? "" : "s"}.`;
+						// What is still running is the half the reply used to drop: a bare `clear` skipped the
+						// running watchers and answered as if the table were empty, and the mixed case answered a
+						// satisfied `Cleared 2 watchers.` with a third still going.
+						const left = call.all === true ? "" : stillRunning(watches);
+						return textResult([cleared, left].filter(Boolean).join(" ") || "Nothing to clear.", {
+							action: "clear",
+							cleared: result.cleared,
+							watches,
+						} satisfies WatchDetails);
 					}
 				}
 			} catch (error) {

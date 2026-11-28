@@ -38,8 +38,8 @@ you ask for later is a no-op that names the note that already says it.
 ## Reference
 
 **The tool.** `memory` adds, updates, forgets, merges and lists notes, and `list` returns
-all of them. Restating a stored fact in new words is refused as a duplicate, naming
-the existing note, so the file does not fill with paraphrases. An `update` writes the
+all of them. Adding a note that already exists — ignoring case, runs of whitespace and a
+trailing punctuation mark — is a no-op that names the existing note. An `update` writes the
 corrected note at the end of the store, because position is age: a correction is the
 newest thing known, not the oldest. `update`, `forget` and `merge` name a note by its exact
 stored text, and a name is not length-capped: it is collapsed to one line like a note, so a
@@ -77,6 +77,10 @@ and move are in place, `s`/Tab filters by scope, `r` reloads.
 
 - Short facts only: long-form knowledge belongs in `AGENTS.md`, and a dump of
   prose into memory crowds out the context it is meant to save.
+- The duplicate check folds presentation only — case, runs of whitespace and a trailing
+  punctuation mark — so a paraphrase lands as a second fact rather than being refused.
+  `/memory doctor` lists the pairs it does treat as one, so the redundant one can be
+  merged.
 - The injected body is capped, so a store grown too large starts losing notes from
   the context rather than from the file — the oldest first, and the founding rules
   (branch flow, the landing gate) are the oldest notes a project has. That trade is

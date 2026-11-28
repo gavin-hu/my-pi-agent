@@ -50,7 +50,9 @@ as. `status` names `wake` on its own line rather than inside the pattern, so a c
 never carries it back in.
 
 **Commands.** `/watch` (screen or list), `/watch list`, `/watch matches <id>`,
-`/watch logs <id>`, `/watch stop <id>`, `/watch clear [all]`. On the screen:
+`/watch logs <id>`, `/watch stop <id>`, `/watch clear [all]`. A bare `clear` drops the
+stopped watchers and names the ones still running with the `all:true` that stops
+them, rather than answering as if the table were empty. On the screen:
 `j`/`k` move, `g`/`G` jump to the ends, `Enter`/`l` opens matches, `x`/`K` stops
 behind a `y`/`N` confirm, `d` clears stopped ones, `Esc` closes.
 
