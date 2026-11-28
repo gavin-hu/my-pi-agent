@@ -21,6 +21,7 @@ import {
 	createExecRunner,
 	defaultBranch,
 	hasCommits,
+	literalPathspec,
 	repoRoot,
 	revParse,
 	type RunGit,
@@ -360,9 +361,8 @@ export function createReviewReaderFrom(run: RunGit, root: string, options: Revie
 	/** One listed file's diff: an untracked file's all-add body, or git's own. */
 	async function readFile(repo: string, entry: Listed, args: readonly string[]): Promise<ReviewFile> {
 		if (entry.untracked) return untrackedFile(repo, entry.rel, entry.status);
-		const diff = await run(["diff", "--no-color", `-U${context}`, "-M", ...args, "--", entry.rel], {
+		const diff = await run(["diff", "--no-color", `-U${context}`, "-M", ...args, "--", literalPathspec(entry.rel)], {
 			cwd: repo,
-			env: { GIT_LITERAL_PATHSPECS: "1" },
 		});
 		if (diff.code !== 0) {
 			return { rel: entry.rel, status: entry.status, add: 0, del: 0, lines: [], binary: false, truncated: false };

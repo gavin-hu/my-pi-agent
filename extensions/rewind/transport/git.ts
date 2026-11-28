@@ -17,6 +17,7 @@ import {
 	GitError,
 	currentBranch,
 	gitDir,
+	literalPathspec,
 	repoRoot,
 	revParse,
 	revParseMany,
@@ -128,17 +129,6 @@ export async function commitMessages(runGit: RunGit, cwd: string, commits: strin
 /** Reset the index and working tree to a commit's tree, without moving HEAD. */
 export async function readTreeReset(runGit: RunGit, cwd: string, commit: string, indexFile: string): Promise<void> {
 	await run(runGit, ["read-tree", "--reset", "-u", commit], { cwd, env: { GIT_INDEX_FILE: indexFile } });
-}
-
-/**
- * A pathspec that matches `path` literally.
- *
- * The paths come from `git diff` output, so a file named `weird[1].txt` is a real
- * possibility; without `:(literal)` git would read it as a glob and restore the
- * wrong thing (or nothing).
- */
-function literalPathspec(path: string): string {
-	return `:(literal)${path}`;
 }
 
 /**
