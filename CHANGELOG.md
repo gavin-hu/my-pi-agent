@@ -96,6 +96,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: the shared index is a map again. Every row keeps its link and every export name it names,
+  while the reasoning it repeated from the module header is gone; `drift.test.ts` holds each row's
+  prose to 40 words — counting the sentence and not the names — with the table's prose total as a
+  ratchet that only falls, and `lib/workflow/README.md` stays the why for its modules.
+
 - `session-bus`: one record, one parser. `sessions/<id>.json` was parsed by three modules under two
   policies — the bus's `isSession`, the roster's `isSessionPayload`, and `session-label.ts`'s own copy —
   so a record whose optional `watch` was the wrong shape was refused by the bus while the page still drew

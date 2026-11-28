@@ -74,7 +74,7 @@ leaves the machine to the other sessions on it — and a step that took 30 s or 
 way past, naming the flag rather than switching it on.
 
 One row is a habit rather than a number. A document or an asset reaches no suite, because nothing
-imports one, so a narrow run says nothing about it: add `bun test test/` (8.8 s, 37 files) for the
+imports one, so a narrow run says nothing about it: add `bun test test/` (11.4 s, 38 files) for the
 sweeps that read the tree.
 
 ### A red that will not reproduce
@@ -138,10 +138,10 @@ why a browser suite's own statement is the thing that makes it independent of ho
 was invoked.
 
 `bun run check` costs what its commands cost: format 0.3 s, typecheck 12.7 s cold and 3.2 s warm,
-then the tests this branch reaches — its own selection plus the 37 files of `test/`, which read the
+then the tests this branch reaches — its own selection plus the 38 files of `test/`, which read the
 tree and so cannot be selected by a graph. A leaf change is ~9 s; a hub change is as long as the
-branch says. `bun run check:all` adds the full sweep: 9,430 cases in 567 files, 129 s one file at
-a time on an 8-core laptop, which is why CI pays it and a landing does not. The one suite
+branch says. `bun run check:all` adds the full sweep: 9,468 cases in 569 files, 146 s one file at
+a time, which is why CI pays it and a landing does not. The one suite
 that used to own a fifth of that sweep is `extensions/plan/web-outline-live.test.ts`: 22.3 s and
 5.6 s alone, before and after it stopped waiting on frames that could not answer. The narrow gate
 widens
@@ -224,8 +224,9 @@ gate is stated in the test.
    fails an extension that reimplements what `lib/` owns, by name or by body, a
    test that re-declares or copies a `test/helpers` export, and one test file
    that carries a body another test file already carries, and pins its exception
-   maps; `drift.test.ts` keeps every `lib/` module in the `lib/README.md`
-   index, `AGENTS.md` and `CONTRIBUTING.md` inside their word budgets, and counts
+   maps; `lib-index.test.ts` keeps every `lib/` module in the `lib/README.md`
+   index and holds each row's prose to 40 words; `drift.test.ts` keeps `AGENTS.md`
+   and `CONTRIBUTING.md` inside their word budgets, and counts
    a path a doc cites once however often it is cited; the module line bar and its
    `LONG_MODULES` heights live in `module-sizes.test.ts`, and the suite bar in
    `suite-sizes.test.ts`.
@@ -515,7 +516,8 @@ test/
   prerequisites.test.ts    # REQUIREMENTS, and the config files each extension declares
   doc-links.test.ts        # every relative link, anchor, and table cell in the doc tree
   suite-sizes.test.ts      # the 400-line suite bar: every oversized suite named at its height, and a falling total
-  drift.test.ts            # lib/README index, the doc word budgets, and the entry README catalog's
+  drift.test.ts            # the doc word budgets, the entry README catalog, and the cited-path floor
+  lib-index.test.ts        # lib/README rows: every module has one, its prose is at most 40 words, and the total falls
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
   site-docs.test.ts        # the docs site: the navigation table against the tree, the tutorial walk order and its links, the Pages config, and the copied assets
