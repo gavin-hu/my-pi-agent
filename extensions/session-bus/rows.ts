@@ -13,7 +13,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { clipText, plural, sanitizeLine } from "../../lib/format.ts";
+import { clipText, formatAge, plural, sanitizeLine } from "../../lib/format.ts";
 import { clip, usableWidth } from "../../lib/tui/columns.ts";
 import { GLYPHS, GLYPH_GAP, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow, statusRow } from "../../lib/tui/rows.ts";
@@ -21,11 +21,8 @@ import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { ageText, messageMeta, UNACCOUNTED_PREVIEW } from "./format.ts";
 import { forgetCommand, shortId } from "./protocol.ts";
-import type { RosterState } from "../../lib/session-roster.ts";
+import { type PeerMark, peerMark, type RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus, UnaccountedMessage } from "./types.ts";
-
-/** Claim paths the focus block lists before it points at the pane. */
-const BLOCK_CLAIMS = 2;
 
 /** Columns between a row's body and the trailing cell beside it. */
 const TRAILING_GAP = 2;
@@ -67,7 +64,61 @@ export function sessionRows(status: SessionStatus | undefined): SessionRow[] {
 	return rows.sort((a, b) => (a.self === b.self ? byLabel(a.session, b.session) : a.self ? -1 : 1));
 }
 
-/** One session row: the label, a `you` tag on this session, and its counts. */
+/** One fact a record says, in the two shapes the board prints it: a pane's label and value, and one
+ * term of the block's single line. */
+export interface RecordFact {
+	label: string;
+	value: string;
+}
+
+/**
+ * The mark a record earns on every surface: `gone`, `not listening`, or nothing.
+ *
+ * It is `peerMark`'s word, not a second spelling of it: the text listing draws the same function
+ * (`format.ts`'s `formatStatus`), so one record cannot read `gone` here and something else there.
+ */
+export function markOf(session: SessionRow["session"]): PeerMark | undefined {
+	return peerMark({ state: session.state, listening: session.watching?.armed });
+}
+
+/** The roster's word for a peer that is on the bus and not reading its mail. */
+const OFF_THE_QUEUE = peerMark({ state: "live", listening: false }) ?? "not listening";
+
+/** The watch's own word, for the facts a record prints: the chip says the same three. */
+export function watchWords(watching: SessionRecord["watching"]): string {
+	if (watching === undefined) return "not recorded";
+	if (!watching.armed) return OFF_THE_QUEUE;
+	return watching.wake ? "watch wake" : "watch on";
+}
+
+/**
+ * What a record says, as the facts the pane and the focus block both print.
+ *
+ * One owner for one fact: the block joins these into its line and the pane renders them as
+ * key/value rows, so the two cannot describe the same record differently. `up` is how long the
+ * session has run and `last` when it was last heard from — the two clocks a peer is judged on —
+ * and `mail` is that session's own unread beside the claims it holds.
+ */
+export function recordFacts(row: SessionRow, now: number): RecordFact[] {
+	const session = row.session;
+	const state = session.state === "gone" ? "gone · process gone" : session.state;
+	return [
+		{ label: "state", value: state },
+		{ label: "watch", value: watchWords(session.watching) },
+		{ label: "up", value: formatAge(now, session.startedAt) },
+		{ label: "last", value: ageText(now, session.lastSeen) },
+		{ label: "mode", value: `${sanitizeLine(session.mode)} · ${shortId(session.id)}` },
+		{ label: "mail", value: `${session.unread} unread · ${plural(row.claims.length, "claim")}` },
+	];
+}
+
+/**
+ * One session row: the label, a `you` tag on this session, and what the next call acts on — the
+ * mark first when the record earns one, then the unread count, then the claims.
+ *
+ * The mark and the counts share one role, chosen by the mark: a row's trailing cell is painted in
+ * one colour by `listRow`, and a per-part role would be a change to the shared kit.
+ */
 export function sessionRowLine(
 	row: SessionRow,
 	theme: Theme,
@@ -75,14 +126,17 @@ export function sessionRowLine(
 	options: { selected?: boolean; marker?: boolean } = {},
 ): string {
 	const label = `${sanitizeLine(row.session.label)}${row.self ? " · you" : ""}`;
-	const counts = [row.session.state === "gone" ? "gone" : `${row.session.unread} unread`];
+	const mark = markOf(row.session);
+	const counts = [`${row.session.unread} unread`];
 	if (row.claims.length > 0) counts.push(plural(row.claims.length, "claim"));
+	const trailing = [...(mark === undefined ? [] : [mark]), ...counts].join(SEPARATORS.item);
 	return listRow(theme, width, {
 		selected: options.selected === true,
 		marker: options.marker !== false,
 		label,
 		labelRole: options.selected === true ? "accent" : "label",
-		trailing: counts.join(SEPARATORS.item),
+		trailing,
+		trailingRole: mark === "gone" ? "bad" : mark === "not listening" ? "warn" : "meta",
 	});
 }
 
@@ -197,6 +251,15 @@ export const busRowLine: TailRowLine<BusRow> = (row, width, theme) => {
 	}
 };
 
+/**
+ * The watch, as one chip: `you: watch on`, `you: watch wake`, or the roster's word when this session
+ * is not reading its mail. The Inbox and Claims summaries and `summaryCells` print this one string,
+ * so the same watch cannot be two words on two scopes.
+ */
+export function watchChip(theme: Theme, watching: { armed: boolean; wake: boolean }): string {
+	return paint(theme, watching.armed ? "ok" : "warn", `you: ${watchWords(watching)}`);
+}
+
 /** The summary cells: the counts a reader scans before the rows. */
 export function summaryCells(
 	theme: Theme,
@@ -205,7 +268,9 @@ export function summaryCells(
 	onBus = true,
 	unaccounted = 0,
 ): string[] {
-	const unread = rows.reduce((total, row) => total + row.session.unread, 0);
+	// This session's own unread, never the bus's: the Inbox tab counts the mail addressed here, and a
+	// word that meant two numbers would be read as the wrong one. Each row still carries its own.
+	const unread = rows.find((row) => row.self)?.session.unread ?? 0;
 	const claims = rows.reduce((total, row) => total + row.claims.length, 0);
 	const gone = rows.filter((row) => row.session.state === "gone").length;
 	const cells = [paint(theme, "meta", plural(rows.length, "session"))];
@@ -215,24 +280,22 @@ export function summaryCells(
 	// inside one: the number a reader has to act on, and the verb is in the expanded section.
 	if (unaccounted > 0) cells.push(paint(theme, "warn", `${unaccounted} unaccounted`));
 	cells.push(paint(theme, "meta", plural(claims, "claim")));
-	if (watching) cells.push(paint(theme, "ok", watching.wake ? "watch wake" : "watch on"));
+	if (watching) cells.push(watchChip(theme, watching));
 	if (!onBus) cells.push(paint(theme, "warn", "not on the bus"));
 	return cells;
 }
 
-/** The focus block under the list: what the row does not already say. */
+/**
+ * The focus block under the list: the record's facts in one line, under its cwd.
+ *
+ * The claims' paths are the pane's to list: the row already counts them, and the facts line says the
+ * count, so the block keeps the height a fourth row of them would cost.
+ */
 export function sessionDetailBlock(row: SessionRow, now: number): string[] {
-	const lines = [`cwd: ${sanitizeLine(row.session.cwd)}`];
-	if (row.claims.length > 0) {
-		const shown = row.claims.slice(0, BLOCK_CLAIMS).map((claim) => sanitizeLine(claim.path));
-		const hidden = row.claims.length - shown.length;
-		lines.push(`claims: ${shown.join(", ")}${hidden > 0 ? ` +${hidden} more` : ""}`);
-	}
-	lines.push(
-		`mode: ${sanitizeLine(row.session.mode)}${SEPARATORS.item}id: ${shortId(row.session.id)}` +
-			`${SEPARATORS.item}last seen: ${ageText(now, row.session.lastSeen)}` +
-			`${row.session.state === "gone" ? `${SEPARATORS.item}process gone` : ""}`,
-	);
+	const facts = recordFacts(row, now)
+		.map((fact) => `${fact.label}: ${fact.value}`)
+		.join(SEPARATORS.item);
+	const lines = [`cwd: ${sanitizeLine(row.session.cwd)}`, facts];
 	if (row.session.state === "gone") lines.push(`forget: ${forgetCommand(row.session.label)}`);
 	return lines;
 }

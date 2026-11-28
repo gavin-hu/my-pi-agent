@@ -336,6 +336,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"envelope",
 		"result",
 		"view/session-list",
+		"view/session-record",
 		"tools",
 		"stray-field",
 		"inbox-read",
