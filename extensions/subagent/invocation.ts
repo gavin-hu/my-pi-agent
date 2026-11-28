@@ -7,6 +7,7 @@
  */
 
 import { WORKSPACE_READERS } from "../../lib/policy.ts";
+import { SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import type { AgentConfig } from "./agents.ts";
 import type { DispatchDefaults } from "./types.ts";
 
@@ -46,7 +47,15 @@ export function buildAgentArgs(
 	if (model) args.push("--model", model);
 	if (agent.model === undefined && defaults.thinkingLevel) args.push("--thinking", defaults.thinkingLevel);
 	if (readOnly) args.push("--tools", readOnlyTools(agent).join(","));
-	else if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
+	else if (agent.tools && agent.tools.length > 0) {
+		// A child cannot delegate, so its list never names the `subagent` tool even when the agent's
+		// frontmatter asks for it. A list that names nothing else is left as written rather than
+		// filtered to nothing: an absent `--tools` hands the child the host's whole default set,
+		// which is a grant where the agent asked for one tool — the dispatcher's refusal is what
+		// stops that agent, not this filter.
+		const granted = agent.tools.filter((tool) => tool !== SUBAGENT_TOOL);
+		args.push("--tools", (granted.length > 0 ? granted : agent.tools).join(","));
+	}
 	if (systemPromptPath) args.push("--append-system-prompt", systemPromptPath);
 
 	args.push(`Task: ${task}`);

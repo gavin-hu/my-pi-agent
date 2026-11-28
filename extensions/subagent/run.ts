@@ -53,6 +53,30 @@ export interface RunOptions {
 }
 
 /**
+ * Environment marker on a delegated child: its own process reads it and refuses to delegate
+ * further, so "a child does not delegate" is a property of the dispatcher rather than of any tool
+ * list. It rides in the child's environment, which every descendant inherits, so depth costs
+ * nothing to count.
+ *
+ * Named here beside the spawn that writes it, the way `job` keeps `STATUS_ENV` beside its own
+ * child: only this extension reads it, so it is not one of `lib/env.ts`'s names, which exist
+ * because extensions cannot import one another.
+ */
+export const CHILD_ENV = "PI_SUBAGENT_CHILD";
+
+/**
+ * What a child is told when it tries to delegate. Exported so the case that holds it asserts the
+ * sentence the model receives rather than a prefix of it — the sentence is the whole refusal.
+ */
+export const CHILD_REFUSAL =
+	"A delegated child cannot delegate further: do the work here, and name in your reply anything that needs a child of its own.";
+
+/** Whether this process is a delegated child: the marker its parent wrote into its environment. */
+function isDelegatedChild(): boolean {
+	return process.env[CHILD_ENV] === "1";
+}
+
+/**
  * The prompt file a child is handed, and its directory.
  *
  * The directory is created first, so a write that fails has to take it back: the caller
@@ -106,7 +130,9 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 	return new Promise<SpawnOutcome>((resolve) => {
 		// The child leads its own group, so the signals below reach whatever it started and not
 		// only the `pi` pid: a build it launched would otherwise outlive the run.
-		const proc = spawn(command, args, spawnOptions({ cwd, shell: false }));
+		// The child's own environment plus the marker: merging rather than replacing, so a variable the
+		// parent already has (a proxy, a token, `PI_WORKTREE_ROOT`) still reaches it.
+		const proc = spawn(command, args, spawnOptions({ cwd, shell: false, env: { ...process.env, [CHILD_ENV]: "1" } }));
 		const splitter = new LineSplitter();
 		let settled = false;
 		let abortRequested = false;
@@ -218,6 +244,16 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 	if (!agent) {
 		result.exitCode = 1;
 		result.stderr = `Unknown agent: "${options.agentName}". Available agents: ${formatAgentList(pool)}.`;
+		return result;
+	}
+
+	// Before the agent is looked up, because the rule is about this process rather than about the
+	// agent named: a child told it named an unknown agent would go looking for a better one.
+	if (isDelegatedChild()) {
+		result.exitCode = 1;
+		result.finishedAt = Date.now();
+		result.errorMessage = CHILD_REFUSAL;
+		result.stderr = CHILD_REFUSAL;
 		return result;
 	}
 
