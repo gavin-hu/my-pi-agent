@@ -3,8 +3,9 @@
  *
  * Three questions are asked here rather than in the verb, because they are the board's own
  * records and not git's: is this session serving the page, is the card in `execute`, and does its
- * current spot-check name a tree. What is left is git, and the verb answers that. A refusal
- * carries the card it left alone, the way every other board refusal does.
+ * current spot-check name a tree. What is left is git, and the card's own words — the scope its
+ * title names and the section its `type` earns — which the verb derives and refuses rather than
+ * guesses. A refusal carries the card it left alone, the way every other board refusal does.
  *
  * The door is its own module so `actions.ts` — twelve lines under the module ceiling when this
  * landed — pays five lines for the dispatch instead of a hundred, and it is `import()`ed for the

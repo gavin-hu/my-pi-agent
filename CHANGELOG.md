@@ -278,6 +278,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the bullet's scope and section come from the wrong place — a lib/ card lands `lib`, no section named (#1031)
+
 - `session-bus`: the /sessions board says who can be reached (#1032)
 
 - `lib`: a branch merely behind main's changelog reads as one that edited it, so a sync is a landing precondition (#1030)

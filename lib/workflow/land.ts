@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { messageOf } from "../errors.ts";
 import { type SignedVerb, signedVerb, staleVerb } from "./land-verb.ts";
 import { headingFor, insertBullet } from "./changelog.ts";
-import { landBullet, landSubject } from "./land-subject.ts";
+import { landBullet, landScopeProblem, landSubject } from "./land-subject.ts";
 import type { RunGit } from "../git/runner.ts";
 import type { Card } from "./card.ts";
 import { type DeclaredSuite, declaredSuites, suiteFileOf } from "./suite-declarations.ts";
@@ -137,6 +137,11 @@ interface Call {
  */
 export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	const { card, cwd, reviewed, run } = options;
+	// The card's own record, before any command: a scope that names a module is the record's defect
+	// rather than the checkout's, and a card the door would write `merge(lib)` for is refused while
+	// the branch is still untouched.
+	const unnamed = landScopeProblem(card);
+	if (unnamed !== undefined) return { error: unnamed };
 	const remote = LAND_REMOTE;
 	const branch = LAND_BRANCH;
 	const call = async (args: string[]): Promise<Call> => {
@@ -457,7 +462,7 @@ async function changelogPlan(
 		if (withoutReferences(carried) !== withoutReferences(branch.out)) {
 			const changed = signed.paths.map((path) => `\`${path}\``).join(" and ");
 			return {
-				error: `the signed tree changes the landing verb (${changed}): this process holds the verb from \`${LAND_BRANCH}\`, so it cannot write this card's entry with the tree's rules — commit this line, have it spot-checked again, then land; the restart is still owed after:\n  ${bullet}`,
+				error: `the signed tree changes the landing verb (${changed}): this process holds the verb from \`${LAND_BRANCH}\`, so it cannot write this card's entry with the tree's rules — commit this line under \`### ${heading}\`, have it spot-checked again, then land; the restart is still owed after:\n  ${bullet}`,
 			};
 		}
 		// `call` trims its answer, so the file is rebuilt with the newline every line of it ended on.
@@ -465,7 +470,7 @@ async function changelogPlan(
 	}
 	if (withoutReferences(forked.out) !== withoutReferences(branch.out)) {
 		return {
-			error: `the branch edits ${CHANGELOG_HOTSPOT}: a landing writes the bullet itself, so drop that change — the line it will land is\n  ${bullet}`,
+			error: `the branch edits ${CHANGELOG_HOTSPOT}: a landing writes the bullet itself, so drop that change — the line it will land, under \`### ${heading}\`, is\n  ${bullet}`,
 		};
 	}
 	// The merge leaves main's file where the branch never changed it, and the branch's own where it cut
