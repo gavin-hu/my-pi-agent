@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { LEAD_MODE_ENTRY_TYPE, PLAN_MODE_ENTRY_TYPE } from "../../lib/mode-state.ts";
+import { JOB_TOOL, WATCH_TOOL } from "../../lib/tool-names.ts";
 import type { Card } from "../../lib/workflow/card.ts";
 import { cardFile, guardedBoard } from "../../test/helpers/board.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
@@ -182,6 +183,39 @@ describe("a delegated child", () => {
 		const call = { prompt: "change the file" };
 		expect(gate([inExecute()], "subagent", call)).toBeUndefined();
 		expect((call as Record<string, unknown>).readOnly).toBeUndefined();
+	});
+});
+
+describe("a tool that runs what it is told", () => {
+	test("refuses the actions that run a command, and allows the reads and the cleanups", () => {
+		const held = [planned()];
+		// Named here rather than read off `ACTION_JUDGED`: the record is the decision this case exists to
+		// hold, so a reclassification that made `start` a read has to redden here before it can pass a walk.
+		for (const action of ["start", "send"]) {
+			expect(gate(held, JOB_TOOL, { action })).toContain("a background command needs the card in execute");
+		}
+		expect(gate(held, WATCH_TOOL, { action: "add" })).toContain("a watcher needs the card in execute");
+		for (const action of ["list", "status", "logs", "wait", "kill", "clear"]) {
+			expect(gate(held, JOB_TOOL, { action })).toBeUndefined();
+		}
+		for (const action of ["list", "status", "matches", "logs", "stop", "clear"]) {
+			expect(gate(held, WATCH_TOOL, { action })).toBeUndefined();
+		}
+	});
+
+	test("fails closed on a call it cannot classify", () => {
+		// A missing action is not bookkeeping, and neither is a verb the record never names: the lane
+		// has the answer, and the tool's own schema refuses the call a moment later.
+		expect(gate([planned()], JOB_TOOL, {})).toContain("a background command needs the card in execute");
+		expect(gate([planned()], WATCH_TOOL, { action: 7 })).toContain("a watcher needs the card in execute");
+		expect(gate([planned()], JOB_TOOL, { action: "explode" })).toContain(
+			"a background command needs the card in execute",
+		);
+	});
+
+	test("is allowed under an execute card, where the work is", () => {
+		for (const action of ["start", "send"]) expect(gate([inExecute()], JOB_TOOL, { action })).toBeUndefined();
+		expect(gate([inExecute()], WATCH_TOOL, { action: "add" })).toBeUndefined();
 	});
 });
 

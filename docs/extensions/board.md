@@ -100,6 +100,10 @@ the pool's three ids and a count, who is listening. A seated session lands a rev
   card, naming `claim` (`board add` opens one) so the plan has a card to record it against; a session on
   a bus is offered `/team exit` beside it, and one the board's tool is withheld from is not gated at all.
   The person's `/plan` and Shift+Tab raise no tool call, so they stay their own doors.
+- The two tools that run what they are told are judged by their action, the way the shell is judged by its
+  grammar: `job start`/`send` and `watch add` need the card in `execute`, while `job list`/`status`/`logs`/`wait`
+  and `watch list`/`status`/`matches`/`logs` are reads. `kill`, `stop` and `clear` are allowed in any lane too,
+  because they clean up a process the card does not own and write no tree.
 - The `board` tool is also the seat's signing surface, so it goes with the team: `/team exit` refuses while the seat is served, and a record that goes without a leave takes the tool at the next turn — and that turn's seat line carries the door with it, so losing the tool is a fact with a way back rather than a silence.
 - The page asks the bus for a stamp every second — mail waiting, a peer's state, a turn starting — and sweeps every five for what no file announces; a page with no watch scans every second. The reader is the stream, not the tab: while one is open the tick reads, and with none it reads nothing at all — no stamp, no frame — and no timer waits for a closed tab to come back, so the session outlives its page.
 

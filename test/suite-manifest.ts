@@ -541,6 +541,7 @@ export const SCRIPT_SUITES: readonly string[] = [
  * a contract grows under the same 400-line rule as a capability suite.
  */
 export const ROOT_SUITES: readonly string[] = [
+	"board-gate-actions",
 	"boundaries",
 	"browser-budget",
 	"browser-handle",
