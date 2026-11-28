@@ -171,3 +171,31 @@ describe("a `/new` on a running bus", () => {
 		expect(first.pi.getSessionName()).toBeUndefined();
 	});
 });
+
+describe("a `/reload` on a running bus", () => {
+	test("the shutdown keeps the row, and the start that follows adopts its name and its age", async () => {
+		const land = world();
+		const before = land.open("s-one");
+		await emit(before.pi, "session_start", { type: "session_start", reason: "startup" }, before.ctx);
+		await before.bus.join({ label: "custom", listen: false });
+		const begun = await createBusStore({ dir: land.dir }).session("s-one");
+		expect(begun?.label).toBe("custom");
+
+		// A reload replaces the extension runtime, not the session: the shutdown lands on the old one and
+		// the start on the new one, under the same session id and the same process.
+		const after = land.open("s-one");
+		await emit(before.pi, "session_shutdown", { type: "session_shutdown", reason: "reload" }, before.ctx);
+		// The real path, not a seeded row: the shutdown itself is what must keep it.
+		expect((await createBusStore({ dir: land.dir }).session("s-one"))?.label).toBe("custom");
+
+		await emit(after.pi, "session_start", { type: "session_start", reason: "reload" }, after.ctx);
+		await after.bus.start(after.ctx);
+		// The start adopts the row, so the join it makes is the one that puts the adopted facts on disk.
+		await after.bus.join({ listen: false });
+
+		const kept = await createBusStore({ dir: land.dir }).session("s-one");
+		// Pi's transcript name is the repository's here; the row's name is what a peer addresses.
+		expect(kept?.label).toBe("custom");
+		expect(kept?.startedAt).toBe(begun?.startedAt);
+	});
+});
