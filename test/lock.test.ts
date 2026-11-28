@@ -40,7 +40,7 @@ describe("the claim", () => {
 		expect(lock.held).toBe(true);
 		expect(readLock(lockPath(dir))).toEqual({
 			kind: "holder",
-			holder: { pid: 111, path: "/repo", since: expect.any(Number) },
+			holder: { pid: 111, path: "/repo", since: expect.any(Number), root: expect.any(Number) },
 		});
 		lock.release();
 		expect(readLock(lockPath(dir))).toEqual({ kind: "absent" });
@@ -61,6 +61,83 @@ describe("the claim", () => {
 });
 
 describe("a run that is not the first", () => {
+	test("a `--parallel` worker shares the machine its own run already holds", async () => {
+		const dir = directory();
+		// The holder is this run's sibling: `bun test --parallel` spawns its workers itself, so the
+		// process that claimed the file and this one share a parent and nothing else.
+		writeFileSync(lockPath(dir), `${JSON.stringify({ pid: 999, path: "/run", since: 5, root: 500 })}\n`);
+		const waited: number[] = [];
+		// A bounded wait over an advancing clock, so a regression reddens in a millisecond rather than
+		// queueing behind the fixture for the real ten minutes.
+		const { now, sleep } = clock();
+		const lock = await acquireTestLock({
+			dir,
+			pid: 111,
+			env: {},
+			root: 500,
+			worker: true,
+			// A live sibling: without this the fixture's pid is a dead process, and the case would be
+			// testing the takeover path instead of the shared-run path. The clock starts inside the
+			// staleness window for the same reason.
+			alive: () => true,
+			now: () => 1_000 + now(),
+			sleep,
+			waitMs: 2_000,
+			onWait: (holder) => waited.push(holder.pid),
+		});
+		// Not held, because the invocation's machine is already ours: waiting here would queue the run
+		// behind itself for the whole LOCK_WAIT_MS.
+		expect(lock.held).toBe(false);
+		expect(waited).toEqual([]);
+		// A skip releases nothing, so the sibling's record is left exactly as it was.
+		lock.release();
+		expect(readLock(lockPath(dir))).toEqual({
+			kind: "holder",
+			holder: { pid: 999, path: "/run", since: 5, root: 500 },
+		});
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	test("a worker of another run still queues, and so does a same-root caller that is no worker", async () => {
+		const dir = directory();
+		writeFileSync(lockPath(dir), `${JSON.stringify({ pid: 999, path: "/other", since: 5, root: 700 })}\n`);
+		const waited: string[] = [];
+		// One clock for both callers: `now` and `sleep` must advance together or the bound is never
+		// reached, and a hot poll loop is what an inconsistent pair buys.
+		const { now, sleep } = clock();
+		// Another invocation's worker: a different parent, so it waits out the bound like any pane.
+		const other = await acquireTestLock({
+			dir,
+			pid: 111,
+			env: {},
+			root: 600,
+			worker: true,
+			now,
+			sleep,
+			waitMs: 2_000,
+			alive: () => true,
+			onWait: (holder) => waited.push(`worker:${holder.pid}`),
+			onGiveUp: (holder) => waited.push(`give-up:${holder.pid}`),
+		});
+		expect(other.held).toBe(false);
+		expect(waited).toEqual(["worker:999", "give-up:999"]);
+		// A shell that launches two runs shares their parent, and the second is still a second run.
+		const sibling = await acquireTestLock({
+			dir,
+			pid: 112,
+			env: {},
+			root: 700,
+			worker: false,
+			now,
+			sleep,
+			waitMs: 2_000,
+			alive: () => true,
+			onWait: (holder) => waited.push(`sibling:${holder.pid}`),
+		});
+		expect(sibling.held).toBe(false);
+		expect(waited).toContain("sibling:999");
+		rmSync(dir, { recursive: true, force: true });
+	});
 	test("announces a live holder once, then takes over when it dies", async () => {
 		const dir = directory();
 		writeFileSync(lockPath(dir), `${JSON.stringify({ pid: 999, path: "/other", since: 5 })}\n`);

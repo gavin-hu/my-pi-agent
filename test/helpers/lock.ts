@@ -17,7 +17,12 @@
  *   over **silently**, because that is the ordinary path; only a file no run wrote is worth a line.
  * - A `--parallel` worker, or the same process re-evaluating the preload for the next file, must not
  *   wait on its own parent. The holder marks its children with `PI_LOCKED=1`, which an argument could
- *   not do.
+ *   not do — but that is not enough on its own: `--parallel` has Bun spawn the workers itself, so
+ *   they never inherit the holder's mutation, and one run's four workers then queue on each other for
+ *   {@link LOCK_WAIT_MS}. Measured on 1.4.3: `bun test --parallel=4 test/` parks with a worker holding
+ *   the file, while the same sweep serial is 8.8 s and `PI_NO_LOCK=1 --parallel=4 test/` is 4.7 s. So
+ *   the record carries the invocation's parent pid, `root`, and a worker whose own parent holds the
+ *   lock shares it instead of waiting on it.
  *
  * The holder refreshes its record, so a pid the OS has since reused cannot hold the machine: a record
  * older than {@link LOCK_STALE_AFTER_MS} is stale however alive its pid looks.
@@ -42,11 +47,19 @@ export const LOCK_HEARTBEAT_MS = 30_000;
 /** How old a record has to be before a waiting run calls it stale, whatever its pid says. */
 export const LOCK_STALE_AFTER_MS = 5 * 60_000;
 
-/** What a run records about itself: who has the machine, from where, and since when. */
+/** What a run records about itself: who has the machine, from where, since when, and which run. */
 export interface LockHolder {
 	pid: number;
 	path: string;
 	since: number;
+	/**
+	 * The invocation this holder belongs to, as its parent's pid.
+	 *
+	 * `bun test --parallel` spawns its workers itself, so a worker is a sibling of the process that
+	 * holds the lock, not its child: the shared parent is the only thing a worker can compare. Absent
+	 * in a record an older build wrote, which reads as another run and waits.
+	 */
+	root?: number;
 }
 
 /** One process's claim on the machine. */
@@ -69,6 +82,10 @@ export interface LockOptions {
 	pid?: number;
 	/** Where this run was started, for the waiting line. */
 	path?: string;
+	/** The invocation this caller belongs to; the parent's pid unless a case says otherwise. */
+	root?: number;
+	/** Whether this caller is one of `--parallel`'s workers; the argv's own flag unless a case says. */
+	worker?: boolean;
 	now?: () => number;
 	alive?: (pid: number) => boolean;
 	sleep?: (ms: number) => Promise<void>;
@@ -134,11 +151,13 @@ export function readLock(file: string): LockReading {
 	}
 	if (typeof value !== "object" || value === null) return { kind: "unreadable" };
 	const record = value as Partial<Record<keyof LockHolder, unknown>>;
-	const { pid, path, since } = record;
+	const { pid, path, since, root } = record;
 	if (typeof pid !== "number" || typeof path !== "string" || typeof since !== "number") {
 		return { kind: "unreadable" };
 	}
-	return { kind: "holder", holder: { pid, path, since } };
+	// An optional field of the wrong shape is dropped rather than costing the record, so a file an
+	// older build wrote reads as another run's — which is what makes it wait rather than share.
+	return { kind: "holder", holder: { pid, path, since, ...(typeof root === "number" ? { root } : {}) } };
 }
 
 /**
@@ -180,7 +199,14 @@ export async function acquireTestLock(options: LockOptions = {}): Promise<TestLo
 	const file = lockPath(options.dir);
 	const waitMs = options.waitMs ?? LOCK_WAIT_MS;
 	const pollMs = options.pollMs ?? LOCK_POLL_MS;
-	const mine: LockHolder = { pid: options.pid ?? process.pid, path: options.path ?? process.cwd(), since: now() };
+	const mine: LockHolder = {
+		pid: options.pid ?? process.pid,
+		path: options.path ?? process.cwd(),
+		since: now(),
+		root: options.root ?? process.ppid,
+	};
+	// Bun names its own workers on their command line, so a worker knows what it is.
+	const worker = options.worker ?? process.argv.includes("--test-worker");
 
 	let heartbeat: ReturnType<typeof setInterval> | undefined;
 	const release = (): void => {
@@ -211,6 +237,10 @@ export async function acquireTestLock(options: LockOptions = {}): Promise<TestLo
 		const holder = reading.kind === "holder" ? reading.holder : undefined;
 		const stale = holder === undefined || !alive(holder.pid) || now() - holder.since > LOCK_STALE_AFTER_MS;
 		if (holder !== undefined && !stale) {
+			// This run's own worker: the invocation already holds the machine, and waiting on it is
+			// waiting on ourselves. Never announced, because a run that queues behind itself is a
+			// defect rather than contention a reader should be told about.
+			if (worker && holder.root === mine.root) return skipped;
 			const waitedMs = now() - started;
 			if (waitedMs >= waitMs) {
 				options.onGiveUp?.(holder, waitedMs);

@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `scripts`: `bun run check --parallel=<n>` runs the whole gate at n workers — the flag is forwarded into
+  both test commands and never chosen by the gate, so a bare run builds exactly the chain it always built,
+  and a test step that took 30 s or more prints one line naming the flag, timed from the step rather than
+  predicted from the change under test. It needed the lock fixed first: `--parallel`'s workers are spawned
+  by Bun itself, so they never inherited the holder's `PI_LOCKED` marker and queued on each other for the
+  whole ten-minute wait — a parked sweep against 8.8 s serial, and 4.7 s at four workers with the lock
+  skipped. The record now carries the invocation's parent pid, `root`, and a worker whose parent holds the
+  lock shares it. `test/README.md` and `scripts/README.md` also state the counts they had drifted from: 38
+  files under `test/`, and a 42-suite browser layer with four smoke.
+
 - `session-bus`: `/sessions forget <label|id>…` frees a stopped session's name at once — its record
   and claims go, its unread mail becomes unaccounted for `drop`, and a live or quiet record is refused
   naming its holder. A killed process used to hold its label for the whole `SESSION_TTL_MS` window, and

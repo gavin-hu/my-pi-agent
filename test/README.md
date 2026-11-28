@@ -8,6 +8,7 @@ banned-pattern rules below.
 
 ```bash
 bun run check               # the landing gate: format, types, this branch's suites, test/
+bun run check --parallel=4  # the same gate at four workers, for a change that reaches a hub
 bun run check:all           # the full sweep: CI, publish.yml, and a release
 bun test                    # the tests alone, one file at a time
 bun test extensions/board/  # one extension's suites; any directory is a slice
@@ -28,8 +29,10 @@ Two runs on one machine starve each other's spawns, and the suites that wait on 
 the ones that break — so the test preload takes a machine-wide lock before any case runs
 (`helpers/lock.ts`, registered in `bunfig.toml`). A second run prints who holds it and for how
 long, waits up to ten minutes, and then runs beside it and says so. `PI_NO_LOCK=1` skips the
-lock entirely. A `--parallel` run does not contend, because its workers inherit `PI_LOCKED` and
-so never wait on their own parent.
+lock entirely. A `--parallel` run shares one lock: its workers are spawned by Bun itself, so they
+never inherit the holder's `PI_LOCKED` marker — measured on 1.4.3, they queued on each other for
+the whole ten minutes — which is why the record carries the invocation's parent pid, `root`, and a
+worker whose parent holds the lock goes on with it rather than waiting.
 
 The record a run leaves behind is deliberate rather than a bug: bun's test process does not run
 an `exit` handler, so a release is best effort and the *next* run replaces a dead holder by pid,
@@ -63,12 +66,15 @@ heaviest call sites are each surface's own formatter (`session-bus/format.ts` 30
 sanitizer only through the code under test. So a hub change is expensive by nature, and the two things that look
 like fixes are not: splitting the file by concept leaves the worst module at 282 of 407 (measured),
 and a content cache cannot help when every importer's input genuinely changed. The one outlet is
-parallelism, for a change that must touch a hub: `bun test --parallel=4` turns 77 s into about 30 s
-at four cores. That is worth it there and nowhere else — a serial run is the default because it
-leaves the machine to the other sessions on it.
+parallelism, for a change that must touch a hub, and it is now one command: `bun run check
+--parallel=4` carries the flag into both test commands and runs the whole gate, while a bare run
+builds exactly what it always did. At four workers this tree's `test/` sweep is 4.7–5.1 s against
+8.8 s serial. That is worth it there and nowhere else — a serial run is the default because it
+leaves the machine to the other sessions on it — and a step that took 30 s or more says so on its
+way past, naming the flag rather than switching it on.
 
 One row is a habit rather than a number. A document or an asset reaches no suite, because nothing
-imports one, so a narrow run says nothing about it: add `bun test test/` (8.1 s, 34 files) for the
+imports one, so a narrow run says nothing about it: add `bun test test/` (11.4 s, 38 files) for the
 sweeps that read the tree.
 
 ### A red that will not reproduce
@@ -132,19 +138,19 @@ why a browser suite's own statement is the thing that makes it independent of ho
 was invoked.
 
 `bun run check` costs what its commands cost: format 0.3 s, typecheck 12.7 s cold and 3.2 s warm,
-then the tests this branch reaches — its own selection plus the 34 files of `test/`, which read the
+then the tests this branch reaches — its own selection plus the 38 files of `test/`, which read the
 tree and so cannot be selected by a graph. A leaf change is ~9 s; a hub change is as long as the
-branch says. `bun run check:all` adds the full sweep: 8,466 cases in 469 files, 97.1 s one file at
-a time on an 8-core laptop at load 6, which is why CI pays it and a landing does not. The one suite
+branch says. `bun run check:all` adds the full sweep: 9,468 cases in 569 files, 146 s one file at
+a time, which is why CI pays it and a landing does not. The one suite
 that used to own a fifth of that sweep is `extensions/plan/web-outline-live.test.ts`: 22.3 s and
 5.6 s alone, before and after it stopped waiting on frames that could not answer. The narrow gate
 widens
 to that sweep by itself when the change is the runner's, when there is no branch to narrow against,
 or when `git` cannot say — `scripts/check.ts` decides and `scripts/check.test.ts` holds each answer.
-The ordinary plan carries the browser tier: it runs the smoke three — `code-review/view/interaction`,
-`plan/web-behaviour`, `board/view/queue`, one served page each — and ignores the layer's other 37 with
-an exact `--path-ignore-patterns` path apiece, while `check:all` and every widened answer run all
-forty. The tier is the runner's because `test/suite-sizes.test.ts` names three of those suites at
+The ordinary plan carries the browser tier: it runs the smoke four — `code-review/view/interaction`,
+`code-review/view/place`, `plan/web-behaviour`, `board/view/queue`, one served page each — and
+ignores the layer's other 38 with an exact `--path-ignore-patterns` path apiece, while `check:all`
+and every widened answer run all forty-two. The tier is the runner's because `test/suite-sizes.test.ts` names four of those suites at
 their exact heights, so a `describe.skipIf` line per suite is refused. A suite added to the layer
 runs locally until someone names it smoke: **an addition costs time, never coverage.**
 
