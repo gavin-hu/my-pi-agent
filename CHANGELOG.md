@@ -98,8 +98,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `lib`: a branch merely behind main's changelog reads as one that edited it, so a sync is a landing precondition (#1030)
-
 - `lib`: the landing runs the verb from its own process, so the card that changes the verb has to bootstrap its own entry (#1028)
 
 - `board`: the landing writes the changelog bullet from the merge subject, so nobody appends at the head (#1018)
@@ -279,6 +277,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   re-owned by a name; the session that wants the card claims it again from the pool.
 
 ### Fixed
+
+- `lib`: a branch merely behind main's changelog reads as one that edited it, so a sync is a landing precondition (#1030)
 
 - `worktree`: a worktree lock can outlive the state that names it, and exit has no door to it (#1027)
 
