@@ -70,7 +70,9 @@ interactive terminal; a scripted run gets the tool result only.
   work — they change session state and `~/.pi/agent`, never your files — so they
   never trigger it. A `board review` is: it runs the card's verify command. A
   delegated child is judged by the mode it was given: a read-only one is
-  investigation, a writing one is work.
+  investigation, a writing one is work. A list whose items are all completed gets
+  the same reminder once work carries on after it: the work needs a new item, not
+  an edit to a finished one.
 - A finished list stays readable in `/todos` until the model changes it.
 
 ## Settings

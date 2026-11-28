@@ -55,6 +55,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `todo`: a list whose items are all completed is kept current too. The gate stopped at a list with nothing
+  open, so a run that finished every item and then kept working asked for no update — the shape where the
+  rail reads as synced and is stale. It now judges the list's state rather than its length, so the same
+  three writes that ask for a list ask for the next item once the list is closed. The threshold, the
+  one-per-turn cap and the exemption for a list the model wrote this turn are unchanged.
+
 - `test`: the `any` ban reaches the suites. `test/conventions.test.ts` scanned every suite but banned
   `any` only in source, so 118 casts stood in the suites over shipped code — the one place a fake keeps
   answering a member that moved while `check:types` stays green. Each now names its type: `test/helpers/`
