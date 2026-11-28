@@ -198,7 +198,7 @@ What each operation a card alone can decide does — the gates, the lane changes
 a refusal carries — split from the table that dispatches it so the dispatch reads as one switch
 and the rules read as one decision per operation. `claim` pulls a pool card into `plan`; `assign`
 hands one over and moves only a pool card's lane; `release` returns it; `move` walks
-`TRANSITIONS` and asks every gate; `contractOp` writes the four lines and the plan path;
+`TRANSITIONS` and asks every gate; `contractOp` writes the four lines and the plan path, refusing one another card already records;
 `approve` / `review` record the two human gates, both refused to the card's own holder, and
 `review` also signs a card already in `done` when an override gives the one line saying why;
 `note` / `edit` / `offer` / `archive` / `drop` keep their own rules, and a drop is refused
