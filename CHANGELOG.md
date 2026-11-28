@@ -121,6 +121,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   error; the handler now reads `context.canContinue` and asks for nothing when it says no. Where the
   context can carry it, the reminder is what it was.
 
+- `board`: the write gate judges `job` and `watch` by the action a call names, so `job start`/`send` and
+  `watch add` need the card in `execute` while their reads do not — the two tools that run a command were
+  falling through a table that named tools for a lane. `kill`, `stop` and `clear` stay allowed: they clean up
+  a process and write no tree. The completeness case sits under `test/` because an extension's tests may not
+  import another extension's modules, and it walks both tools' own verb tables, so an action added later has
+  to be classified rather than defaulting to a read.
+
 - `board`: a `done` move handed no landing verdict is refused as unchecked, the way a missing plan proof already
   was, so a caller that forgot to resolve the branch cannot close a card on an omission. The verdict grew the third
   shape it always needed — `none`, for a spot-check that named no commit or a branch with nothing to land — which is a

@@ -79,6 +79,16 @@ export const EDIT_TOOL = "edit";
 export const BASH_TOOL = "bash";
 
 /**
+ * The `job` tool. It runs a background command, so the board's write gate judges it by the action a
+ * call names — the gate names tools rather than importing another extension's verb table, so the
+ * name lives here and the actions are the gate's own record.
+ */
+export const JOB_TOOL = "job";
+
+/** The `watch` tool, judged as {@link JOB_TOOL} is: its `add` starts a command to tail. */
+export const WATCH_TOOL = "watch";
+
+/**
  * The `board` tool: the shared feature list. Plan mode keeps it active because its
  * `list` action is a read of the repository's cards, so the name is shared while the
  * write actions stay the board's to refuse.

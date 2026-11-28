@@ -13,10 +13,12 @@
  * unclaimed is gated by nothing, which is why the step before this table — whether there is a
  * card at all — is `enter-gate.ts`'s question and not a branch of this one.
  *
- * What this deliberately is not: a sandbox. A shell command under an `execute` card is judged by
- * lane and not by path, because a shell's effect is not decidable; a session holding no card
- * writes exactly as it always did, because a board must never brick work that is not its own; and
- * a `done` card gates nothing, because what comes after a finished card is `next`'s business.
+ * What this deliberately is not: a sandbox. A command under an `execute` card is judged by lane and
+ * not by path, because a command's effect is not decidable — and that covers the tools that run one
+ * as well as the shell, which is why `job` and `watch` are judged by the action they name; a session
+ * holding no card writes exactly as it always did, because a board must never brick work that is not
+ * its own; and a `done` card gates nothing, because what comes after a finished card is `next`'s
+ * business.
  *
  * Value-only apart from path resolution through `lib/path.ts`, and that is the same resolution a
  * claim takes (`extensions/session-bus/resolve.ts`), so a card's `paths` mean one thing to the
@@ -28,10 +30,40 @@ import { type ModePhrasing, readOnlyBashRefusal } from "../../lib/git/read-comma
 import { isInsideReal } from "../../lib/path.ts";
 import { type Card, cardRef } from "../../lib/workflow/card.ts";
 import { contractRoute } from "../../lib/workflow/lanes.ts";
-import { BASH_TOOL, EDIT_TOOL, SUBAGENT_TOOL, WRITE_TOOL } from "../../lib/tool-names.ts";
+import { BASH_TOOL, EDIT_TOOL, JOB_TOOL, SUBAGENT_TOOL, WATCH_TOOL, WRITE_TOOL } from "../../lib/tool-names.ts";
 
 /** The one shell with no read-only form: it is judged by lane, and never by the git grammar. */
 const POWERSHELL_TOOL = "powershell";
+
+/** One tool judged by the action it names: what runs a command, what is bookkeeping, and the noun a refusal says. */
+interface JudgedAction {
+	/** The actions that run a command, so a lane before `execute` refuses them. */
+	runs: readonly string[];
+	/** The actions that read a job already on the books or clean one up; everything here is allowed. */
+	reads: readonly string[];
+	/** What the refusal calls the work: "a background command", "a watcher". */
+	what: string;
+}
+
+/**
+ * The tools whose action decides whether a call runs a command, and the noun a refusal names.
+ *
+ * `job` and `watch` are the two ways to run one without `bash`: `job start` spawns a process, `job
+ * send` drives its stdin, and `watch add` tails a command. Their other actions read a job already
+ * on the books or clean one up — `kill`, `stop`, `clear` — and write no tree, so the lane has
+ * nothing to say about them. Both lists are here rather than only the reads because a suite walks
+ * them against each tool's own verb table: an action added later has to be classified, and the suite
+ * fails until it is. Exported for that walk, which lives under `test/` because an extension's tests
+ * may not import another extension's modules (`test/boundaries.test.ts`).
+ */
+export const ACTION_JUDGED: Record<string, JudgedAction> = {
+	[JOB_TOOL]: {
+		runs: ["start", "send"],
+		reads: ["list", "status", "logs", "kill", "wait", "clear"],
+		what: "a background command",
+	},
+	[WATCH_TOOL]: { runs: ["add"], reads: ["list", "status", "matches", "logs", "stop", "clear"], what: "a watcher" },
+};
 
 /** The board's own words for the shell guard, so its refusals read like the rest of the board's. */
 const BOARD_PHRASING: ModePhrasing = { label: "board", whileDoing: "for a card outside execute" };
@@ -86,7 +118,21 @@ export function writeRefusal(held: readonly Card[], call: GateCall, deps: GateDe
 	}
 	if (call.tool === BASH_TOOL) return shellRefusal(card, call.input);
 	if (call.tool === POWERSHELL_TOOL) return laneRefusal(card, "a PowerShell command");
+	const judged = ACTION_JUDGED[call.tool];
+	if (judged !== undefined) return runsAction(call.input, judged) ? laneRefusal(card, judged.what) : undefined;
 	return undefined;
+}
+
+/**
+ * Whether an action-judged call does the one thing its lane cares about, or bookkeeping.
+ *
+ * The action is the model's argument, so only an action this record calls a read is a read: an
+ * absent one, a non-string, or a verb neither list names is the lane's business, because a call the
+ * table cannot classify is not bookkeeping.
+ */
+function runsAction(input: unknown, judged: JudgedAction): boolean {
+	const action = (input as { action?: unknown } | undefined)?.action;
+	return typeof action !== "string" || !judged.reads.includes(action);
 }
 
 /** The refusal for a `write`/`edit` outside every `execute` card's `paths`, or `undefined` inside one. */
