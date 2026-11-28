@@ -213,14 +213,15 @@ export function signRecord(card: Card, sign: Sign): SignRecord | undefined {
 }
 
 /**
- * Whether the card owes somebody a notice its own record says never landed.
+ * Whether the card's ledger is missing the record of a notice somebody owed it.
  *
- * Two notices read as one fact: a handoff the bus never took, wherever the card sits, and the sign
- * that opens the move the card is on — `approve` in `plan`, `review` in `execute`. The lead's rollup
- * groups these cards and the transcript's row says so on the card, so the rule is stated here once
- * instead of in each of the two surfaces that read it.
+ * A state about the card, not a decision about a write: `notices.ts` asks whether *this* call owes
+ * one, and `isUntold` asks whether the card still reads as never told. Two notices make that true: a
+ * handoff the bus never took, wherever the card sits, and the sign that opens the move the card is on
+ * — `approve` in `plan`, `review` in `execute`. The lead's rollup groups these cards and the
+ * transcript's row says so on the card, so the rule is stated here once for both of them.
  */
-export function owesNotice(card: Card): boolean {
+export function isUntold(card: Card): boolean {
 	if (owesHandoff(card)) return true;
 	if (card.lane !== "plan" && card.lane !== "execute") return false;
 	const record = signRecord(card, card.lane === "plan" ? "approve" : "review");

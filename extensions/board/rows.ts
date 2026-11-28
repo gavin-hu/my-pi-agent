@@ -16,7 +16,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { type Card, cardRef, DEFAULT_PRIORITY, holds, priorityOf } from "../../lib/workflow/card.ts";
 import { gateOf } from "../../lib/workflow/round.ts";
-import { owesNotice } from "../../lib/workflow/signs.ts";
+import { isUntold } from "../../lib/workflow/signs.ts";
 import { DECISION_TONE, GATE_WORD } from "../../lib/workflow/tone.ts";
 import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
@@ -71,7 +71,7 @@ function factsOf(card: Card): Fact[] {
 	if (gate !== undefined) facts.push({ text: GATE_WORD[gate], tone: REASON_TONE[gate] });
 	// A sign the owner never heard about is the one debt no gate states: the gate is open and the
 	// ledger says so, which is why the rollup counts these cards in a group of its own.
-	if (owesNotice(card)) facts.push({ text: "untold", tone: DECISION_TONE.untold });
+	if (isUntold(card)) facts.push({ text: "untold", tone: DECISION_TONE.untold });
 	return facts;
 }
 

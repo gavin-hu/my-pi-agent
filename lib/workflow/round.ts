@@ -25,7 +25,7 @@
 
 import { type Card, dependsOf } from "./card.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
-import { currentReview, owesNotice } from "./signs.ts";
+import { currentReview, isUntold } from "./signs.ts";
 import { labelKey } from "../session-label.ts";
 import { type Gate } from "./tone.ts";
 
@@ -164,7 +164,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		if (card.lane === "execute" && now - card.updatedAt >= UNWRITTEN_MS) unwritten.push(card);
 		// Every owed notice is one predicate, so the row that prints `untold` and this group cannot
 		// disagree about a card: a handoff the bus never took, and the sign this lane is waiting on.
-		if (owesNotice(card)) untold.push(card);
+		if (isUntold(card)) untold.push(card);
 
 		if (card.owner === undefined) continue;
 		const key = labelKey(card.owner.label);
