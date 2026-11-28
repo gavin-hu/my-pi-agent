@@ -51,13 +51,13 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit"
  * agent-directory store, and a WeChat send, an app launch and a served review page
  * reach only outside the tree. Every other writer is judged by its hint.
  *
- * Four are spelled here rather than imported: `lib/tool-names.ts` has no constant
- * for them, and adding one would put that module in four entry graphs whose
- * `ENTRY_BUDGET` rows may only fall. This set is then their only other reader, so a
- * *new* call that cannot change a checkout has to be added here by hand — nothing
- * else can declare it, and a false positive spends a model request while a missed
- * reminder costs nothing. `job`, `watch` and `worktree` are deliberately absent:
- * they start a command in a tree or move the checkout.
+ * Four are spelled here rather than imported: this file already spells the built-in
+ * names (`write`, `edit`, the shells) the same way, and four names with one reader do
+ * not need a shared home. This set is then their only other reader, so a *new* call
+ * that cannot change a checkout has to be added here by hand — nothing else can
+ * declare it, and a false positive spends a model request while a missed reminder
+ * costs nothing. `job`, `watch` and `worktree` are deliberately absent: they start a
+ * command in a tree or move the checkout.
  *
  * `file-open`'s `readOnlyHint: false` is deliberate — plan mode admits tools by
  * that hint, and launching an application must stay behind the normal policy — so
