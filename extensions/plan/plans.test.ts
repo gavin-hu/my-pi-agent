@@ -666,7 +666,7 @@ describe("plan outline", () => {
 		// The template is what a model copies, so the example document has to parse:
 		// eight sections in order, two tracked steps, and one verification item.
 		expect(extractSections(PLAN_OUTLINE).map((section) => section.title)).toEqual(["<Title>", ...PLAN_SECTIONS]);
-		expect(planStepSummary(PLAN_OUTLINE)).toEqual({ total: 2, elided: 0 });
+		expect(planStepSummary(PLAN_OUTLINE)).toEqual({ total: 2, elided: 0, hasStepsSection: true });
 		expect(verificationItem(PLAN_OUTLINE)?.content).toBe("Verify: bun test src/config.test.ts; bun run check");
 	});
 });

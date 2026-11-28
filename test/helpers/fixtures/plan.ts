@@ -1,9 +1,10 @@
 import { join } from "node:path";
 import { PLAN_TOOL } from "../../../lib/tool-names.ts";
 import { createPlanPolicy } from "../../../extensions/plan/policy.ts";
-import { createPlanRuntime, type PlanRuntime } from "../../../extensions/plan/runtime.ts";
+import { createPlanRuntime, type PlanAction, type PlanRuntime } from "../../../extensions/plan/runtime.ts";
 import { toolResultEntry } from "../entries.ts";
 import { createFakePi, type AnyHandler } from "../fakes.ts";
+import { callTool } from "../tools.ts";
 import { fakeCtx, type FakeCtxOptions, type FakeCtxResult } from "../context.ts";
 
 export interface PlanPi {
@@ -45,17 +46,34 @@ export function makePlanPi(
 }
 
 /**
+ * The `git rev-parse` seam a plan store keys on: every cwd is its own repository root, and the
+ * common-directory probe answers `<root>/.git` the way a real checkout does.
+ */
+export function planExec(root: string) {
+	return async (command: string, args: string[]) => {
+		if (command !== "git" || args[0] !== "rev-parse") return { stdout: "", stderr: "", code: 1 };
+		const out = args.includes("--git-common-dir") ? join(root, ".git") : root;
+		return { stdout: `${out}\n`, stderr: "", code: 0 };
+	};
+}
+
+/**
  * A pi whose `git rev-parse` reports `root` as the repository root, so a plan store keys on
  * `root`'s common git directory instead of landing in the unkeyed directory.
  */
 export function planRepoPi(root: string): any {
-	return createFakePi({
-		exec: async (command: string, args: string[]) => {
-			if (command !== "git" || args[0] !== "rev-parse") return { stdout: "", stderr: "", code: 1 };
-			const out = args.includes("--git-common-dir") ? join(root, ".git") : root;
-			return { stdout: `${out}\n`, stderr: "", code: 0 };
-		},
-	}).pi;
+	return createFakePi({ exec: planExec(root) }).pi;
+}
+
+/** The folded plan tool's one action, as Pi calls it. */
+export function planAct(plan: unknown, action: PlanAction, params: Record<string, unknown>, ctx: unknown) {
+	return callTool(plan, { ...params, action }, ctx);
+}
+
+/** Enter plan mode through the real tool in the repository `root` names, and refuse to go quiet. */
+export async function planEnter(plan: unknown, runtime: { isEnabled(): boolean }, root: string): Promise<void> {
+	await planAct(plan, "enter", {}, planCtx({ confirm: true, cwd: root }).ctx);
+	if (!runtime.isEnabled()) throw new Error("plan mode did not come on");
 }
 
 /** A plan-mode context: RPC by default so `ctx.mode === "tui"` branches stay off. */

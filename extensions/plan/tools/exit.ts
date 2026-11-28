@@ -20,7 +20,7 @@ import { expandHint, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, type ToolCallText, type WidthLine } from "../../../lib/tui/tool.ts";
 import { feedbackSummary } from "../feedback.ts";
-import { mergeSummary, overCap, TICK_CALL, verificationNote } from "../format.ts";
+import { mergeSummary, overCap, stepsSourceNote, TICK_CALL, verificationNote } from "../format.ts";
 import { sanitizePlanText, taskMarker } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
 import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
@@ -117,13 +117,14 @@ export async function executeExit(
 		);
 	}
 
-	const total = planStepSummary(file.content).total;
+	const summary = planStepSummary(file.content);
+	const total = summary.total;
 	if (total > MAX_STEPS) {
 		// A hand-edited or older plan file can still be over the cap; refuse it here
 		// too, so approval never seeds a list it cannot hold in full. The refusal
 		// carries the file it read, so the block still shows what was not presented.
 		return failedResult(
-			`Error: ${overCap(total)} It was not presented for approval; call \`plan\` action \`write\` with plan_path to group the steps, then \`exit\` again.`,
+			`Error: ${overCap(total)}${stepsSourceNote(summary.hasStepsSection, total)} It was not presented for approval; call \`plan\` action \`write\` with plan_path to group the steps, then \`exit\` again.`,
 			{
 				action: "exit",
 				approved: false,
@@ -265,15 +266,14 @@ export async function executeExit(
 					.map((step, index) => `${index + 1}. [${step.status === "completed" ? "x" : " "}] ${step.content}`)
 					.join("\n")}`
 			: "";
-	const tick = TICK_CALL;
 	const tail =
 		steps.length === 0
 			? " The plan has no steps to record."
 			: error
-				? ` Could not record the steps in the todo list: ${error}. Keep these steps in mind and tick them off with ${tick} as you go.`
+				? ` Could not record the steps in the todo list: ${error}. Keep these steps in mind and tick them off with ${TICK_CALL} as you go.`
 				: merged
 					? mergeSummary(merged, steps)
-					: ` Could not read the todo list. Record these steps with the todo tool before you start, and tick them off with ${tick}.`;
+					: ` Could not read the todo list. Record these steps with the todo tool before you start, and tick them off with ${TICK_CALL}.`;
 	const verification = verificationNote(merged);
 	const goalNote =
 		goal.action === undefined
