@@ -144,6 +144,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a card parked in `blocked` without a recorded block no longer wears the block's label over
+  somebody's last note — the line reads `blocked — last note: …`, so a reader knows the sentence is
+  history rather than the reason somebody parked it. The kind and the tone do not move: the card is
+  still blocked, and the face still gives it the one visible line the lane needs, which is why the
+  fallback does not become a note, whose prose that face hides.
+
 - `board`: a `contract` naming a plan file another card records is refused, naming that card — a plan is one card's, and a
   second record would let a re-plan rewrite the bytes whose wording a peer approved, which neither the existence check nor
   the artifact gate can see. The card's own path still records, because that is the re-plan, and the refusal sits after the
