@@ -137,6 +137,17 @@ export interface DropResult {
 	kept: KeptMail[];
 }
 
+/**
+ * What clearing this session's inbox did: how much went, and how much the session still has.
+ *
+ * The second number is the inbox's depth after the sweep, read from the files that stayed — the
+ * sentence a person reads is the next state, not an echo of what the sweep meant to do.
+ */
+export interface CleanResult {
+	removed: number;
+	left: number;
+}
+
 /** One name a forget freed: the record it removed and the claims that went back with it. */
 export interface ForgottenSession {
 	id: string;

@@ -20,6 +20,7 @@ import type { BusStore } from "./store.ts";
 import type {
 	BusMessage,
 	ClaimConflict,
+	CleanResult,
 	DeliveryFailure,
 	DropResult,
 	ForgetResult,
@@ -131,6 +132,14 @@ export interface SessionBus {
 	 * id a record's inbox holds, so a mistaken id costs a sentence rather than somebody's mail.
 	 */
 	dropUnaccounted(ids: readonly string[]): Promise<DropResult>;
+	/**
+	 * Clear this session's own inbox of the mail older than `olderThanMs` — the door `clean` opens.
+	 *
+	 * No tool action calls this: the mail reached this session and went unread, so a person clears
+	 * it. It never joins, and it walks one inbox — this one — so a peer's mail is out of reach by
+	 * construction rather than by a guard.
+	 */
+	cleanInbox(olderThanMs: number): Promise<CleanResult>;
 	/**
 	 * Free the names of records the bus reads as `gone`: their claims go, their inbox stays.
 	 *

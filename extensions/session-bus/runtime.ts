@@ -35,6 +35,7 @@ import {
 	lapseNotice,
 	lapsedOwners,
 	MAX_LIMIT,
+	MESSAGE_TTL_MS,
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
@@ -50,7 +51,6 @@ export type { SessionBus, SessionBusOptions };
 const DEFAULT_HEARTBEAT_MS = 10_000;
 const NO_MAIL: InboxPeek = { mail: [], unread: new Set(), unreadable: [] };
 const DEFAULT_WATCH_MS = 2_000;
-const DEFAULT_MESSAGE_TTL_MS = 24 * 60 * 60_000;
 
 export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = {}): SessionBus {
 	const now = options.now ?? Date.now;
@@ -72,7 +72,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return rosterStateOf(recordFacts(session, host), at, sessionTtlMs, seams);
 	}
 	const sessionTtlMs = options.sessionTtlMs ?? SESSION_TTL_MS;
-	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
+	const messageTtlMs = options.messageTtlMs ?? MESSAGE_TTL_MS;
 
 	let host: string | undefined;
 	let identity: HostIdentity | undefined;
@@ -242,9 +242,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// The machine's row beats with the session: a claim lapses on it.
 			if (identity) await store.writeHost(identity, now());
 			if (yielded) labels.publish();
-			// The one prune that opens inbox files rides the clock the message TTL is measured in,
-			// so no action pays for mail nobody is waiting on. It takes this session's inbox and
-			// the ones no record holds; a peer's mail is that peer's to end.
+			// The one prune that opens inbox files rides the clock the message TTL is measured in, so no
+			// action pays for mail nobody waits on; a peer's inbox is that peer's to end.
 			await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
 		});
 	}
@@ -392,9 +391,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			record = undefined;
 		},
 
-		// Join, name, and listen as one act. Order matters the way it does everywhere else
-		// here: the name is validated by `rename` before a watch is armed, so a refused
-		// label leaves both the record and the watch exactly as they were.
+		// Join, name, and listen as one act: the name is validated before a watch is armed, so a
+		// refused label leaves the record and the watch exactly as they were.
 		async join(input) {
 			const me = await currentRecord();
 			if (!writer) throw new Error("session bus is not started.");
@@ -555,11 +553,16 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const { messages } = await store.inbox(me.id, normalizeLimit(limit));
 			// Mail read before its notice fired is never announced afterwards.
 			mailWatch.markReported(messages.map((message) => message.id));
-			// The standing line counts files, so consuming them is the one write that can clear it;
-			// refresh the depth now rather than waiting for the poll's own clock. A failed refresh
-			// costs the line a turn, never the mail this call already consumed.
-			await mailWatch.poll().catch(() => {});
+			await mailWatch.refresh();
 			return messages;
+		},
+
+		/** Clear this session's inbox of the mail older than `olderThanMs` — the door `clean` opens. */
+		async cleanInbox(olderThanMs) {
+			if (!store || !record) throw new Error("session bus is not started.");
+			const cleared = await store.cleanInbox({ now: now(), olderThanMs, own: record.id });
+			await mailWatch.refresh();
+			return cleared;
 		},
 
 		/**

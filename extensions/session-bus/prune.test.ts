@@ -20,6 +20,7 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle } from "../../test/helpers/process.ts";
 import { createSessionBus } from "./runtime.ts";
 import { type BusStore, createBusStore } from "./store.ts";
+import { storedName } from "../../lib/session-files.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -144,6 +145,32 @@ describe("the store's two halves", () => {
 		expect(await untoldOf(dir, "s1")).toBe(0);
 		expect(await untoldOf(dir, "s3")).toBe(1);
 		expect(await untoldOf(dir, "s2")).toBe(0);
+	});
+
+	test("clean takes one inbox and the cutoff a person chose, and answers both counts", async () => {
+		const { dir, store } = busStoreFixture(temps);
+		await store.writeMessage("s1", busMessage("1-old", "s1", 0));
+		await store.writeMessage("s1", busMessage("1-new", "s1", 900));
+		await store.writeMessage("s3", busMessage("3-old", "s3", 0));
+		// Two facts the TTL sweep does not have: the cutoff is the person's, and the walk is this
+		// session's inbox alone — a peer's mail is that peer's to end, held or not.
+		const cleared = await store.cleanInbox({ now: 1_000, olderThanMs: 500, own: "s1" });
+		expect(cleared).toEqual({ removed: 1, left: 1 });
+		expect(await untoldOf(dir, "s1")).toBe(1);
+		expect(await untoldOf(dir, "s3")).toBe(1);
+	});
+
+	test("clean ends a file it cannot read on the only clock that file has", async () => {
+		const { dir, store } = busStoreFixture(temps);
+		await store.writeMessage("s1", busMessage("1-old", "s1", 0));
+		const inbox = join(dir, "inbox", storedName("s1"));
+		await writeFile(join(inbox, "100-junk.json"), "{");
+		// No readable `at`, so the mtime is the clock: a file this build cannot parse is still
+		// ended by a cutoff instead of sitting in the inbox forever.
+		await utimes(join(inbox, "100-junk.json"), 1, 1);
+		const cleared = await store.cleanInbox({ now: 1_000_000, olderThanMs: 500, own: "s1" });
+		expect(cleared).toEqual({ removed: 2, left: 0 });
+		expect(await readdir(join(dir, "inbox"))).toEqual([]);
 	});
 });
 

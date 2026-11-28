@@ -44,6 +44,16 @@ export const MAX_PATHS = 20;
 const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
+/**
+ * How long a message lives, when nobody says otherwise: a day.
+ *
+ * It is here rather than in `runtime.ts` because two surfaces read it — the heartbeat that ends the
+ * mail this age has taken, and `clean`, whose default cutoff is the same age — and the door's
+ * sentence spells the cutoff it applies. A second copy beside it is how the sentence and the sweep
+ * come to disagree about what "the default" means.
+ */
+export const MESSAGE_TTL_MS = 24 * 60 * 60_000;
+
 import type { SessionMode } from "../../lib/session-files.ts";
 
 /**
