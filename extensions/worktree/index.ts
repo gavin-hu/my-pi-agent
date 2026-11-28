@@ -177,6 +177,16 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 			}
 		}
 
+		// A lock this process wrote under a session id a `/new` replaced names a session nothing runs.
+		// The start is where nobody asks about it, so it is reconciled here — the tree this session
+		// stands in renewed, the rest released — before the environment below is cleared. Loaded on
+		// first use: the registration graph pays for nothing a fresh start does not run.
+		if (event.reason !== "startup") {
+			const { reconcileOwnLocks } = await import("./locks.ts");
+			const reconciled = await reconcileOwnLocks(pi, ctx);
+			if (reconciled !== undefined) ctx.ui.notify(reconciled, "info");
+		}
+
 		// Keep the process environment in step with the restored binding: a peer
 		// extension or a child process reads PI_WORKTREE_* (lib/env.ts), and this
 		// session may have replaced one that exported a different root.
