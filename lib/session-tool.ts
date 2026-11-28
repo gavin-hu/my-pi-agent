@@ -34,14 +34,6 @@ import type { MessageKind } from "./session-mail.ts";
 import { type PeerRow, type RosterState } from "./session-roster.ts";
 import { SESSION_TOOL } from "./tool-names.ts";
 
-/**
- * The `session send` text limit, which is also the longest handoff or offer.
- *
- * It is copied from the bus's protocol rather than imported — the dependency runs one
- * way — and it lives here so `team` and `board` clip to one number instead of two.
- */
-export const MAX_MESSAGE_TEXT = 4_000;
-
 /** Whether a session is listening for mail, and whether it raises a turn. */
 export interface Watching {
 	armed: boolean;

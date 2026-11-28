@@ -7,8 +7,7 @@
 
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { EMPTY_PATH, outsideRepository, overLimit, sanitizeLine, tooManyPaths } from "../../lib/format.ts";
-import { MESSAGE_KINDS, type MessageKind } from "../../lib/session-mail.ts";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { MAX_MESSAGE_TEXT, MESSAGE_KINDS, type MessageKind } from "../../lib/session-mail.ts";
 import { SESSION_TOOL } from "../../lib/tool-names.ts";
 import { memberOf } from "../../lib/json.ts";
 import type { ClaimRecord } from "./types.ts";
@@ -33,8 +32,8 @@ export function forgetCommand(label: string): string {
 	return `/${COMMAND_NAME} ${FORGET_WORD} ${sanitizeLine(label)}`;
 }
 /**
- * The caps and the default this protocol settles for itself. The text cap is not one: it is
- * `lib/session-tool.ts`'s `MAX_MESSAGE_TEXT`, because the callers that clip to it live there.
+ * The caps and the default this protocol settles for itself — the text cap is not one: it is the
+ * envelope's own `MAX_MESSAGE_TEXT`, in `lib/session-mail.ts`.
  *
  * `MAX_PATHS` is exported because the tool's schema publishes it: the host refuses a longer list
  * before `execute`, while the request path a command takes still reads it here. `MIN_PATHS` is the

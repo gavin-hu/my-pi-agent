@@ -9,7 +9,7 @@
 
 import { Type } from "typebox";
 import { MAX_LABEL } from "../../lib/session-label.ts";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-mail.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { TEAM_ACTIONS } from "./types.ts";
 
