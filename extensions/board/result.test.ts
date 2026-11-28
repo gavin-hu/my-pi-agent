@@ -218,6 +218,43 @@ describe("the rows a mine listing draws", () => {
 	});
 });
 
+describe("the line a rollup draws", () => {
+	/** One card in each group a reader acts on, so every count on the line is the round's own fact. */
+	const asking: RoundSummary = {
+		owners: [{ label: PEER.label, cards: [], done: [] }],
+		unassigned: [],
+		shelved: [],
+		unplanned: [],
+		unapproved: [card({ id: "3" })],
+		unreviewed: [card({ id: "7", lane: "execute" })],
+		untold: [],
+		blocked: [card({ id: "4", lane: "blocked" })],
+		unwritten: [],
+		done: [],
+		archivable: [],
+	};
+
+	test("counts what the rollup asks a reader for, not what the board is made of", () => {
+		const line = collapsedLine(coloringTheme, { action: "list", me: ME, cards: [], round: asking });
+		expect(line).toContain("1 awaiting approval");
+		expect(line).toContain("1 awaiting review");
+		expect(line).toContain("1 blocked");
+		// In the order the model's own first line prints them, so one board counts one way.
+		expect(line.indexOf("awaiting approval")).toBeLessThan(line.indexOf("awaiting review"));
+		expect(line.indexOf("awaiting review")).toBeLessThan(line.indexOf("1 blocked"));
+		// A count of owners is what the board is made of, not what it asks: the line it used to lead
+		// with is gone the moment the rollup names something to decide.
+		expect(line).not.toContain("owner");
+	});
+
+	test("falls back to the board's size when the rollup asks nobody for anything", () => {
+		const settled: RoundSummary = { ...asking, unapproved: [], unreviewed: [], blocked: [] };
+		const line = collapsedLine(coloringTheme, { action: "list", me: ME, cards: [], round: settled });
+		expect(line).toContain("1 owner");
+		expect(line).not.toContain("awaiting");
+	});
+});
+
 describe("a rollup under a narrowed listing", () => {
 	/** A rollup holding one card, owned by the peer: the whole board's answer, which is not this session's. */
 	const round: RoundSummary = {

@@ -23,6 +23,7 @@ import {
 	RAN_CLAUSE_JS,
 	ranClause,
 	type RosterLabel,
+	roundTally,
 	withLiveOwner,
 } from "./round-text.ts";
 import { buildView } from "./view.ts";
@@ -118,6 +119,26 @@ describe("formatRound", () => {
 	test("an empty board is a headline of zeroes, not a refusal", () => {
 		expect(formatRound([], buildRound([], NOW))).toBe(
 			"0 owners · 0 features · 0 unassigned · 0 shelved · 0 unplanned · 0 awaiting approval · 0 awaiting review · 0 untold · 0 blocked · 0 unwritten · 0 done",
+		);
+	});
+
+	test("marks the counts a reader acts on, and nothing the board is merely made of", () => {
+		const cards = [card("2", { lane: "execute", owner: { label: "billing-core" } })];
+		const tally = roundTally(cards, buildRound(cards, NOW));
+		// The six a card waits on somebody for, in the order the headline prints them. A surface that
+		// shows a decision keeps these and drops the rest, which is why the mark exists rather than a
+		// second list of group names beside this one.
+		expect(tally.filter((entry) => entry.kind !== undefined).map((entry) => entry.kind)).toEqual([
+			"unplanned",
+			"approval",
+			"review",
+			"untold",
+			"blocked",
+			"unwritten",
+		]);
+		// The headline is these words joined: one count, one sentence, whichever surface prints it.
+		expect(tally.map((entry) => entry.word).join(" · ")).toBe(
+			formatRound(cards, buildRound(cards, NOW)).split("\n")[0],
 		);
 	});
 });

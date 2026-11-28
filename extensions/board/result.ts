@@ -11,6 +11,8 @@ import type { Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef, cardRefOf } from "../../lib/workflow/card.ts";
 import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import { plural, sanitizeLine } from "../../lib/format.ts";
+import { type RoundTally, roundTally } from "../../lib/workflow/round-text.ts";
+import { DECISION_TONE, type DecisionKind } from "../../lib/workflow/tone.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import {
 	callLine,
@@ -124,8 +126,20 @@ export function collapsedLine(theme: Theme, details: BoardDetails): string {
 	const count = details.cards?.length ?? 0;
 	const round = details.round;
 	if (!round) return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${me}`;
-	const owners = round.owners.length;
-	return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${plural(owners, "owner")} ${SEPARATORS.item} ${me}`;
+	// The rollup's own counts, minus the ones that are not an ask: the model reads these words on
+	// the first line of its answer, so the block's one line and that text cannot count one board two
+	// ways. A narrowed read passes its slice for the entries this does not print, and every kinded
+	// entry is the round's — the whole board's — so a filter cannot put a slice's tally under it.
+	const asks = roundTally(details.cards ?? [], round).filter(
+		(entry): entry is RoundTally & { kind: DecisionKind } =>
+			entry.kind !== undefined && entry.count > 0,
+	);
+	if (asks.length > 0) {
+		const gap = ` ${paint(theme, "meta", SEPARATORS.item)} `;
+		const counts = asks.map((entry) => paint(theme, TONE_ROLE[DECISION_TONE[entry.kind]], entry.word));
+		return `${paint(theme, "label", plural(count, "card"))}${gap}${counts.join(gap)}${gap}${me}`;
+	}
+	return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${plural(round.owners.length, "owner")} ${SEPARATORS.item} ${me}`;
 }
 
 /**
