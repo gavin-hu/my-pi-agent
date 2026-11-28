@@ -67,7 +67,11 @@ one. Outside the TUI the same runs print as a list.
 **Bounds.** Parallel: 8 tasks, 4 at once. Chain: 8 steps, stops at the first
 failure. What a step hands the next through `{previous}`: 24 KiB. What one result
 hands the model: 50 KiB, with the full text kept in the tool details. Background:
-4 children at once.
+4 children at once. A session: 8 delegated children in flight, counted across calls
+by what each call plans to start — a batch of 8 reserves all eight, so a second call
+waits rather than doubling the pool, and a call that would exceed the eight is
+refused whole before any child starts. The background board is counted apart, by
+`backgroundMax`.
 
 **Plan mode.** The tool stays active but every call is forced read-only; a
 background run and `/agents` are refused until the plan is approved.

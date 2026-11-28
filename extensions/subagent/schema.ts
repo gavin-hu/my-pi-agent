@@ -16,6 +16,13 @@ export const MAX_PARALLEL_TASKS = 8;
 export const MAX_CHAIN_STEPS = 8;
 /** How many parallel tasks may run at once. */
 export const MAX_CONCURRENCY = 4;
+/**
+ * Delegated children one session may have in flight from tool calls, counted across calls.
+ * A single call caps its own concurrency, but sibling calls run in parallel, so without this
+ * a turn's worth of calls multiplies the pool; a bound rather than a setting, because no
+ * caller has a reason to want more children than the machine can run.
+ */
+export const MAX_LIVE_CHILDREN = 8;
 /** Model-facing bytes returned per task, per chain step, or for a failed run's error text. */
 export const MODEL_OUTPUT_CAP = 50 * 1024;
 /**
