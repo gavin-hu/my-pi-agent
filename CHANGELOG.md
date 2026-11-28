@@ -139,6 +139,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   records a sha. `AGENTS.md` carries the same rule in one clause, a card's branch taking its commit as each step
   finishes: the sentence still measures twelve words, so the file's ceiling holds at 979.
 
+- `subagent`: a read-only child cannot reach the network at all. Its allowlist kept `web_search` while
+  dropping `web_fetch`, and the sentence beside it gave the reason for both — a query string is the same
+  outbound channel a request body is, so a child working from a document it read could send it either way.
+  The set is now the shared workspace readers and nothing else, `extensions/subagent/gates.test.ts` holds it
+  there by asking `lib/tool-names.ts` for every name that leaves the machine, and a read-only run is told to
+  ask its caller for a page instead. Plan mode keeps its own interactive search: this narrows what a child
+  may do, and still sandboxes nothing.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached
