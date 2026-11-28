@@ -188,15 +188,16 @@ describe("joinTeam", () => {
 		expect("error" in state && state.fix).toContain("a lead that renames loses its signature");
 	});
 
-	test("a name a dead record still holds comes back on its own", async () => {
+	test("a name a dead record still holds names the door, and comes back on its own if nobody runs it", async () => {
 		const { session, team, ctx, busDir } = joinHarness(temps, {
 			refuses: `the label "${LABEL}" is held by session s-peer.`,
 		});
 		// The bus reserves a name for the heartbeat's TTL, which is the window a stopped session
-		// still holds: the record's process is gone, so waiting is a real answer.
+		// still holds: the record's process is gone, so waiting is a real answer — and the sentence
+		// names the person's door, because waiting is no longer the only one.
 		writeBusRecord(busDir, { id: "s-peer", label: LABEL, lastSeen: NOW, pid: 2 ** 22 + 7 });
 		const state = await joinTeam(session, team, ctx, LABEL);
-		expect("error" in state && state.fix).toContain("The bus forgets that record when its heartbeat ages out");
+		expect("error" in state && state.fix).toContain("/sessions forget");
 	});
 
 	test("a reason the roster cannot place is reported with no advice grafted onto it", async () => {

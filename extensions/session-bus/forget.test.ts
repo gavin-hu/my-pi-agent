@@ -145,6 +145,21 @@ describe("the forget door", () => {
 		await bus.stop();
 	});
 
+	test("the refusal a peer meets names the door, and the door frees the name it cannot", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const { bus } = await harness(dir);
+		await seed(dir);
+
+		// A peer joining a dead session's name is told the bus forgets it in time — and which door
+		// does it now. The sentence is `heldBy`'s, so this is the one case that reaches it.
+		await expect(bus.join({ label: "crashed" })).rejects.toThrow("/sessions forget crashed");
+
+		await bus.forget(["crashed"]);
+
+		expect((await bus.join({ label: "crashed" })).label).toBe("crashed");
+		await bus.stop();
+	});
+
 	test("leaves the inbox alone, so its unread turn up as unaccounted", async () => {
 		const dir = scratchDir(temps, "pi-session-bus-");
 		const { bus } = await harness(dir);
