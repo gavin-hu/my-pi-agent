@@ -1,11 +1,12 @@
 /**
  * The landing proof's append hotspots, as a suite of their own.
  *
- * What this holds is the half a numstat cannot answer: a bullet in `CHANGELOG.md` has no legitimate
- * deletion, while a suite's removal *deletes its manifest line* — the layout gate requires both
- * directions — so the manifest is judged by the declarations it lost, never by the lines a diff
- * removed. A group can sit on one line as `"web-access": ["fetch/extract", "fetch/schema"],`, so a
- * line's first quoted string is the group's key, and reading the diff's prose answers the wrong
+ * What this holds is the half a numstat cannot answer: the changelog's bullet belongs to the
+ * landing, so a branch may not edit the file at all and the reference block at its foot is the one
+ * exception — a version cut rewrites those pointers and adds the new version's line. The suite manifest
+ * is judged by the declarations it lost, never by the lines a diff removed: the layout gate requires a
+ * removal to delete its line, so a group can sit on one line as `"web-access": ["fetch/extract", "fetch/schema"],`
+ * and a line's first quoted string is the group's key, while reading the diff's prose answers the wrong
  * question in both directions (#905).
  *
  * Split from `land.test.ts` when the wrapped-group cases arrived: the hotspot block was the part
@@ -23,7 +24,7 @@ import {
 	ROOT_SUITES,
 	SCRIPT_SUITES,
 } from "../../test/suite-manifest.ts";
-import { BASE, cleanLanding, landingWith, MERGE } from "../../test/helpers/land-git.ts";
+import { BASE, BULLET, CHANGELOG, cleanLanding, landingWith, MERGE, REVIEWED } from "../../test/helpers/land-git.ts";
 
 /**
  * A landing that changes the suite manifest: the two files the proof reads, and the merge's tree.
@@ -65,84 +66,68 @@ const WRAPPED_HEAD = "export const EXTENSION_SUITES: Record<string, readonly str
 /** The hunk header both wrapped-group diffs carry, so a rule reading the diff sees the change. */
 const WRAPPED_HUNK = "@@ -1,1 +1,1 @@\n";
 
-/**
- * The changelog patch #909's 0.31.0 prep really makes: the `[Unreleased]` reference rewritten, the new
- * version's line added beneath it, and the new heading above the window. `git diff e386545f 3f7fd000
- * -- CHANGELOG.md` is this, `4/1`, and the allowance exists for exactly this shape.
- */
-const RELEASE_PATCH = [
-	"@@ -6,6 +6,8 @@",
-	"+## [0.31.0] - 2026-11-25",
-	"+",
-	"@@ -8899,7 +8901,8 @@ one installable Pi package.",
-	"-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...HEAD",
-	"+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.31.0...HEAD",
-	"+[0.31.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...v0.31.0",
-	"",
+/** The `[Unreleased]` reference a cut rewrites, and the two lines it leaves in its place. */
+const CUT_OLD = "[Unreleased]: https://example.com/compare/v0.30.0...HEAD";
+const CUT_NEW = [
+	"[Unreleased]: https://example.com/compare/v0.31.0...HEAD",
+	"[0.31.0]: https://example.com/compare/v0.30.0...v0.31.0",
 ].join("\n");
 
-/** A bullet no landing may drop. */
-const BULLET_PATCH = "@@ -10,1 +10,0 @@\n-- `board`: a record nobody may overwrite.\n";
+/** The file a landing leaves behind when the branch's copy is `branch`: this card's bullet above its list. */
+function landedFrom(branch: string): string {
+	return branch.replace("- an earlier change\n", `${BULLET}\n\n- an earlier change\n`);
+}
 
-/** The sentence a refused `CHANGELOG.md` deletion prints, byte for byte. */
-const APPEND_REFUSAL =
-	"the landing deletes lines in CHANGELOG.md, which are appended and not rewritten: the merge was undone and nothing was pushed.";
-
-/** A landing that deletes lines in `CHANGELOG.md`: the counts, and the lines the proof reads. */
-function changelogLanding(options: { numstat: string; patch: string }) {
+/** A landing whose branch carries `branch` as its changelog, and a merge that carries the bullet. */
+function changelogLanding(branch: string) {
 	return cleanLanding({
-		"diff --numstat": { stdout: options.numstat },
-		"diff --unified=0": { stdout: options.patch },
+		[`show ${REVIEWED}:CHANGELOG.md`]: { stdout: branch },
+		[`show ${MERGE}:CHANGELOG.md`]: { stdout: landedFrom(branch) },
 	});
 }
 
 describe("the landing proof's append hotspots", () => {
-	test("undoes a landing that deletes a bullet, with the sentence it always printed", async () => {
-		// A removed bullet is a peer's record overwritten, and the reference allowance beside it did
-		// not reword the case the rule keeps.
-		const { git, answer } = landingWith(changelogLanding({ numstat: "5\t2\tCHANGELOG.md\n", patch: BULLET_PATCH }));
-		const result = await answer;
-		if (!("error" in result)) throw new Error("expected the landing to be refused");
-		expect(result.error).toBe(APPEND_REFUSAL);
-		expect(git.argv("reset").at(0)).toEqual(["reset", "--keep", BASE]);
-		expect(git.argv("push")).toEqual([]);
-	});
-
-	test("lands a release prep that rewrites the foot reference and adds the new one", async () => {
-		// #909's real shape, `4/1`: a reference is a pointer, so the cut that moves it and adds the
-		// new version's line has done what every release does.
-		const { git, answer } = landingWith(changelogLanding({ numstat: "4\t1\tCHANGELOG.md\n", patch: RELEASE_PATCH }));
+	test("lands a version cut, whose reference rewrite is the one edit a branch may make", async () => {
+		// #909's shape: a reference is a pointer, so the cut that moves it and adds the new version's line
+		// has done what every release does — and the bullet still rides above it, written by the landing.
+		const cut = CHANGELOG.replace(CUT_OLD, CUT_NEW);
+		const { git, written, answer } = landingWith(changelogLanding(cut));
 		expect(await answer).toMatchObject({ merge: MERGE });
-		expect(git.argv("reset")).toEqual([]);
+		expect(written.at(0)?.text).toBe(landedFrom(cut));
 		expect(git.argv("push")).toHaveLength(1);
 	});
 
-	test("undoes a removed reference with nothing replacing it", async () => {
-		const { git, answer } = landingWith(
-			changelogLanding({
-				numstat: "0\t1\tCHANGELOG.md\n",
-				patch: "@@ -8899,2 +8899,1 @@\n-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...HEAD\n",
-			}),
-		);
+	test("refuses a branch that deletes a peer's bullet, before any merge", async () => {
+		// The contention this verb exists to remove, caught where it costs a sentence rather than a
+		// conflict: a branch's changelog is the base's, except for the references a cut rewrites.
+		const { git, answer } = landingWith(changelogLanding(CHANGELOG.replace("- an earlier feature\n\n", "")));
 		const result = await answer;
 		if (!("error" in result)) throw new Error("expected the landing to be refused");
-		expect(result.error).toBe(APPEND_REFUSAL);
+		expect(result.error).toContain("the branch edits CHANGELOG.md");
+		expect(result.error).toContain(BULLET);
+		expect(git.argv("merge")).toEqual([]);
 		expect(git.argv("push")).toEqual([]);
 	});
 
-	test("undoes a bullet deleted beside a rewritten reference", async () => {
-		// "Every" is the word the rule turns on: one reference in the diff does not excuse the bullet
-		// next to it.
-		const { git, answer } = landingWith(
-			changelogLanding({
-				numstat: "4\t2\tCHANGELOG.md\n",
-				patch: `${RELEASE_PATCH}-- \`board\`: a record nobody may overwrite.\n`,
-			}),
-		);
+	test("refuses a reference removed with nothing replacing it", async () => {
+		// A cut adds the version line as well as moving the pointer; a reference that only disappears is
+		// a record lost rather than a release cut.
+		const { git, answer } = landingWith(changelogLanding(CHANGELOG.replace(`${CUT_OLD}\n`, "")));
 		const result = await answer;
 		if (!("error" in result)) throw new Error("expected the landing to be refused");
-		expect(result.error).toBe(APPEND_REFUSAL);
-		expect(git.argv("push")).toEqual([]);
+		expect(result.error).toContain("without the new version's line");
+		expect(git.argv("merge")).toEqual([]);
+	});
+
+	test("refuses a cut that drops a bullet beside the reference it rewrote", async () => {
+		// "Except the references" is the whole allowance: one reference in the diff does not excuse the
+		// bullet next to it, and the comparison is what says so without reading a single diff line.
+		const cut = CHANGELOG.replace(CUT_OLD, CUT_NEW).replace("- an earlier feature\n\n", "");
+		const { git, answer } = landingWith(changelogLanding(cut));
+		const result = await answer;
+		if (!("error" in result)) throw new Error("expected the landing to be refused");
+		expect(result.error).toContain("the branch edits CHANGELOG.md");
+		expect(git.argv("merge")).toEqual([]);
 	});
 
 	test("lands a suite's removal, whose declaration goes and whose file the merge is without", async () => {

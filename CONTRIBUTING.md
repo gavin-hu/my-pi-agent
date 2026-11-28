@@ -74,8 +74,8 @@ in: an extension name whenever one extension owns the change, even if all its co
 in `lib/` — a change to the review page reads `code-review`, never `view`. A shared area
 only when no extension owns it: `lib` for kit plumbing several pages consume, `docs` for
 prose no extension owns, `test` for suite scaffolding, `ci` for the workflows. The
-changelog bullet takes the same scope, so one landing reads `merge(board): …` carrying a
-`- board: …` bullet. Keep the summary imperative, add a short why-body for a non-trivial
+changelog bullet takes the same scope; the landing writes it, so a card's branch never edits
+`CHANGELOG.md`. Keep the summary imperative, add a short why-body for a non-trivial
 change, and use no emojis.
 
 ## Adding an extension
@@ -195,8 +195,8 @@ authenticates with npm trusted publishing (OIDC). Read
 
 1. Work on a branch in a worktree (see [the branch flow](#branch-flow)).
 2. Land the version:
-   - Read `[Unreleased]` against `git log <last-tag>..main`: one scoped bullet per
-     user-visible change, and none describing a state reverted in the same window.
+   - Read `[Unreleased]` against `git log <last-tag>..main`: no bullet may describe a state
+     reverted in the same window.
    - One subsection set in Keep a Changelog's order — `Added`, `Changed`, `Deprecated`,
      `Removed`, `Fixed`, `Security` — with nothing empty. Two sessions in one cycle join
      the section that exists; `test/release.test.ts` fails a repeated, out-of-order,

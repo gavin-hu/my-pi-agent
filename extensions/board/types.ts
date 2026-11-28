@@ -35,22 +35,22 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 		"shows the board; `round` also prints the lead's rollup: owners, unassigned, shelved, unplanned, " +
 		"awaiting approval, awaiting review, untold, blocked, unwritten, done, archivable",
 	add: "creates a `backlog` card",
-	claim: "pulls one into `plan` for this session, when `plan` has room",
+	claim: "pulls one into `plan` for this session, if it has room",
 	release: "gives it back to `backlog`; an `execute` card re-claims its paths",
 	reclaim:
 		"returns it to `backlog`, leaving the holder's claims; the lead from anyone, a peer only from a stopped owner",
-	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store",
+	move: "changes lane, through the only transition allowed from where it is; `execute` and `done` need the recorded plan still stored",
 	note: "appends to its history",
-	contract: "records the plan file and the four lines a card promises, and drops any approval",
-	approve: "approves the contract and the plan it names: the lead, who does not hold the card, says both are right",
+	contract: "records the plan file and a card's four promises, and drops any approval",
+	approve: "approves the contract and the plan it names: the lead, not the holder, says both are right",
 	review:
-		"records a spot-check of the finished work: the same lead, in `execute`; the sign is announced to the owner's inbox (`session send` asks the lead). `override` instead signs a finished card nobody signed",
+		"records a spot-check of the finished work: the same lead, in `execute`; the sign is announced to the owner's inbox (`session send` asks the lead), and a landed tree is the signed one plus its `CHANGELOG.md` bullet. `override` signs a finished card nobody signed",
 	edit: "fixes what the card says",
-	shelve: "sets a pool card aside with one line saying why, out of offers and the unassigned count",
+	shelve: "sets a pool card aside, with its reason, out of offers and the unassigned count",
 	unshelve: "puts a shelved card back in the pool",
 	archive: "sets a finished card aside — never one an open card waits on",
 	drop: "deletes a `backlog` or a `done` card, or one you hold",
-	land: "lands a reviewed card from the seat: fetch, merge, proof, push",
+	land: "lands a reviewed card from the seat",
 };
 
 /**

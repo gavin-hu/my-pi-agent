@@ -19,12 +19,12 @@ import {
 	cleanLanding,
 	fakeGit,
 	landingWith,
-	MERGE,
 	REVIEWED,
 } from "../../test/helpers/land-git.ts";
 import { landCardDoor } from "./land-action.ts";
 import type { Card } from "../../lib/workflow/card.ts";
-import { type LandRow, landScope, landSubject, parseNumstat } from "../../lib/workflow/land.ts";
+import { type LandRow, parseNumstat } from "../../lib/workflow/land.ts";
+import { landScope, landSubject } from "../../lib/workflow/land-subject.ts";
 
 describe("landSubject", () => {
 	test("derives the scope from the extension the paths share, and strips a title's own prefix", () => {
@@ -150,43 +150,6 @@ describe("landSubject", () => {
 	});
 });
 
-describe("landCard — the order and the argv", () => {
-	test("lands a reviewed card: fetch, equality, ancestry, merge, proof, named-ref push", async () => {
-		const { git, answer } = landingWith(cleanLanding());
-		const result = await answer;
-		if ("error" in result) throw new Error(result.error);
-		expect(result.merge).toBe(MERGE);
-		expect(result.pushed).toBe("origin main");
-		expect(result.rows).toEqual([
-			{ path: "CHANGELOG.md", added: 5, deleted: 0 },
-			{ path: "extensions/board/lead-gate.test.ts", added: 59, deleted: 0 },
-		]);
-		expect(git.calls.map((args) => args[0])).toEqual([
-			"fetch",
-			"rev-parse",
-			"status",
-			"rev-parse",
-			"rev-parse",
-			"rev-parse",
-			"merge",
-			"rev-parse",
-			"merge-base",
-			"diff",
-			"push",
-		]);
-		// The merge is the card's subject, the branch the review named, and nothing else.
-		expect(git.argv("merge").at(0)).toEqual([
-			"merge",
-			"--no-ff",
-			"-m",
-			"merge(board): land is a reviewed card's verb, not a mode exit (#856)",
-			REVIEWED,
-		]);
-		// A named ref, and never a force.
-		expect(git.calls.at(-1)).toEqual(["push", "origin", "main:main"]);
-	});
-});
-
 describe("landCard — every refusal, and what it leaves behind", () => {
 	test("refuses a fetch it could not make, before anything is read", async () => {
 		const { git, answer } = landingWith(
@@ -268,6 +231,9 @@ describe("parseNumstat", () => {
 });
 
 describe("landCardDoor — the seat's questions, before any git", () => {
+	// A door case names no repository, and a landing writes one file: the recorder keeps the suite
+	// honest about the write without inventing a checkout for it.
+	const NO_WRITE = () => {};
 	const EXECUTED: Card = boardCard("856", {
 		lane: "execute",
 		title: "board: land is a reviewed card's verb, not a mode exit",
@@ -310,6 +276,7 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 			notify,
 			runtime: board(EXECUTED),
 			ctx: { cwd: "/checkout" },
+			write: NO_WRITE,
 			me: { id: "s-tom", label: "tom" },
 			card: "856",
 		});
@@ -324,6 +291,7 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 			notify,
 			runtime: board(card),
 			ctx: { cwd: "/checkout" },
+			write: NO_WRITE,
 			me: { label: "gavin", seat: true },
 			card: "1",
 		});
@@ -337,6 +305,7 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 			notify,
 			runtime: board(boardCard("1", { lane: "execute" })),
 			ctx: { cwd: "/checkout" },
+			write: NO_WRITE,
 			me: { label: "gavin", seat: true },
 			card: "1",
 		});
@@ -350,12 +319,13 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 			notify,
 			runtime: board(EXECUTED),
 			ctx: { cwd: "/checkout" },
+			write: NO_WRITE,
 			me: { label: "gavin", seat: true },
 			card: "856",
 		});
 		expect(answer).toMatchObject({
 			kind: "landed",
-			text: "Landed: merge 44444444 — merge(board): land is a reviewed card's verb, not a mode exit (#856)\nproof: CHANGELOG.md 5/0 · extensions/board/lead-gate.test.ts 59/0 · pushed origin main\n  told jack",
+			text: "Landed: merge 44444444 — merge(board): land is a reviewed card's verb, not a mode exit (#856)\nproof: CHANGELOG.md 2/0 · extensions/board/lead-gate.test.ts 59/0 · pushed origin main\n  told jack",
 		});
 		expect(git.calls.at(-1)).toEqual(["push", "origin", "main:main"]);
 	});
@@ -369,6 +339,7 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 			notify,
 			runtime: board(EXECUTED),
 			ctx: { cwd: "/checkout" },
+			write: NO_WRITE,
 			me: { label: "gavin", seat: true },
 			card: "856",
 		});
@@ -387,6 +358,7 @@ describe("landCardDoor — the seat's questions, before any git", () => {
 			notify,
 			runtime: board(EXECUTED),
 			ctx: { cwd: "/checkout" },
+			write: NO_WRITE,
 			me: { label: "gavin", seat: true },
 			card: "856",
 		});

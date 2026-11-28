@@ -140,11 +140,11 @@ describe("the entry README catalog", () => {
 describe("the agent contract", () => {
 	/**
 	 * `AGENTS.md` is the entry point: the rules and their gates, with the reasoning in the
-	 * guides it links. 979 words today, ceiling 979, and it may only fall: a paragraph
+	 * guides it links. 978 words today, ceiling 978, and it may only fall: a paragraph
 	 * replaces one, and a trim lowers this number in the same commit, so the comment cannot
 	 * go stale while the gate keeps headroom.
 	 */
-	const CEILING = 979;
+	const CEILING = 978;
 
 	const source = readFileSync(join(repo, "AGENTS.md"), "utf-8");
 
@@ -179,10 +179,10 @@ describe("the contributor guide", () => {
 	/**
 	 * `CONTRIBUTING.md` is where `AGENTS.md` points for the workflow, so it grows the way the
 	 * entry doc did: one more caveat per gate, until the flow at the top is a wall nobody
-	 * reads. 2309 words today, ceiling 2309, and it may only fall — a trim lowers this number
+	 * reads. 2303 words today, ceiling 2303, and it may only fall — a trim lowers this number
 	 * in the same commit.
 	 */
-	const CEILING = 2309;
+	const CEILING = 2303;
 
 	test("CONTRIBUTING.md holds its word ceiling", () => {
 		const source = readFileSync(join(repo, "CONTRIBUTING.md"), "utf-8");

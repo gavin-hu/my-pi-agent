@@ -71,43 +71,45 @@ describe("the first word of a bullet", () => {
 describe("one bullet at the head of its list", () => {
 	test("the entry goes above the one already there, and nothing else moves", () => {
 		const before = changelog("### Added", "", "- older");
-		expect(insertBullet(before, "Added", "newer")).toBe(changelog("### Added", "", "- newer", "", "- older"));
+		expect(insertBullet(before, "Added", "- newer")).toBe(changelog("### Added", "", "- newer", "", "- older"));
 	});
 
 	test("a wrapped bullet keeps its own second line", () => {
 		// The file wraps its prose on a two-space indent, and `test/release.test.ts` reads that line as
 		// the bullet above it. An insertion that landed between the two would rewrite a neighbour.
 		const before = changelog("### Added", "", "- older", "  and its second line");
-		const after = insertBullet(before, "Added", "newer");
+		const after = insertBullet(before, "Added", "- newer");
 		expect(after).toBe(changelog("### Added", "", "- newer", "", "- older", "  and its second line"));
 	});
 
 	test("a section that is only a heading is given its first entry under it", () => {
 		const before = changelog("### Added");
-		expect(insertBullet(before, "Added", "first")).toBe(changelog("### Added", "", "- first"));
+		expect(insertBullet(before, "Added", "- first")).toBe(changelog("### Added", "", "- first"));
 	});
 
 	test("a section the window lacks is created where Keep a Changelog orders it", () => {
 		const before = changelog("### Added", "", "- a", "", "### Removed", "", "- gone");
-		expect(insertBullet(before, "Deprecated", "old")).toBe(
+		expect(insertBullet(before, "Deprecated", "- old")).toBe(
 			changelog("### Added", "", "- a", "", "### Deprecated", "", "- old", "", "### Removed", "", "- gone"),
 		);
 	});
 
 	test("a section that belongs last becomes the window's last, keeping the gap before the next window", () => {
 		const before = changelog("### Added", "", "- a");
-		expect(insertBullet(before, "Fixed", "crash")).toBe(changelog("### Added", "", "- a", "", "### Fixed", "", "- crash"));
+		expect(insertBullet(before, "Fixed", "- crash")).toBe(
+			changelog("### Added", "", "- a", "", "### Fixed", "", "- crash"),
+		);
 	});
 
 	test("a window with no sections yet is given the one the card earns", () => {
 		const before = ["# Clog", "", "## [Unreleased]", "", "## [0.31.0] - 2026-01-01", ""].join("\n");
-		expect(insertBullet(before, "Added", "first")).toBe(
+		expect(insertBullet(before, "Added", "- first")).toBe(
 			["# Clog", "", "## [Unreleased]", "", "### Added", "", "- first", "", "## [0.31.0] - 2026-01-01", ""].join("\n"),
 		);
 	});
 
 	test("a file with no Unreleased window refuses rather than writing into a release", () => {
 		// A released window is frozen history; a bullet written there would rewrite a version's record.
-		expect(insertBullet("# Clog\n\n## [0.31.0] - 2026-01-01\n", "Added", "late")).toBeUndefined();
+		expect(insertBullet("# Clog\n\n## [0.31.0] - 2026-01-01\n", "Added", "- late")).toBeUndefined();
 	});
 });

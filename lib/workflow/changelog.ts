@@ -75,33 +75,33 @@ export function lowerFirst(text: string): string {
 }
 
 /**
- * `text` with `bullet` at the head of `heading`'s list, or `undefined` without an `[Unreleased]` window.
+ * `text` with `line` at the head of `heading`'s list, or `undefined` without an `[Unreleased]` window.
  *
- * The entry goes above the one already there, because a subsection is newest-first, and a subsection
- * the window does not carry yet is created in Keep a Changelog's order rather than appended —
+ * The line arrives whole, `- ` included, so the sentence a refusal names is the sentence in the file.
+ * It goes above the one already there, because a subsection is newest-first, and a subsection the
+ * window does not carry yet is created in Keep a Changelog's order rather than appended —
  * `test/release.test.ts` fails an unknown subsection, an out-of-order one, and an empty one.
  */
-export function insertBullet(text: string, heading: ChangelogSection, bullet: string): string | undefined {
+export function insertBullet(text: string, heading: ChangelogSection, line: string): string | undefined {
 	const lines = text.split("\n");
 	const open = lines.findIndex((line) => UNRELEASED.test(line));
 	if (open === -1) return undefined;
 	const nextWindow = lines.findIndex((line, index) => index > open && WINDOW.test(line));
 	const close = nextWindow === -1 ? lines.length : nextWindow;
-	const entry = `- ${bullet}`;
 	const at = sectionAt(lines, open, close, heading);
 	if (at !== undefined) {
 		const head = listHead(lines, at, close);
-		return [...lines.slice(0, head), entry, "", ...lines.slice(head)].join("\n");
+		return [...lines.slice(0, head), line, "", ...lines.slice(head)].join("\n");
 	}
 	const rank = CHANGELOG_SECTIONS.indexOf(heading);
 	const before = firstAbove(lines, open, close, rank);
 	if (before !== undefined) {
-		return [...lines.slice(0, before), `### ${heading}`, "", entry, "", ...lines.slice(before)].join("\n");
+		return [...lines.slice(0, before), `### ${heading}`, "", line, "", ...lines.slice(before)].join("\n");
 	}
 	// Nothing later in the order to sit above: the section becomes the window's last, and the blank
 	// line that closed the window stays behind it, so the next `## [` heading keeps its separation.
 	const tail = tailOf(lines, open, close);
-	return [...lines.slice(0, tail), "", `### ${heading}`, "", entry, ...lines.slice(tail)].join("\n");
+	return [...lines.slice(0, tail), "", `### ${heading}`, "", line, ...lines.slice(tail)].join("\n");
 }
 
 /** The index of `heading`'s own subsection heading in the window, or `undefined` when it has none. */
