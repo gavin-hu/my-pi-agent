@@ -1,8 +1,8 @@
 /**
  * The `team` verb that hands a card to one peer: `assign`, and what its message costs.
  *
- * The order is the whole point — a join, then a message, then an assignment, and a card left
- * alone when the join or the message fails — so the cases drive a recording dispatch and assert
+ * The order is the whole point — a join, then the write, then the message, and a card left
+ * alone when the join or the write fails — so the cases drive a recording dispatch and assert
  * both the calls made and the card the store ends up with. Which session the write then names is
  * `owner.test.ts`'s question; `offer.test.ts` holds the broadcast, and the board's WIP limits are
  * here because they are the pre-check both verbs read before they send anything.

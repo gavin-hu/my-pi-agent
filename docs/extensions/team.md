@@ -59,9 +59,10 @@ rule allowed sends nobody a message at all, and a send that fails leaves the car
 running the same verb again is the retry rather than a second attempt at a first one. A handoff that loses the
 race to a reclaim names the one condition that survives — if the board shows another owner, leave it alone and
 ask the lead. A completed contract tells the lead, and `approve` tells the holder; `offer` (card, `note?`)
-broadcasts the card and records only the moment it was offered, so the first peer to claim it wins; `ask` (`to`,
-`question?`) sends one peer a question and writes nothing else: its own ask id, and the answering session by id, so
-a reply sets `replyTo "<id>"` and the bus prints it as `re: <id>`.
+records only the moment it was offered, then broadcasts the card, so the first peer to claim it wins —
+the same order `assign` keeps, so the two verbs agree on which half survives a failure; `ask` (`to`,
+`question?`) sends one peer a question and writes nothing else: its own ask id, and the answering session by id,
+so a reply sets `replyTo "<id>"` and the bus prints it as `re: <id>`.
 
 `/team`'s stalled line names the door: `board reclaim 1, 2 — api-core stopped`. A field an action does
 not read is refused, naming the verb that takes it — `offer` takes no `to`, and `assign` and `ask` refuse

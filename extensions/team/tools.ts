@@ -30,7 +30,6 @@ import type { Static } from "typebox";
 import { attempt, messageOf } from "../../lib/errors.ts";
 import { plural, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { sameLabel } from "../../lib/session-label.ts";
-import { peersWithAlarm } from "../../lib/session-roster.ts";
 import {
 	createDeliver,
 	createTeamJoin,
@@ -57,7 +56,7 @@ import type { TeamState } from "../../lib/workflow/join.ts";
 import { indexOf } from "../../lib/workflow/links.ts";
 import { type Actor, mayOp } from "../../lib/workflow/rules.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
-import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
 import { askId, askText, DEFAULT_QUESTION, type ReplyRoute } from "./dispatch.ts";
 import {
 	formatAsk,
@@ -87,18 +86,12 @@ import {
 /** The parameters as the schema validates them. */
 type TeamArgs = Static<typeof TeamParams>;
 
+/** The steps both card verbs take, as `handover.ts` exports them, resolved on the first call. */
+type Steps = typeof import("./handover.ts");
+
 /** One refusal: the reason for the model, the state for the renderer. */
 function refusal(action: TeamAction, message: string, card?: Card): ToolFailure<TeamDetails> {
 	return toolError(message, { action, error: message, ...(card === undefined ? {} : { card }) });
-}
-
-/** One store write, keeping a throw rather than throwing it: the caller owns the half-applied case. */
-async function writeOutcome(write: Promise<MutateResult>): Promise<{ result: MutateResult } | { thrown: unknown }> {
-	try {
-		return { result: await write };
-	} catch (thrown) {
-		return { thrown };
-	}
 }
 
 /**
@@ -149,6 +142,10 @@ export interface TeamToolsDeps {
 export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: TeamToolsDeps = {}): void {
 	const deliver = deps.deliver ?? createDeliver(pi);
 	const team = deps.team ?? createTeamJoin(pi);
+	// The steps the three verbs share, loaded on the first call that needs one: a session that only
+	// renders a transcript never pays for them.
+	let stepsModule: Promise<Steps> | undefined;
+	const handover = (): Promise<Steps> => (stepsModule ??= import("./handover.ts"));
 
 	/**
 	 * Ask the bus to arm this member's watch, for the two verbs a peer answers by mail.
@@ -217,17 +214,18 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			// so the round never keeps a second copy of its label.
 			const join = (): Promise<TeamState> => upgradeWatch(ctx, me.label);
 			try {
+				const steps = await handover();
 				// `ask` is the one verb with no card behind it, so it runs before the id and the store:
 				// what it needs is this session's name, for the reply line, and the bus.
-				if (action === "ask") return await askPeer(me, to, args.question, deliver, ctx, join);
+				if (action === "ask") return await askPeer(me, to, args.question, deliver, ctx, join, steps);
 				const arg = cardArg(args.card);
 				if ("error" in arg) return refusal(action, arg.error);
 				const id = arg.id;
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
-				if (action === "offer") return await offerCard(store, me, id, args.note, now, deliver, ctx);
+				if (action === "offer") return await offerCard(store, me, id, args.note, now, deliver, ctx, steps);
 				if (to === "") return refusal("assign", 'assign needs a peer: pass `to`, e.g. "billing-core".');
-				return await assignCard(store, me, id, to, args.note, now, deliver, ctx, join);
+				return await assignCard(store, me, id, to, args.note, now, deliver, ctx, join, steps);
 			} catch (error) {
 				return refusal(action, messageOf(error));
 			}
@@ -269,7 +267,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 }
 
 /**
- * `assign`: check the preconditions, send the handoff, then set the owner.
+ * `assign`: check the preconditions, record the owner, then send the handoff.
  *
  * The preconditions are checked with `mayOp`, the same decision the store's `applyOp` will
  * make — and with the store's own limits, so a configured WIP cap is the one the precheck
@@ -288,9 +286,10 @@ async function assignCard(
 	deliver: Deliver,
 	ctx: ExtensionToolContext,
 	join: () => Promise<TeamState>,
+	steps: Steps,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	// Loaded where it is used: the team entry's registration budget may not grow for a verb.
-	const { actorFor, composeNotice, ownerFor } = await import("../../lib/workflow/notice.ts");
+	const { actorFor, ownerFor } = await import("../../lib/workflow/notice.ts");
 	const card = await store.read(id);
 	if (!card) return refusal("assign", `${cardRef(id)} does not exist.`);
 	// A handoff to yourself is not a claim: it writes a message into your own inbox and
@@ -319,69 +318,56 @@ async function assignCard(
 	// a card that already holds it. `told` is the delivery's to record, not this write's.
 	const handoff = { at: now };
 	const owner: CardOwner = target.id === undefined ? ownerFor(to, [], handoff) : { ...target, handoff };
-	const written = await writeOutcome(store.mutate(id, { kind: "assign", to: owner }, me, now));
-	// Nothing was sent, so a write that threw is a handoff that never happened — the card is the
-	// board's, and the result says so rather than naming a message that does not exist.
-	if ("thrown" in written) return refusal("assign", formatHandoffFailure(card, to, messageOf(written.thrown)), card);
-	const applied = written.result;
-	// Nothing was sent, so a refused write is a handoff that never happened.
-	if (!applied.ok)
-		return refusal("assign", formatHandoffFailure(applied.card ?? card, to, applied.error), applied.card ?? card);
-
-	// Then the sentence, keyed by the card's clock so a retry folds into a copy still waiting.
-	const notice = composeNotice("assign", applied.card, {
-		lead: store.config().lead,
-		to,
-		...(note === undefined ? {} : { note }),
+	// Nothing was sent, so a write that threw or a rule refused is a handoff that never happened — the
+	// card is the board's, and the result says so rather than naming a message that does not exist.
+	const written = await steps.writeCard({
+		store,
+		id,
+		op: { kind: "assign", to: owner },
+		me,
+		now,
+		card,
+		failure: (current, reason) => refusal("assign", formatHandoffFailure(current, to, reason), current),
 	});
-	let delivered: string[] = [];
-	let failed: DeliveryFailure[] = [];
-	try {
-		const sent = await deliver.send(ctx, {
-			kind: notice.kind,
-			to: target.id ?? target.label,
-			text: notice.text,
-			key: notice.key,
-			about: applied.card.id,
-		});
-		if (!sent.ok) {
-			// The card is the peer's and the message is not out: a repeat of `assign` re-sends the same
-			// key, which is the retry the untold handoff waits on.
-			return refusal("assign", formatHandoffUnsent(applied.card, to, sent.error), applied.card);
-		}
-		delivered = sent.delivered;
-		failed = sent.failed;
-	} catch (error) {
-		return refusal("assign", formatHandoffUnsent(applied.card, to, messageOf(error)), applied.card);
-	}
-	// Settled only once the bus took it: the record is what a repeat reads.
-	if (delivered.length > 0) {
-		await store.mutate(id, { kind: "announced", notice: "assign" }, me, now).catch(() => undefined);
-	}
+	if ("isError" in written) return written;
+
+	// Then the sentence, keyed by the card's clock so a retry folds into a copy still waiting. The card
+	// is the peer's and the message may not be out, which is what makes a repeat the retry.
+	const sent = await steps.sendNotice({
+		deliver,
+		ctx,
+		notice: "assign",
+		card: written.card,
+		address: target.id ?? target.label,
+		context: { lead: store.config().lead, to, ...(note === undefined ? {} : { note }) },
+		unsent: (current, reason) => refusal("assign", formatHandoffUnsent(current, to, reason), current),
+	});
+	if ("isError" in sent) return sent;
+	// Settled only once the bus took it, and only because the row owns a `told` half — the record a
+	// repeat reads, and the fact that no send can be a settled handoff.
+	await steps.settleNotice(store, id, "assign", me, now);
 	// Both lines read the roster the message was addressed against — the same read that named the
 	// owner, so one result cannot describe two teams.
-	const silent = peersWithAlarm(reached, delivered, "not-listening");
-	const still = peersWithAlarm(reached, delivered, "quiet");
+	const { silent, still } = steps.alarmLines(reached, sent.delivered);
 	const current = await store.read(id).catch(() => undefined);
-	return textResult(formatHandoff(current ?? applied.card, delivered, silent, still, failed), {
+	const after = current ?? written.card;
+	return textResult(formatHandoff(after, sent.delivered, silent, still, sent.failed), {
 		action: "assign",
-		card: current ?? applied.card,
-		assigned: (current ?? applied.card).owner,
-		delivered,
-		...(failed.length === 0 ? {} : { failed }),
-		...(silent.length === 0 ? {} : { notListening: silent }),
-		...(still.length === 0 ? {} : { quiet: still }),
+		card: after,
+		assigned: after.owner,
+		delivered: sent.delivered,
+		...steps.alarmFields(silent, still, sent.failed),
 	});
 }
 
 /**
- * `offer`: check the claim's preconditions, broadcast the card, then record the offer.
+ * `offer`: check the claim's preconditions, record the moment, then broadcast the card.
  *
- * The broadcast comes first and the record second, because a record of an offer nobody
- * received would be worse than an offer with no record: the card is unchanged by a failed
- * send, and the first peer to claim is what makes an offer into work. What the record
- * adds is the one thing an event cannot carry — when it was made — so a lead can tell an
- * offer nobody took from a card nobody has looked at.
+ * State first, as `assign` writes the owner first: an offer recorded is one a lead can see nobody
+ * took, and a broadcast that fails is an offer nobody heard rather than one never made — the same
+ * trade, paid in the same direction, so the two verbs cannot disagree about which half survives.
+ * What the record adds is the one thing an event cannot carry — when the offer was made — so a lead
+ * can tell an offer nobody took from a card nobody has looked at.
  */
 async function offerCard(
 	store: BoardStore,
@@ -391,8 +377,8 @@ async function offerCard(
 	now: number,
 	deliver: Deliver,
 	ctx: ExtensionToolContext,
+	steps: Steps,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
-	const { composeNotice } = await import("../../lib/workflow/notice.ts");
 	const card = await store.read(id);
 	if (!card) return refusal("offer", `${cardRef(id)} does not exist.`);
 	// The board, not just the card: a card that waits on unfinished work, one somebody
@@ -403,42 +389,36 @@ async function offerCard(
 
 	// State first, as `assign`: the moment is recorded before the broadcast, and a broadcast that
 	// fails is an offer nobody heard rather than an offer that was never made.
-	const written = await writeOutcome(store.mutate(id, { kind: "offer" }, me, now));
-	if ("thrown" in written) return refusal("offer", formatOfferFailure(card, messageOf(written.thrown)), card);
-	const recorded = written.result;
-	if (!recorded.ok)
-		return refusal("offer", formatOfferFailure(recorded.card ?? card, recorded.error), recorded.card ?? card);
+	const written = await steps.writeCard({
+		store,
+		id,
+		op: { kind: "offer" },
+		me,
+		now,
+		card,
+		failure: (current, reason) => refusal("offer", formatOfferFailure(current, reason), current),
+	});
+	if ("isError" in written) return written;
 
-	let delivered: string[] = [];
-	let failed: DeliveryFailure[] = [];
-	try {
-		const notice = composeNotice("offer", recorded.card, {
-			lead: store.config().lead,
-			...(note === undefined ? {} : { note }),
-		});
-		const sent = await deliver.send(ctx, {
-			kind: notice.kind,
-			to: "*",
-			text: notice.text,
-			key: notice.key,
-			about: recorded.card.id,
-		});
-		if (!sent.ok) return refusal("offer", formatOfferUnsent(recorded.card, sent.error), recorded.card);
-		delivered = sent.delivered;
-		failed = sent.failed;
-	} catch (error) {
-		return refusal("offer", formatOfferUnsent(recorded.card, messageOf(error)), recorded.card);
-	}
+	const sent = await steps.sendNotice({
+		deliver,
+		ctx,
+		notice: "offer",
+		card: written.card,
+		address: "*",
+		context: { lead: store.config().lead, ...(note === undefined ? {} : { note }) },
+		unsent: (current, reason) => refusal("offer", formatOfferUnsent(current, reason), current),
+	});
+	if ("isError" in sent) return sent;
+	// No settle, and that is the row's answer rather than this call's: `offer`'s notice owns no `told`
+	// half, so there is nothing a repeat could re-send — `handover.ts` reads the table.
 	const peers = await deliver.peers(ctx).catch(() => undefined);
-	const silent = peersWithAlarm(peers, delivered, "not-listening");
-	const still = peersWithAlarm(peers, delivered, "quiet");
-	return textResult(formatOffer(recorded.card, delivered, silent, still, failed), {
+	const { silent, still } = steps.alarmLines(peers, sent.delivered);
+	return textResult(formatOffer(written.card, sent.delivered, silent, still, sent.failed), {
 		action: "offer",
-		card: recorded.card,
-		delivered,
-		...(failed.length === 0 ? {} : { failed }),
-		...(silent.length === 0 ? {} : { notListening: silent }),
-		...(still.length === 0 ? {} : { quiet: still }),
+		card: written.card,
+		delivered: sent.delivered,
+		...steps.alarmFields(silent, still, sent.failed),
 	});
 }
 
@@ -464,6 +444,7 @@ async function askPeer(
 	deliver: Deliver,
 	ctx: ExtensionToolContext,
 	join: () => Promise<TeamState>,
+	steps: Steps,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	if (to === "") return refusal("ask", 'ask needs a peer: pass `to`, e.g. "billing-core".');
 	// The same rule `assign` applies to a card: a question to yourself is mail you already
@@ -491,15 +472,12 @@ async function askPeer(
 	} catch (error) {
 		return refusal("ask", `the ask did not reach ${to}: ${messageOf(error)}`);
 	}
-	const silent = peersWithAlarm(peers, delivered, "not-listening");
-	const still = peersWithAlarm(peers, delivered, "quiet");
+	const { silent, still } = steps.alarmLines(peers, delivered);
 	return textResult(formatAsk(ask, delivered, silent, still, failed), {
 		action: "ask",
 		askId: ask,
 		delivered,
-		...(failed.length === 0 ? {} : { failed }),
-		...(silent.length === 0 ? {} : { notListening: silent }),
-		...(still.length === 0 ? {} : { quiet: still }),
+		...steps.alarmFields(silent, still, failed),
 	});
 }
 
