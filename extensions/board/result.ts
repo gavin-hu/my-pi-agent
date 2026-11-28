@@ -11,6 +11,8 @@ import type { Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef, cardRefOf } from "../../lib/workflow/card.ts";
 import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import { plural, sanitizeLine } from "../../lib/format.ts";
+import { type RoundTally as BoardTally, roundTally } from "../../lib/workflow/round-text.ts";
+import { DECISION_TONE, type DecisionKind } from "../../lib/workflow/tone.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import {
 	callLine,
@@ -26,21 +28,100 @@ import { paint } from "../../lib/tui/tokens.ts";
 import { boardRowLineFor } from "./rows.ts";
 import { TONE_ROLE } from "./tone.ts";
 import { toolError } from "../../lib/tool-result.ts";
+import type { RoundSummary } from "../../lib/workflow/round.ts";
 import { BOARD_TOOL, type ArchiveOutcome, type BoardAction, type BoardDetails, normalizeBoardAction } from "./types.ts";
 import { BoardParams } from "./schema.ts";
 
-/** One section of the expanded block, drawn as the session that asked for it. */
+/** One section of the listing, drawn as the session that asked for it. */
 function section(label: string | undefined, cards: readonly Card[], rowLine: TailRowLine<Card>): TailSection<Card> {
 	return { label, rows: cards, more: 0, rowLine };
 }
 
 /**
+ * How many rows a body section draws, and how many ids an index line names.
+ *
+ * The two numbers differ because the two costs do: an id is a few characters on a line that already
+ * exists, while a row is a screen line of its own. So the index — the decision surface, and the part
+ * a lead reads first — can afford a dozen ids, and the body below it stops at eight rows and names the
+ * rest the same way, because the twelfth id is where either line stops being read.
+ */
+const INDEX_IDS = 12;
+const SECTION_ROWS = 8;
+
+/**
+ * The ids a block names, capped.
+ *
+ * An id is a few characters on a line that already exists, which is why a line may carry a dozen where
+ * a section draws eight rows — but a thousand of them is a paragraph, and this board's `done` group is
+ * the whole pile. So the twelfth is where naming stops and counting takes over: `+341` says there are
+ * more, and the next `board list` is how a reader sees them.
+ */
+function namedIds(cards: readonly Card[]): string {
+	const ids = cards.map((card) => cardRef(card.id));
+	if (ids.length <= INDEX_IDS) return ids.join(" ");
+	return `${ids.slice(0, INDEX_IDS).join(" ")} +${ids.length - INDEX_IDS}`;
+}
+
+/**
+ * One section of a body: counted, and capped.
+ *
+ * The heading carries the count because no card is drawn under every group it belongs to any more, so
+ * "how many await review" is a number in a heading rather than a number of rows.
+ */
+function capped(label: string, cards: readonly Card[], rowLine: TailRowLine<Card>): TailSection<Card>[] {
+	const head: TailSection<Card> = {
+		label: `${label} · ${cards.length}`,
+		rows: cards.slice(0, SECTION_ROWS),
+		more: 0,
+		rowLine,
+	};
+	if (cards.length <= SECTION_ROWS) return [head];
+	const rest = cards.slice(SECTION_ROWS);
+	return [head, { label: `… ${rest.length} more: ${namedIds(rest)}`, rows: [], more: 0, rowLine }];
+}
+
+/**
+ * One index line: a group's name and the ids it holds, and deliberately no rows.
+ *
+ * The id is what the next command takes, and the card's title is one section below, in the hands of
+ * whoever holds it — so the index answers "what do I sign" without scrolling and without drawing a
+ * card twice. A later reader who "fixes" the repetition by drawing the row here puts that duplicate
+ * back and unbounds the block, which is the one thing this shape is for.
+ */
+function indexLine(entry: BoardTally, rowLine: TailRowLine<Card>): TailSection<Card> {
+	return { label: `${entry.label} · ${namedIds(entry.cards)}`, rows: [], more: 0, rowLine };
+}
+
+/**
+ * Every card a round names, in a stable order.
+ *
+ * The groups overlap by design, so this repeats cards and the body dedupes by id. That is the point:
+ * a card filed in a group no section draws as a row still reaches the block, so the block cannot
+ * drop a card the board it just read holds.
+ */
+function roundCards(round: RoundSummary): readonly Card[] {
+	return [
+		...round.owners.flatMap((group) => [...group.cards, ...group.done]),
+		...round.unassigned,
+		...round.shelved,
+		...round.unplanned,
+		...round.unapproved,
+		...round.unreviewed,
+		...round.untold,
+		...round.blocked,
+		...round.unwritten,
+		...round.done,
+		...round.archivable,
+	];
+}
+
+/**
  * What the expanded block draws, or undefined when the action has nothing to list.
  *
- * A `list` is the board (or the one card it was asked for); a `list --round` is that
- * listing — when a filter made it a slice — above one section per rollup group, in the
- * order a lead reads them: owners, then what needs a decision. Every other action produced
- * one card, which the collapsed line already names, so it has no rows.
+ * A `list` is the board (or the one card it was asked for). A `list --round` is that listing — when a
+ * filter made it a slice — then an index of the ids that need a decision, then one section per body
+ * group, each card drawn once. Every other action produced one card, which the collapsed line already
+ * names, so it has no rows.
  */
 export function resultInput(details: BoardDetails): TailResultInput<Card> | undefined {
 	if (details.action !== "list") return undefined;
@@ -59,33 +140,34 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
 	const sections: TailSection<Card>[] = [];
 	// The slice the call asked for, unlabelled because it is the listing rather than a group
 	// of one, and only when a filter made it a slice: a bare `round` already draws every one
-	// of those cards in the rollup below.
+	// of those cards in the body below.
 	const slice = details.narrowed === true ? (details.cards ?? []) : [];
 	if (slice.length > 0) sections.push(section(undefined, slice, rowLine));
-	// An owner whose last card is done keeps its group, because the round's text line still counts
-	// what it finished — but the group has no rows, so a heading here would draw a label above
-	// nothing, and the finished cards themselves are already in the `Done` section below.
-	for (const group of round.owners) {
-		if (group.cards.length === 0) continue;
-		sections.push(section(group.label, group.cards, rollupLine));
+	// The decision first, as ids, in the order the model's own first line prints the counts: a lead
+	// answers "what do I sign" before scrolling the board, and reads which card each count is made of.
+	for (const entry of roundTally(details.cards ?? [], round)) {
+		if (entry.kind !== undefined && entry.count > 0) sections.push(indexLine(entry, rollupLine));
 	}
-	if (round.unassigned.length > 0) sections.push(section("Unassigned", round.unassigned, rollupLine));
-	// Beside the pool it came out of, in the order `formatRound` prints it: a card set aside is
-	// drawn, because a shelf nobody can see is a card nobody remembers.
-	if (round.shelved.length > 0) sections.push(section("Shelved", round.shelved, rollupLine));
-	if (round.unplanned.length > 0) sections.push(section("Unplanned", round.unplanned, rollupLine));
-	// The lead's first signature: a contract nobody has signed is a card the flow stops on, so
-	// it is drawn in the order `formatRound` prints it rather than left to the text above.
-	if (round.unapproved.length > 0) sections.push(section("Awaiting approval", round.unapproved, rollupLine));
-	// The lead's second signature: a card the lead has not looked at yet is one the flow stops
-	// on just as surely, so it is drawn beside the first rather than left to `unwritten`'s clock.
-	if (round.unreviewed.length > 0) sections.push(section("Awaiting review", round.unreviewed, rollupLine));
-	// A sign whose message never landed: the gate is open and its owner has not heard, which is the
-	// one debt the transcript can name and the signer's repeat is the retry.
-	if (round.untold.length > 0) sections.push(section("Sign not told", round.untold, rollupLine));
-	if (round.blocked.length > 0) sections.push(section("Blocked", round.blocked, rollupLine));
-	if (round.unwritten.length > 0) sections.push(section("Unwritten", round.unwritten, rollupLine));
-	if (round.done.length > 0) sections.push(section("Done", round.done, rollupLine));
+	// Then the board, once per card: each owner's live cards, the pool nobody holds, the shelf, and the
+	// history. A card the round found and no section draws — one whose owner the rollup lost, say —
+	// lands in `Unassigned` rather than vanishing, because the block has to show what it just read.
+	const drawn = new Set<string>();
+	const draw = (label: string, cards: readonly Card[]): void => {
+		const fresh = cards.filter((card) => !drawn.has(card.id));
+		if (fresh.length === 0) return;
+		for (const card of fresh) drawn.add(card.id);
+		sections.push(...capped(label, fresh, rollupLine));
+	};
+	// An owner whose last card is done keeps its group in the text, because the headline counts what
+	// it finished — but it draws no heading here, and its finished cards are in `Done`.
+	for (const group of round.owners) draw(group.label, group.cards);
+	const shelved = new Set(round.shelved.map((card) => card.id));
+	const unheld = roundCards(round).filter(
+		(card) => card.lane !== "done" && card.owner === undefined && !shelved.has(card.id),
+	);
+	draw("Unassigned", unheld);
+	draw("Shelved", round.shelved);
+	draw("Done", round.done);
 	return sections.length === 0 ? undefined : { kind: "sections", sections };
 }
 
@@ -124,8 +206,19 @@ export function collapsedLine(theme: Theme, details: BoardDetails): string {
 	const count = details.cards?.length ?? 0;
 	const round = details.round;
 	if (!round) return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${me}`;
-	const owners = round.owners.length;
-	return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${plural(owners, "owner")} ${SEPARATORS.item} ${me}`;
+	// The rollup's own counts, minus the ones that are not an ask: the model reads these words on
+	// the first line of its answer, so the block's one line and that text cannot count one board two
+	// ways. A narrowed read passes its slice for the entries this does not print, and every kinded
+	// entry is the round's — the whole board's — so a filter cannot put a slice's tally under it.
+	const asks = roundTally(details.cards ?? [], round).filter(
+		(entry): entry is BoardTally & { kind: DecisionKind } => entry.kind !== undefined && entry.count > 0,
+	);
+	if (asks.length > 0) {
+		const gap = ` ${paint(theme, "meta", SEPARATORS.item)} `;
+		const counts = asks.map((entry) => paint(theme, TONE_ROLE[DECISION_TONE[entry.kind]], entry.word));
+		return `${paint(theme, "label", plural(count, "card"))}${gap}${counts.join(gap)}${gap}${me}`;
+	}
+	return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${plural(round.owners.length, "owner")} ${SEPARATORS.item} ${me}`;
 }
 
 /**

@@ -21,6 +21,7 @@
 import { type Card, cardRef } from "./card.ts";
 import type { Verification } from "./contract.ts";
 import type { RoundSummary } from "./round.ts";
+import type { DecisionKind } from "./tone.ts";
 import { pageSource, plural } from "../format.ts";
 import type { TeamState } from "./join.ts";
 import { sameLabel } from "../session-label.ts";
@@ -40,6 +41,102 @@ export interface RosterLabel {
 export const LEAD_ROUND = "The lead's round: who holds what, and what needs a decision.";
 
 /**
+ * One count in the rollup's headline: the words a reader gets, and what they count.
+ *
+ * `kind` is set on the counts a person acts on — the six groups a card waits on somebody for. The
+ * rest (the owners, the feature count, the pool's two halves, the history) are what the board is
+ * made of rather than what it asks, so a surface that shows a decision drops every entry without
+ * one. The word carries its own number: the headline and the block's collapsed line are one
+ * sentence, and a second wording of one count is the drift this table is here to stop.
+ */
+export interface RoundTally {
+	/** The count as a sentence — `1 awaiting approval` — which the headline and the block's line print. */
+	word: string;
+	/** The group's name without a count, for a heading that carries the ids instead of a number. */
+	label: string;
+	count: number;
+	/** The cards the group holds, in the round's order; empty for the counts that are not a group. */
+	cards: readonly Card[];
+	kind?: DecisionKind;
+}
+
+/**
+ * The rollup's counts, in the order a lead reads them.
+ *
+ * Read by {@link formatRound} for the headline it has always printed and by the board's block for
+ * the line the index it draws, so the model's first line and the reader's cannot disagree about one
+ * board — including which ids a count is made of.
+ */
+export function roundTally(cards: readonly Card[], round: RoundSummary): RoundTally[] {
+	return [
+		{ word: plural(round.owners.length, "owner"), label: "owner", count: round.owners.length, cards: [] },
+		{ word: plural(cards.length, "feature"), label: "feature", count: cards.length, cards },
+		{
+			word: `${round.unassigned.length} unassigned`,
+			label: "unassigned",
+			count: round.unassigned.length,
+			cards: round.unassigned,
+		},
+		{ word: `${round.shelved.length} shelved`, label: "shelved", count: round.shelved.length, cards: round.shelved },
+		{
+			word: `${round.unplanned.length} unplanned`,
+			label: "unplanned",
+			count: round.unplanned.length,
+			cards: round.unplanned,
+			kind: "unplanned",
+		},
+		{
+			word: `${round.unapproved.length} awaiting approval`,
+			label: "awaiting approval",
+			count: round.unapproved.length,
+			cards: round.unapproved,
+			kind: "approval",
+		},
+		{
+			word: `${round.unreviewed.length} awaiting review`,
+			label: "awaiting review",
+			count: round.unreviewed.length,
+			cards: round.unreviewed,
+			kind: "review",
+		},
+		{
+			word: `${round.untold.length} untold`,
+			label: "untold",
+			count: round.untold.length,
+			cards: round.untold,
+			kind: "untold",
+		},
+		{
+			word: `${round.blocked.length} blocked`,
+			label: "blocked",
+			count: round.blocked.length,
+			cards: round.blocked,
+			kind: "blocked",
+		},
+		{
+			word: `${round.unwritten.length} unwritten`,
+			label: "unwritten",
+			count: round.unwritten.length,
+			cards: round.unwritten,
+			kind: "unwritten",
+		},
+		{ word: doneWord(cards, round), label: "done", count: round.done.length, cards: round.done },
+	];
+}
+
+/**
+ * The history's count, with the two clauses that qualify it.
+ *
+ * The history is the one count a reader can act on without opening a card: a finished card an open
+ * one still waits on stays, so `archivable` is what a sweep would take. It rides on the count it
+ * qualifies, and says nothing at all when there is nothing to sweep.
+ */
+function doneWord(cards: readonly Card[], round: RoundSummary): string {
+	const sweepable = round.archivable.length > 0 ? `, ${round.archivable.length} archivable` : "";
+	return `${round.done.length} done${byInstruction(cards)}${sweepable}`;
+}
+
+/**
  * The rollup: a headline of what a lead decides on, then one line per group.
  *
  * Groups name their cards by id and state, because the ids are what the next action
@@ -51,23 +148,9 @@ export const LEAD_ROUND = "The lead's round: who holds what, and what needs a de
  * a machine where the bus has recorded nobody.
  */
 export function formatRound(cards: readonly Card[], round: RoundSummary, roster?: readonly RosterLabel[]): string {
-	const owners = round.owners.length;
-	const headline = [
-		plural(owners, "owner"),
-		plural(cards.length, "feature"),
-		`${round.unassigned.length} unassigned`,
-		`${round.shelved.length} shelved`,
-		`${round.unplanned.length} unplanned`,
-		`${round.unapproved.length} awaiting approval`,
-		`${round.unreviewed.length} awaiting review`,
-		`${round.untold.length} untold`,
-		`${round.blocked.length} blocked`,
-		`${round.unwritten.length} unwritten`,
-		// The history is the one count a reader can act on without opening a card: a finished
-		// card an open one still waits on stays, so `archivable` is what a sweep would take. It
-		// rides on the count it qualifies, and says nothing at all when there is nothing to sweep.
-		`${round.done.length} done${byInstruction(cards)}${round.archivable.length > 0 ? `, ${round.archivable.length} archivable` : ""}`,
-	].join(" · ");
+	const headline = roundTally(cards, round)
+		.map((entry) => entry.word)
+		.join(" · ");
 	const lines = [headline];
 	// The history is counted as it goes, so its one line can follow the owner lines and the
 	// queue can start where a lead actually decides something.

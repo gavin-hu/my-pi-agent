@@ -95,6 +95,17 @@ describe("landSubject", () => {
 		expect(landScope(boardCard("4", { paths: ["extensions/x/a.test.ts", "test/a.test.ts", "test/b.test.ts"] }))).toBe(
 			"test",
 		);
+		// The rule is the extension's OWN code: a helper in `lib/` is not it, so a suite beside an
+		// extension with one root ledger and one shared helper is still a test sweep.
+		expect(landScope(boardCard("6", { paths: ["extensions/x/a.test.ts", "test/a.test.ts", "lib/y.ts"] }))).toBe("test");
+		// #992's shape: the extension's record, two shared helpers, and two ledgers that ride the
+		// change. The ledgers are not the work, so they cannot outvote the extension.
+		const recorded = ["extensions/session-bus", "lib/session-files.ts", "lib/session-mail.ts"];
+		expect(
+			landScope(
+				boardCard("5", { paths: [...recorded, "test/suite-manifest.ts", "test/dependencies.test.ts", "CHANGELOG.md"] }),
+			),
+		).toBe("session-bus");
 	});
 
 	test("names `docs` for a card whose subject is a documented root file", () => {

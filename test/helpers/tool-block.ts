@@ -136,6 +136,10 @@ export const COLLAPSED_ROWS: Record<string, number> = {
 	// instruction is still in the result, which is where the model reads it.
 	"board-gated": 2,
 	"board-refused": 2,
+	// 3 for the tally: a rounded read's line carries the asks it used to hide behind an owner count,
+	// and a board with four of them folds to two lines at 80. The block is still the line — the
+	// second row is the reason a lead reads it at all.
+	"board-round-line": 3,
 	// 2 -> 1 for an active goal: the call line names the objective and the widget above the
 	// editor carries the status. A finished or re-planned goal still draws its word, because the
 	// widget may be set to hide an achieved one and scrollback is then the only record.
