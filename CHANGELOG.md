@@ -96,6 +96,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `test`: the boundary gate and the layer gate read their edges from one AST reader, so a comment or a
+  string that spells `from "./http/index.ts"` is no longer an import — the layer rule used to redden on
+  one — and a deferred `import()` now counts, where only a `from "…"` was seen before. A type-only edge
+  and a deferred one count for both gates and not for the registration budget, which is the reader's
+  `loadsValue` flag; `staticSpecifiers` answers exactly what it did.
+
 - `lib`: the direction inside `lib/` is a gate — `test/layering.test.ts` fails an import between the
   workflow domain and a surface (`http/`, `web/`, `tui/`, `diff/`, `browser.ts`) in either order,
   and `test/module-sizes.test.ts` fails a module sitting at exactly 600 that `AT_THE_BAR` does not

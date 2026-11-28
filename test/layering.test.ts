@@ -19,11 +19,15 @@
  *
  * The third is a served page's namespace: a prefix belongs to the page that claims it, and
  * another page spelling it is a link into a route mounted only while that page is open.
+ *
+ * Every edge comes from `graph.ts`'s `importEdges`, which parses rather than scans: a specifier
+ * inside a comment or a string is not an import, and a type-only or deferred one still is.
  */
 
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { posixPath } from "./helpers/files.ts";
+import { importEdges, resolveFile } from "./helpers/graph.ts";
 import {
 	dirsOf,
 	extensionsDir,
@@ -35,9 +39,6 @@ import {
 	textOf,
 	testDir,
 } from "./helpers/scan.ts";
-
-/** A static specifier, from `from "x"`, `import "x"`, or `import("x")`. */
-const SPEC = /(?:\bfrom\b|\bimport\s*\(?)\s*["']([^"']+)["']/;
 
 /**
  * The old domain directory name, assembled so this file's own text does not match the scan
@@ -62,15 +63,12 @@ function edgesOf(root: string): Edge[] {
 
 /** Every relative import in one file, resolved to a repository-relative path. */
 function edgesIn(file: string): Edge[] {
-	const dir = file.slice(0, file.lastIndexOf("/"));
-	return textOf(file)
-		.split("\n")
-		.flatMap((line, index) => {
-			const spec = SPEC.exec(line)?.[1];
-			if (spec === undefined || !spec.startsWith(".")) return [];
-			const resolved = posixPath(join(dir, spec));
-			return [{ file: relative(file), line: index + 1, to: resolved.slice(repo.length + 1) }];
-		});
+	return importEdges(file).flatMap((edge) => {
+		if (!edge.specifier.startsWith(".")) return [];
+		const target = resolveFile(file, edge.specifier);
+		if (target === null) return [];
+		return [{ file: relative(file), line: edge.line, to: posixPath(target).slice(repo.length + 1) }];
+	});
 }
 
 /**

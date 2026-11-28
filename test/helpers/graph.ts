@@ -1,14 +1,18 @@
 /**
- * The static import graph: what an extension entry evaluates when Pi loads it.
+ * The static import graph: what a module names, and what an entry evaluates.
  *
  * Pi imports each extension with its own module cache, so a shared `lib/` module
  * is evaluated once per importing entry — the graph is therefore counted per
- * entry, not per repository. Two owners read it: the registration budget in
- * `test/dependencies.test.ts`, and the reading `bun run bench:load` prints. A
- * walker each would be two answers to one question.
+ * entry, not per repository. One reader answers what a module imports,
+ * `importEdges`, and four owners read it: the registration budget in
+ * `test/dependencies.test.ts`, the extension-boundary gate, the layer gate, and
+ * the reading `bun run bench:load` prints. A walker each would be four answers to
+ * one question, and the one that drifts is the one nobody reads.
  *
- * A dynamic `import()` is deliberately not an edge: that is the deferral the
- * budget asks for, and counting it would make every correct deferral fail.
+ * The three questions are not the same question, which is why the reader carries
+ * `loadsValue` rather than deciding for its callers: a dynamic `import()` is the
+ * deferral the budget asks for and must not count as a load, while a boundary or a
+ * layer violation is a dependency whether it is deferred or erased by `tsc`.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -17,6 +21,7 @@ import type { Node } from "typescript";
 import {
 	createSourceFile,
 	forEachChild,
+	isCallExpression,
 	isExportDeclaration,
 	isExternalModuleReference,
 	isImportDeclaration,
@@ -24,6 +29,7 @@ import {
 	isNamespaceImport,
 	isStringLiteral,
 	ScriptTarget,
+	SyntaxKind,
 } from "typescript";
 import { textOf } from "./scan.ts";
 
@@ -48,15 +54,50 @@ function bindsValue(node: Node): boolean {
  * dynamic `import()` is a call expression and is deliberately not collected.
  */
 export function staticSpecifiers(file: string): string[] {
+	return importEdges(file)
+		.filter((edge) => edge.loadsValue)
+		.map((edge) => edge.specifier);
+}
+
+/** One specifier a module names: where it is, what it says, and whether it loads a value. */
+export interface ImportEdge {
+	/** 1-based line of the declaration, or of the `import()` call. */
+	line: number;
+	/** The specifier as written: relative, a package, or a host built-in. */
+	specifier: string;
+	/**
+	 * Whether importing the module loads a value through this edge. False for a type-only form and
+	 * for a dynamic `import()`, which is the deferral the budget asks for; the gates count both,
+	 * because a type or a deferral is still a dependency.
+	 */
+	loadsValue: boolean;
+}
+
+/**
+ * Every specifier one module names, in source order: static imports, re-exports, `import =`
+ * require, type-only forms, and a dynamic `import()` with a literal argument.
+ *
+ * Reported as written, because resolving is the caller's question: a gate asks whether a relative
+ * path lands in a directory it forbids. `resolveFile` answers `null` for a path that is not there,
+ * and a caller treats that as no edge rather than an empty one — `bun run check` runs `tsc`
+ * before the suites, so a relative import that does not resolve cannot reach a gate.
+ */
+export function importEdges(file: string): ImportEdge[] {
 	const source = createSourceFile(file, textOf(file), ScriptTarget.Latest, true);
-	const found: string[] = [];
+	const found: ImportEdge[] = [];
+	const lineOf = (node: Node): number => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
 	const visit = (node: Node): void => {
 		if (isImportDeclaration(node) || isExportDeclaration(node)) {
 			const specifier = node.moduleSpecifier;
-			if (specifier && isStringLiteral(specifier) && bindsValue(node)) found.push(specifier.text);
+			if (specifier && isStringLiteral(specifier))
+				found.push({ line: lineOf(node), specifier: specifier.text, loadsValue: bindsValue(node) });
 		} else if (isImportEqualsDeclaration(node) && isExternalModuleReference(node.moduleReference)) {
 			const expression = node.moduleReference.expression;
-			if (isStringLiteral(expression)) found.push(expression.text);
+			if (isStringLiteral(expression)) found.push({ line: lineOf(node), specifier: expression.text, loadsValue: true });
+		} else if (isCallExpression(node) && node.expression.kind === SyntaxKind.ImportKeyword) {
+			const argument = node.arguments[0];
+			if (argument !== undefined && isStringLiteral(argument))
+				found.push({ line: lineOf(node), specifier: argument.text, loadsValue: false });
 		}
 		forEachChild(node, visit);
 	};
