@@ -350,9 +350,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`, `board`: a read-only git command refused for a parenthesis, brace or backtick now names the character it
   read and the argument that needs none. `git log --grep='fix(api)'` — this repository's own commit-subject shape —
   answered "shell substitution and redirection are not allowed" for an injection nobody attempted and offered no
-  way to write the pattern; it now says "a `(` cannot be told from substitution" and offers `git log --grep='fix'`.
-  The grammar is unchanged, and it stays the safe half: a quoted grouping character is still refused because the
-  guard reads no quoting, and the sentence now says that instead of accusing.
+  way to write the pattern; it now says that a `(` is refused even inside quotes, because the guard reads no
+  quoting, and tells the caller to write the argument without it. The grammar is unchanged and stays the safe
+  half: a quoted grouping character is still refused.
 
 ## [0.31.0] - 2026-11-25
 

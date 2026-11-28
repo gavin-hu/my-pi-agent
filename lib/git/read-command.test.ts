@@ -278,7 +278,7 @@ describe("read-only git shell guard — the character a refusal names", () => {
 		]) {
 			expect(reason(command), command).toContain("a `(`");
 			expect(reason(command), command).toContain("reads no quoting");
-			expect(reason(command), command).toContain("git log --grep='fix'");
+			expect(reason(command), command).toContain("write the argument without it");
 		}
 	});
 
@@ -294,7 +294,7 @@ describe("read-only git shell guard — the character a refusal names", () => {
 			const said = reason("git log --grep='fix(api)'", phrasing);
 			expect(said, phrasing.label).toContain(phrasing.whileDoing);
 			expect(said, phrasing.label).toContain("a `(`");
-			expect(said, phrasing.label).not.toContain("redirection");
+			expect(said, phrasing.label).not.toMatch(/substitution|redirection/);
 		}
 	});
 });

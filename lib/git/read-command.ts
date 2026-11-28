@@ -460,7 +460,7 @@ function checkSingleGitCommand(command: string, phrasing: ModePhrasing): GitChec
 		const what = META_NAME[meta] ?? `a \`${meta}\``;
 		return {
 			ok: false,
-			reason: `${what} cannot be told from substitution ${phrasing.whileDoing}, and this guard reads no quoting, so write the argument without it (\`git log --grep='fix'\`).`,
+			reason: `${what} is refused even inside quotes ${phrasing.whileDoing}, because this guard reads no quoting — write the argument without it.`,
 		};
 	}
 
