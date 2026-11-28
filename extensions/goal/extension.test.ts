@@ -1,8 +1,8 @@
 /**
  * End-to-end wiring for the goal extension: registration, the `/goal` command
  * grammar and flow, the session hooks, the injected reminder, and the widget.
- * Pure formatting, the tool, the clarify loop, and runtime state live in their
- * own suites.
+ * Pure formatting, the tool, the clarify loop, runtime state, and the settle gate
+ * live in their own suites.
  */
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -238,24 +238,6 @@ describe("goal reminder", () => {
 
 		const [result] = await emit(pi, "before_agent_start", {}, ctx);
 		expect(result.message.content).toContain("design it");
-	});
-
-	test("settles a planning goal once plan mode is left without a plan", async () => {
-		const { pi, entries } = makeFakePi();
-		goal(pi);
-		const { ctx } = fakeCtx({ branch: [resultEntry(planning("design it"))] });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "design it", status: "active" } });
-	});
-
-	test("leaves a planning goal alone while plan mode is on", async () => {
-		const { pi, entries } = makeFakePi();
-		goal(pi);
-		const { ctx } = fakeCtx({ branch: [resultEntry(planning("design it")), PLAN_MODE_ON] });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		expect(entries).toEqual([]);
 	});
 
 	test("filters stale goal context when the goal is cleared", async () => {

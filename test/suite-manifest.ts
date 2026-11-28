@@ -171,7 +171,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"extension",
 	],
 	"file-open": ["extension"],
-	goal: ["format", "tools", "runtime", "extension"],
+	goal: ["format", "tools", "runtime", "settle", "extension"],
 	job: [
 		"runtime",
 		"child",
