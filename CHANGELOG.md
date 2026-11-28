@@ -446,6 +446,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   not reproduce`. Nothing is refused and nothing is merged — a lead may still sign and land in one pass while the
   base is steady, which is the clean form this makes visible rather than conditional.
 
+- `team`: `/team` is bounded in both of its growing parts now, not one. Its rollup was capped at ten
+  lines, and the reclaim verbs it appends — one per stopped owner, each naming every card that owner
+  holds — were not capped at all, so a board where six owners went quiet pushed the session up the
+  screen the docstring says it cannot. They stop at five, the number the page's own queue folds at,
+  with the rest counted in one elision that names `/board` for them. Both numbers stay separate
+  because they bound different things: ten lines of summary a lead scans, five verbs a lead may type.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
