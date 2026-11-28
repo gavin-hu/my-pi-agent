@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-28
+
 ### Added
 
 - `session-bus`: `/sessions` speaks three words — clean, drop, forget — completes them, and confirms each (#1029)
@@ -9532,7 +9534,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.28.0...v0.29.0
