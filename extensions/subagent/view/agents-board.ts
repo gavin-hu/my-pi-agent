@@ -83,6 +83,12 @@ export interface AgentsBoardOptions {
 	onCollect: (runId: string) => void;
 	/** Cancel a running run; the board stays open. */
 	onCancel: (runId: string) => void;
+	/**
+	 * Whether a finished run may be collected. The caller's policy decides — plan mode withholds
+	 * it, because a collect writes the run's result into the session — and it defaults to
+	 * {@link canCollect}, so a board opened without a policy behaves as it always did.
+	 */
+	collectable?: (run: BackgroundRun) => boolean;
 	onClose: () => void;
 	requestRender: () => void;
 	viewportRows?: ViewportRowsSource;
@@ -107,10 +113,18 @@ export class AgentsBoardComponent extends DockListScreen<BackgroundRun> {
 		return (this.board.now ?? Date.now)();
 	}
 
+	/**
+	 * One predicate for the `c` key and both hint sites, so the board cannot offer a collect it
+	 * would then ignore — and a policy that withholds one loses the offer as well as the action.
+	 */
+	private get collectable(): (run: BackgroundRun) => boolean {
+		return this.board.collectable ?? canCollect;
+	}
+
 	/** `c` collects a finished run and `x` cancels a running one, in either mode. */
 	private act(key: string, run: BackgroundRun | undefined): boolean {
 		if (!run) return false;
-		if (key === "c" && canCollect(run)) {
+		if (key === "c" && this.collectable(run)) {
 			this.board.onCollect(run.id);
 			return true;
 		}
@@ -158,7 +172,7 @@ export class AgentsBoardComponent extends DockListScreen<BackgroundRun> {
 	protected listHints(): ScreenHint[] {
 		const focused = this.focusedRow;
 		const hints: ScreenHint[] = ["Esc close", { text: "Enter detail", color: "accent" }];
-		if (focused && canCollect(focused)) hints.push({ text: "c collect", color: "accent" });
+		if (focused && this.collectable(focused)) hints.push({ text: "c collect", color: "accent" });
 		if (focused?.status === "running") hints.push({ text: "x cancel", color: "warn" });
 		hints.push(`${GLYPHS.update}/${GLYPHS.hintDown} select`);
 		return hints;
@@ -166,7 +180,7 @@ export class AgentsBoardComponent extends DockListScreen<BackgroundRun> {
 
 	protected detailHints(run: BackgroundRun | undefined): ScreenHint[] {
 		const hints: ScreenHint[] = ["Esc back"];
-		if (run && canCollect(run)) hints.push({ text: "c collect", color: "accent" });
+		if (run && this.collectable(run)) hints.push({ text: "c collect", color: "accent" });
 		if (run?.status === "running") hints.push({ text: "x cancel", color: "warn" });
 		hints.push("j/k scroll");
 		return hints;
