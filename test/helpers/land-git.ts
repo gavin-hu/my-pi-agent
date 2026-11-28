@@ -9,9 +9,11 @@
  * commands run in and the exact text of the bullet are both what is pinned.
  */
 
+import { readFileSync } from "node:fs";
 import { boardCard } from "./fixtures/board.ts";
 import type { Card } from "../../lib/workflow/card.ts";
 import { landCard } from "../../lib/workflow/land.ts";
+import { verbSources } from "../../lib/workflow/land-verb.ts";
 import type { RunGit } from "../../lib/git/runner.ts";
 
 export const BASE = "1111111111111111111111111111111111111111";
@@ -79,9 +81,22 @@ export function fakeGit(script: Record<string, Answer | Answer[]>) {
 	return { run, calls, argv: (verb: string) => calls.filter((args) => args[0] === verb) };
 }
 
+/** The script a signed tree answers with: the verb's own files, exactly as this process holds them. */
+export function signedSources(
+	sha: string = REVIEWED,
+	override?: (path: string) => Answer | undefined,
+): Record<string, Answer> {
+	const script: Record<string, Answer> = {};
+	for (const source of verbSources()) {
+		script[`show ${sha}:${source.path}`] = override?.(source.path) ?? { stdout: readFileSync(source.file, "utf-8") };
+	}
+	return script;
+}
+
 /** The script a clean landing hears: everything succeeds, and `main` is on the remote's tip. */
 export function cleanLanding(overrides: Record<string, Answer | Answer[]> = {}) {
 	return {
+		...signedSources(),
 		fetch: { stdout: "" },
 		"rev-parse --abbrev-ref": { stdout: "main\n" },
 		status: { stdout: "" },
