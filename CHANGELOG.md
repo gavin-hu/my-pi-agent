@@ -87,6 +87,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   named by `pruneRecords` and left on disk — named, not deleted, because an older build must not destroy
   a newer build's record.
 
+- `board`: an owner's line in the round counts the cards it holds — `mike (0 cards, 55 done)` where it said
+  `0 live`. The word collided inside one message: two lines below, the tail counts `N of M sessions live`, so
+  `0 live` read as "this session is dead" when it meant "this owner holds no cards", and a seat reclaimed a
+  live peer's card on exactly that reading. Both shapes of the line moved with it (`billing-core (2)` is now
+  `2 cards`, `1` is `1 card`), the prose above the loop says "open cards" rather than "live cards", and the
+  tail is untouched: liveness now has one spelling in the round.
+
 - `board`: **`/board stop` stops working** — the word is `/board exit`, and a line typed with the old one
   is refused by the command's own "not a word this command knows — try" list, which now names `exit` among
   the words. Nothing is aliased: a second spelling is how a vocabulary grows a dialect, and the refusal is

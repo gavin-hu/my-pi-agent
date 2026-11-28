@@ -80,7 +80,7 @@ describe("roundText", () => {
 		const roster = [mate("billing-lead", NOW), mate("ops-helper", NOW - 20 * 60_000)];
 		expect(roundText(cards, NOW, roster).split("\n")).toEqual([
 			"1 owner · 3 features · 1 unassigned · 0 shelved · 0 unplanned · 0 awaiting approval · 1 awaiting review · 0 untold · 1 blocked · 0 unwritten · 0 done",
-			"billing-core (2): #2 execute, #3 blocked",
+			"billing-core (2 cards): #2 execute, #3 blocked",
 			"unassigned (1): #1 backlog",
 			"unreviewed (1): #2 execute",
 			"blocked (1): #3 blocked — gateway",
@@ -88,12 +88,29 @@ describe("roundText", () => {
 		]);
 	});
 
+	test("counts an owner's cards on its own line, and live sessions on the last", () => {
+		// The defect this holds apart: an owner holding nothing printed `0 live` two lines above a tail
+		// that counts sessions live, and a seat read the owner's line as a dead session and reclaimed a
+		// live peer's card. Both lines are asserted on **one message**, because a case per line cannot
+		// notice an edit that puts the collision back the other way round.
+		const cards = [
+			card("1", { lane: "execute", owner: { label: "billing-core" } }),
+			card("2", { lane: "done", owner: { label: "billing-other" } }),
+		];
+		const roster = [mate("billing-core", NOW), mate("billing-other", NOW)];
+		const lines = roundText(cards, NOW, roster).split("\n");
+		expect(lines).toContain("billing-other (0 cards, 1 done)");
+		// No line of the message counts cards as `live`: the word belongs to the tail alone.
+		expect(lines.some((line) => /\(\d+ live/.test(line))).toBe(false);
+		expect(lines.at(-1)).toBe("2 of 2 sessions live — /team who lists them");
+	});
+
 	test("names an owner by the record the bus holds, so a rename reads once", () => {
 		// The card records the name its claim wrote; `/team join billing-core` moved the bus record and
 		// no card, so the round has to ask the roster before it groups or compares a label.
 		const cards = [card("1", { lane: "execute", owner: { id: "s-core", label: "team-agent-score" } })];
 		const lines = roundText(cards, NOW, [{ ...mate("billing-core", NOW), id: "s-core" }]).split("\n");
-		expect(lines).toContain("billing-core (1): #1 execute");
+		expect(lines).toContain("billing-core (1 card): #1 execute");
 		// One owner, and no second one for the name the card kept — not even in the tail's count.
 		expect(lines.some((line) => line.includes("team-agent-score"))).toBe(false);
 		expect(lines.at(-1)).toBe("1 of 1 session live — /team who lists them");
