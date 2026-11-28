@@ -164,6 +164,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`: a pattern that repeats a group whose iteration can end more than one place froze the
+  session rather than being refused, and every one of those shapes was accepted: `(\w+\s?)+` cost
+  525 ms on a 27-character line, `(a+a)+` 47 ms at 32, `(a{1,3})+` 376 ms, and the gate only looked
+  for a trailing repeat. It now also refuses a body whose last element is optional or can match what
+  the run before it matches, and an alternation whose branches can match one text more than one way
+  (`(a|aa)+`, `(ab|ab)+`, `(a|b|ab)+`), while `(\w+\s)+`, `(a|ab)+`, `(GET|POST)+` and `(ab|cd)+`
+  keep compiling. A refusal is a behaviour change at `add` and there is no setting that turns it off.
+
 - `todo`: the lag reminder counted a memory note, a team message, a WeChat send, an app launch and a
   served review page as work on the checkout. Each declares `readOnlyHint: false` — they write the
   agent directory or reach outside the tree — so the hint fall-through spent a whole model request on

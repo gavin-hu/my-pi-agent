@@ -66,8 +66,17 @@ leaves the terminal as a desktop notification.
   an inotify watcher.
 - Matching is per line: a pattern cannot span a newline, and a line longer than
   `matchChars` is matched on its first `matchChars` characters.
-- A pattern's safety check is a shape check, not a proof: a pathological
-  expression that gets past `add` is bounded by `matchChars` but not timed out.
+- A pattern's safety check is a shape check, not a proof. It refuses a group whose
+  own tail repeats without a bound (`(a+)+`), one whose iteration can end more than
+  one place (`(\w+\s?)+`, `(a+a)+`, `(a{1,3})+`), and one whose branches match one
+  text two ways (`(a|aa)+`); it keeps `(\w+\s)+`, `(a|ab)+`, `(GET|POST)+` and
+  `(ab|cd)+`, whose iterations end in one place. An overlap only a sample of
+  printable ASCII would have caught, and an alternation whose branches are groups
+  (`((a)|(aa))+`), still get past `add`: what does is bounded by `matchChars` but
+  not timed out. A refusal is a behaviour change with no opt-out — no setting turns
+  the check off — so the rewrite the sentence names is the way through: end each
+  iteration on a character the run before it cannot match, or stop repeating the
+  group.
 - Watchers hold live state in memory and stop with the session; a resumed session
   starts with none.
 - Only a **wake** match notifies the desktop, and only when `notify` is on.
