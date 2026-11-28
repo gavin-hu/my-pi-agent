@@ -31,7 +31,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | Sign off finished work | `/board review 4` in the lead's session, then `board move 4 done`, and `/board next` starts the next session — once nothing of yours is in `plan` or `execute`; the page and its seat end with it, the record does not |
 | Explain something | `board note 4 "why the retry is capped at three"` |
 | Set finished work aside | `/board archive` in the lead's session, or the `board` action `archive` from any session |
-| Read the round | `board list round: true`, or `/team` — owners, unassigned, shelved, unplanned, awaiting approval, awaiting review, untold, blocked, done |
+| Read the round | `board list round: true`, or `/team` — owners, features, unassigned, shelved, unplanned, awaiting approval, awaiting review, untold, blocked, unwritten, done, and `, N archivable` when a sweep has something to take |
 
 ## Try it
 
