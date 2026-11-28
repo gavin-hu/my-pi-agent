@@ -168,8 +168,12 @@ export function landScope(card: Pick<Card, "title" | "paths">): string {
 	const names = paths.map(extensionOf).filter((name): name is string => name !== undefined);
 	const [first] = names;
 	if (first !== undefined && names.every((name) => name === first)) {
-		// #853's card and #931's sweep are told apart by what the rest of the paths name.
-		const elsewhere = paths.filter((path) => namedElsewhere(path, first) !== undefined).length;
+		// #853's card and #931's sweep are told apart by what the rest of the paths name — and a
+		// `test/` ledger rides a card that changes code, while it is the work of one that does not.
+		const code = paths.some((path) => areaOf(path) !== "test" && !path.endsWith(".test.ts"));
+		const elsewhere = paths.filter(
+			(path) => namedElsewhere(path, first) !== undefined && !(code && areaOf(path) === "test"),
+		).length;
 		if (names.length >= elsewhere) return first;
 	}
 

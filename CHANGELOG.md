@@ -173,6 +173,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a landing keeps a card's extension when the change is code and the `test/` ledgers only
+  ride beside it. The count that decides whether the extension is where the work is treated every
+  `test/` path as somewhere else, so `session-bus`'s record with the manifest and the dependency
+  ledger landed `merge(lib)`; a ledger now counts only on a card that changes no code of its own,
+  which is the same distinction that already lets `package.json` and `CHANGELOG.md` name no area.
+
 - `board`: the landing proof reads `test/suite-manifest.ts`'s line and block comments as comments
   before it scans the declarations, so a note holding an unmatched bracket can no longer end a
   group's list early — the read that came back short allowed the deletion the guard refuses, and
