@@ -25,6 +25,13 @@ import { type PeerRow, addressable, lookupPeer } from "../../lib/session-roster.
 
 export const TOOL_NAME = SESSION_TOOL;
 export const COMMAND_NAME = "sessions";
+/** The command's second destructive word, and the one spelling of the door every surface names. */
+export const FORGET_WORD = "forget";
+
+/** The command that frees a stopped session's name, for every sentence that points at it. */
+export function forgetCommand(label: string): string {
+	return `/${COMMAND_NAME} ${FORGET_WORD} ${sanitizeLine(label)}`;
+}
 /**
  * The caps and the default this protocol settles for itself. The text cap is not one: it is
  * `lib/session-tool.ts`'s `MAX_MESSAGE_TEXT`, because the callers that clip to it live there.

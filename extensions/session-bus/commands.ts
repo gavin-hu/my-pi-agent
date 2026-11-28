@@ -8,17 +8,17 @@
  * context cannot name a session, so the join is `session({action:"join"})`,
  * `/team join [<label>]`, or the board's `w`.
  *
- * `drop` is the exception, and it is a command because of what it destroys: mail no record holds
- * is evidence, so a person clears it and no session's tool call can. A bare `/sessions drop`
- * drops nothing and prints the mail a drop could name — the board draws no row for it, so this is
- * also the only way to see it in a terminal.
+ * `drop` and `forget` are the exceptions, and they are commands because of what they destroy: mail
+ * no record holds is evidence, and a name is a signature, so a person clears them and no session's
+ * tool call can. A bare `/sessions drop` prints the mail a drop could name — the board draws no row
+ * for it — while a bare `forget` names its syntax, because a gone row is already visible.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
 import { sanitizeLine } from "../../lib/format.ts";
-import { formatDrop, formatJoin, formatStatus, formatUnaccounted } from "./format.ts";
-import { COMMAND_NAME } from "./protocol.ts";
+import { formatDrop, formatForget, formatJoin, formatStatus, formatUnaccounted } from "./format.ts";
+import { COMMAND_NAME, FORGET_WORD, forgetCommand } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 
 /** How often the open board re-reads the bus. */
@@ -111,6 +111,29 @@ async function open(ctx: ExtensionCommandContext, pi: ExtensionAPI, bus: Session
 	}
 }
 
+/** What one destructive word answers: the sentence a person reads, and the tone it reads in. */
+type DoorAnswer = { text: string; kind: "info" | "warning" };
+
+/**
+ * One destructive word's shape: start the bus, run the word, say what it did.
+ *
+ * `drop` and `forget` are the two doors only a person has, so they share this wrapper — the failure
+ * sentence and its warning tone are written once, and each word's own answer is its run.
+ */
+async function personDoor(
+	ctx: ExtensionCommandContext,
+	bus: SessionBus,
+	run: () => Promise<DoorAnswer>,
+): Promise<void> {
+	try {
+		await bus.start(ctx);
+		const { text, kind } = await run();
+		ctx.ui.notify(text, kind);
+	} catch (error) {
+		ctx.ui.notify(`Session bus: ${messageOf(error)}`, "warning");
+	}
+}
+
 /**
  * `/sessions drop [<id>…]`: the mail no record holds, or the ids a person means to clear.
  *
@@ -120,29 +143,49 @@ async function open(ctx: ExtensionCommandContext, pi: ExtensionAPI, bus: Session
  * what went and what stayed.
  */
 async function dropUnaccounted(ctx: ExtensionCommandContext, bus: SessionBus, ids: readonly string[]): Promise<void> {
-	try {
-		await bus.start(ctx);
+	await personDoor(ctx, bus, async () => {
 		if (ids.length === 0) {
 			const status = await bus.status();
-			ctx.ui.notify(formatUnaccounted(status.unaccounted, Date.now()), "info");
-			return;
+			return { text: formatUnaccounted(status.unaccounted, Date.now()), kind: "info" };
 		}
 		const result = await bus.dropUnaccounted(ids);
-		ctx.ui.notify(formatDrop(result), result.kept.length > 0 ? "warning" : "info");
-	} catch (error) {
-		ctx.ui.notify(`Session bus: ${messageOf(error)}`, "warning");
-	}
+		return { text: formatDrop(result), kind: result.kept.length > 0 ? "warning" : "info" };
+	});
+}
+
+/**
+ * `/sessions forget [<label|id>…]`: free a stopped session's name.
+ *
+ * A bare verb frees nothing and names the syntax: a gone row is already on the board, so there is
+ * nothing to reveal the way a bare `drop` reveals mail with no row at all.
+ */
+async function forgetStopped(ctx: ExtensionCommandContext, bus: SessionBus, names: readonly string[]): Promise<void> {
+	await personDoor(ctx, bus, async () => {
+		if (names.length === 0) {
+			return {
+				text: `Name a session: \`${forgetCommand("<label|id>")}…\` frees a stopped session's name.`,
+				kind: "info",
+			};
+		}
+		const result = await bus.forget(names);
+		return { text: formatForget(result), kind: result.kept.length > 0 ? "warning" : "info" };
+	});
 }
 
 export function registerCommands(pi: ExtensionAPI, bus: SessionBus): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Open the bus board: sessions, unread mail, and path claims; `drop <id>…` clears mail no record holds",
-		// The first word selects the one verb; anything else still opens what it opened before, because
+		description:
+			"Open the bus board: sessions, unread mail, and path claims; `drop <id>…` clears mail no record holds; `forget <label|id>…` frees a stopped session's name",
+		// The first word selects the verb; anything else still opens what it opened before, because
 		// a reader who typed a stray word asked for the board and not for a warning about it.
 		handler: async (args, ctx) => {
 			const [word, ...ids] = args.trim().split(/\s+/).filter(Boolean);
 			if (word === "drop") {
 				await dropUnaccounted(ctx, bus, ids);
+				return;
+			}
+			if (word === FORGET_WORD) {
+				await forgetStopped(ctx, bus, ids);
 				return;
 			}
 			await open(ctx, pi, bus);

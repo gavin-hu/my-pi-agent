@@ -17,7 +17,15 @@ import type { LivenessFn, StartTokenFn } from "../../lib/spawn.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
 import type { WatchingState } from "./mail-watch.ts";
 import type { BusStore } from "./store.ts";
-import type { BusMessage, ClaimConflict, DeliveryFailure, DropResult, InboxPeek, SessionStatus } from "./types.ts";
+import type {
+	BusMessage,
+	ClaimConflict,
+	DeliveryFailure,
+	DropResult,
+	ForgetResult,
+	InboxPeek,
+	SessionStatus,
+} from "./types.ts";
 
 export interface SessionBusOptions {
 	now?: () => number;
@@ -123,6 +131,13 @@ export interface SessionBus {
 	 * id a record's inbox holds, so a mistaken id costs a sentence rather than somebody's mail.
 	 */
 	dropUnaccounted(ids: readonly string[]): Promise<DropResult>;
+	/**
+	 * Free the names of records the bus reads as `gone`: their claims go, their inbox stays.
+	 *
+	 * A person's door — no session's tool call may take a name a person has not released — and the
+	 * answer is one line per name: what went, or why it stayed.
+	 */
+	forget(names: readonly string[]): Promise<ForgetResult>;
 	/** Release a claim by its stored repository-relative path. */
 	releaseStored(path: string): Promise<boolean>;
 	send(input: {

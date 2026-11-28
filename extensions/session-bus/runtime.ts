@@ -492,15 +492,13 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if (!store || !record) throw new Error("session bus is not started.");
 			return store.peek(record.id, { limit: MAX_LIMIT });
 		},
-		/**
-		 * Clear unaccounted mail — the store's one write, reached only from `/sessions drop`.
-		 *
-		 * A passthrough with a start check: the store owns both the inbox files and the record set the
-		 * attribution is read from, and that read has to happen at the delete so a resume cannot slip
-		 * between a listing and a removal.
-		 */
+		/** Clear unaccounted mail — the one door `/sessions drop` opens. */
 		async dropUnaccounted(ids) {
 			return requireStore().dropUnaccounted(ids);
+		},
+		async forget(names) {
+			const { forgetSessions } = await import("./forget.ts");
+			return forgetSessions({ store: requireStore(), stateOf }, names);
 		},
 		/**
 		 * Release a claim by its stored path.

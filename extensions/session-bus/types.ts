@@ -137,6 +137,31 @@ export interface DropResult {
 	kept: KeptMail[];
 }
 
+/** One name a forget freed: the record it removed and the claims that went back with it. */
+export interface ForgottenSession {
+	id: string;
+	label: string;
+	released: string[];
+}
+
+/**
+ * One name a forget was given and did not free, and the reason it stayed.
+ *
+ * `held` names the record that holds it while its process may still be running; `ambiguous` names
+ * every record the label fits, because a replicated store can hold two machines' sessions under
+ * one label and a guess would free the wrong one; `missing` is a name nothing on this bus carries.
+ */
+export type KeptForget =
+	| { name: string; reason: "held"; holder: string }
+	| { name: string; reason: "ambiguous"; holders: string[] }
+	| { name: string; reason: "missing" };
+
+/** What forgetting did: the records it freed, and the names that stayed with the reason. */
+export interface ForgetResult {
+	forgotten: ForgottenSession[];
+	kept: KeptForget[];
+}
+
 /** A conflict returned by `session claim`. */
 export interface ClaimConflict {
 	path: string;

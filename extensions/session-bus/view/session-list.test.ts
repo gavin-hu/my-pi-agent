@@ -84,6 +84,8 @@ describe("session rows", () => {
 		expect(line).toContain("gone");
 		expect(line).not.toContain("0 unread");
 		expect(sessionDetailBlock(crashed, 12_000).join("\n")).toContain("process gone");
+		// The block names the door that frees the name, where the row shows the problem.
+		expect(sessionDetailBlock(crashed, 12_000).join("\n")).toContain("/sessions forget crashed");
 	});
 
 	test("the focus block names the cwd, at most two claims, and identity", () => {

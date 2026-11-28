@@ -15,7 +15,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { RosterState } from "../../lib/session-roster.ts";
 import { labelKey, MAX_LABEL, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
-import { shortId } from "./protocol.ts";
+import { forgetCommand, shortId } from "./protocol.ts";
 import type { BusStore } from "./store.ts";
 import type { SessionRecord } from "./types.ts";
 
@@ -142,7 +142,7 @@ export function createLabels(seams: LabelSeams): SessionLabels {
 		// Only two states can arrive: `taken` reserves a record inside the TTL the prune
 		// goes by, so a holder is live or its process is gone.
 		return stateOf(holder) === "gone"
-			? `held by session ${holder.id}, which is not running — the bus forgets it when its heartbeat ages out`
+			? `held by session ${holder.id}, which is not running — the bus forgets it when its heartbeat ages out, or a person runs \`${forgetCommand(holder.label)}\``
 			: `already in use by session ${holder.id}`;
 	}
 

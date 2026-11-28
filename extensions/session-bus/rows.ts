@@ -20,7 +20,7 @@ import { listRow, statusRow } from "../../lib/tui/rows.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { ageText, messageMeta, UNACCOUNTED_PREVIEW } from "./format.ts";
-import { shortId } from "./protocol.ts";
+import { forgetCommand, shortId } from "./protocol.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus, UnaccountedMessage } from "./types.ts";
 
@@ -233,5 +233,6 @@ export function sessionDetailBlock(row: SessionRow, now: number): string[] {
 			`${SEPARATORS.item}last seen: ${ageText(now, row.session.lastSeen)}` +
 			`${row.session.state === "gone" ? `${SEPARATORS.item}process gone` : ""}`,
 	);
+	if (row.session.state === "gone") lines.push(`forget: ${forgetCommand(row.session.label)}`);
 	return lines;
 }
