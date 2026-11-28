@@ -42,8 +42,11 @@ type BoardRow =
 
 const SCOPE_ORDER: readonly BoardScope[] = ["sessions", "inbox", "claims"];
 
+/** The word the frame is titled with, whatever scope is showing. */
+const FRAME_TITLE = "Sessions";
+
 const SCOPE_TITLE: Readonly<Record<BoardScope, string>> = {
-	sessions: "Sessions",
+	sessions: FRAME_TITLE,
 	inbox: "Inbox",
 	claims: "Claims",
 };
@@ -131,7 +134,7 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 	constructor(options: SessionListOptions) {
 		super({
 			theme: options.theme,
-			title: "Sessions",
+			title: FRAME_TITLE,
 			detailTitle: "Details",
 			emptyList: "No sessions on this bus.",
 			emptyDetail: "Nothing to show.",
@@ -157,7 +160,9 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 	}
 
 	protected headerLabel(): string {
-		return SCOPE_TITLE[this.scope];
+		// The frame's word first, then the scope: `Tab` used to retitle the frame, which left a reader
+		// without the name they entered through and made `Tab claims` point at a word on no screen.
+		return this.scope === "sessions" ? FRAME_TITLE : `${FRAME_TITLE} · ${SCOPE_TITLE[this.scope]}`;
 	}
 
 	protected emptyLabel(): string {
@@ -247,24 +252,19 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 	protected listHints(): ScreenHint[] {
 		const tab = (scope: BoardScope): ScreenHint => ({ text: `Tab ${SCOPE_TITLE[scope].toLowerCase()}` });
 		const enter = (verb: string): ScreenHint => ({ text: `Enter ${verb}`, color: "accent" });
+		// The scopes differ in their own words, not in their tail: the arrows and the page keys are the
+		// same gesture on every list, so they are written once.
+		const tail: ScreenHint[] = [`${GLYPHS.update}/${GLYPHS.hintDown}`, "PgUp/PgDn"];
 		const hints: ScreenHint[] = ["Esc", tab(this.nextScope())];
 		switch (this.scope) {
 			case "sessions":
-				hints.push(enter("open"), this.watchHint(), `${GLYPHS.update}/${GLYPHS.hintDown}`, "PgUp/PgDn");
-				break;
+				return [...hints, enter("open"), this.watchHint(), ...tail];
 			case "inbox":
-				hints.push(enter("read"), this.watchHint(), `${GLYPHS.update}/${GLYPHS.hintDown}`, "PgUp/PgDn");
-				break;
+				// `open`, not `read`: this pane consumes nothing, and `read` is a tool's word that does.
+				return [...hints, enter("open"), this.watchHint(), ...tail];
 			case "claims":
-				hints.push(
-					enter("open"),
-					{ text: "x release", color: "warn" },
-					`${GLYPHS.update}/${GLYPHS.hintDown}`,
-					"PgUp/PgDn",
-				);
-				break;
+				return [...hints, enter("open"), { text: "x release", color: "warn" }, ...tail];
 		}
-		return hints;
 	}
 
 	protected detailHints(row: BoardRow | undefined): ScreenHint[] {
