@@ -283,6 +283,26 @@ describe.skipIf(!runSlowSuites)("a start after the context id changes", () => {
 		expect(await lockOf(repo, dead)).toBe("pi:999999:sess");
 	});
 
+	test("a re-lock that fails says the tree is open, instead of passing quietly", async () => {
+		// The one outcome the notice must carry: the unlock succeeded and the lock did not, so the
+		// standing tree is open until the next start. Silence here would be the state this module
+		// exists to prevent, arriving as `undefined`.
+		const { repo, remote } = await makeRepoWithRemote("pi-wt-start-fail-");
+		temps.track(repo);
+		temps.track(remote);
+		const dir = await keptWorktree(repo, "unlocked");
+		await lockedEarlier(repo, dir);
+
+		const harness = await bootWorktree(repo);
+		const run = harness.pi.exec.bind(harness.pi);
+		harness.pi.exec = async (command: string, args: string[], options: unknown) =>
+			args.includes("lock") ? { code: 1, stdout: "", stderr: "lock refused" } : run(command, args, options);
+		const note = await withEnv({ [ENV_ROOT]: dir }, () => reconcileOwnLocks(harness.pi, harness.ctx));
+
+		expect(note).toContain(`Could not re-lock ${basename(dir)}: it is unlocked until the next start.`);
+		expect(await lockOf(repo, dir)).toBeUndefined();
+	});
+
 	test("a non-startup start reconciles before the environment is cleared", async () => {
 		// The wiring, and the card's shape: an empty branch (nothing restored) with `ENV_ROOT` at a
 		// tree this pid locked under an older id. Remove the call and this case has no note and an

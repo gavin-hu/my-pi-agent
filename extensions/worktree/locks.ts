@@ -29,8 +29,12 @@ function listed(paths: readonly string[]): string {
 	return paths.map((path) => basename(path)).join(", ");
 }
 
-/** What a reconcile did, in the two sentences a start can print, or `undefined` when it did nothing. */
-function reconciled(renewed: readonly string[], released: readonly string[]): string | undefined {
+/** What a reconcile did, in the sentences a start can print, or `undefined` when it did nothing. */
+function reconciled(
+	renewed: readonly string[],
+	released: readonly string[],
+	failed: readonly string[],
+): string | undefined {
 	const parts: string[] = [];
 	if (renewed.length > 0) {
 		parts.push(`Renewed this session's lock on ${listed(renewed)}, which the previous context id had left behind.`);
@@ -38,6 +42,9 @@ function reconciled(renewed: readonly string[], released: readonly string[]): st
 	if (released.length > 0) {
 		const count = released.length === 1 ? "a lock" : `${released.length} locks`;
 		parts.push(`Released ${count} this session's previous context left on ${listed(released)}.`);
+	}
+	if (failed.length > 0) {
+		parts.push(`Could not re-lock ${listed(failed)}: it is unlocked until the next start.`);
 	}
 	return parts.length === 0 ? undefined : parts.join(" ");
 }
@@ -57,17 +64,21 @@ export async function reconcileOwnLocks(pi: ExtensionAPI, ctx: ExtensionContext)
 	const entries = await listManagedWorktrees(pi, root, loadConfig(root));
 	const renewed: string[] = [];
 	const released: string[] = [];
+	const failed: string[] = [];
 	for (const entry of entries) {
 		const lock = entry.locked;
 		if (lock === undefined || replacedSessionOf(lock, self) === undefined) continue;
 		const held = isInside(entry.path, standing ?? ctx.cwd);
 		await unlockWorktree(pi, root, entry.path);
 		if (held) {
-			// The tree this session stands in keeps a lock, under the reason it runs as now.
+			// The tree this session stands in keeps a lock, under the reason it runs as now. A lock that
+			// will not take is the one outcome the notice must carry: the tree is open until the next
+			// start, and silence there is exactly the state this module exists to prevent.
 			if (await lockWorktree(pi, root, entry.path, lockReasonFor(ctx))) renewed.push(entry.path);
+			else failed.push(entry.path);
 			continue;
 		}
 		released.push(entry.path);
 	}
-	return reconciled(renewed, released);
+	return reconciled(renewed, released, failed);
 }
