@@ -324,6 +324,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   beside the decision rather than a refusal in front of it, which is the design the tool already had. No code moves; a
   settle hook on a closed list is its own card.
 
+- `docs`: the workflow README stops documenting exports that are gone, and board's round row counts what the rollup
+  prints. `lib/workflow/README.md` still presented `DECISION_BAND`, `DECISION_BANDS`, `DECISION_BAND_LABEL` and
+  `DECISION_BAND_JS` as live — its section even opened by saying the file decided "which band a Team queue row is filed
+  under" — while no band survives in `tone.ts` or `round.ts`, so four sentences now say what the module exports.
+  `docs/extensions/board.md`'s row listed nine of the eleven counts `formatRound` prints, and now names the feature total
+  and `N unwritten` and marks `, N archivable` as the tail that appears only when a sweep has something to take. No
+  module moves; the row's list is a second owner of `round-text.ts`'s vocabulary, and splicing a shared constant is the
+  follow-up rather than a gate that does not exist.
+
 ## [0.31.0] - 2026-11-25
 
 ### Added
