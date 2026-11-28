@@ -74,11 +74,14 @@ board({ action: "contract", card: "1", path: "<the path plan returned>",
   goal: "A retried delivery is accepted once",
   acceptance: "A duplicate event id returns 200 and writes nothing",
   scopeOut: "No new event types",
-  verify: "bun test test/webhook.test.ts" })
+  verify: "bun test test/webhook.test.ts && bun run check" })
 ```
 
 The fourth line is not optional: a contract that names no command cannot be
-approved, because the spot-check would then be a sentence nobody can repeat.
+approved, because the spot-check would then be a sentence nobody can repeat. It
+ends in `bun run check` because the suite proves the rule and the check proves
+the tree the merge carries — format, `tsc`, the size gates and the sweeps — and
+the spot-check runs nothing else.
 
 `path` is the file `plan` action `write` returned — not one retyped from another
 repository's store. It must be in this repository's plan store, and it must still

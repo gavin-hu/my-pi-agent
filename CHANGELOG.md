@@ -125,6 +125,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   before either size gate starts — naming the tree, `root` for the card's worktree, and `done` with an
   `override` for work already in the base. The sign keeps recording the tree it ran in, not the question.
 
+- `docs`: a contract's `verify` is the card's own suites and then the repository's gate. `docs/extensions/board.md`'s
+  Limits now says why — the spot-check runs the command and nothing else, so format, `tsc`, the size gates and the
+  sweeps are otherwise a claim the holder ran by hand — and the two places that taught the reverse are corrected in
+  the same card: the Reference sentence calling `verify` "the card's own check, not the repository's gate", and the
+  walkthrough's example contract, which wrote the webhook suite and nothing else. It also states the rule a card's
+  test claims are held by: a green run that reddened nothing is not coverage, so a case on a sibling sentence is no
+  case at all. No code moves — no `contract` field, no gate that scans a card — and `AGENTS.md` and `CONTRIBUTING.md`
+  are untouched, because each is an exact word ceiling that may only fall.
+
 ### Removed
 
 - `board`: the re-seat-by-label path is gone — `reseat` and the turn-start sweep's branch that reached
