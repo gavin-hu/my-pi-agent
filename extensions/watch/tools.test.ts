@@ -195,6 +195,51 @@ describe("watch tool", () => {
 		expect(result.isError).toBe(true);
 		expect(result.details.error).toMatch(/is running/);
 	});
+
+	test("a bare clear names the watcher it left running", async () => {
+		const { ctx, tool } = setup();
+		await call(tool, ctx, { action: "add", command: "build", pattern: "x" });
+
+		const result = await call(tool, ctx, { action: "clear" });
+
+		// The reply used to answer "Nothing to clear." while w1 kept running, which reads as a tidy table.
+		expect(resultText(result)).toBe("w1 is running; pass all:true to stop it.");
+		expect(result.details.cleared).toBe(0);
+	});
+
+	test("a clear that removed some still names the one it left", async () => {
+		const { ctx, tool } = setup();
+		await call(tool, ctx, { action: "add", command: "build", pattern: "x" });
+		await call(tool, ctx, { action: "add", command: "build", pattern: "y" });
+		await call(tool, ctx, { action: "stop", id: "w1" });
+		await call(tool, ctx, { action: "stop", id: "w2" });
+		await call(tool, ctx, { action: "add", command: "build", pattern: "z" });
+
+		const result = await call(tool, ctx, { action: "clear" });
+
+		// The mixed case is the one the old sentence passed without noticing: a satisfied `Cleared 2`
+		// with a third still going, so the reader tidied up and left the watcher they came for.
+		expect(resultText(result)).toBe("Cleared 2 watchers. w3 is running; pass all:true to stop it.");
+	});
+
+	test("all: false reads exactly as leaving the flag out", async () => {
+		const omitted = setup();
+		await call(omitted.tool, omitted.ctx, { action: "add", command: "build", pattern: "x" });
+		const bare = await call(omitted.tool, omitted.ctx, { action: "clear" });
+
+		const explicit = setup();
+		await call(explicit.tool, explicit.ctx, { action: "add", command: "build", pattern: "x" });
+		const said = await call(explicit.tool, explicit.ctx, { action: "clear", all: false });
+
+		// The sentence is about what is still running, not about whether the caller typed the flag.
+		expect(resultText(said)).toBe(resultText(bare));
+	});
+
+	test("a bare clear with nothing running still says nothing to clear", async () => {
+		const { ctx, tool } = setup();
+		const result = await call(tool, ctx, { action: "clear" });
+		expect(resultText(result)).toBe("Nothing to clear.");
+	});
 });
 
 describe("watch transcript result", () => {

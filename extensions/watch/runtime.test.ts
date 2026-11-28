@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { makeHarnessSuite, runtimeHarness, settle } from "../../test/helpers/fixtures/watch.ts";
 import { DEFAULT_CONFIG, normalizeConfig } from "./config.ts";
-import { MAX_LABEL, normalizeCall } from "./schema.ts";
+import { MAX_ID, MAX_LABEL, MAX_SOURCE, normalizeCall } from "./schema.ts";
 import { overLimit } from "../../lib/format.ts";
 
 const suite = makeHarnessSuite();
@@ -93,6 +93,22 @@ describe("watch call schema", () => {
 		expect(() => normalizeCall({ action: "add", path: "a", pattern: "x", label: "z".repeat(MAX_LABEL + 1) })).toThrow(
 			overLimit("label", MAX_LABEL + 1, MAX_LABEL),
 		);
+	});
+
+	test("the cwd and the id are bounded where codemode meets them", () => {
+		// The published schema refuses both, and this is the path a caller takes without it — so each
+		// check lives here as well as in `WatchParams`, and the tool's own id and cwd still pass.
+		expect(() =>
+			normalizeCall({ action: "add", command: "build", pattern: "x", cwd: "d".repeat(MAX_SOURCE + 1) }),
+		).toThrow(overLimit("cwd", MAX_SOURCE + 1, MAX_SOURCE));
+		expect(() => normalizeCall({ action: "status", id: "w".repeat(MAX_ID + 1) })).toThrow(
+			overLimit("id", MAX_ID + 1, MAX_ID),
+		);
+
+		expect(normalizeCall({ action: "status", id: "w1" })).toEqual({ action: "status", id: "w1" });
+		expect(normalizeCall({ action: "add", command: "build", pattern: "x", cwd: "/tmp/work" })).toMatchObject({
+			cwd: "/tmp/work",
+		});
 	});
 
 	test("id actions require an id", () => {
