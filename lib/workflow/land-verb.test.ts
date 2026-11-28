@@ -47,8 +47,9 @@ describe("the landing's order and its argv", () => {
 			"rev-parse",
 			"rev-parse",
 			"rev-parse",
-			// The tree's verb, four files, then the branch's changelog: the reads a stale process must not
+			// The tree's verb, five files, then the branch's changelog: the reads a stale process must not
 			// let itself run past.
+			"show",
 			"show",
 			"show",
 			"show",
@@ -82,14 +83,15 @@ describe("the landing's order and its argv", () => {
 describe("the landing verb's fingerprint", () => {
 	test("is the files that decide a landing, and every one is what a refusal names", () => {
 		// One file is not the judgement: this one decides the merge, `suite-declarations.ts` decides what
-		// the merge may delete, and `changelog.ts` decides the one line the landing writes — so a guard
-		// that hashed fewer would pass a stale rule, and a stale reader permits the deletion the proof
-		// exists to refuse.
+		// the merge may delete, `changelog.ts` decides the one line the landing writes, `land-subject.ts`
+		// spells it, and `land-verb.ts` spells this list — a guard missing that last one would let a tree
+		// weaken `signedVerb` itself and land unexamined.
 		expect(VERB_SOURCES.map((path) => path.split("/").at(-1))).toEqual([
 			"land.ts",
 			"suite-declarations.ts",
 			"changelog.ts",
 			"land-subject.ts",
+			"land-verb.ts",
 		]);
 		// The digest is over *every* read, built here from the files rather than taken from the constant: a
 		// guard that hashed one of them would pass a stale reader, which is the half-fix this replaces.
@@ -115,6 +117,7 @@ describe("the landing verb's fingerprint", () => {
 			"rev-parse",
 			"rev-parse",
 			"rev-parse",
+			"show",
 			"show",
 			"show",
 			"show",
@@ -181,9 +184,23 @@ describe("the verb the signed tree carries", () => {
 		expect(errorOf(result)).toContain("the signed tree changes the landing verb");
 		expect(errorOf(result)).toContain("lib/workflow/land.ts");
 		expect(errorOf(result)).toContain(BULLET);
-		expect(errorOf(result)).toContain("restart Pi");
+		// The remedy is whole: the commit moves the tip past the sign, so a second spot-check is owed, and
+		// the restart comes after the landing rather than before it.
+		expect(errorOf(result)).toContain("spot-checked again");
+		expect(errorOf(result)).toContain("restart is still owed");
 		expect(git.argv("merge")).toEqual([]);
 		expect(git.argv("push")).toEqual([]);
+	});
+
+	test("a tree that changes only the guard itself is caught, by the list that guard spells", async () => {
+		// Why `land-verb.ts` is in `VERB_SOURCES`: a tree that weakens `signedVerb` is a tree whose
+		// comparison this process would otherwise run as its own, and no other file would say so.
+		const onlyGuard = (path: string) =>
+			path.endsWith("/land-verb.ts") ? { stdout: "// a weaker guard\n" } : undefined;
+		const { git, answer } = landingWith(cleanLanding({ ...signedSources(REVIEWED, onlyGuard) }));
+		const result = await answer;
+		expect(errorOf(result)).toContain("lib/workflow/land-verb.ts");
+		expect(git.argv("merge")).toEqual([]);
 	});
 
 	test("a tree carrying part of the verb refuses, because neither reading of it is true", async () => {

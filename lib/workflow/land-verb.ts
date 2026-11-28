@@ -10,8 +10,8 @@
  *
  * The comparison cannot be fooled by a tree that adds a module, and it needs no parsing to know:
  * {@link VERB_SOURCES} is read *out of the tree* by the paths this list names, hashed in the same
- * order — and the file that spells the list is itself one of the files compared, so changing the
- * list is changing `land.ts`, which is the first thing the comparison sees.
+ * order — and this file, which spells the list, is itself one of the files compared, so changing the
+ * list is changing a file the comparison already reads.
  *
  * Split out of `land.ts` when the third read arrived: that module was 537 of its 600 lines and
  * nothing here knows what a merge is.
@@ -37,6 +37,9 @@ export const VERB_SOURCES: readonly string[] = [
 	fileURLToPath(new URL("./suite-declarations.ts", import.meta.url)),
 	fileURLToPath(new URL("./changelog.ts", import.meta.url)),
 	fileURLToPath(new URL("./land-subject.ts", import.meta.url)),
+	// Last, and here at all because this file spells the list: a tree that changes only this one —
+	// weakening `signedVerb` itself — would otherwise be invisible to the comparison it runs.
+	fileURLToPath(import.meta.url),
 ];
 
 /** The repository these files belong to: two levels above `lib/workflow/`. */
@@ -116,40 +119,52 @@ export type SignedVerb =
  * The signed tree's copies of {@link VERB_SOURCES}, compared with the ones this process holds.
  *
  * Read one `git show <sha>:<path>` at a time, by the paths the list names, so the answers line up with
- * the files that named them. All four missing is {@link SignedVerb} `absent` — a consumer repository
+ * the files that named them. All of them missing is {@link SignedVerb} `absent` — a consumer repository
  * has no such paths and never did — while a tree that carries some of them is `failed`, because a
  * half-present verb is a tree nobody can read as either.
  */
-export async function signedVerb(run: RunGit, cwd: string, sha: string): Promise<SignedVerb> {
+export async function signedVerb(
+	run: RunGit,
+	options: { cwd: string; sha: string; timeoutMs: number },
+): Promise<SignedVerb> {
 	const read: Array<{ source: VerbSource; text: string }> = [];
 	const missing: string[] = [];
 	for (const source of verbSources()) {
 		try {
-			const answer = await run(["show", `${sha}:${source.path}`], { cwd });
+			const answer = await run(["show", `${options.sha}:${source.path}`], {
+				cwd: options.cwd,
+				timeoutMs: options.timeoutMs,
+			});
 			if (answer.code === 0) read.push({ source, text: answer.stdout });
 			else missing.push(source.path);
 		} catch (error) {
-			return { kind: "failed", said: `could not read \`${source.path}\` at ${sha.slice(0, 8)} (${messageOf(error)})` };
+			return {
+				kind: "failed",
+				said: `could not read \`${source.path}\` at ${options.sha.slice(0, 8)} (${messageOf(error)})`,
+			};
 		}
 	}
 	if (read.length === 0) return { kind: "absent" };
 	if (missing.length > 0) {
 		return {
 			kind: "failed",
-			said: `the tree at ${sha.slice(0, 8)} carries part of the landing verb and not the rest (${missing.join(", ")}): neither the verb this process holds nor a tree it can be read against`,
+			said: `the tree at ${options.sha.slice(0, 8)} carries part of the landing verb and not the rest (${missing.join(", ")}): neither the verb this process holds nor a tree it can be read against`,
 		};
 	}
-	const paths = read
-		.filter((entry) => sourceSha(entry.text) !== held(entry.source.file))
-		.map((entry) => entry.source.path);
-	return paths.length === 0 ? { kind: "same" } : { kind: "differs", paths };
-}
-
-/** The digest of one source as this process holds it, or a value no blob matches when it cannot be read. */
-function held(file: string): string {
-	try {
-		return sourceSha(readFileSync(file));
-	} catch {
-		return `unreadable:${file}`;
+	// A comparison needs both sides, so a source this process cannot read is a failed read rather than a
+	// difference: the sentence for a difference asks for a commit, which no unreadable file would earn.
+	const paths: string[] = [];
+	for (const entry of read) {
+		let here: string;
+		try {
+			here = sourceSha(readFileSync(entry.source.file));
+		} catch (error) {
+			return {
+				kind: "failed",
+				said: `could not read \`${entry.source.path}\` here (${messageOf(error)}): the comparison needs both sides`,
+			};
+		}
+		if (here !== sourceSha(entry.text)) paths.push(entry.source.path);
 	}
+	return paths.length === 0 ? { kind: "same" } : { kind: "differs", paths };
 }

@@ -204,7 +204,7 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 	// The tree's own verb, before the branch's changelog is read: `staleVerb` proves this process matches
 	// the checkout, and this is the read that proves the checkout matches the tree the lead signed. It
 	// sits above the changelog plan because it decides which of that plan's two shapes applies.
-	const signed = await signedVerb(run, cwd, branchTip.out);
+	const signed = await signedVerb(run, { cwd, sha: branchTip.out, timeoutMs: LAND_TIMEOUT_MS });
 	if (signed.kind === "failed") return { error: signed.said };
 
 	// The branch's own changelog, read before anything is merged: while the tree carries this verb, a
@@ -440,7 +440,7 @@ async function changelogPlan(
 		if (withoutReferences(carried) !== withoutReferences(branch.out)) {
 			const changed = signed.paths.map((path) => `\`${path}\``).join(" and ");
 			return {
-				error: `the signed tree changes the landing verb (${changed}): this process holds the verb from \`${LAND_BRANCH}\`, so it cannot write this card's entry with the tree's rules — commit this line and land again, then restart Pi before the next landing:\n  ${bullet}`,
+				error: `the signed tree changes the landing verb (${changed}): this process holds the verb from \`${LAND_BRANCH}\`, so it cannot write this card's entry with the tree's rules — commit this line, have it spot-checked again, then land; the restart is still owed after:\n  ${bullet}`,
 			};
 		}
 		// `call` trims its answer, so the file is rebuilt with the newline every line of it ended on.
