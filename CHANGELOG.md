@@ -53,7 +53,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `team`: `/team exit` takes this session off the team — the bus record, the claims it holds and its inbox
   watch all go, and the name leaves the bar — and refuses while a card is still yours (`board release 935`)
-  or while the session holds the page's seat (`/board exit`), because a card whose owner the bus has no
+  or while the session holds the page's seat (`/board stop`), because a card whose owner the bus has no
   record of waits for a person. The next send, claim, or card write puts the session back on the bus under
   the id a card names, and mail already delivered stays until `/sessions drop` clears it.
 
@@ -83,7 +83,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/team exit` means for a membership. That is also the reason for the rename: the team side already has
   the door that ends a standing, and a person who has typed it should not learn a second word for the same
   ending on the board. The page's own verbs keep their names (`page.stop()`, `board: stopped`), and the
-  release notes below keep the word they shipped.
+  release notes below keep the word they shipped, and the `team` bullet above names the old spelling
+  because that line is another card's record: the door it means is this one.
 
 - `board`: `/board`'s words are one table, one flag parser and one line. Every word the command accepts
   is a row — its spelling, its sign, its flags and its run — so the description, the mistyped-word line, the
