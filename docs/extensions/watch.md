@@ -59,9 +59,12 @@ watcher with `wake` raises one triggered turn as soon as the agent is idle,
 including right after a running turn settles; with `notify` on, that match also
 leaves the terminal as a desktop notification.
 
-**Bounds.** `maxMatches` per watcher, `maxLogLines` for the raw tail,
-`matchChars` for what a pattern is run against, `maxWatchers` live at once, and
-`maxRecords` in the table. A file watcher polls every `pollMs`.
+**Bounds.** `maxMatches` per watcher, `maxLogLines` and `maxLogBytes` for the
+raw tail, `matchChars` for what a pattern is run against, `maxWatchers` live at
+once, and `maxRecords` in the table. The byte bound holds whole lines, with one
+exception: the newest line is kept even when it alone is over, because a tail
+that emptied itself would read as a broken watcher. A file watcher polls every
+`pollMs`.
 
 ## Limits
 
@@ -94,7 +97,8 @@ leaves the terminal as a desktop notification.
 | `enabled` | `true` | Allow `add` at all. |
 | `showStatus` | `true` | Show the `⊚ N` and `! N` chips. |
 
-The rest — `maxWatchers`, `maxRecords`, `maxLogLines`, `matchLines`, and
+The rest — `maxWatchers`, `maxRecords`, `maxLogLines`, `maxLogBytes`,
+`matchLines`, and
 `matchChars` — are in
 [configuration](../configuration-reference.md#watch--file-and-command-watchers). To switch
 the extension off, toggle `watch` in `/bytefly`.

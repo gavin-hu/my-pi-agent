@@ -16,12 +16,13 @@ import { LineSplitter } from "../../lib/lines.ts";
 import type { KillTreeFn, SpawnFn, SpawnedProcess } from "../../lib/spawn.ts";
 import { createChildSupervisor, KILL_GRACE_MS } from "../../lib/child.ts";
 import { DEFAULT_CONFIG, loadConfig, type WatchConfig } from "./config.ts";
+import { createRetention, type Retention } from "./logs.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import { compileRegex } from "./pattern.ts";
 import { sourceLabel } from "./format.ts";
 import { createUiController, type UiController } from "./ui.ts";
-import type { PendingMatch, WatchMatch, WatchRecord, WatchSource } from "./types.ts";
+import type { PendingMatch, WatchRecord, WatchSource } from "./types.ts";
 
 /** Largest slice read from a file per tick. */
 const MAX_CHUNK = 1024 * 1024;
@@ -64,12 +65,11 @@ interface Internal {
 	/** {@link fileIdentity} of the file `offset` belongs to; absent for a command watcher. */
 	identity?: string;
 	lines: LineSplitter;
-	rawLines: string[];
-	matches: WatchMatch[];
+	/** The matched lines and the raw tail, bounded in count and in bytes. */
+	retain: Retention;
 	child?: SpawnedProcess;
 	killTimer?: ReturnType<typeof setTimeout>;
 	notified: boolean;
-	seq: number;
 }
 
 export interface AddWatchOptions {
@@ -183,7 +183,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 
 	const unseenCount = (): number => {
 		let count = 0;
-		for (const w of watches.values()) for (const m of w.matches) if (!m.seen) count++;
+		for (const w of watches.values()) count += w.retain.unread().length;
 		return count;
 	};
 
@@ -206,14 +206,13 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	const pendingMatches = (): PendingMatch[] => {
 		const out: PendingMatch[] = [];
 		for (const w of watches.values()) {
-			for (const m of w.matches) {
-				if (m.seen) continue;
+			for (const match of w.retain.unread()) {
 				out.push({
 					watcherId: w.id,
 					label: w.label || sourceLabel(record(w)),
-					seq: m.seq,
-					line: m.line,
-					at: m.at,
+					seq: match.seq,
+					line: match.line,
+					at: match.at,
 				});
 			}
 		}
@@ -233,10 +232,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	const emit = (w: Internal, rawLine: string, time: number): boolean => {
 		const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
 		w.linesRead++;
-		w.rawLines.push(line);
-		if (w.rawLines.length > config.maxLogLines) {
-			w.rawLines.splice(0, w.rawLines.length - config.maxLogLines);
-		}
+		w.retain.push(line);
 		// The pattern is model-authored and runs here, synchronously, on the poll clock, so the
 		// text it is handed is a budget: a line longer than `matchChars` is matched on its
 		// prefix. `logs` keeps the whole line, because that is what the process wrote.
@@ -245,10 +241,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		if (!w.regex.test(subject)) return false;
 
 		const clean = sanitizeUntrustedLine(subject);
-		w.matches.push({ seq: ++w.seq, line: clean, at: time, seen: false });
-		if (w.matches.length > config.maxMatches) {
-			w.matches.splice(0, w.matches.length - config.maxMatches);
-		}
+		w.retain.keep(clean, time);
 		w.matchCount++;
 		w.lastMatchAt = time;
 		if (!w.notified) {
@@ -430,10 +423,8 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 			offset,
 			...(identity === undefined ? {} : { identity }),
 			lines: new LineSplitter(),
-			rawLines: [],
-			matches: [],
+			retain: createRetention(config),
 			notified: false,
-			seq: 0,
 		};
 		watches.set(w.id, w);
 		if (source.kind === "command") {
@@ -457,22 +448,23 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		return w ? record(w) : undefined;
 	};
 
-	const tail = (
-		id: string,
-		lines: number | undefined,
-		pick: (w: Internal) => string[],
-	): { watch: WatchRecord; lines: string[]; truncated: boolean } | undefined => {
+	const matches = (id: string, lines?: number) => {
 		const w = watches.get(id);
 		if (!w) return undefined;
-		const all = pick(w);
-		const count = lines ?? config.matchLines;
-		const tailed = all.slice(Math.max(0, all.length - count));
-		return { watch: record(w), lines: tailed, truncated: all.length > tailed.length };
+		const tailed = w.retain.matches(lines ?? config.matchLines);
+		return { watch: record(w), lines: tailed.lines, truncated: tailed.truncated };
 	};
 
-	const matches = (id: string, lines?: number) => tail(id, lines, (w) => w.matches.map((m) => m.line));
-	const logs = (id: string, lines?: number) =>
-		tail(id, lines, (w) => w.rawLines.map((line) => sanitizeUntrustedLine(line)));
+	const logs = (id: string, lines?: number) => {
+		const w = watches.get(id);
+		if (!w) return undefined;
+		const tailed = w.retain.raw(lines ?? config.matchLines);
+		return {
+			watch: record(w),
+			lines: tailed.lines.map((line) => sanitizeUntrustedLine(line)),
+			truncated: tailed.truncated,
+		};
+	};
 
 	const stop = (id: string): boolean => {
 		const w = watches.get(id);
@@ -519,8 +511,8 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		for (const [id, seqs] of byWatcher) {
 			const w = watches.get(id);
 			if (!w) continue;
-			for (const match of w.matches) if (seqs.has(match.seq)) match.seen = true;
-			if (!w.matches.some((match) => !match.seen)) w.notified = false;
+			w.retain.markSeen(seqs);
+			if (w.retain.allSeen()) w.notified = false;
 		}
 		ui.paint();
 	};

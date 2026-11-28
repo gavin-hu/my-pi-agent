@@ -8,10 +8,9 @@
  * key the screen leaves out is declared here with a reason — a tuning number, a label, or a
  * whole section with no row — so leaving one out is reviewed rather than an oversight; a new
  * section means a new entry in `SECTIONS`, and adding a row means removing its declaration.
- * The loaders stay the source of truth: bounds are derived by probing each normalizer with an
- * extreme value, not by exporting the limits. The same catalogue is the source of truth for the
- * prose that counts the screen — both entry READMEs, the extension page and the configuration
- * reference state how many rows it holds, and every count below is built from `SETTING_ROWS`.
+ * The loaders stay the source of truth: bounds come from probing each normalizer with an extreme value, not
+ * by exporting the limits. The same catalogue is the prose's source too — both entry READMEs, the extension page
+ * and the configuration reference state its row count — and every count below is built from `SETTING_ROWS`.
  */
 
 import { readFileSync } from "node:fs";
@@ -211,6 +210,7 @@ const SECTIONS: readonly SectionCase[] = [
 			maxRecords: "a registry limit",
 			maxMatches: "a registry limit",
 			maxLogLines: "a model-facing limit",
+			maxLogBytes: "a model-facing limit",
 			matchLines: "a model-facing limit",
 			matchChars: "a matching budget, tuned once",
 			pollMs: "a poll interval, tuned once",

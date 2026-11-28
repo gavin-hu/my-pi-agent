@@ -173,6 +173,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`: the raw output a watcher keeps was bounded by line count alone, and a line reaches 1 MiB,
+  so `maxLogLines` 500 across twenty watchers was about ten gigabytes of retained strings. The same
+  tail is bounded in UTF-8 bytes now — `maxLogBytes`, 1 MiB by default, whole lines under it and the
+  newest line kept even when it alone is over — and the buffer moved into `logs.ts`, so `runtime.ts`
+  hands the job over instead of growing into it.
+
 - `watch`: `add` answered `Watching w1` for a command that never started — the spawn threw, a record
   went in with `status: "error"`, and the model read success and then read an empty match list as a
   clean log. The failure is the reply now: `the command did not start, so nothing is watching:
