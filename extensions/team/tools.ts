@@ -2,13 +2,15 @@
  * The `team` tool: the lead's round over the same cards `board` owns.
  *
  * Three actions, because they are the three that reach another session: hand a card out, offer
- * it, and ask a peer how its work is going. `assign` sends the handoff **first** and sets the
- * owner **second**: a card assigned without a message is a card nobody knows about, while a
- * message for a card that then changed is one the peer can still claim. Either failure is
- * reported with the card as it actually is — including the one no rule refused, where the
- * store's own write threw after the message had landed — so the lead's next call starts from
- * the truth. `ask` is the one verb with no card behind it, and the one that names nothing the
- * board can answer.
+ * it, and ask a peer how its work is going. `assign` records the owner **first** and sends the
+ * handoff **second**, and that order is the one that can be repaired: the peer reads a card that
+ * already holds it, and a write no rule allowed sends nobody a message at all — where a message
+ * for a card that then changed would have to describe the change to a peer that can no longer
+ * act on it. A send that fails leaves the card owned with the handoff owed (`owesHandoff`), so a
+ * repeat of the same verb is the retry rather than a second attempt at a first one. Either
+ * failure is reported with the card as it actually is — including the one no rule refused, where
+ * the store's own write threw — so the lead's next call starts from the truth. `ask` is the one
+ * verb with no card behind it, and the one that names nothing the board can answer.
  *
  * A card's own state is `board`'s and only `board`'s: the claim that takes one, the reclaim that
  * gives one back, the lane moves, the contract, and the two signs. This tool reached two of them

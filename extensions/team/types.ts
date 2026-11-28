@@ -3,9 +3,9 @@
  *
  * A `team` result is usually one card plus what happened to the handoff, so the details
  * say both: `assigned` is who the card went to, `delivered` is the labels the bus wrote
- * a message file for, and `messageError` is the send that never landed — a card is
- * never left in a state the report does not describe. `ask` is the one verb with no
- * card: it reports the same two send facts and nothing else.
+ * a message file for, and a send that never landed is a refusal carrying the card as it
+ * is — a card is never left in a state the report does not describe. `ask` is the one verb
+ * with no card: it reports the same two send facts and nothing else.
  *
  * The prompt text lives here for the reason `board`'s action docs do: `test/prompt-budget.test.ts`
  * measures the registered surface, so the words are exported where a test can reach them, and the
@@ -93,9 +93,8 @@ export interface TeamDetails {
 	 * `re: <id>` is what pairs the two. Present on `ask` alone.
 	 */
 	askId?: string;
-	/** Why the handoff was not sent; the card is untouched when this is set. */
-	messageError?: string;
-	/** A refusal's reason, which the renderer draws instead of the details. */
+	/**
+	 * A refusal's reason, which the renderer draws instead of the details. */
 	error?: string;
 }
 
