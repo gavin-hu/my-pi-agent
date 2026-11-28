@@ -178,7 +178,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   can no longer be overwritten by the older snapshot that write took, and a `leave` or a quit can no
   longer be undone by a write still queued behind it. The record's two field-owners, the cursor that
   counts the mail and the turn that says the session is busy, become one module: the document has one
-  hand, and both doors that end a membership drain it before the row goes.
+  hand, and both doors that end a membership drain it before the row goes. A `leave` that cannot finish
+  the removal hands the session back as it was, watch included: the watch stops only once the row is
+  gone, because a disarm before it leaves a session on the bus whose mail nothing polls.
 
 - `watch`: a bare `clear` reported a tidy table while watchers were still running — it skipped them
   and answered `Nothing to clear.`, and with some cleared it answered a satisfied `Cleared 2

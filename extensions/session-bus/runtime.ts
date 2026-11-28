@@ -415,14 +415,12 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				throw new Error(OTHER_PANE);
 			}
 			const wasOnBus = joined;
-			// The heartbeat and the watch go first because they are the writers that would put the row
-			// back between the two calls below; `close()` then drains what either already queued, so a
-			// removal cannot be undone by a write that was still in flight. A leave that cannot land
-			// re-arms both, so the session is as it was rather than as a row nobody beats or watches.
+			// The heartbeat goes first because it is the one writer that would put the row back between
+			// the two calls below; `close()` then drains what either it or the watch already queued, so a
+			// removal cannot be undone by a write that was still in flight.
 			stopHeartbeat?.();
 			stopHeartbeat = undefined;
 			joined = false;
-			mailWatch.stop();
 			await writer?.close();
 			let released: string[];
 			try {
@@ -436,6 +434,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				}
 				throw error;
 			}
+			// The watch stops only once the row is gone: across the removal the writer is closed and
+			// `joined` is false, so a poll writes nothing — while a disarm taken before it would hand
+			// back a session on the bus whose mail nothing polls, and a disarm drops the mode.
+			mailWatch.stop();
 			labels?.withdraw();
 			return { ...(wasOnBus ? { label: me.label } : {}), released };
 		},
