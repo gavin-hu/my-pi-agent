@@ -106,7 +106,7 @@ describe("mayEnter", () => {
 	});
 
 	test("refuses plan from a lead, and names the hatch", () => {
-		expect(mayEnter("plan", "lead")).toContain("/board stop");
+		expect(mayEnter("plan", "lead")).toContain("/board exit");
 	});
 
 	test("refuses a mode it does not know", () => {
@@ -126,7 +126,7 @@ describe("mayEnterFrom", () => {
 	});
 
 	test("refuses plan on a lead branch, naming the hatch a reader can type", () => {
-		expect(mayEnterFrom("plan", [leadEntry()])).toContain("/board stop");
+		expect(mayEnterFrom("plan", [leadEntry()])).toContain("/board exit");
 	});
 
 	test("refuses plan on a lead branch whose lead entry was later withdrawn", () => {

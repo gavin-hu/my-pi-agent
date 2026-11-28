@@ -230,12 +230,13 @@ const runStatus: Runner = async (door, ctx, row, parsed) => {
 	say(ctx, { text: statusLine(await door.page.status(), await teamStatus(door.session, ctx)), tone: "info" });
 };
 
-const runStop: Runner = async (door, ctx, row, parsed) => {
+const runExit: Runner = async (door, ctx, row, parsed) => {
 	if (parsed.extra.length > 0) return say(ctx, { text: extraRefusal(row), tone: "warning" });
-	// Reading the page first, and leaving the seat second: the seat is what the page implied,
-	// so every ending below is one fact — this session serves nothing now, and the tools are
-	// back. Leaving the seat before `stop` is what `exit` used to be for; a seat without its
-	// page is the one state that made a second word necessary, and it is gone.
+	// Reading the page first, and leaving the seat second: the seat is what the page implied, so
+	// every ending below is one fact — this session serves nothing now, and the tools are back. The
+	// word is `exit` because `/team exit` is the door that ends a standing: the page and the seat go
+	// together, which is why the split this replaced (`exit` for the seat alone, `stop` for the page)
+	// stays gone — a seat without its page is one state, not two words.
 	const status = await door.page.status();
 	const left = door.lead === undefined ? false : await door.lead.exit(ctx);
 	const off = left ? " · lead mode off" : "";
@@ -275,7 +276,7 @@ export const BOARD_WORDS: readonly BoardWord[] = [
 	{ word: "approve", sign: "approve", run: runSign("approve") },
 	{ word: "review", sign: "review", flags: [ROOT_FLAG, OVERRIDE_FLAG], run: runSign("review") },
 	{ word: "status", run: runStatus },
-	{ word: "stop", run: runStop },
+	{ word: "exit", run: runExit },
 	{ word: "team", run: runTeam },
 ];
 
@@ -355,7 +356,7 @@ async function openPage(door: Door, ctx: ExtensionCommandContext, view: "board" 
 	// the session down — someone else's page is serving — and leaves the seat it held.
 	if (started.kind === "served" && door.lead !== undefined) {
 		await door.lead.enter(ctx);
-		say(ctx, { text: "lead mode on: sign and dispatch; /board stop to write.", tone: "info" });
+		say(ctx, { text: "lead mode on: sign and dispatch; /board exit to write.", tone: "info" });
 	}
 }
 
@@ -533,7 +534,7 @@ export function statusLine(status: BoardPageStatus, team?: TeamState): string {
 		return `board: ${status.seat} serving ${status.repo} on :${status.port} · ${watching} watching · ${status.where}${teamLine(team)}`;
 	}
 	if (status.stale === true) {
-		return `board: watching ${status.seat} on :${status.port} — that note answers nobody; /board stop drops it${teamLine(team)}`;
+		return `board: watching ${status.seat} on :${status.port} — that note answers nobody; /board exit drops it${teamLine(team)}`;
 	}
 	if (status.attached === true) {
 		return `board: watching ${status.seat} on :${status.port} — nothing to stop here${teamLine(team)}`;
@@ -544,7 +545,7 @@ export function statusLine(status: BoardPageStatus, team?: TeamState): string {
 }
 
 /**
- * What `/board stop` says after it went to drop a note nobody answers.
+ * What `/board exit` says after it went to drop a note nobody answers.
  *
  * Only a page the probe found is called "answering": the other two answers are this session
  * watching nothing now, and a note it could not clear is one that is not there — the sentence

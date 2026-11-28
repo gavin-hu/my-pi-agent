@@ -165,7 +165,7 @@ describe("/board", () => {
 		const session = fakeBoardSession();
 		const started = await run("", { session });
 		expect(started.session.serving()).toBe("team-lead");
-		const stopped = await run("stop", { session });
+		const stopped = await run("exit", { session });
 		expect(stopped.session.serving()).toBeUndefined();
 	});
 
@@ -181,7 +181,7 @@ describe("/board", () => {
 	});
 
 	test("says what a watching session may not stop, and whose page it is", async () => {
-		const { notifications } = await run("stop", { page: attachedPage() });
+		const { notifications } = await run("exit", { page: attachedPage() });
 		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead serves this repository on :4812");
 		const status = await run("status", { page: attachedPage() });
 		expect(status.notifications.at(-1)).toBe("board: watching team-lead on :4812 — nothing to stop here");
@@ -194,21 +194,21 @@ describe("/board", () => {
 		);
 	});
 
-	test("names a watched note that answers nobody, and drops it on stop", async () => {
+	test("names a watched note that answers nobody, and drops it on exit", async () => {
 		const stale = stalePage();
 		const status = await run("status", { page: stale.page });
 		expect(status.notifications.at(-1)).toBe(
-			"board: watching team-lead on :4812 — that note answers nobody; /board stop drops it",
+			"board: watching team-lead on :4812 — that note answers nobody; /board exit drops it",
 		);
 
-		const stopped = await run("stop", { page: stale.page });
+		const stopped = await run("exit", { page: stale.page });
 		expect(stale.calls).toEqual(["dropStale"]);
 		expect(stopped.notifications.at(-1)).toBe("board: dropped team-lead's note for :4812 — it answered nobody");
 	});
 
-	test("keeps the note of a page that came back before stop", async () => {
+	test("keeps the note of a page that came back before exit", async () => {
 		const stale = stalePage("live");
-		const { notifications } = await run("stop", { page: stale.page });
+		const { notifications } = await run("exit", { page: stale.page });
 		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead is answering on :4812");
 	});
 
@@ -217,7 +217,7 @@ describe("/board", () => {
 		// page this session watched is not one that came back — the status line had already
 		// proved it dead, so "is answering" was the one sentence that could not be true.
 		const stale = stalePage("gone");
-		const { notifications } = await run("stop", { page: stale.page });
+		const { notifications } = await run("exit", { page: stale.page });
 		expect(stale.calls).toEqual(["dropStale"]);
 		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead's note for :4812 is already gone");
 	});
@@ -228,7 +228,7 @@ describe("/board", () => {
 	});
 
 	test("stops a running page, and says when there was none", async () => {
-		const first = await run("stop");
+		const first = await run("exit");
 		expect(first.calls).toEqual(["status", "stop"]);
 		expect(first.notifications.at(-1)).toBe("board: not running");
 	});
@@ -237,7 +237,7 @@ describe("/board", () => {
 		const lead = fakeLeadDoor(true);
 		const { page } = fakeBoardPage();
 		await run("", { page, lead });
-		const stopped = await run("stop", { page, lead });
+		const stopped = await run("exit", { page, lead });
 		expect(lead.calls).toEqual(["enter", "exit"]);
 		expect(stopped.notifications.at(-1)).toBe("board: stopped · lead mode off");
 	});
@@ -246,7 +246,7 @@ describe("/board", () => {
 		// The seat a branch re-arms on resume has no page behind it: `stop` is the hatch that
 		// used to be `exit`'s, and the line must not claim it closed a page.
 		const lead = fakeLeadDoor(true);
-		const stopped = await run("stop", { lead });
+		const stopped = await run("exit", { lead });
 		expect(lead.calls).toEqual(["exit"]);
 		expect(stopped.notifications.at(-1)).toBe("board: not running · lead mode off");
 	});
@@ -255,7 +255,7 @@ describe("/board", () => {
 		const lead = fakeLeadDoor(false);
 		const { page } = fakeBoardPage();
 		await run("", { page, lead });
-		const stopped = await run("stop", { page, lead });
+		const stopped = await run("exit", { page, lead });
 		expect(stopped.notifications.at(-1)).toBe("board: stopped");
 	});
 
@@ -263,7 +263,7 @@ describe("/board", () => {
 		// Leaving the seat was `exit`'s other job, and `stop` is now the only word that does it: a
 		// watching session that kept the seat would have no way out of it.
 		const lead = fakeLeadDoor(true);
-		const { notifications } = await run("stop", { page: attachedPage(), lead });
+		const { notifications } = await run("exit", { page: attachedPage(), lead });
 		expect(lead.calls).toEqual(["exit"]);
 		expect(notifications.at(-1)).toBe(
 			"board: nothing to stop here — team-lead serves this repository on :4812 · lead mode off",
@@ -273,7 +273,7 @@ describe("/board", () => {
 	test("ends the seat when it drops a note nobody answers", async () => {
 		const lead = fakeLeadDoor(true);
 		const stale = stalePage();
-		const { notifications } = await run("stop", { page: stale.page, lead });
+		const { notifications } = await run("exit", { page: stale.page, lead });
 		expect(lead.calls).toEqual(["exit"]);
 		expect(notifications.at(-1)).toBe("board: dropped team-lead's note for :4812 — it answered nobody · lead mode off");
 	});

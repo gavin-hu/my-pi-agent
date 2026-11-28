@@ -41,18 +41,20 @@ describe("/board's words", () => {
 			"approve <id>",
 			"review <id> --root <tree> --override <why>",
 			"status",
-			"stop",
+			"exit",
 			"team",
 		]);
 	});
 
-	test("no longer knows the word exit, and lists the ones it has", async () => {
+	test("no longer knows the word stop, and lists the ones it has", async () => {
+		// The word this replaced: `/board exit` and `/team exit` are one ending, and the old spelling
+		// is refused by the table rather than aliased — the line below is the migration message.
 		const lead = fakeLeadDoor(true);
-		const { calls, notifications } = await run("exit", { lead });
+		const { calls, notifications } = await run("stop", { lead });
 		expect(calls).toEqual([]);
 		expect(lead.calls).toEqual([]);
 		expect(notifications.at(-1)).toBe(
-			`board: "exit" is not a word this command knows — try ${BOARD_WORDS.map(short).join(", ")}`,
+			`board: "stop" is not a word this command knows — try ${BOARD_WORDS.map(short).join(", ")}`,
 		);
 	});
 
@@ -105,13 +107,13 @@ describe("/board's words", () => {
 		const command = fake.commands.get(BOARD_COMMAND);
 		const complete = (prefix: string) => command.getArgumentCompletions(prefix);
 		const values = (prefix: string) => complete(prefix)?.map((item: { value: string }) => item.value);
-		expect(values("st")).toEqual(["status", "stop"]);
+		expect(values("st")).toEqual(["status"]);
+		expect(values("e")).toEqual(["exit"]);
 		expect(values("t")).toEqual(["team"]);
 		expect(complete("x")).toBeNull();
 		expect(complete("st more")).toBeNull();
-		// The handler lowercases what it parses, so `/board ST 4` signs: the completion agrees.
-		expect(values("St")).toEqual(["status", "stop"]);
-		expect(values("ST")).toEqual(["status", "stop"]);
+		// The handler lowercases what it parses, so `/board E` completes `exit`: the two agree.
+		expect(values("E")).toEqual(["exit"]);
 		expect(values("  T")).toEqual(["team"]);
 	});
 

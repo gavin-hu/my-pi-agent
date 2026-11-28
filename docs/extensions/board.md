@@ -18,7 +18,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | What you want | What to do |
 |---|---|
 | See the board | `/board` — Board and Team tabs, live |
-| Take the seat | `/board` in the session that serves the page: code edits are refused until `/board stop`, which ends the page with the seat |
+| Take the seat | `/board` in the session that serves the page: code edits are refused until `/board exit`, which ends the page with the seat |
 | Put a feature on it | `board({ action: "add", title, paths })` — a call, because `add` takes a title rather than a card id |
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
@@ -75,7 +75,7 @@ with nothing to prove.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints the URL);
 `/board next` starts a new session at a boundary; `/board approve <id>` and `review <id> [--root <tree>]` sign,
-`archive` sweeps, `status` prints the seat, repository, port, and tabs, and `stop` ends the page and the seat together,
+`archive` sweeps, `status` prints the seat, repository, port, and tabs, and `exit` ends the page and the seat together,
 which costs the live round. A word refuses a flag it does not declare or a word it does not take, naming the ones it has.
 
 **Who signs.** The lead is `team.lead` in `bytefly.json` (default `gavin`), and the page serves as that name; an
@@ -85,7 +85,7 @@ or not told — and an untold one is sent again.
 
 **Lead mode.** Serving the page is the seat: `/board` turns the mode on in that session and the bar draws `⚑ lead`. While it holds the seat keeps a closed
 allow-list — the readers `read`, `grep`, `find`, `ls`, `read_doc`, `run_doctor`; the board's verbs (`board`, `team`, `session`, `plan`, `todo`, `goal`,
-`question`, `subagent`); `web_search`, `web_fetch`, `bash` for read-only git — a retargeting `-C` or `cd` is refused with the by-revision forms to use instead (`git show <sha>:<path>`, `git log <branch>`) — and every other tool is refused by a sentence naming `/board stop`. A tool's
+`question`, `subagent`); `web_search`, `web_fetch`, `bash` for read-only git — a retargeting `-C` or `cd` is refused with the by-revision forms to use instead (`git show <sha>:<path>`, `git log <branch>`) — and every other tool is refused by a sentence naming `/board exit`. A tool's
 own `readOnlyHint` does not admit it, so an MCP reader is refused while the seat is held. `subagent` stays read-only, `plan` keeps `write` and `steps`
 while `enter` refuses, and each turn carries one `[LEAD MODE]` line: the seat's unread mail, what is yours to sign, each parked card's decision,
 the pool's three ids and a count, who is listening. A seated session lands a reviewed card with `board land`, which refuses anyone else, so the seat stays on. The merge that follows tells the holder it is theirs to close, naming the sha `done` resolves against. Its proof refuses a deleted bullet in `CHANGELOG.md` always, and a foot reference there unless the cut rewrote one and added the new version's line; in `test/suite-manifest.ts` it refuses a declaration unless the merge no longer carries the suite it named — a suite's removal deletes its declaration, while a declaration whose suite survives is a rewritten record.

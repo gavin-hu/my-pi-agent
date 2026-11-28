@@ -281,7 +281,7 @@ export function buildLeadContext(facts: LeadFacts): string {
 	lines.push(
 		fitLine(`Peers: ${facts.peers.length === 0 ? "no peers live" : facts.peers.join(" · ")}.`, MAX_LEAD_PEERS_CHARS),
 	);
-	lines.push("`/board stop` to write — the page closes with it; `/board` re-takes both.");
+	lines.push("`/board exit` to write — the page closes with it; `/board` re-takes both.");
 	return lines.join("\n");
 }
 

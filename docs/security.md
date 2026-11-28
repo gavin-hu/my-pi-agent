@@ -42,7 +42,7 @@ One loopback server per session serves every page, and each page mounts a path p
   is not loopback is refused before the route runs. Because a page is one per repository, a second
   session reaches it through the note the serving page leaves beside the cards
   (`page.json`, owner-only): the port, the seat, and that token. The page closes on
-  `/board stop`, a minute after its last tab leaves, or at session shutdown. Writing a
+  `/board exit`, a minute after its last tab leaves, or at session shutdown. Writing a
   card is the tools' work, made as the session that called them, never as the page:
   `claim`, `reclaim`, `drop`, and `assign` confirm in the terminal because a browser is
   not an identity.

@@ -75,6 +75,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: **`/board stop` stops working** — the word is `/board exit`, and a line typed with the old one
+  is refused by the command's own "not a word this command knows — try" list, which now names `exit` among
+  the words. Nothing is aliased: a second spelling is how a vocabulary grows a dialect, and the refusal is
+  the migration message a person reads once. What the word *does* is unchanged, and that is what keeps
+  #866's merge in place — the page and the seat end together, so `exit` here means both, exactly what
+  `/team exit` means for a membership. That is also the reason for the rename: the team side already has
+  the door that ends a standing, and a person who has typed it should not learn a second word for the same
+  ending on the board. The page's own verbs keep their names (`page.stop()`, `board: stopped`), and the
+  release notes below keep the word they shipped, and the `team` bullet above names the old spelling
+  because that line is another card's record: the door it means is this one.
+
 - `board`: `/board`'s words are one table, one flag parser and one line. Every word the command accepts
   is a row — its spelling, its sign, its flags and its run — so the description, the mistyped-word line, the
   completer and the parser read that one table, where four spellings of the same vocabulary used to drift
