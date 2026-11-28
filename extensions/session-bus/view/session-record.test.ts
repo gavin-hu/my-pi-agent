@@ -24,10 +24,7 @@ const HOUR = 60 * MINUTE;
 
 /** The board read: this session joined, and one peer beside it. */
 function board(peer: ReturnType<typeof busSession>) {
-	return busStatus(
-		[busSession(), peer],
-		[busClaim({ path: "src/api", owner: peer.id, ownerLabel: peer.label })],
-	);
+	return busStatus([busSession(), peer], [busClaim({ path: "src/api", owner: peer.id, ownerLabel: peer.label })]);
 }
 
 /** The peer's row, which is the one every case here is about. */

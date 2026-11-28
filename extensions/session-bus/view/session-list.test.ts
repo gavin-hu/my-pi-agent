@@ -362,7 +362,9 @@ describe("the /sessions screen", () => {
 	});
 
 	test("offers Enter only while there is a row to open", () => {
-		const empty = screen(snapshot(busStatus([])), events()).render(80).join("\n");
+		const empty = screen(snapshot(busStatus([])), events())
+			.render(80)
+			.join("\n");
 		expect(empty).toContain("w watch");
 		expect(empty).not.toContain("Enter open");
 		const full = screen(snapshot(busBoard()), events()).render(80).join("\n");
