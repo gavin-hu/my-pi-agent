@@ -19,6 +19,7 @@
  * it drew would eat the mail it was describing.
  */
 
+import { randomBytes } from "node:crypto";
 import { readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { sanitizeLine } from "./format.ts";
@@ -29,6 +30,17 @@ export type MessageKind = "message" | "event" | "ask" | "handoff";
 
 /** The kinds this build reads, in one list, so a guard and a label table cannot disagree. */
 export const MESSAGE_KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
+
+/**
+ * A new message's id: the clock it was made at, and four bytes, so two sends in one millisecond differ.
+ *
+ * The id is the file's name in every inbox that received it (`idOfFile` reads it back), and the word
+ * `replyTo`, `key` and a drop answer take — the message's identity in the one place the envelope is
+ * defined, so the bus and its readers cannot spell an id two ways.
+ */
+export function messageId(at: number): string {
+	return `${at}-${randomBytes(4).toString("hex")}`;
+}
 
 /** One message waiting in a recipient's inbox. */
 export interface BusMessage {

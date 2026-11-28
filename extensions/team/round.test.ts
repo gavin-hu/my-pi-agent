@@ -149,6 +149,27 @@ describe("roundText", () => {
 		expect(lines.at(-1)).toBe("0 of 1 session live — /team who lists them");
 	});
 
+	test("folds the reclaim lines at five, and names the surface that shows the rest", () => {
+		// The round is one notify, so both of its growing parts are bounded: the rollup at ten lines
+		// and the verbs at five, the number the page's own queue folds at. The five is stated here
+		// rather than read from the module, because a case that read the constant would stay green
+		// while the fold moved.
+		const cards = Array.from({ length: 6 }, (_, index) =>
+			card(String(index + 1), { lane: "execute", owner: { label: `stopped-${index}` } }),
+		);
+		const roster = cards.map((_, index) => dead(`stopped-${index}`));
+		const lines = roundText(cards, NOW, roster).split("\n");
+
+		expect(lines.filter((line) => line.startsWith("board reclaim "))).toHaveLength(5);
+		// The elision counts owners, because the line is per owner, and it names the surface that can
+		// show the last one — a count with no door is a dead end.
+		expect(lines).toContain("… 1 owner more — /board shows them");
+		// The folded owner has no verb of its own, which is what the count stands in for. The rollup may
+		// still name it — who holds what is the rollup's business — so the assertion is about the
+		// reclaim line, not about the label.
+		expect(lines.some((line) => line.startsWith("board reclaim ") && line.includes("stopped-5"))).toBe(false);
+	});
+
 	test("caps a long round and says how many lines it left out", () => {
 		const cards = Array.from({ length: 20 }, (_, index) =>
 			card(String(index + 1), { lane: "execute", owner: { label: `owner-${index}` } }),

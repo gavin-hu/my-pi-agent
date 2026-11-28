@@ -64,7 +64,9 @@ the same order `assign` keeps, so the two verbs agree on which half survives a f
 `question?`) sends one peer a question and writes nothing else: its own ask id, and the answering session by id,
 so a reply sets `replyTo "<id>"` and the bus prints it as `re: <id>`.
 
-`/team`'s stalled line names the door: `board reclaim 1, 2 — api-core stopped`. A field an action does
+`/team`'s stalled lines name the door: `board reclaim 1, 2 — api-core stopped`, folded at five like the
+page's own queue, with `… N owners more — /board shows them` naming the surface that draws the rest —
+so the round is one message whichever way a board grows. A field an action does
 not read is refused, naming the verb that takes it — `offer` takes no `to`, and `assign` and `ask` refuse
 `*`, which is `offer`'s broadcast.
 

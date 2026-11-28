@@ -179,12 +179,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a landing keeps a card's extension when the change is code and the `test/` ledgers only
+  ride beside it. The count that decides whether the extension is where the work is treated every
+  `test/` path as somewhere else, so `session-bus`'s record with the manifest and the dependency
+  ledger landed `merge(lib)`; a ledger now counts only on a card that changes no code of its own,
+  which is the same distinction that already lets `package.json` and `CHANGELOG.md` name no area.
+
+- `board`: the landing proof reads `test/suite-manifest.ts`'s line and block comments as comments
+  before it scans the declarations, so a note holding an unmatched bracket can no longer end a
+  group's list early — the read that came back short allowed the deletion the guard refuses, and
+  silently, because no declaration looked removed.
+
 - `board`: a landing no longer refuses a suite renamed under a name another extension also uses. The
   proof read a removed declaration by its stem across the whole tree, so `session-bus`'s
   `presence.test.ts` becoming `record.test.ts` matched `wechat`'s `conversation/presence.test.ts` and
   the merge was undone; each declaration now keeps the group it sat in, and only the file that
   group's own shape spells can refuse it — so a shared stem is judged against its own suite, while a
   declaration dropped under a surviving file still refuses and names it.
+- `session-bus`: a session's record is written through one serialized writer, so a change made while
+  another write was in flight — a turn starting under a heartbeat, a cursor trimmed under the turn —
+  can no longer be overwritten by the older snapshot that write took, and a `leave` or a quit can no
+  longer be undone by a write still queued behind it. The record's two field-owners, the cursor that
+  counts the mail and the turn that says the session is busy, become one module: the document has one
+  hand, and both doors that end a membership drain it before the row goes. A `leave` that cannot finish
+  the removal hands the session back as it was, watch included: the watch stops only once the row is
+  gone, because a disarm before it leaves a session on the bus whose mail nothing polls.
 
 - `watch`: a bare `clear` reported a tidy table while watchers were still running — it skipped them
   and answered `Nothing to clear.`, and with some cleared it answered a satisfied `Cleared 2
@@ -458,6 +477,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   prints names it: `origin/main moved to 20fdf9c7: sync before the merge, or the sign names a tree the landing will
   not reproduce`. Nothing is refused and nothing is merged — a lead may still sign and land in one pass while the
   base is steady, which is the clean form this makes visible rather than conditional.
+
+- `team`: `/team` is bounded in both of its growing parts now, not one. Its rollup was capped at ten
+  lines, and the reclaim verbs it appends — one per stopped owner, each naming every card that owner
+  holds — were not capped at all, so a board where six owners went quiet pushed the session up the
+  screen the docstring says it cannot. They stop at five, the number the page's own queue folds at,
+  with the rest counted in one elision that names `/board` for them. Both numbers stay separate
+  because they bound different things: ten lines of summary a lead scans, five verbs a lead may type.
 
 ## [0.31.0] - 2026-11-25
 
