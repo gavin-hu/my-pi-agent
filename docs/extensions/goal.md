@@ -8,8 +8,8 @@ list is the *how*.
 - **`planning`, `active`, or `achieved`** — a draft becomes active when you leave
   plan mode without approving, or takes the plan's own `Goal` when you approve.
 - **It survives `/resume` and `/tree`**, because it belongs to the session branch.
-- **Completed means read off the list**: `/goal done` names the todo items still
-  open, so the goal cannot claim more than the work shows.
+- **Completed names the list**: `/goal done` names the todo items still open, so
+  the list is in front of you at the moment the goal closes.
 
 ## What you can do
 
@@ -54,6 +54,9 @@ each turn; it does not enter the transcript.
 
 - One goal: a new objective replaces the old one rather than adding to it.
 - There are no sub-goals or priorities — that is what `todo` is for.
+- `/goal done` is not a gate: it names the items still open and closes the goal
+  anyway, and nothing re-checks when they later close. The count is a notice
+  beside the decision rather than a refusal in front of it.
 - An achieved goal is hidden by default; `goal.achieved: "show"` keeps the dimmed
   line.
 - The rail shares the editor with the todo list and both step aside while a full
