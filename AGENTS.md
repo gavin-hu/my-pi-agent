@@ -43,9 +43,10 @@ bun run check            # before landing: format, types, tests
 - An extension factory only registers. Long-lived resources start in `session_start` and
   release in an idempotent `session_shutdown`.
 - `lib/` loads with isolated module caches, so it stays value-only: no module-level
-  state (`test/boundaries.test.ts`). No extension imports another's modules.
-- Shared tool and parameter names live in `lib/tool-names.ts`; shared glyphs and status
-  keys in `lib/tui/glyphs.ts`.
+  state (`test/boundaries.test.ts`). No extension imports another's, and inside `lib/` the
+  workflow domain reaches no surface (`test/layering.test.ts`).
+- Shared names live in `lib/tool-names.ts`; shared glyphs and status keys in
+  `lib/tui/glyphs.ts`.
 - An entry pays for its static graph: a module nothing needs before the first draw loads
   with `import()` where it is used (`lib/lazy.ts`); `test/dependencies.test.ts` holds the
   budget, which may only fall.
@@ -53,9 +54,9 @@ bun run check            # before landing: format, types, tests
   custom entry, rebuilt from the branch. Widgets are derived, never authoritative.
 - A rejected tool call returns an error carrying the previous state; never half-apply.
 - A path is data: resolve before comparing, join with the platform joiner, canonicalize
-  before using one as a key. A literal `a/b` assertion fails on Windows.
-- A trust boundary two extensions answer gets one policy module in `lib/http/`: two
-  copies is how a `Host` rule drifts.
+  before using one as a key (`a/b` fails on Windows).
+- A trust boundary two extensions answer gets one policy module in `lib/http/`, or the
+  `Host` rule drifts.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies` with a
   `"*"` range.
 
@@ -67,11 +68,10 @@ Three are gated; the fourth is review-only.
   `test/shared-helpers.test.ts` fails a body identical to an existing one.
 - **No module grows.** One job per module, its name saying which. Past 600 lines a module
   is named in `LONG_MODULES` in `test/module-sizes.test.ts` with that responsibility, at a
-  line count that may only fall.
+  line count that may only fall, and at exactly 600 in `AT_THE_BAR`.
 - **One owner per concept.** Every `lib/` module has a row in `lib/README.md`, held by
   `test/lib-index.test.ts`.
-- **A cross-cutting change is its own task.** It does not ride on another: no test can
-  tell it from a feature.
+- **A cross-cutting change is its own task.** No test can tell it from a feature.
 
 ## Code quality
 

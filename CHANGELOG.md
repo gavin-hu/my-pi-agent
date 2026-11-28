@@ -96,6 +96,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: the direction inside `lib/` is a gate — `test/layering.test.ts` fails an import between the
+  workflow domain and a surface (`http/`, `web/`, `tui/`, `diff/`, `browser.ts`) in either order,
+  and `test/module-sizes.test.ts` fails a module sitting at exactly 600 that `AT_THE_BAR` does not
+  name, naming the three that do and why each stays whole. `MAX_MODULE_LINES` and the `LONG_MODULES`
+  heights are unchanged: a module at the bar is a reviewed choice, not a trim nobody saw.
+
 - `lib`: the shared index is a map again. Every row keeps its link and every export name it names,
   while the reasoning it repeated from the module header is gone; `drift.test.ts` holds each row's
   prose to 40 words — counting the sentence and not the names — with the table's prose total as a

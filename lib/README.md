@@ -15,6 +15,12 @@ extensions rather than private to one. A helper used by only one extension
 belongs in that extension instead — see `extensions/web-access/http.ts` and
 `extensions/plan/path-guard.ts`.
 
+Here the modules also divide by direction, not only by topic: `workflow/` is the
+domain, `git/` and `plans/` are the compute halves it may use, and `http/`,
+`web/`, `tui/`, `diff/` and `browser.ts` are surfaces it may not reach — nor may
+they reach it. `test/layering.test.ts` holds both halves, so the tree stays a
+ladder rather than one flat namespace.
+
 | Module | Responsibility |
 |---|---|
 | [`browser.ts`](./browser.ts) | Opening a page in the default browser: `browserCommand`, `openPageInBrowser`, `urlLauncher`, `launchDetached`, `$BROWSER`. |

@@ -4,11 +4,14 @@
  * The workflow domain belongs to neither door. Its directory was renamed out of the board
  * extension's name for exactly this reason: `team` imports the domain, and while the directory
  * was named after the board that read looked like a client reaching into another extension's
- * library. Three rules follow, and this suite is the gate on them:
+ * library. Four rules follow, and this suite is the gate on them:
  *
  * - the bus is the floor: it imports no workflow rule and no extension;
  * - team sits above the domain and below board: it may use the domain, never board;
- * - board may use both, but by request rather than import, so it still loads with either off.
+ * - board may use both, but by request rather than import, so it still loads with either off;
+ * - inside `lib/` the direction holds too: the workflow domain reaches the compute halves
+ *   (`git/`, `plans/`) and the shared root modules, never a surface — `http/`, `web/`, `tui/`,
+ *   `diff/`, `browser.ts` — and no surface reaches back to it.
  *
  * The second half is the runtime matrix. An allowed edge is a channel the lower extension
  * answers, so every `answerOn` registration has to live in the bus — a listener anywhere else
@@ -52,19 +55,69 @@ interface Edge {
 
 /** Every relative import under `root`, resolved to a repository-relative path. */
 function edgesOf(root: string): Edge[] {
-	const edges: Edge[] = [];
-	for (const file of filesIn(root).filter((name) => name.endsWith(".ts"))) {
-		const dir = file.slice(0, file.lastIndexOf("/"));
-		textOf(file)
-			.split("\n")
-			.forEach((line, index) => {
-				const spec = SPEC.exec(line)?.[1];
-				if (spec === undefined || !spec.startsWith(".")) return;
-				const resolved = posixPath(join(dir, spec));
-				edges.push({ file: relative(file), line: index + 1, to: resolved.slice(repo.length + 1) });
-			});
-	}
-	return edges;
+	return filesIn(root)
+		.filter((name) => name.endsWith(".ts"))
+		.flatMap(edgesIn);
+}
+
+/** Every relative import in one file, resolved to a repository-relative path. */
+function edgesIn(file: string): Edge[] {
+	const dir = file.slice(0, file.lastIndexOf("/"));
+	return textOf(file)
+		.split("\n")
+		.flatMap((line, index) => {
+			const spec = SPEC.exec(line)?.[1];
+			if (spec === undefined || !spec.startsWith(".")) return [];
+			const resolved = posixPath(join(dir, spec));
+			return [{ file: relative(file), line: index + 1, to: resolved.slice(repo.length + 1) }];
+		});
+}
+
+/**
+ * The surfaces `lib/` splits into, as a suffix of their repository path: the three that render
+ * or serve, the diff renderer, and the one module that launches a browser.
+ *
+ * The compute halves are deliberately absent — `git/` and `plans/` are what the workflow domain
+ * is allowed to reach, and the shared root modules are the floor both sides stand on.
+ */
+const SURFACES = ["http/", "web/", "tui/", "diff/", "browser.ts"] as const;
+
+/** One surface's repository path, which is the prefix an edge is matched against. */
+function surfacePath(name: string): string {
+	return `lib/${name}`;
+}
+
+/**
+ * Every edge the surface rule reads: the domain's own, each surface directory's, and the launcher's.
+ *
+ * `edgesIn` is what makes `lib/browser.ts` walkable — `edgesOf` reads a directory.
+ */
+function surfaceEdges(): Edge[] {
+	return [
+		...edgesOf(join(libDir, "workflow")),
+		...SURFACES.filter((name) => name.endsWith("/")).flatMap((name) => edgesOf(join(libDir, name))),
+		...edgesIn(join(libDir, "browser.ts")),
+	];
+}
+
+/**
+ * The edges that break the direction between the domain and the surfaces, in either order.
+ *
+ * Pure over a list so a case can hand it the violation this tree does not have: a gate whose tree
+ * holds no wrong value has to be shown biting by construction, or it is green because nothing tried.
+ */
+function surfaceOffenders(edges: readonly Edge[]): string[] {
+	const prefixes = SURFACES.map(surfacePath);
+	return edges.flatMap((edge) => {
+		const fromDomain = edge.file.startsWith("lib/workflow/");
+		const toSurface = prefixes.some((prefix) => edge.to.startsWith(prefix));
+		if (fromDomain && toSurface)
+			return [`${edge.file}:${edge.line}: imports ${edge.to} — the workflow domain is below the surfaces`];
+		const fromSurface = prefixes.some((prefix) => edge.file.startsWith(prefix));
+		if (fromSurface && edge.to.startsWith("lib/workflow/"))
+			return [`${edge.file}:${edge.line}: imports ${edge.to} — a surface is above the workflow domain`];
+		return [];
+	});
 }
 
 /** The edges under one extension that land in a place the layer matrix forbids. */
@@ -94,6 +147,23 @@ describe("the dependency layers", () => {
 			.filter((edge) => edge.to.startsWith("extensions/"))
 			.map((edge) => `${edge.file}:${edge.line}: imports ${edge.to} — lib/ is below every extension`);
 		expect(offenders).toEqual([]);
+	});
+
+	test("the workflow domain and the surfaces never reach each other", () => {
+		expect(surfaceOffenders(surfaceEdges())).toEqual([]);
+	});
+
+	test("the surface rule bites either way, and leaves a surface-to-surface edge alone", () => {
+		// This tree holds no wrong edge, so the wrong value is manufactured: a case that has never
+		// failed is a case nobody knows holds.
+		expect(surfaceOffenders([{ file: "lib/workflow/x.ts", line: 3, to: "lib/http/index.ts" }])).toEqual([
+			"lib/workflow/x.ts:3: imports lib/http/index.ts — the workflow domain is below the surfaces",
+		]);
+		expect(surfaceOffenders([{ file: "lib/tui/y.ts", line: 7, to: "lib/workflow/rules.ts" }])).toEqual([
+			"lib/tui/y.ts:7: imports lib/workflow/rules.ts — a surface is above the workflow domain",
+		]);
+		// `web/` is a surface too, and building on the HTTP kit is the direction it is allowed to take.
+		expect(surfaceOffenders([{ file: "lib/web/streams.ts", line: 28, to: "lib/http/index.ts" }])).toEqual([]);
 	});
 
 	test("board reaches the other two by request, not by import", () => {
