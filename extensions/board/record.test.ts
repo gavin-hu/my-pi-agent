@@ -225,6 +225,17 @@ describe("a card set aside", () => {
 	});
 });
 
+describe("a card's listing line", () => {
+	test("names every dependency it waits on, in the order the card named them", () => {
+		// The clause had no case of its own: the detail line's `waits on: #1` reads like the same
+		// fact, and it is a different sentence. The separator is the input that makes this fail,
+		// and `cardRefs` is the one body that decides it.
+		const cards = [boardCard("2"), boardCard("3"), boardCard("7", { dependsOn: ["3", "2"] })];
+		const text = formatBoard(cards, { hiddenDone: 0, archived: 0, skipped: [] });
+		expect(text).toContain("#7 backlog · Card 7 · unassigned · waits on #3, #2");
+	});
+});
+
 describe("the archivable count", () => {
 	test("counts the finished cards nothing open waits on", () => {
 		const done = boardCard("1", { lane: "done" });

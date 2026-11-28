@@ -18,7 +18,7 @@ import { CONTRACT_LINE_OWED } from "../../lib/workflow/contract.ts";
 import { gateOf } from "../../lib/workflow/round.ts";
 import { LANE_RULES } from "../../lib/workflow/lanes.ts";
 import { GATE_WORD } from "../../lib/workflow/tone.ts";
-import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/workflow/links.ts";
+import { type BoardIndex, cardRefs, lanesText, openDependentsOf } from "../../lib/workflow/links.ts";
 import { skippedText } from "../../lib/workflow/skipped.ts";
 import type { Skip } from "../../lib/workflow/read.ts";
 import { ageWords, formatAge, plural, sanitizeLine, shortenPath } from "../../lib/format.ts";
@@ -136,7 +136,7 @@ export function formatDropped(id: string): string {
  */
 export function formatArchived(ids: readonly string[]): string {
 	const theirs = ids.length === 1 ? "its" : "their";
-	return `${plural(ids.length, "card")} archived: ${ids.map(cardRef).join(", ")} — out of the board, ${theirs} notes and plan still readable with archived: true.`;
+	return `${plural(ids.length, "card")} archived: ${cardRefs(ids)} — out of the board, ${theirs} notes and plan still readable with archived: true.`;
 }
 
 /**
@@ -196,7 +196,7 @@ function listLine(card: Card): string {
 	// listing without it read a card waiting for a signature like one that had it.
 	const gate = gateOf(card);
 	const owed = gate === undefined ? "" : ` · ${GATE_WORD[gate]}`;
-	const waits = dependsOf(card).length === 0 ? "" : ` · waits on ${dependsOf(card).map(cardRef).join(", ")}`;
+	const waits = dependsOf(card).length === 0 ? "" : ` · waits on ${cardRefs(dependsOf(card))}`;
 	// The blocked lane carries a fact of its own, and it says it here: the sentence, or the
 	// kind, is one short phrase, so a listing stays one line.
 	const blocked = card.blocked === undefined ? "" : ` · blocked: ${blockText(card.blocked)}`;
