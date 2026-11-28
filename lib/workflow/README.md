@@ -447,8 +447,7 @@ label compare, which is not `holds`), and the person at the keyboard — `PERSON
 `/board approve` and `/board review` write, and the one actor a file can name that is not a
 holder, so a repository worked by one session can still close a card.
 
-`signOf` names the two signs, `approve` and `review`, from one list, and `signMark` / `signedAs`
-are what a sign records and whose it is: the name *and* the person's mark, because a comparison on
+`signMark` / `signedAs` are what a sign records and whose it is: the name *and* the person's mark, because a comparison on
 the label alone would read a session signing under the lead's name back as the person's.
 
 Which sign speaks is the question three readers must answer alike, so it is one rule here:

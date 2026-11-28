@@ -17,7 +17,6 @@ import {
 	pageWithNoRecording,
 } from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
-import { signOf } from "../../lib/workflow/signs.ts";
 import { BOARD_COMMAND, BOARD_WORDS, type BoardWord, type LeadDoor, registerCommands } from "./commands.ts";
 import type { TeamJoin } from "./join.ts";
 import type { BoardPage, StaleDrop } from "./page.ts";
@@ -317,32 +316,27 @@ describe("/board", () => {
 		expect(notifications.at(-1)).toBe("board: dropped team-lead's note for :4812 — it answered nobody · lead mode off");
 	});
 
+	/** The card slot a word takes, as a user writes it: the signs are the two that take one. */
+	const slot = (entry: BoardWord): string => (entry.sign === undefined ? "" : " <id>");
 	/** A word as the warning lists it: the word and its card slot, never its flags. */
-	const short = (entry: BoardWord): string => `/board ${entry.word}${entry.card ? " <id>" : ""}`;
-	/** A word as the description carries it: the same, with the flags it leaves out. */
+	const short = (entry: BoardWord): string => `/board ${entry.word}${slot(entry)}`;
+	/** A word as the description carries it: the same, with its flags spelled out. */
 	const long = (entry: BoardWord): string =>
-		`${entry.word}${entry.card ? " <id>" : ""}${entry.flags === undefined ? "" : ` ${entry.flags}`}`;
+		`${entry.word}${slot(entry)}${(entry.flags ?? []).map((flag) => ` ${flag.name} ${flag.slot}`).join("")}`;
 
 	test("names every word it accepts, in the order a user meets them", () => {
 		// The vocabulary is the user-facing contract, so it is literal here: the card verb, the sweep
-		// flag, the two signs with theirs, then the page's own words.
-		expect(BOARD_WORDS).toEqual([
-			{ word: "next", card: false },
-			{ word: "archive", card: false, flags: "[--older-than <age>]" },
-			{ word: "approve", card: true },
-			{ word: "review", card: true, flags: "[--root <tree>] [--override <why>]" },
-			{ word: "status", card: false },
-			{ word: "stop", card: false },
-			{ word: "team", card: false },
+		// flag, the two signs with theirs, then the page's own words. The sign is the card slot, so a
+		// row that names one names the other.
+		expect(BOARD_WORDS.map((entry) => long(entry))).toEqual([
+			"next",
+			"archive --older-than <age>",
+			"approve <id>",
+			"review <id> --root <tree> --override <why>",
+			"status",
+			"stop",
+			"team",
 		]);
-	});
-
-	test("takes a card on exactly the words the parser signs", () => {
-		// Two owners of one fact would drift: the table says a word takes a card id, and `signOf` says
-		// which words are signs. They are the same set, and this is what keeps them so.
-		expect(BOARD_WORDS.filter((entry) => entry.card).map((entry) => entry.word)).toEqual(
-			BOARD_WORDS.map((entry) => entry.word).filter((word) => signOf(word) !== undefined),
-		);
 	});
 
 	test("no longer knows the word exit, and lists the ones it has", async () => {
@@ -353,6 +347,43 @@ describe("/board", () => {
 		expect(notifications.at(-1)).toBe(
 			`board: "exit" is not a word this command knows — try ${BOARD_WORDS.map(short).join(", ")}`,
 		);
+	});
+
+	test("refuses a flag the word does not declare, naming the ones it has", async () => {
+		// The scan is the row's, so a mistyped flag is refused rather than read as a card's tail and
+		// silently dropped: the sign would go through while the person believed it had applied.
+		const { notifications } = await run("review 4 --rote x");
+		expect(notifications.at(-1)).toBe("board: review takes no --rote — try --root <tree>, --override <why>");
+	});
+
+	test("refuses any flag on a word that declares none", async () => {
+		// What the two bespoke refusals used to say, from the row: a word with no flags takes none.
+		const { notifications } = await run("approve 4 --root ./tree");
+		expect(notifications.at(-1)).toBe("board: approve takes no --root — it takes none: /board approve <id>");
+	});
+
+	test("refuses a flag whose value was left off, before any store is opened", async () => {
+		const { notifications } = await run("review 4 --root");
+		expect(notifications.at(-1)).toBe("board: review --root needs a tree");
+	});
+
+	test("refuses a word the row does not take", async () => {
+		const { notifications } = await run("status now");
+		expect(notifications.at(-1)).toBe("board: status takes no words — try /board status");
+	});
+
+	test("refuses a sweep whose bound lost its flag, and sweeps nothing", async () => {
+		// `/board archive 30d` is the case: a bare word that looks exactly like a card id.
+		const { notifications, calls } = await run("archive 30d");
+		const line = notifications.at(-1) ?? "";
+		expect(line).toContain("--older-than <age>");
+		expect(line).toContain("Nothing was swept.");
+		expect(calls).toEqual([]);
+	});
+
+	test("refuses a bound that is not an age, in the words the tool also uses", async () => {
+		const { notifications } = await run("archive --older-than 30");
+		expect(notifications.at(-1)).toContain('"30" is not an age');
 	});
 
 	test("warns about a word it does not know, and lists the ones it does", async () => {
