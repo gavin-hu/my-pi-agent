@@ -103,10 +103,20 @@ export const BOARD_TOOL = "board";
 export const READ_DOC_TOOL = "read_doc";
 
 /**
- * The `web_search` tool. `web-access` registers it; plan's and subagent's reader
- * lists carry the name, so a rename cannot silently drop the web reader.
+ * The `web_search` tool. `web-access` registers it and plan's reader list carries the name,
+ * so a rename cannot silently drop the web reader. A read-only subagent child is never
+ * granted it — nothing on its allowlist reaches the network — so it is not listed there.
  */
 export const WEB_SEARCH_TOOL = "web_search";
 
 /** The `web_fetch` tool, shared the same way as {@link WEB_SEARCH_TOOL}. */
 export const WEB_FETCH_TOOL = "web_fetch";
+
+/**
+ * The tools whose payload is text the model chose, sent to a third party: a request body
+ * and a query string. A read-only delegation may grant none of them, and
+ * `extensions/subagent/gates.test.ts` asks the read-only allowlist for every name here —
+ * so the day `web-access` grows a third tool, this list is where the gate is told, in the
+ * same commit that registers it, rather than a sentence in the test remembering to.
+ */
+export const EGRESS_TOOLS = [WEB_FETCH_TOOL, WEB_SEARCH_TOOL] as const;

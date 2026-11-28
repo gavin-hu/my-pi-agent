@@ -376,11 +376,11 @@ describe("buildAgentArgs", () => {
 		const narrowed = buildAgentArgs(worker, "t", {}, null, true);
 		expect(valueAfter(narrowed, "--tools")).toBe("read,grep,find,ls,read_doc");
 		const inherited = buildAgentArgs({ ...worker, tools: undefined }, "t", {}, null, true);
-		expect(valueAfter(inherited, "--tools")).toBe("read,grep,find,ls,read_doc,web_search");
+		expect(valueAfter(inherited, "--tools")).toBe("read,grep,find,ls,read_doc");
 	});
 
 	test("readOnly never passes a writing, shell, or fetching tool", () => {
-		const declared = { ...worker, tools: ["read", "web_fetch"] };
+		const declared = { ...worker, tools: ["read", "web_fetch", "web_search"] };
 		expect(valueAfter(buildAgentArgs(declared, "t", {}, null, true), "--tools")).toBe("read");
 		expect([...READ_ONLY_TOOLS]).not.toContain("web_fetch");
 		const tools = valueAfter(buildAgentArgs(worker, "t", {}, null, true), "--tools")!.split(",");

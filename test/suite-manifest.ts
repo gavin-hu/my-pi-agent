@@ -284,6 +284,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"run",
 		"render",
 		"extension",
+		"gates",
 		"failure-output",
 		"background-task",
 		"spawn",

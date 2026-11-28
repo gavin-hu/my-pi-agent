@@ -72,12 +72,12 @@ hands the model: 50 KiB, with the full text kept in the tool details. Background
 **Plan mode.** The tool stays active but every call is forced read-only; a
 background run and `/agents` are refused until the plan is approved.
 
-**Read-only.** The child gets the workspace readers, `read_doc`, and `web_search` —
-never a writing tool, a shell, or `web_fetch`. A fetch is an outbound channel, so a
-child working from a page it was handed could otherwise post a document it read;
-the parent fetches the page and passes the text instead. That narrows what a child
-may do rather than sandboxing it: `read_doc` still reads any document the process
-can.
+**Read-only.** The child gets the workspace readers and `read_doc` — never a writing
+tool, a shell, or anything that reaches the network. Search and fetch are one
+channel: a query string carries text out as surely as a request body, so a child
+working from a page it was handed could otherwise post a document it read. Your
+session searches and fetches, and hands the text over. That narrows what a child may
+do rather than sandboxing it: `read_doc` still reads any document the process can.
 
 **Project agents.** A `.pi/agents` directory loads only when the project is
 trusted, so a repository cannot inject a prompt by adding a file.
