@@ -95,11 +95,12 @@ the pool's three ids and a count, who is listening. A seated session lands a rev
   claim it again. A lead holding no card may still move it `plan` → `execute`, or close a signed card whose holder the
   bus lost — a close, not a signature; every other verb is the holder's. A gate is a reading.
 - Settle title, paths and contract before the sign: a write after the spot-check stops it speaking, and a branch is proved against `main` as cut. Restart when board code lands — a `/reload` keeps a `lib/` module another extension loaded.
-- A `verify` names the gate that proves the tree, not only the suites that prove the rule: the spot-check runs the command and
-  nothing else, so format, `tsc`, the size gates and the sweeps are otherwise a claim the holder ran by hand. A card's claims
-  about tests are read the same way — a green run that reddened nothing is not coverage, so a case on a sibling sentence is no
-  case at all: `waits on: #1` on a detail line says nothing about ` · waits on #2` on a listing. Neither rule is a gate, because
-  a card lives outside this repository; the sign is what reads them.
+- A contract's `verify` names the card's own suites, and then `bun run check` — the gate that proves the tree — because the spot-check
+  runs the command and nothing else, so format, `tsc`, the size gates and the sweeps are otherwise a claim the holder ran by hand.
+  A card that changes no code names `bun run check` alone, because it has no suite to lead with.
+- The same failure appears when a card claims a sentence is tested: a green run that reddened nothing is not coverage, so the
+  detail line's `waits on: #1` says nothing about the listing's `waits on #2, #3`, and a case that never failed is a rule nobody
+  knows holds. Neither is a gate: a card lives outside this repository, so the sign is what reads them.
 - Ownership is a session id, not a lock: a card in `execute` holds its `paths` as the bus's claims and as the tree's write boundary, and a lane change frees only the writer's. While the session's only card sits in `plan`, `blocked`, or the pool, `write`, `edit`, and every shell but a read-only git command are refused, naming `board move <id> execute` — or `board release <id>`, for work that is not the card's. The `paths` bound the two file tools, the shell is judged by lane and not by path, and a hint is a prefix for both readers: the gate refuses a write outside it, and the bus's claim covers what lies under it. So a card whose work grows widens them with `board edit <id> paths [...]` up to twelve, and past twelve names the directory its files share (`lib/workflow/`), one hint where five files would have been; the refusal names that door, which is how the file list keeps up with the work. A session holding no card writes as it always did, and a card a page moves mid-turn is read again by the next `board` call rather than by the write it interrupts. A card whose owner's record reads `gone` is pooled by the next start's sweep, whatever the card calls that owner: the sweep reads the id `holds` compares, never the name, so nothing on the board is re-owned by a name — a pruned record waits for a person, because no record is not a session that stopped. A sweep also keeps the spot-check it finds: holding the seat is not withdrawing a judgement, so only the signer's own reclaim takes a sign back.
 - Plan mode is a card's own step, so the model's `plan` `enter` is refused while this session holds no
   card, naming `claim` (`board add` opens one) so the plan has a card to record it against; a session on
