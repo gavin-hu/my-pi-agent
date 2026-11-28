@@ -15,7 +15,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   by Bun itself, so they never inherited the holder's `PI_LOCKED` marker and queued on each other for the
   whole ten-minute wait — a parked sweep against 8.8 s serial, and 4.7 s at four workers with the lock
   skipped. The record now carries the invocation's parent pid, `root`, and a worker whose parent holds the
-  lock shares it. `test/README.md` and `scripts/README.md` also state the counts they had drifted from: 37
+  lock shares it. `test/README.md` and `scripts/README.md` also state the counts they had drifted from: 38
   files under `test/`, and a 42-suite browser layer with four smoke.
 
 - `session-bus`: `/sessions forget <label|id>…` frees a stopped session's name at once — its record
