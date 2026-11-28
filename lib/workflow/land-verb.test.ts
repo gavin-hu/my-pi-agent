@@ -10,8 +10,17 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { BRANCH, cleanLanding, LANDED, landingWith, MERGE, REVIEWED } from "../../test/helpers/land-git.ts";
-import { IMPORTED_LAND_FINGERPRINT, VERB_SOURCES } from "./land.ts";
+import {
+	BRANCH,
+	BULLET,
+	cleanLanding,
+	LANDED,
+	landingWith,
+	MERGE,
+	REVIEWED,
+	signedSources,
+} from "../../test/helpers/land-git.ts";
+import { IMPORTED_LAND_FINGERPRINT, VERB_SOURCES } from "./land-verb.ts";
 
 /** The sentence a refusal answers with, for the two cases that assert its words. */
 function errorOf(result: { error: string } | object): string {
@@ -38,6 +47,12 @@ describe("the landing's order and its argv", () => {
 			"rev-parse",
 			"rev-parse",
 			"rev-parse",
+			// The tree's verb, four files, then the branch's changelog: the reads a stale process must not
+			// let itself run past.
+			"show",
+			"show",
+			"show",
+			"show",
 			"show",
 			"show",
 			"merge",
@@ -90,8 +105,9 @@ describe("the landing verb's fingerprint", () => {
 		// Both sources, because one digest cannot say which of them moved: naming one would be a guess.
 		expect(errorOf(result)).toContain("land.ts");
 		expect(errorOf(result)).toContain("suite-declarations.ts");
-		// The order is the promise: every refusal a holder can act on has already spoken — the branch's
-		// own changelog included — and nothing is merged or pushed by a process whose rule is stale.
+		// The order is the promise: every refusal a holder can act on has already spoken — the tree's verb
+		// and the branch's own changelog included — and nothing is merged or pushed by a process whose
+		// rule is stale.
 		expect(git.calls.map((args) => args[0])).toEqual([
 			"fetch",
 			"rev-parse",
@@ -99,6 +115,10 @@ describe("the landing verb's fingerprint", () => {
 			"rev-parse",
 			"rev-parse",
 			"rev-parse",
+			"show",
+			"show",
+			"show",
+			"show",
 			"show",
 			"show",
 		]);
@@ -125,5 +145,62 @@ describe("the landing verb's fingerprint", () => {
 			() => "moved",
 		).answer;
 		expect(errorOf(moved)).toContain("the branch moved past the sign");
+	});
+});
+
+describe("the verb the signed tree carries", () => {
+	/** A tree whose `land.ts` is not the file this process holds. */
+	const other = (path: string) =>
+		path.endsWith("/land.ts") ? { stdout: "// the verb this tree carries\n" } : undefined;
+
+	test("a tree carrying a different verb lands the line the tree committed, and writes nothing", async () => {
+		// The bootstrap path, which is what makes a verb-changing card landable at all: the rules this
+		// process holds are not the tree's, so the tree carries its own line, the merge is a plain
+		// `--no-ff`, and the equality is the only thing proving the landed file is the right one.
+		const { git, written, answer } = landingWith(
+			cleanLanding({
+				...signedSources(REVIEWED, other),
+				[`show ${REVIEWED}:CHANGELOG.md`]: { stdout: LANDED },
+				[`show ${MERGE}:CHANGELOG.md`]: { stdout: LANDED },
+			}),
+		);
+		expect(await answer).toMatchObject({ merge: MERGE });
+		expect(written).toEqual([]);
+		expect(git.argv("merge")).toEqual([
+			["merge", "--no-ff", "-m", "merge(board): land is a reviewed card's verb, not a mode exit (#856)", REVIEWED],
+		]);
+		expect(git.argv("add")).toEqual([]);
+		expect(git.argv("commit")).toEqual([]);
+	});
+
+	test("a tree carrying a different verb and no line refuses, naming the line, before any merge", async () => {
+		// #1018's cost, as a sentence instead of an hour: the merge never runs, and the author is told
+		// the exact line to commit and what is owed after.
+		const { git, answer } = landingWith(cleanLanding({ ...signedSources(REVIEWED, other) }));
+		const result = await answer;
+		expect(errorOf(result)).toContain("the signed tree changes the landing verb");
+		expect(errorOf(result)).toContain("lib/workflow/land.ts");
+		expect(errorOf(result)).toContain(BULLET);
+		expect(errorOf(result)).toContain("restart Pi");
+		expect(git.argv("merge")).toEqual([]);
+		expect(git.argv("push")).toEqual([]);
+	});
+
+	test("a tree carrying part of the verb refuses, because neither reading of it is true", async () => {
+		const partial = (path: string) => (path.endsWith("/land.ts") ? { code: 128 } : undefined);
+		const { git, answer } = landingWith(cleanLanding({ ...signedSources(REVIEWED, partial) }));
+		const result = await answer;
+		expect(errorOf(result)).toContain("carries part of the landing verb");
+		expect(git.argv("merge")).toEqual([]);
+	});
+
+	test("a tree that carries none of the verb lands as it did before", async () => {
+		// A board whose repository is not this package's: none of these paths was ever there, so the
+		// comparison has nothing to say and the verb writes the entry as it always did.
+		const { written, answer } = landingWith(
+			cleanLanding({ ...signedSources(REVIEWED, () => ({ code: 128, stderr: "fatal: path does not exist in 'x'" })) }),
+		);
+		expect(await answer).toMatchObject({ merge: MERGE });
+		expect(written).toHaveLength(1);
 	});
 });

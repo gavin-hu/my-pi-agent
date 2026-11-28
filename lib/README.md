@@ -82,11 +82,12 @@ ladder rather than one flat namespace.
 | [`workflow/proven-remove.ts`](./workflow/proven-remove.ts) | Removing a file only when proved: `removeIfProven`. |
 | [`workflow/claims.ts`](./workflow/claims.ts) | The bus's path claims as a card's lane wants them: `holdPaths`, `reclaimHeld`. |
 | [`workflow/join.ts`](./workflow/join.ts) | The session's team standing: `onTeam`, `joinTeam`, `TeamState`, `standingOf`, `teamStatus`, `NOT_ON_TEAM`, `createMemberTools`, `solo`. |
-| [`workflow/seat.ts`](./workflow/seat.ts) | The actor a page reads as, from `team.lead`. |
+| [`workflow/seat.ts`](./workflow/seat.ts) | The actor `team.lead` names. |
 | [`workflow/signs.ts`](./workflow/signs.ts) | What a sign is: who may write one (`Lead`, `isLead`, `personActor`/`isPerson`), what it records (`signMark`/`signedAs`), and which one still speaks (`laneReview`, `signStale`, `currentReview`, and the four bodies as the page receives them) — with `HolderFact` and the note cap's one arithmetic. |
 | [`workflow/lead.ts`](./workflow/lead.ts) | The gate ladder: who may move, sign, close or take a card back, the spot-check's own write and the run it holds to the contract's command, and every sentence that says why not — the words the ladder itself builds. |
 | [`workflow/changelog.ts`](./workflow/changelog.ts) | The `[Unreleased]` line: `headingFor`, `insertBullet`, `lowerFirst`, `CHANGELOG_SECTIONS`. |
 | [`workflow/land-subject.ts`](./workflow/land-subject.ts) | A landing's words: `landScope`, `landTitle`, `landSubject`, `landBullet`. |
+| [`workflow/land-verb.ts`](./workflow/land-verb.ts) | Which verb runs: `VERB_SOURCES`, `verbSources`, `verbFingerprint`, `IMPORTED_LAND_FINGERPRINT`, `staleVerb`, `signedVerb`, `SignedVerb`. |
 | [`workflow/land.ts`](./workflow/land.ts) | The landing verb: `landCard`, `parseNumstat`, `RunGit`. |
 | [`workflow/suite-declarations.ts`](./workflow/suite-declarations.ts) | What a merge may delete: `declaredSuites`, `EXTENSION_SUITES`, `suiteFileOf`, `SuiteOwner`, `DeclaredSuite`, `withoutComments`, `literalBody`, `extensionGroups`. |
 | [`workflow/round.ts`](./workflow/round.ts) | The lead's round: `gateOf`, `unassigned`. |

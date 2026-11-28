@@ -16,11 +16,10 @@
  * drives every refusal without a repository and a second landing cannot see the first's memory.
  */
 
-import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { messageOf } from "../errors.ts";
+import { type SignedVerb, signedVerb, staleVerb } from "./land-verb.ts";
 import { headingFor, insertBullet } from "./changelog.ts";
 import { landBullet, landSubject } from "./land-subject.ts";
 import type { RunGit } from "../git/runner.ts";
@@ -54,42 +53,6 @@ export const APPEND_HOTSPOTS: readonly string[] = [CHANGELOG_HOTSPOT, SUITE_HOTS
 
 /** How long one git command may take before the seam gives up on it. */
 export const LAND_TIMEOUT_MS = 120_000;
-
-/**
- * The files whose text *is* the landing's judgement.
- *
- * This module decides the merge; `suite-declarations.ts` decides what the merge may delete, because
- * `removedSuitesAbove` refuses a deletion only for a declaration its reader still finds — so a stale
- * reader permits the deletion the guard exists to refuse. The pair is the verb, and a third module
- * joining it belongs in this list. Read through `import.meta.url`, never the landing checkout.
- */
-export const VERB_SOURCES: readonly string[] = [
-	fileURLToPath(import.meta.url),
-	fileURLToPath(new URL("./suite-declarations.ts", import.meta.url)),
-	fileURLToPath(new URL("./changelog.ts", import.meta.url)),
-	fileURLToPath(new URL("./land-subject.ts", import.meta.url)),
-];
-
-/** The sha256 of every source in order, or `undefined` when one could not be read. */
-function verbFingerprint(sources: readonly string[] = VERB_SOURCES): string | undefined {
-	const hash = createHash("sha256");
-	for (const path of sources) {
-		try {
-			hash.update(readFileSync(path));
-		} catch {
-			return undefined;
-		}
-	}
-	return hash.digest("hex");
-}
-
-/**
- * The digest this process imported, exported so a suite can answer "unchanged" with the real value.
- *
- * `undefined` is a source that could not be read at import, and it refuses rather than throwing: a
- * module that threw here would take the landing door down instead of refusing one call.
- */
-export const IMPORTED_LAND_FINGERPRINT = verbFingerprint();
 
 /** What a landing needs: the card, the tree it was signed in, and the git seam. */
 export interface LandOptions {
@@ -166,26 +129,6 @@ interface Call {
 }
 
 /**
- * Why the verb this process holds is not the one a landing would run, or `undefined` when it is.
- *
- * Both sentences name every source, because one digest cannot say which of them moved or which could
- * not be read, and a refusal that guessed would be a fact nobody checked. Neither says `/reload`
- * fixes it: `/reload` keeps a `lib/` module another extension already loaded, so a restart is the
- * door that does.
- */
-function staleVerb(seam: (() => string | undefined) | undefined): string | undefined {
-	const current = seam === undefined ? verbFingerprint() : seam();
-	const sources = VERB_SOURCES.map((path) => `\`${path}\``).join(" and ");
-	if (IMPORTED_LAND_FINGERPRINT === undefined || current === undefined) {
-		return `could not read the landing verb's own files (${sources}): this process cannot prove it holds the rule on disk, so restart Pi before landing — \`/reload\` keeps a \`lib/\` module another extension already loaded.`;
-	}
-	if (current !== IMPORTED_LAND_FINGERPRINT) {
-		return `${sources} changed since this process imported them: a landing would run the verb from before the edit, so restart Pi before landing — \`/reload\` keeps a \`lib/\` module another extension already loaded.`;
-	}
-	return undefined;
-}
-
-/**
  * Land `options.card`, or answer why not.
  *
  * Every refusal that leaves the branch alone says so; every refusal after the merge says the
@@ -258,28 +201,40 @@ export async function landCard(options: LandOptions): Promise<LandAnswer> {
 		};
 	}
 
+	// The tree's own verb, before the branch's changelog is read: `staleVerb` proves this process matches
+	// the checkout, and this is the read that proves the checkout matches the tree the lead signed. It
+	// sits above the changelog plan because it decides which of that plan's two shapes applies.
+	const signed = await signedVerb(run, cwd, branchTip.out);
+	if (signed.kind === "failed") return { error: signed.said };
+
+	// The branch's own changelog, read before anything is merged: while the tree carries this verb, a
+	// branch that wrote a bullet is told to drop it here rather than where a merge conflicts — and while
+	// it carries another, the tree's own line is the one that lands.
+	const changelog = await changelogPlan(call, base, branchTip.out, card, signed);
+	if ("error" in changelog) return changelog;
+
 	// The verb this process holds is the one a landing would run: the files it imported are the files
 	// on disk. It is the last read-only refusal, because every check above names a remedy a holder can
 	// act on, and a stale process must not mask one.
-	// The branch's own changelog, read before anything is merged: the bullet is this verb's to write,
-	// so this is where a branch that wrote one is told to drop it rather than where a merge conflicts.
-	const changelog = await changelogPlan(call, base, branchTip.out, card);
-	if ("error" in changelog) return changelog;
-
 	const stale = staleVerb(options.fingerprint);
 	if (stale !== undefined) return { error: stale };
 
 	const subject = landSubject(card);
-	// The merge is left uncommitted for one reason: the bullet has to be in the commit that carries it,
-	// so the landed tree holds the line the proof names, and no second commit goes unsigned.
-	const merged = await call(["merge", "--no-ff", "--no-commit", branchTip.out]);
+	// A landing that writes the bullet leaves the merge uncommitted, so the line is in the commit that
+	// carries it and no second commit goes unsigned; a landing whose tree carries the line has nothing
+	// to add and commits the merge itself.
+	const merged = changelog.write
+		? await call(["merge", "--no-ff", "--no-commit", branchTip.out])
+		: await call(["merge", "--no-ff", "-m", subject, branchTip.out]);
 	if (!merged.ok) {
 		// A conflict leaves a half-merge behind: abort it, so the branch is the one it was.
 		await call(["merge", "--abort"]);
 		return { error: `the merge conflicts; the branch is untouched — \`/board exit\`, then resolve it by hand.` };
 	}
-	const written = await writeChangelog(call, cwd, changelog.text, subject, options.write);
-	if (written !== undefined) return written;
+	if (changelog.write) {
+		const written = await writeChangelog(call, cwd, changelog.text, subject, options.write);
+		if (written !== undefined) return written;
+	}
 
 	const mergeSha = await call(["rev-parse", "HEAD"]);
 	if (!mergeSha.ok) {
@@ -434,22 +389,28 @@ function withoutReferences(text: string): string {
 interface ChangelogPlan {
 	/** The generated line, named in a refusal and in the proof. */
 	bullet: string;
-	/** The whole file, one final newline restored, which is what the landing writes. */
+	/** The whole file the merge must leave, one final newline included. */
 	text: string;
+	/** Whether this verb writes that file, or the tree already carries it. */
+	write: boolean;
 }
 
 /**
  * The changelog this landing will leave behind, or why it will not land.
  *
  * Read from the two trees rather than from the checkout, because the branch's own copy is what a
- * merge would carry: a branch that wrote a bullet is the contention this verb exists to remove, and
- * a version cut is the one edit that rides — its foot references, and only those, may differ.
+ * merge would carry. Two shapes follow from the verb the tree holds: while it is this one, the branch
+ * must not have touched the file and the landing writes the line itself; while it is not, this process
+ * cannot apply that tree's rules, so the tree carries the line and the landing only holds it to the
+ * line this verb would have written. A version cut is the one edit that rides either way — its foot
+ * references, and only those, may differ.
  */
 async function changelogPlan(
 	call: (args: string[]) => Promise<Call>,
 	base: string,
 	tip: string,
 	card: Card,
+	signed: SignedVerb,
 ): Promise<ChangelogPlan | { error: string }> {
 	const before = await call(["show", `${base}:${CHANGELOG_HOTSPOT}`]);
 	if (!before.ok) {
@@ -460,9 +421,10 @@ async function changelogPlan(
 		return { error: `could not read the branch's ${CHANGELOG_HOTSPOT} (${firstLine(branch.out)}).` };
 	}
 	const bullet = landBullet(card);
-	if (withoutReferences(before.out) !== withoutReferences(branch.out)) {
+	const carried = insertBullet(before.out, headingFor(card.type), bullet);
+	if (carried === undefined) {
 		return {
-			error: `the branch edits ${CHANGELOG_HOTSPOT}: a landing writes the bullet itself, so drop that change — the line it will land is\n  ${bullet}`,
+			error: `${CHANGELOG_HOTSPOT} has no \`## [Unreleased]\` window: a bullet is written there and nowhere else.`,
 		};
 	}
 	const from = referencesOf(before.out);
@@ -472,14 +434,25 @@ async function changelogPlan(
 			error: `the branch rewrites ${CHANGELOG_HOTSPOT}'s foot references without the new version's line, which is what a cut adds.`,
 		};
 	}
-	const text = insertBullet(branch.out, headingFor(card.type), bullet);
-	if (text === undefined) {
+	if (signed.kind === "differs") {
+		// The tree carries a different verb, so its rules are not the ones this process would apply: the
+		// line is the tree's to carry, and the equality below is the only proof it is the right one.
+		if (withoutReferences(carried) !== withoutReferences(branch.out)) {
+			const changed = signed.paths.map((path) => `\`${path}\``).join(" and ");
+			return {
+				error: `the signed tree changes the landing verb (${changed}): this process holds the verb from \`${LAND_BRANCH}\`, so it cannot write this card's entry with the tree's rules — commit this line and land again, then restart Pi before the next landing:\n  ${bullet}`,
+			};
+		}
+		// `call` trims its answer, so the file is rebuilt with the newline every line of it ended on.
+		return { bullet, text: `${branch.out}\n`, write: false };
+	}
+	if (withoutReferences(before.out) !== withoutReferences(branch.out)) {
 		return {
-			error: `${CHANGELOG_HOTSPOT} has no \`## [Unreleased]\` window: a bullet is written there and nowhere else.`,
+			error: `the branch edits ${CHANGELOG_HOTSPOT}: a landing writes the bullet itself, so drop that change — the line it will land is\n  ${bullet}`,
 		};
 	}
 	// `call` trims its answer, so the file is rebuilt with the newline every line of it ended on.
-	return { bullet, text: `${text}\n` };
+	return { bullet, text: `${insertBullet(branch.out, headingFor(card.type), bullet)}\n`, write: true };
 }
 
 /** The write, and the two commands that put it in the merge; `undefined` when all three worked. */
