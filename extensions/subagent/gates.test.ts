@@ -40,8 +40,9 @@ describe("a read-only child", () => {
 	test("spawns an argv whose tool list carries no outbound name", () => {
 		for (const agent of shapes()) {
 			const args = buildAgentArgs(agent, "t", {}, null, true);
-			const granted = args[args.indexOf("--tools") + 1];
-			expect(granted, "a read-only run always names its tools").toBeString();
+			const at = args.indexOf("--tools");
+			expect(at, "a read-only run always names its tools").toBeGreaterThan(-1);
+			const granted = args[at + 1]!;
 			for (const egress of EGRESS_TOOLS) expect(granted!.split(",")).not.toContain(egress);
 		}
 	});
