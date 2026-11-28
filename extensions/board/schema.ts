@@ -66,7 +66,7 @@ export const BoardParams = Type.Object({
 	paths: Type.Optional(
 		Type.Array(Type.String({ maxLength: MAX_PATH }), {
 			maxItems: MAX_PATHS,
-			description: "`add` and `edit`: repository-relative hints; in `execute` they are the write boundary.",
+			description: "`add` and `edit`: repository-relative hints (prefixes); in `execute` a write boundary.",
 		}),
 	),
 	note: Type.Optional(

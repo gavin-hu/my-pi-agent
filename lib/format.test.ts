@@ -192,8 +192,12 @@ describe("the path refusals", () => {
 		// The cap is the caller's — a claim keeps 20 and a card's hint 12 — so only the sentence is
 		// shared, and the spelling is the caller's too: a claim names the entry it was given, a hint
 		// its cleaned form. Two copies of either is how the sentences beside these drifted.
-		expect(tooManyPaths(20)).toBe("at most 20 paths are allowed.");
-		expect(tooManyPaths(12)).toBe("at most 12 paths are allowed.");
+		expect(tooManyPaths(20)).toBe(
+			"at most 20 paths are allowed. A path is a prefix, so name the directory its files share.",
+		);
+		expect(tooManyPaths(12)).toBe(
+			"at most 12 paths are allowed. A path is a prefix, so name the directory its files share.",
+		);
 		expect(EMPTY_PATH).toBe("every path must be a non-empty string.");
 		expect(outsideRepository("../outside")).toBe('path "../outside" is outside the repository.');
 	});

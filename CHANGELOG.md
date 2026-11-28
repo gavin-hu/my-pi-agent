@@ -115,6 +115,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `paths` are prefixes, said where they are met — the refusal past the twelve-entry cap now names the
+  route (`A path is a prefix, so name the directory its files share`), the `paths` field says `(prefixes)` in the
+  words it already spent, and the guide explains the number instead of only the door. The cap stays twelve: a
+  prefix set of twelve covers what a file list could not, and past that the work is spread wider than one card
+  describes. The sentence is the bus's too, because `claimsConflict` nests a directory claim and a file claim, so
+  the same advice holds for a claim list.
+
 - `todo`: the lag reminder is no longer offered into a boundary the host cannot continue. The host
   commits what a boundary proposes before it reads the preview, so a reminder offered with no runnable
   context left landed on the branch as a message nothing would read and reported the continuation as an

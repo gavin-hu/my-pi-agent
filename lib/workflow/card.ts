@@ -42,7 +42,7 @@ export const SUPPORTED_VERSIONS = [1, CARD_VERSION] as const;
 /** Longest title, in characters. One line, so it cannot wrap a lane row. */
 export const MAX_TITLE = 120;
 
-/** Most path hints one card may carry. */
+/** Most path hints one card may carry — a hint is a prefix, so a wide change names the directory rather than its files. */
 export const MAX_PATHS = 12;
 
 /** Longest path hint, in characters. */
@@ -277,6 +277,10 @@ export function normalizeTitle(raw: unknown): { title: string } | FieldError {
  * A hint is not a claim, so it is never resolved against the filesystem — but an
  * absolute path or one that climbs out of the repository would read as a claim on
  * something the board cannot see, so both are refused.
+ *
+ * A hint is a **prefix**: the write gate matches it with `isInsideReal`, so `lib/workflow` covers every file
+ * under it, and the bus's claim nests the same way (`claimsConflict`). That is why {@link MAX_PATHS} is no
+ * wall — a card wider than twelve files names the directories they share, not the files.
  */
 export function normalizePathHints(raw: unknown): { paths: string[] } | FieldError {
 	if (raw === undefined) return { paths: [] };
