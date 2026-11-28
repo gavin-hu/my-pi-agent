@@ -12,6 +12,10 @@
  * the names a row cites included, because an extension's catalog row is one sentence
  * and the names are the sentence; here the names are the map. Two budgets that read
  * alike measure different things.
+ *
+ * A row is a **selection** of a module's names, not its export list: the map orients a
+ * reader, and nothing here checks that every export is named. A gate for that would be
+ * a different card, and a different rule — this one protects the row's shape.
  */
 
 import { readFileSync } from "node:fs";
