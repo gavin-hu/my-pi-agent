@@ -43,8 +43,8 @@ The model calls `board({ action: "add", … })` and then, when you say so, `boar
 Those are tool actions, not commands: `Reference` lists every `/board` word and who may run one. The claim names
 the next step, and `/board approve 1` refuses until the contract names a plan file in this repository's store.
 
-A card is as tall as it draws: the line above its last one says what it owes, and is blank when it owes
-nothing. The row and `board list` print that gate in one word, and a narrow transcript row draws it on the next line.
+A card is as tall as it draws: the line above its last one says what decides what happens next — a
+dependency it waits on, one it has met, a gate it owes — and is blank when there is nothing to say. The row and `board list` print that gate in one word, and a narrow transcript row draws it on the next line.
 
 ## Reference
 

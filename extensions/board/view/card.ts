@@ -13,8 +13,9 @@
  * focusing that button and never hovers anything.
  *
  * The reason is two facts in one node, and the node is on every card: a *state* — what the card
- * owes somebody — is drawn on the row above the footer, and a *note* is not, because a note is
- * prose; it stays in that row as text only a description reads. Either way the whole sentence is
+ * owes somebody, or the dependency it has stopped waiting on — is drawn on the row above the
+ * footer, and a *note* is not, because a note is prose; it stays in that row as text only a
+ * description reads. Either way the whole sentence is
  * the row's hover and the title button's description, so the keyboard and a screen reader reach it,
  * and the dialog prints it in full.
  *
@@ -97,6 +98,9 @@ export const BOARD_CARD_JS = String.raw`(function () {
     // reader cannot see from the lane. The sentence is the snapshot's, so this line and
     // the tool's refusal name one list.
     if (card.waits !== undefined) return { text: "waits on " + card.waits, kind: "waiting" };
+    // The same edge read the other way, for the pool card that has stopped waiting. The record
+    // settles what outranks it, so this branch is the whole of the precedence on this side.
+    if (card.ready !== undefined) return { text: "ready \u2014 waited on " + card.ready, kind: "ready" };
     return reasonFor(card, ago);
   }
 

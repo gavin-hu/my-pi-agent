@@ -24,6 +24,7 @@ import { currentReview } from "./signs.ts";
 /** What a reason is about, which is what a row's edge and a dot are coloured by. */
 export const REASON_KINDS = [
 	"waiting",
+	"ready",
 	"blocked",
 	"offered",
 	"shelved",
@@ -43,11 +44,13 @@ export type ReasonKind = (typeof REASON_KINDS)[number];
  *
  * A decision row and a mission card carry the reason as a shape rather than a sentence —
  * the numbered row has no room for a clause, and the whole of it is one hover away — so this
- * is the one table a pill's words come from. `waiting` is here for the same reason it is in
- * the tone table: the card face invents it for a card that names what it waits on.
+ * is the one table a pill's words come from. `waiting` and `ready` are here for the reason the
+ * tone table gives: they are the dependency edge read both ways, and the card face invents both
+ * from the two fields the snapshot derives, so a table without them would draw the default.
  */
 export const REASON_LABEL: Record<ReasonKind, string> = {
 	waiting: "waits",
+	ready: "ready",
 	blocked: "blocked",
 	offered: "offered",
 	shelved: "shelved",

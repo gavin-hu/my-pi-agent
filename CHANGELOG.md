@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a pool card that named `dependsOn` says so on its face once the last dependency is `done` —
+  `ready — waited on #4` — where before it drew nothing and read exactly like a card that never waited.
+  Every id it waited on is named, a shelf or an offer on the card keeps its own sentence because both
+  outrank being takeable, and a card that recorded no dependency stays silent: it was always takeable,
+  so there is no transition to announce. The word is a fact about the card's graph, not a promise that a
+  claim will be let through, and the page's line is muted because it asks nobody for anything.
+
 - `board`: a `backlog` card can be set aside with a one-line reason — `shelve` writes it, `unshelve` puts
   it back, and a claim or an assignment does the same — so a card waiting on the world stops counting as
   unassigned work and stops being offered, while staying in the pool with its reason on the row and in the

@@ -31,7 +31,8 @@ import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./
 import type { Skip } from "./read.ts";
 import { LANE_RULES, LANES, type Lane, type LaneRole } from "./lanes.ts";
 import { DEFAULT_WIP, limitOf, type WipLimits } from "./limits.ts";
-import { blockersOf, dependentIndexOf, type DependentIndex, indexOf, lanesText, openDependentsIn } from "./links.ts";
+import { blockersOf, dependentIndexOf, indexOf, lanesText, openDependentsIn, readiedBy } from "./links.ts";
+import type { DependentIndex } from "./links.ts";
 import { withLiveOwner } from "./round-text.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
@@ -135,6 +136,12 @@ export interface ViewCard extends Card {
 	 * boolean beside it would be one more thing that can disagree with the string.
 	 */
 	waits?: string;
+	/**
+	 * The dependencies it has met, as `#2, #3`; absent unless it is a pool card with no shelf and no
+	 * offer, whose every dependency is finished. The mirror of `waits`, decided here so a fragment
+	 * draws a field rather than knowing what a shelf is.
+	 */
+	ready?: string;
 	/**
 	 * The unfinished cards waiting on it, as `#9 (backlog) Ship the picker`; absent when none
 	 * do.
@@ -481,11 +488,18 @@ function viewCardOf(
 	// a refusal is a row, and the sentence is the point there.
 	const waits = lanesText(blockersOf(card, index), { titles: true });
 	const holding = lanesText(openDependentsIn(dependents, card.id), { titles: true });
+	// A shelf and an offer are decisions the card is under, and a takeable card outranks
+	// neither: the pool's precedence is settled here, not in a fragment.
+	const ready =
+		card.lane === "backlog" && card.shelved === undefined && card.offeredAt === undefined
+			? readiedBy(card, index)
+			: undefined;
 	const since = laneSince(card);
 	return {
 		...card,
 		priority: priorityOf(card),
 		...(waits === "" ? {} : { waits }),
+		...(ready === undefined ? {} : { ready }),
 		...(holding === "" ? {} : { dependents: holding }),
 		...(since === undefined ? {} : { since }),
 		...(planGone ? { planGone: true as const } : {}),

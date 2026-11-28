@@ -18,6 +18,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "playwright-core";
 import { makeClock } from "../../../test/helpers/clock.ts";
+import { advance } from "../../../test/helpers/board-flow.ts";
 import { type ElementLike } from "../../../test/helpers/board-dom.ts";
 import { LEAD, seedWorkingBoard } from "../../../test/helpers/board-fixture.ts";
 import {
@@ -205,6 +206,53 @@ describe.skipIf(CHROME === undefined)("the card face", () => {
 			);
 			expect(notedDescribed).toContain("card-reason-1");
 			await page.setViewportSize({ width: 1280, height: 900 });
+		},
+		CASE_MS,
+	);
+
+	test(
+		"reads ready for a pool card that met its last dependency, and yields to a shelf and an offer",
+		async () => {
+			const page = await openPage();
+			await page.waitForSelector(".board-row", { timeout: PAINT_MS });
+			const finished = await board.store.create({ title: "Landed first", paths: [] }, LEAD, clock.now());
+			await advance(board.store, finished.id, "done", { owner: LEAD }, clock.now());
+			const met = await board.store.create(
+				{ title: "Next one", paths: [], note: "a note the order outranks" },
+				LEAD,
+				clock.now(),
+			);
+			await board.store.mutate(met.id, { kind: "edit", dependsOn: [finished.id] }, LEAD, clock.now());
+			// One read of one card's row: its words, its hover, and the tone it wears.
+			const rowOf = (id: string) =>
+				page.$eval(`.board-row[data-card="${id}"] .bf-row__reason`, (node) => ({
+					words: node.textContent ?? "",
+					hover: node.getAttribute("title") ?? "",
+					tone: node.getAttribute("data-tone") ?? "",
+				}));
+			const reload = async () => {
+				await page.reload({ waitUntil: "load" });
+				await page.waitForSelector(".board-row", { timeout: PAINT_MS });
+			};
+
+			await reload();
+			// The dependency is named the way the waiting line names one, and the note gives up the row
+			// to it: readiness is the decision, a note is history. Muted, because it asks nothing.
+			const ready = await rowOf(met.id);
+			expect(ready.words).toBe(`ready \u2014 waited on #${finished.id}`);
+			expect(ready.hover).toBe(ready.words);
+			expect(ready.tone).toBe("muted");
+
+			// The two decisions the record puts ahead of it keep their own sentence.
+			await board.store.mutate(met.id, { kind: "shelve", note: "after the release" }, LEAD, clock.now());
+			await reload();
+			expect((await rowOf(met.id)).words).toBe("shelved \u2014 after the release");
+			await board.store.mutate(met.id, { kind: "unshelve" }, LEAD, clock.now());
+			await board.store.mutate(met.id, { kind: "offer" }, LEAD, clock.now());
+			await reload();
+			const offered = await rowOf(met.id);
+			expect(offered.words).toContain("offered");
+			expect(offered.words).not.toContain("ready");
 		},
 		CASE_MS,
 	);
