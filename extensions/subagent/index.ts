@@ -33,7 +33,7 @@ import { renderSubagentCall, renderSubagentResult } from "./render.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { finishedEvent } from "./accounting.ts";
 import { runSingleAgent, type RunOptions } from "./run.ts";
-import { SubagentParams, resolveMode, type SubagentArgs } from "./schema.ts";
+import { MAX_LIVE_CHILDREN, SubagentParams, resolveMode, type SubagentArgs } from "./schema.ts";
 import type { DispatchDefaults, SingleResult, SubagentDetails } from "./types.ts";
 
 export const TOOL_NAME = "subagent";
@@ -76,6 +76,14 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 	// Read once per session; a call that arrives before `session_start` reads the
 	// same files lazily, so the two paths cannot disagree.
 	let settings: SubagentConfig | undefined;
+	/**
+	 * Children this session has in flight from tool calls, reserved by the call that plans
+	 * them. Sibling calls run in parallel and each caps only its own concurrency, so the
+	 * session's total is bounded here; `backgroundMax` counts the background board apart.
+	 * One per factory, never reset on a new transcript: the call's own `finally` releases
+	 * what it reserved, and a reset would release children that are still running.
+	 */
+	let inFlight = 0;
 
 	/** Read the config on the frame, as the call path does when it arrives first. */
 	const startSession = (ctx: ExtensionContext): void => {
@@ -255,9 +263,26 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 				timeoutMs: config.timeoutMs,
 			};
 
-			if (mode === "chain" && args.chain) return runChainMode(context);
-			if (mode === "parallel" && args.tasks) return runParallelMode(context);
-			return runSingleMode(context);
+			// A call is refused whole rather than half-run, and it reserves what it *plans*:
+			// a batch of 8 holds all eight even though only MAX_CONCURRENCY of them run at
+			// once, so a second call waits instead of doubling the pool.
+			const planned = mode === "parallel" ? (args.tasks?.length ?? 1) : 1;
+			if (inFlight + planned > MAX_LIVE_CHILDREN) {
+				return failedResult(
+					`Too many delegated children: ${inFlight} in flight, this call plans ${planned}, the session runs at most ${MAX_LIVE_CHILDREN}. Wait for one to finish.`,
+					makeDetails([]),
+				);
+			}
+			inFlight += planned;
+			try {
+				// `await` inside the `try`, not a bare `return`: a bare return would evaluate the
+				// promise, run the `finally` at once, and free slots the children still occupy.
+				if (mode === "chain" && args.chain) return await runChainMode(context);
+				if (mode === "parallel" && args.tasks) return await runParallelMode(context);
+				return await runSingleMode(context);
+			} finally {
+				inFlight -= planned;
+			}
 		},
 
 		renderCall(args, theme, context) {
