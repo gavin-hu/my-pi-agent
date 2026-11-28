@@ -173,6 +173,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a landing no longer refuses a suite renamed under a name another extension also uses. The
+  proof read a removed declaration by its stem across the whole tree, so `session-bus`'s
+  `presence.test.ts` becoming `record.test.ts` matched `wechat`'s `conversation/presence.test.ts` and
+  the merge was undone; each declaration now keeps the group it sat in, and only the file that
+  group's own shape spells can refuse it — so a shared stem is judged against its own suite, while a
+  declaration dropped under a surviving file still refuses and names it.
+
 - `watch`: a bare `clear` reported a tidy table while watchers were still running — it skipped them
   and answered `Nothing to clear.`, and with some cleared it answered a satisfied `Cleared 2
   watchers.` with a third still going — so the reply now names what it left and the `all:true` that
