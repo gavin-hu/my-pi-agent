@@ -32,6 +32,8 @@ import type { SessionLabels } from "./labels.ts";
 import { createMailWatch, recordWatch, storedWatchMode } from "./mail-watch.ts";
 import type { RecordWriter } from "./record.ts";
 import {
+	lapseNotice,
+	lapsedOwners,
 	MAX_LIMIT,
 	normalizeLabel,
 	normalizeLimit,
@@ -41,7 +43,7 @@ import {
 } from "./protocol.ts";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { type BusStore, createBusStore, releaseClaimed } from "./store.ts";
-import type { InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
+import type { InboxPeek, LapsedClaims, SessionRecord, SessionStatus } from "./types.ts";
 
 export type { SessionBus, SessionBusOptions };
 
@@ -286,12 +288,34 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		record.lastSeen = now();
 		await writer.save();
 		const sets = await pruneSets();
-		await store.pruneRecords({
+		const lapsed = await store.pruneRecords({
 			now: now(),
 			activeIds: sets.live,
 			goneIds: sets.gone,
 			sessionTtlMs,
 		});
+		await reportLapses(lapsed).catch(() => {});
+	}
+
+	/**
+	 * Tell each owner whose claims a prune took, once, in the inbox it already reads. A notice that
+	 * fails costs the sentence, not the action: the paths have lapsed either way.
+	 */
+	async function reportLapses(lapsed: LapsedClaims): Promise<void> {
+		if (!store || !record) return;
+		const at = now();
+		for (const [owner, claims] of lapsedOwners(lapsed.claims, { host, self: record.id })) {
+			await store.writeMessage(owner, {
+				id: messageId(at),
+				from: record.id,
+				fromLabel: record.label,
+				to: owner,
+				toLabel: claims[0].ownerLabel,
+				kind: "message",
+				text: lapseNotice(claims.map((claim) => claim.path)),
+				at,
+			});
+		}
 	}
 
 	async function prepare(): Promise<void> {

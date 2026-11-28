@@ -66,7 +66,8 @@ requests   board, team ───► lib/session-tool.ts
    `wake`, so that message starts the lead's turn.
 5. **Claim the files before editing.** `session claim paths ["docs/"]` is
    all-or-nothing: if one path conflicts, nothing is claimed, and a peer sees what
-   is held rather than discovering it in a merge.
+   is held rather than discovering it in a merge. It is visibility, not a lock:
+   nothing refuses the write it warns about, and the three gates below say which one does.
 6. **Work, and read the mail.** `session inbox` at coordination points — a
    handoff, a question, an event from a peer. To wait on one, arm `join` with
    `wake` and end the turn: a message waits in an inbox until its session runs, so
@@ -78,6 +79,14 @@ requests   board, team ───► lib/session-tool.ts
 7. **Land, then close.** The lead's `/board review 4` is the second signature,
    taken in the card's tree; the lead merges `--no-ff` and pushes, then the holder
    moves the card to `done`, which records the merge.
+
+**Three gates, three jobs.** A bus claim is *visibility*: it puts a collision in front of a
+peer before the edit, and nothing refuses the write it warns about. A card's `paths` is
+*scope*: it bounds this card's file tools and shell by the lane, so the session stops its
+own work at the edge it named — not a peer's. The merge is *enforcement*, and the only
+one: it cannot prevent an edit, and proves the overlap afterwards, which is why the
+landing's proof is the first place a collision is refused. The board's
+[limits](extensions/board.md#limits) own the rule.
 
 ## Who holds what, and for how long
 
@@ -99,6 +108,11 @@ A session that stops leaves its path claims behind, and the board says so rather
 slot: over a card whose owner stopped, it prints `9 paths stay held by jack until it stops`. **A card
 whose owner has stopped is not a card whose paths are free** — a peer reaching for one is refused by a
 conflict naming that owner, and before this door the seat could only describe the state.
+
+A claim ends on its owner's heartbeat, too: ten minutes past it the prune takes the paths, and the
+session that ran the prune leaves the owner one notice in its inbox naming them. So a session that
+slept through the window reads what it lost instead of editing a path a peer may now hold — the row
+and the mail it also lost come back on their own, and the claim is the one that does not.
 
 `session release paths [...] holder tom`, from the seat, moves those claims to the seat in one store
 call: they change hands rather than being dropped, so nothing is free in between for a third session
