@@ -11,7 +11,7 @@ import { textResult } from "../../../lib/tool-result.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, type ToolCallText } from "../../../lib/tui/tool.ts";
-import { overCap, stepElisionNote } from "../format.ts";
+import { overCap, stepElisionNote, stepsSourceNote } from "../format.ts";
 import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
 import { MAX_STEPS, planStepSummary } from "../steps.ts";
 import type { PlanDetails, WritePlanDetails } from "../types.ts";
@@ -47,7 +47,7 @@ export async function executeWrite(
 		// the review has listed every step, so the overflow is already lost.
 		return planRefusal(
 			"write",
-			`${overCap(summary.total)} Nothing was written; group the steps (one outcome each, sub-bullets for detail) and call \`plan\` action \`write\` again.`,
+			`${overCap(summary.total)}${stepsSourceNote(summary.hasStepsSection, summary.total)} Nothing was written; group the steps (one outcome each, sub-bullets for detail) and call \`plan\` action \`write\` again.`,
 		);
 	}
 	try {
@@ -72,7 +72,7 @@ export async function executeWrite(
 				? ""
 				: " This plan was approved before: its todo items are the ones that approval seeded, and approving it again replaces the steps that changed (an item you started or finished is left alone and named).";
 		return textResult(
-			`Wrote the plan to ${file.relativePath}${kept}. Call \`plan\` action \`exit\` with plan_path: ${file.path}${stepElisionNote(summary.elided)}${reseed}`,
+			`Wrote the plan to ${file.relativePath}${kept}. Call \`plan\` action \`exit\` with plan_path: ${file.path}${stepElisionNote(summary.elided)}${stepsSourceNote(summary.hasStepsSection, summary.total)}${reseed}`,
 			{
 				action: "write",
 				path: file.path,

@@ -2,7 +2,7 @@
  * Pure text for the plan tools' results and approval message.
  *
  * No host calls and no theme: the registrations in `tools/` use these to keep
- * the cap diagnosis, the preview, and the merge summary in one place.
+ * the cap diagnosis, the step-source note, and the merge summary in one place.
  */
 
 import { MAX_STEP_LENGTH, MAX_STEPS, type PlanStep, type StepUpdate } from "./steps.ts";
@@ -15,16 +15,6 @@ import type { TodoMerge } from "./todos.ts";
  */
 export const TICK_CALL = "`plan` action `steps`";
 
-/** Lines of plan shown in an unexpanded result. */
-const PREVIEW_LINES = 8;
-
-/** The collapsed view of a plan body and how many lines it hid. */
-export function preview(plan: string): { body: string; more: number } {
-	const lines = plan.split("\n");
-	if (lines.length <= PREVIEW_LINES) return { body: plan, more: 0 };
-	return { body: lines.slice(0, PREVIEW_LINES).join("\n"), more: lines.length - PREVIEW_LINES };
-}
-
 /**
  * One sentence when a step is longer than the display cap. The text stays in the
  * plan file either way; only the todo list and the approval listing shorten it.
@@ -33,6 +23,17 @@ export function stepElisionNote(elided: number): string {
 	if (elided === 0) return "";
 	const plural = elided === 1 ? " is" : "s are";
 	return ` Note: ${elided} step${plural} longer than ${MAX_STEP_LENGTH} characters and will be shortened in the todo list.`;
+}
+
+/**
+ * One sentence when the step list was not read from a `Steps` section, or "" when it
+ * was. Names what counted, not only how many: the reader has to be able to see that a
+ * bullet under Context or Risks was taken as a step, since approval seeds that list.
+ */
+export function stepsSourceNote(hasStepsSection: boolean, total: number): string {
+	if (hasStepsSection) return "";
+	const plural = total === 1 ? "bullet" : "bullets";
+	return ` No \`Steps\` heading was found, so the step list came from the whole document: its shallowest list, ${total} ${plural}, Context and Risks bullets included. Put the steps under a \`## Steps\` heading and they will be the only ones approval seeds.`;
 }
 
 /**
