@@ -33,8 +33,8 @@ export type TeamAction = (typeof TEAM_ACTIONS)[number];
 
 /** What a round is, and what each of its three verbs does. */
 export const TEAM_DESCRIPTION =
-	"Run a round of work over the shared board: `assign` sends a running session a handoff and then records the owner " +
-	"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
+	"Run a round of work over the shared board: `assign` records a running session as the owner and then sends it the " +
+	"handoff; `offer` broadcasts an unclaimed card to every other " +
 	"live session, then records the moment it was made — the lane and the owner stay put — so the first to claim " +
 	"it takes it, and a lead can tell an offer nobody took from a card nobody has looked at; `ask` sends one peer a " +
 	"question and reports what the bus did with it — delivered, or waiting for that peer's next turn — so the answer " +
