@@ -98,6 +98,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: a branch merely behind main's changelog reads as one that edited it, so a sync is a landing precondition (#1030)
+
 - `lib`: the landing runs the verb from its own process, so the card that changes the verb has to bootstrap its own entry (#1028)
 
 - `board`: the landing writes the changelog bullet from the merge subject, so nobody appends at the head (#1018)
