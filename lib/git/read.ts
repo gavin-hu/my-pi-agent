@@ -11,19 +11,6 @@ import { realpathSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createExecRunner, runGitOrThrow, type RunGit } from "./runner.ts";
 
-/**
- * A pathspec that names `path` literally.
- *
- * A path read back from `git diff` can hold `*`, `?`, or `[…]`, which git would match as a glob:
- * `:(literal)` turns that off for the one argument. It is the per-path form of
- * `GIT_LITERAL_PATHSPECS`, which a caller here cannot use — the runner applies `env` to
- * `process.env` for the length of the call, so the variable would reach every other git call
- * running in the same process.
- */
-export function literalPathspec(path: string): string {
-	return `:(literal)${path}`;
-}
-
 /** Absolute repository root containing `cwd`, or undefined when not a git repo. */
 export async function repoRoot(runGit: RunGit, cwd: string): Promise<string | undefined> {
 	const result = await runGit(["rev-parse", "--show-toplevel"], { cwd });

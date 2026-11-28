@@ -126,11 +126,13 @@ describe("a branch review", () => {
 		const outcome = await createReviewReaderFrom(recording, repo).snapshot(comparisonOf("change"));
 		if (outcome.kind !== "snapshot") throw new Error("expected a snapshot");
 		expect(outcome.snapshot.files.find((file) => file.rel === "weird[1].ts")?.add).toBe(1);
-		// `:(literal)` is git's per-path form of `GIT_LITERAL_PATHSPECS`, which the runner would apply
-		// to `process.env` for the length of the call and so hand to every other git call in the process
-		// (#990). Git tries the literal name before the glob, so a path that exists in either side reads
-		// right either way: the argv is what holds this half.
-		expect(calls.filter((call) => call.args.at(-1) === ":(literal)weird[1].ts").length).toBe(1);
+		// Literal handling is one option on the call, not an env the runner would apply to `process.env`
+		// for the length of it and so hand to every other git call in the process (#990). Git tries the
+		// literal name before the glob, so a path that exists in either side reads right either way: the
+		// argv is what holds this half.
+		expect(
+			calls.filter((call) => call.args[0] === "--literal-pathspecs" && call.args.at(-1) === "weird[1].ts").length,
+		).toBe(1);
 		expect(calls.filter((call) => call.env !== undefined)).toEqual([]);
 	});
 });
