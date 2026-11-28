@@ -45,6 +45,24 @@ function card(overrides: Partial<Card> = {}): Card {
 /** The narrowest width that still shows a card's facts, so a clipped row cannot hide one. */
 const WIDTH = 120;
 
+/** A rollup holding only the groups a case names, so the case states the one fact it is about. */
+function rollup(groups: Partial<RoundSummary> = {}): RoundSummary {
+	return {
+		owners: [],
+		unassigned: [],
+		shelved: [],
+		unplanned: [],
+		unapproved: [],
+		unreviewed: [],
+		untold: [],
+		blocked: [],
+		unwritten: [],
+		done: [],
+		archivable: [],
+		...groups,
+	};
+}
+
 describe("the transcript row", () => {
 	test("paints a lane in its own role, not in one accent for all five", () => {
 		const planning = boardRowLineFor()(card({ lane: "plan" }), WIDTH, coloringTheme);
@@ -257,19 +275,7 @@ describe("the line a rollup draws", () => {
 
 describe("a rollup under a narrowed listing", () => {
 	/** A rollup holding one card, owned by the peer: the whole board's answer, which is not this session's. */
-	const round: RoundSummary = {
-		owners: [{ label: PEER.label, cards: [card({ id: "4" })], done: [] }],
-		unassigned: [],
-		shelved: [],
-		unplanned: [],
-		unapproved: [],
-		unreviewed: [],
-		blocked: [],
-		untold: [],
-		unwritten: [],
-		done: [],
-		archivable: [],
-	};
+	const round = rollup({ owners: [{ label: PEER.label, cards: [card({ id: "4" })], done: [] }] });
 
 	test("draws the slice first, unlabelled, and marks only its rows", () => {
 		const mine = card({ id: "1", owner: { label: ME.label, id: ME.id } });
@@ -311,22 +317,18 @@ describe("the rollup's sections", () => {
 			shelved: { at: 1, by: "lead", note: "waiting on the release" },
 		});
 		const finished = card({ id: "6", lane: "done", owner: { label: "billing-other", id: "s-other" } });
-		const round: RoundSummary = {
+		const round = rollup({
 			owners: [
 				{ label: PEER.label, cards: [held("4"), approval, blocked], done: [] },
 				{ label: "billing-other", cards: [], done: [finished] },
 			],
 			unassigned: [pool],
 			shelved: [shelf],
-			unplanned: [],
 			unapproved: [approval],
-			unreviewed: [],
-			untold: [],
 			blocked: [blocked],
-			unwritten: [],
 			done: [finished],
 			archivable: [finished],
-		};
+		});
 		const input = resultInput({ action: "list", me: ME, round, cards: [] });
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");
 		expect(input.sections.map((entry) => entry.label)).toEqual([
@@ -348,49 +350,43 @@ describe("the rollup's sections", () => {
 
 	test("stops a long section at its rows and names the rest by id", () => {
 		const held = Array.from({ length: 20 }, (_, index) => card({ id: String(index + 1) }));
-		const round: RoundSummary = {
-			owners: [{ label: PEER.label, cards: held, done: [] }],
-			unassigned: [],
-			shelved: [],
-			unplanned: [],
-			unapproved: [],
-			unreviewed: [],
-			blocked: [],
-			untold: [],
-			unwritten: [],
-			done: [],
-			archivable: [],
-		};
-		const input = resultInput({ action: "list", me: ME, round, cards: [] });
+		const input = resultInput({
+			action: "list",
+			me: ME,
+			round: rollup({ owners: [{ label: PEER.label, cards: held, done: [] }] }),
+			cards: [],
+		});
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");
 		expect(input.sections[0]?.label).toBe(`${PEER.label} · 20`);
 		expect(input.sections[0]?.rows).toHaveLength(8);
-		// The twelve it could not draw are named by id: the title is one call away, and the id is
-		// the half of the row a reader acts on.
+		// Twelve remain and a line names twelve, so this is the boundary: the case below is the one
+		// that proves the cap holds past it.
 		expect(input.sections[1]?.label).toBe("… 12 more: #9 #10 #11 #12 #13 #14 #15 #16 #17 #18 #19 #20");
 		expect(input.sections[1]?.rows).toEqual([]);
+	});
+
+	test("counts the ids it cannot name, on a section the whole board feeds", () => {
+		// `done` is every finished card the board has ever held — 361 here — so a remainder that named
+		// all of them would be the unbounded block this shape exists to remove, moved onto one line.
+		const pile = Array.from({ length: 40 }, (_, index) => card({ id: String(index + 1), lane: "done" }));
+		const input = resultInput({ action: "list", me: ME, round: rollup({ done: pile, archivable: pile }), cards: [] });
+		if (input?.kind !== "sections") throw new Error("a rollup is sections");
+		expect(input.sections[0]?.label).toBe("Done · 40");
+		expect(input.sections[1]?.label).toBe("… 32 more: #9 #10 #11 #12 #13 #14 #15 #16 #17 #18 #19 #20 +20");
 	});
 
 	test("leaves out an owner whose only card is finished, which `Done` already draws", () => {
 		// `buildRound` keeps that owner's group on purpose: the round's text line counts what it
 		// finished, so the group is the kit's answer and the empty heading is this caller's bug.
 		const finished = card({ id: "8", lane: "done", owner: { label: "billing-other", id: "s-other" } });
-		const round: RoundSummary = {
+		const round = rollup({
 			owners: [
 				{ label: PEER.label, cards: [card()], done: [] },
 				{ label: "billing-other", cards: [], done: [finished] },
 			],
-			unassigned: [],
-			shelved: [],
-			unplanned: [],
-			unapproved: [],
-			unreviewed: [],
-			blocked: [],
-			untold: [],
-			unwritten: [],
 			done: [finished],
 			archivable: [finished],
-		};
+		});
 		const input = resultInput({ action: "list", me: ME, round, cards: [] });
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");
 		expect(input.sections.map((entry) => entry.label)).toEqual([`${PEER.label} · 1`, "Done · 1"]);

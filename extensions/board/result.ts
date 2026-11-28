@@ -42,11 +42,25 @@ function section(label: string | undefined, cards: readonly Card[], rowLine: Tai
  *
  * The two numbers differ because the two costs do: an id is a few characters on a line that already
  * exists, while a row is a screen line of its own. So the index — the decision surface, and the part
- * a lead reads first — can afford a dozen, and the board below it stops at eight and names the rest
- * by id, which is the half of a row a reader acts on.
+ * a lead reads first — can afford a dozen ids, and the body below it stops at eight rows and names the
+ * rest the same way, because the twelfth id is where either line stops being read.
  */
 const INDEX_IDS = 12;
 const SECTION_ROWS = 8;
+
+/**
+ * The ids a block names, capped.
+ *
+ * An id is a few characters on a line that already exists, which is why a line may carry a dozen where
+ * a section draws eight rows — but a thousand of them is a paragraph, and this board's `done` group is
+ * the whole pile. So the twelfth is where naming stops and counting takes over: `+341` says there are
+ * more, and the next `board list` is how a reader sees them.
+ */
+function namedIds(cards: readonly Card[]): string {
+	const ids = cards.map((card) => cardRef(card.id));
+	if (ids.length <= INDEX_IDS) return ids.join(" ");
+	return `${ids.slice(0, INDEX_IDS).join(" ")} +${ids.length - INDEX_IDS}`;
+}
 
 /**
  * One section of a body: counted, and capped.
@@ -62,8 +76,8 @@ function capped(label: string, cards: readonly Card[], rowLine: TailRowLine<Card
 		rowLine,
 	};
 	if (cards.length <= SECTION_ROWS) return [head];
-	const rest = cards.slice(SECTION_ROWS).map((card) => cardRef(card.id));
-	return [head, { label: `… ${rest.length} more: ${rest.join(" ")}`, rows: [], more: 0, rowLine }];
+	const rest = cards.slice(SECTION_ROWS);
+	return [head, { label: `… ${rest.length} more: ${namedIds(rest)}`, rows: [], more: 0, rowLine }];
 }
 
 /**
@@ -75,10 +89,7 @@ function capped(label: string, cards: readonly Card[], rowLine: TailRowLine<Card
  * back and unbounds the block, which is the one thing this shape is for.
  */
 function indexLine(entry: BoardTally, rowLine: TailRowLine<Card>): TailSection<Card> {
-	const ids = entry.cards.map((card) => cardRef(card.id));
-	const hidden = ids.length - INDEX_IDS;
-	const named = hidden > 0 ? `${ids.slice(0, INDEX_IDS).join(" ")} +${hidden}` : ids.join(" ");
-	return { label: `${entry.label} · ${named}`, rows: [], more: 0, rowLine };
+	return { label: `${entry.label} · ${namedIds(entry.cards)}`, rows: [], more: 0, rowLine };
 }
 
 /**
