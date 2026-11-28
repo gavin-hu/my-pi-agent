@@ -142,6 +142,39 @@ describe("the page's snapshot", () => {
 		expect(after.round.unwritten).toEqual([card.id]);
 		expect(after.sig).not.toBe(before.sig);
 	});
+
+	test("carries the dependencies a pool card has met, and yields to a shelf or an offer", async () => {
+		const next = await page();
+		const finished = await next.store.create({ title: "First", paths: [] }, ME, NOW);
+		await advance(next.store, finished.id, "done", { owner: ME }, NOW);
+		const met = await next.store.create({ title: "Second", paths: [] }, ME, NOW);
+		await next.store.mutate(met.id, { kind: "edit", dependsOn: [finished.id] }, ME, NOW);
+		const open = await next.store.create({ title: "Third", paths: [] }, ME, NOW);
+		await next.store.mutate(open.id, { kind: "edit", dependsOn: [met.id] }, ME, NOW);
+		const bare = await next.store.create({ title: "Fourth", paths: [] }, ME, NOW);
+		const ready = async (id: string) => drawnOf(await next.snapshot.view(), id)?.ready;
+
+		// The finished dependency is named the way the card's own refusal names a card.
+		expect(await ready(met.id)).toBe(`#${finished.id}`);
+		// A dependency still in the pool blocks it, and a card that recorded none says nothing:
+		// it was always takeable, so there is no transition to announce.
+		expect(await ready(open.id)).toBeUndefined();
+		expect(await ready(bare.id)).toBeUndefined();
+
+		// The pool's precedence is the record's: a shelf and an offer are decisions the card is
+		// under, and neither is displaced by its being takeable.
+		await next.store.mutate(met.id, { kind: "shelve", note: "after the release" }, ME, NOW);
+		expect(await ready(met.id)).toBeUndefined();
+		await next.store.mutate(met.id, { kind: "unshelve" }, ME, NOW);
+		expect(await ready(met.id)).toBe(`#${finished.id}`);
+		await next.store.mutate(met.id, { kind: "offer" }, ME, NOW);
+		expect(await ready(met.id)).toBeUndefined();
+
+		// And it is the pool's fact: the same card one lane along owes its contract, not a headline.
+		await next.store.mutate(met.id, { kind: "claim" }, ME, NOW);
+		expect(drawnOf(await next.snapshot.view(), met.id)?.lane).toBe("plan");
+		expect(await ready(met.id)).toBeUndefined();
+	});
 });
 
 /** A bus directory under the suite's temp root, with the `sessions/` a record lands in. */

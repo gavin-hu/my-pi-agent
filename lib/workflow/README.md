@@ -136,8 +136,11 @@ The dependency graph, answered over an index of the whole board. A link is one i
 waiting card's own file — the reverse edge is never stored, because a second copy of one
 edge is a copy that can drift. `BoardIndex` / `indexOf` build the map; `blockersOf` says what
 is unfinished, `lanesText` is a card list as a reader meets it (`#2 (execute), #3 (blocked)`,
-with `titles` for the one surface that has room for a title), and `waitingOn` is the same
-unfinished list as one sentence. `dependentsOf` / `openDependentsOf` / `dependedOn` say what
+with `titles` for the one surface that has room for a title) with `cardRefs` the same list
+without the lane, `waitingOn` is the same unfinished list as one sentence, and `readiedBy` is
+that edge read the other way: the dependencies a card has finished waiting on, which is the
+question `claim` answers when it lets a pool card through. `dependentsOf` / `openDependentsOf` /
+`dependedOn` say what
 a drop would strand or block, `wouldCycle` refuses a loop, and `normalizeDepends` stores one
 edge once. A dependency naming a card that is not on the board is refused when it is written,
 and a card cannot be dropped while another waits on it.
@@ -546,8 +549,9 @@ the page prints the same sentence on the footer's hover title, so the two name t
 The page's snapshot — `buildView` answering `BoardView` (lanes, each carrying its words,
 colour, limit, and count, the total, the rollup, the signature, the repository's name and
 root, and the store's path) — and the one shape a client is allowed to know. Each card arrives
-as a `ViewCard` carrying the priority it acts on, the moment it entered its lane (`since`), and
-`waits` when something unfinished blocks it, so the browser renders an answer instead of
+as a `ViewCard` carrying the priority it acts on, the moment it entered its lane (`since`),
+`waits` when something unfinished blocks it, and `ready` — the dependencies a pool card has met
+— which a shelf or an offer outranks, decided here so the browser renders an answer instead of
 re-deciding one. The owner arrives under the name the roster holds for its id ([`round-text.ts`](./round-text.ts)),
 so a session that renamed after claiming a card is one row in the Agents column rather than a live
 one beside a label nothing answers to. `sig` is what makes a push cheap: the page is re-sent only when a card's
@@ -577,8 +581,8 @@ note named rather than blaming a session.
 What colour a board surface wears, and which band a Team queue row is filed under, stated once,
 because the page and the terminal both need it and two statements drift apart. `BoardTone` is the
 page kit's own colour words plus `dim`, so a tone is the name of a CSS property and the page needs
-no map; `BOARD_TONES`, `REASON_TONE` (every reason kind, `waiting` included because the card face
-invents it), and `DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the
+no map; `BOARD_TONES`, `REASON_TONE` (every reason kind, `waiting` and `ready` included because
+the card face invents them), and `DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the
 tone each wears in its pill, so a row's rank and the tone it says cannot disagree. `GATES` / `Gate` /
 `GATE_WORD` are the three route gates a card can owe and the word each wears, aliases of
 `DECISION_LABEL` rather than a second spelling of it: the rule that answers which gate is

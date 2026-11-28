@@ -46,12 +46,14 @@ export const BOARD_TONES = ["muted", "dim", "warn", "accent", "danger", "success
 /**
  * The tone a card's reason line wears, by the kind `reason.ts` reports.
  *
- * `waiting` is here even though `reasonFor` never returns it: the page's card face invents it
- * for a card that names what it waits on (`view/card.ts`), so the table has to answer for it
- * or that line would draw the default.
+ * `waiting` and `ready` are here even though `reasonFor` returns neither: the page's card face
+ * invents them from the two dependency fields the snapshot derives (`view/card.ts`), so the table
+ * has to answer for them or that line would draw the default. Both are muted, because anything
+ * merely true of the card is: a card that stopped waiting is not asking anybody for anything.
  */
 export const REASON_TONE: Record<ReasonKind, BoardTone> = {
 	waiting: "muted",
+	ready: "muted",
 	blocked: "danger",
 	offered: "muted",
 	shelved: "muted",

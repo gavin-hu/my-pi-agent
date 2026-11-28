@@ -56,7 +56,7 @@ export function dependentIndexOf(cards: readonly Card[]): DependentIndex {
  * The cards `card` waits for that are not finished, in the order it names them.
  *
  * A finished dependency is what a link is for: it has stopped explaining why the
- * card cannot start, so it stops counting here and the card reads as ready.
+ * card cannot start, so it stops counting here, and `readiedBy` is where the card says so.
  */
 export function blockersOf(card: Card, board: BoardIndex): Card[] {
 	return dependsOf(card)
@@ -83,6 +83,17 @@ export function lanesText(cards: readonly Card[], options: { titles?: boolean } 
 	return cards
 		.map((card) => `${cardRef(card.id)} (${card.lane})${options.titles === true ? ` ${card.title}` : ""}`)
 		.join(", ");
+}
+
+/**
+ * A list of ids as a reader meets it: `#2, #3`.
+ *
+ * The flat half of {@link lanesText}: a surface that already knows the lane — every card here
+ * is finished, or every one is held by the same reader — would spend the width on one word
+ * repeated. One formatter, because a list of ids is one thing however it is asked for.
+ */
+export function cardRefs(ids: readonly string[]): string {
+	return ids.map(cardRef).join(", ");
 }
 
 /** The cards that wait on `id`, oldest id first, from an index built once. */
@@ -122,11 +133,30 @@ export function waitingOn(card: Card, board: BoardIndex): string | undefined {
 	return `${cardRef(card.id)} waits on ${lanesText(blockers)}.`;
 }
 
+/**
+ * The dependencies a card has finished waiting on, as `#2, #3`, or undefined when none is met.
+ *
+ * The mirror of {@link waitingOn} over the same edges, and the question `claim` answers when it
+ * lets a pool card through: a card that named dependencies and has none blocking has met its
+ * order. `undefined` covers both the card that recorded no dependency and the one still waiting
+ * — a card that never waited was always takeable, so it has nothing to announce.
+ *
+ * It names every id the card holds, not only the finished ones: a link whose card has left the
+ * board is inert (`blockersOf` filters it, which is why `claim` allows it), and a reader is owed
+ * the list it waited on rather than the leftovers of it.
+ */
+export function readiedBy(card: Card, board: BoardIndex): string | undefined {
+	const dependencies = dependsOf(card);
+	if (dependencies.length === 0) return undefined;
+	if (blockersOf(card, board).length > 0) return undefined;
+	return cardRefs(dependencies);
+}
+
 /** The sentence a drop is refused with while another card waits on `id`, or undefined. */
 export function dependedOn(id: string, board: BoardIndex): string | undefined {
 	const dependents = dependentsOf(id, board);
 	if (dependents.length === 0) return undefined;
-	const named = dependents.map((card) => cardRef(card.id)).join(", ");
+	const named = cardRefs(dependents.map((card) => card.id));
 	const which = dependents.length === 1 ? "that card" : "those cards";
 	return `${cardRef(id)} is waited on by ${named}; drop ${which} first.`;
 }

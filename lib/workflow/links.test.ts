@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { MAX_DEPENDS, type Card } from "./card.ts";
 import {
 	blockersOf,
+	cardRefs,
 	dependentIndexOf,
 	dependentsIn,
 	dependentsOf,
@@ -20,6 +21,7 @@ import {
 	normalizeDepends,
 	openDependentsIn,
 	openDependentsOf,
+	readiedBy,
 	waitingOn,
 	wouldCycle,
 } from "./links.ts";
@@ -67,6 +69,18 @@ describe("lanesText", () => {
 	});
 });
 
+describe("cardRefs", () => {
+	test("names a list of ids without the lane every one of them shares", () => {
+		expect(cardRefs(["2", "3"])).toBe("#2, #3");
+		expect(cardRefs([])).toBe("");
+	});
+
+	test("is the spelling under the drop refusal, so one list reads one way", () => {
+		const board = indexOf([card("1"), card("5", { dependsOn: ["1"] })]);
+		expect(dependedOn("1", board)).toBe("#1 is waited on by #5; drop that card first.");
+	});
+});
+
 describe("waitingOn", () => {
 	test("says which card waits and what it waits on, lane and all", () => {
 		const board = indexOf([held("2"), card("4", { dependsOn: ["2"] })]);
@@ -81,6 +95,29 @@ describe("waitingOn", () => {
 	test("says nothing once every dependency is done", () => {
 		const board = indexOf([held("2", "done"), card("4", { dependsOn: ["2"] })]);
 		expect(waitingOn(board.get("4") as Card, board)).toBeUndefined();
+	});
+});
+
+describe("readiedBy", () => {
+	test("names every dependency once the last of them is finished", () => {
+		const board = indexOf([held("2", "done"), held("3", "done"), card("4", { dependsOn: ["3", "2"] })]);
+		// The order the card names them, and all of them: a card that waited on two is owed both
+		// names, so the singular reading of the sentence cannot be the whole truth.
+		expect(readiedBy(board.get("4") as Card, board)).toBe("#3, #2");
+	});
+
+	test("says nothing while one is open, and nothing for a card that recorded none", () => {
+		const board = indexOf([held("2", "done"), held("3"), card("4", { dependsOn: ["2", "3"] }), card("5")]);
+		expect(readiedBy(board.get("4") as Card, board)).toBeUndefined();
+		// A card that never waited was always takeable: there is no transition to announce.
+		expect(readiedBy(board.get("5") as Card, board)).toBeUndefined();
+	});
+
+	test("names a link whose card left the board, because that link cannot block", () => {
+		// `blockersOf` filters a card that is not on the board, which is what `claim` allows —
+		// so the reader is given the list it waited on rather than the leftovers of it.
+		const board = indexOf([card("4", { dependsOn: ["9"] })]);
+		expect(readiedBy(board.get("4") as Card, board)).toBe("#9");
 	});
 });
 
