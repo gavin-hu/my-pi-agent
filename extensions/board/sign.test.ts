@@ -360,7 +360,12 @@ describe("/board review --override", () => {
 			{ label: LEAD },
 			1_000,
 		);
-		await board.store.mutate(board.id, { kind: "move", lane: "done", artifact: { record: board.plan } }, me, 1_000);
+		await board.store.mutate(
+			board.id,
+			{ kind: "move", lane: "done", artifact: { record: board.plan }, landed: { none: true } },
+			me,
+			1_000,
+		);
 		const file = cardFile(board.agentDir, board.id);
 		const card = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
 		delete card.review;

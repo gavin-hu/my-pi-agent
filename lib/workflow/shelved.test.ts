@@ -15,10 +15,10 @@ import {
 	CORE,
 	claimed,
 	created,
+	doneOf,
 	LEAD,
 	mayOp,
 	NOW,
-	proved,
 	refusal,
 	reviewed,
 	stepOf,
@@ -115,7 +115,7 @@ describe("shelve and unshelve", () => {
 	});
 
 	test("refuses a finished card", () => {
-		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
+		const done = stepOf(reviewed(), doneOf(reviewed()), CORE);
 		expect(refusal(applyOp(done, { kind: "shelve", note: "later" }, LEAD, NOW, boardOf(done)))).toBe(
 			"#4 is done; it cannot be shelved.",
 		);

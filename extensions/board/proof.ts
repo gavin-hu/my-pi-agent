@@ -164,9 +164,14 @@ export async function moveProofs(
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 	const card = id === undefined ? undefined : await store.read(id);
 	const reviewed = card?.review?.verified?.sha;
+	// A close this caller cannot read a card for hands no verdict at all, which the gate refuses as
+	// unchecked. `none` is only ever "nothing to prove": a run that named no commit, or a branch with
+	// nothing on it — the tool's own resolution, which this card does not change.
 	const landed =
-		proof === undefined || id === undefined || reviewed === undefined
+		card === undefined
 			? undefined
-			: landingVerdict(proof, reviewed, id, declared);
+			: reviewed === undefined || proof === undefined
+				? ({ none: true } as const)
+				: landingVerdict(proof, reviewed, card.id, declared);
 	return { ...(artifact === undefined ? {} : { artifact }), ...(landed === undefined ? {} : { landed }) };
 }

@@ -15,7 +15,7 @@
  */
 
 import { listOf } from "../format.ts";
-import { type ArtifactProof, proved } from "./artifact.ts";
+import { type ArtifactProof, artifactRefusal, proved } from "./artifact.ts";
 import {
 	type Card,
 	type CardOwner,
@@ -42,15 +42,7 @@ import {
 } from "./contract.ts";
 import type { LandingVerdict } from "./landing.ts";
 import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
-import {
-	blockFields,
-	contractRoute,
-	LANE_RULES,
-	type Lane,
-	type Requirement,
-	targetsFrom,
-	transitionOf,
-} from "./lanes.ts";
+import { blockFields, LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import {
 	heldBy,
 	holderRefusal,
@@ -240,25 +232,16 @@ export function unmet(
 			// promised, the run that sign kept, and whether the card has since outgrown it — one answer the
 			// gate and the reason line both ask, so neither can call a sign current while the other refuses it.
 			return spotCheckRefusal(card, config.lead);
-		case "artifact": {
-			if (card.planPath === undefined) return noArtifact(card);
-			// Fail closed: a lane that requires a proved plan refuses when the caller did not
-			// hand one in, so a surface added later cannot pass the gate by forgetting it. A
-			// check that failed speaks with its own sentence, built where the file was read.
-			if (artifact === undefined) return unprovedPlan(card);
-			// The caller hands over the question, not the answer: `applyOp` runs inside the store's lock,
-			// so this is the stat taken there — a file deleted while the write waited is refused here.
-			const check = proved(artifact);
-			if ("error" in check) return check.error;
-			// The proof is bound to the record it was computed for: a fact about one path cannot
-			// open a card whose path is another, and a plan re-recorded between the read and the
-			// write is a card to read again rather than one to force. The record is the card's own
-			// string, a store-relative name for a card this build wrote and an absolute path for
-			// one written before names were kept, so the two spellings of one plan cannot match.
-			return check.record === card.planPath ? undefined : stalePlan(card);
-		}
+		case "artifact":
+			// The plan requirement is `artifact.ts`'s whole answer: its three refusals, the proof
+			// comparison, and the store's own sentence when the file the card recorded is gone.
+			return artifactRefusal(card, artifact);
 		case "landing":
-			return landing !== undefined && "refusal" in landing ? landing.refusal : undefined;
+			// Fail closed, as `artifact` does: a lane that requires a landing refuses when the caller
+			// handed no verdict, so a surface added later cannot close a card by forgetting it. `none`
+			// is the caller's fact that there was nothing to prove, which is a different thing.
+			if (landing === undefined) return uncheckedLanding(card);
+			return "refusal" in landing ? landing.refusal : undefined;
 		case "blocker":
 			// Asked and answered by `blockFields`, which needs the op this gate cannot see: the
 			// requirement is named in the table so a reader sees the whole of what `blocked` wants.
@@ -273,18 +256,9 @@ function noRoute(card: Card, target: Lane): string {
 	return `${cardRef(card.id)} is in ${card.lane}; ${where}, not ${target}.`;
 }
 
-function noArtifact(card: Card): string {
-	return `${cardRef(card.id)} has no plan recorded; ${contractRoute(card)}`;
-}
-
-/** The refusal for a caller that recorded a plan but did not prove it. */
-function unprovedPlan(card: Card): string {
-	return `${cardRef(card.id)}'s plan was not checked; ${contractRoute(card)}`;
-}
-
-/** The refusal for a proof that belongs to a different recorded path. */
-function stalePlan(card: Card): string {
-	return `${cardRef(card.id)}'s plan changed while it was being read; ${contractRoute(card)}`;
+/** The refusal for a close the caller resolved no landing for: a caller bug, so it names no route. */
+function uncheckedLanding(card: Card): string {
+	return `${cardRef(card.id)}'s landing was not checked; a close is resolved from the reviewed commit.`;
 }
 
 /**

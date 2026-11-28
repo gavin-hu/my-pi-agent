@@ -65,7 +65,9 @@ repository's gate, [as the walkthrough writes one](../tutorials/first-board.md) 
 `done` refuses a sign with no result or one older than the card's state, and resolves the landing: an older tree, a tip
 declaring another card, or a squashed branch its subject names. A reviewed merge is its own landing
 only while it is the tip; `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
-A folded card names that merge in `landed`; the argument is checked at or below its spot-check, never above it.
+A folded card names that merge in `landed`; the argument is checked at or below its spot-check, never above it. A close
+the caller resolved no landing for at all is refused as unchecked, while a spot-check that named no commit closes
+with nothing to prove.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab; `serve.autoOpen` off prints the URL, and a
 remote turn says the browser needs this machine); `/board next` starts a new session at a boundary; `/board approve

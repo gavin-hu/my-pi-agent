@@ -264,10 +264,17 @@ export async function seedStore(directory: string, planDir: string, now = Date.n
 			card = await step(card, "review", { kind: "review", verified: run }, reviewer, at + 4_200);
 			card = await step(card, "announced review", { kind: "announced", notice: "review" }, reviewer, at + 4_300);
 			const move = await recorded(card);
+			// The seed's sign names no commit, so the close is the one a run outside a repository makes:
+			// nothing to prove, which the verdict states rather than leaves out.
 			await step(
 				card,
 				"move to done",
-				{ kind: "move", lane: "done", ...(move === undefined ? {} : { artifact: move }) },
+				{
+					kind: "move",
+					lane: "done",
+					...(move === undefined ? {} : { artifact: move }),
+					landed: { none: true },
+				},
 				owner,
 				at + 4_400,
 			);
