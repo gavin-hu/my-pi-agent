@@ -173,6 +173,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a session's record is written through one serialized writer, so a change made while
+  another write was in flight — a turn starting under a heartbeat, a cursor trimmed under the turn —
+  can no longer be overwritten by the older snapshot that write took, and a `leave` or a quit can no
+  longer be undone by a write still queued behind it. The record's two field-owners, the cursor that
+  counts the mail and the turn that says the session is busy, become one module: the document has one
+  hand, and both doors that end a membership drain it before the row goes.
+
 - `watch`: a bare `clear` reported a tidy table while watchers were still running — it skipped them
   and answered `Nothing to clear.`, and with some cleared it answered a satisfied `Cleared 2
   watchers.` with a third still going — so the reply now names what it left and the `all:true` that

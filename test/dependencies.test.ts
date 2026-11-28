@@ -272,7 +272,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/plan/path-guard.ts": "the path backstop loads when plan mode vets a tool call",
 	"extensions/board/page.ts": "the board page loads on the first /board",
 	"lib/workflow/proven-remove.ts": "the proven removal loads with the first lock release or takeover",
-	"extensions/session-bus/cursor.ts": "the record's cursor loads when the bus starts, never at registration",
+	"extensions/session-bus/record.ts": "the record's one writer loads when the bus starts, never at registration",
 	"extensions/session-bus/labels.ts": "the name a join settles loads with the join, never at registration",
 	"extensions/session-bus/status.ts": "the rows load on the first status, board, or snapshot read",
 	"extensions/subagent/background.ts": "the background runtime loads on the first background run or /agents",
@@ -427,7 +427,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	plan: 53, // 53 <= 53 (#803)
 	team: 54, // 54 <= 54 (#748)
 	job: 46, // lib/stray-fields.ts: this dispatch is synchronous, so the guard cannot defer (see #896)
-	"session-bus": 45,
+	"session-bus": 44, // 45 -> 44: the record's writer took presence.ts off the graph (#992)
 	subagent: 34,
 	"web-access": 41,
 	// 38 -> 45 for the transcript block (#742): `worktree` was the last package tool drawing

@@ -29,7 +29,7 @@ function suffixLabel(label: string, id: string): string {
 export interface LabelSeams {
 	/** The host's event bus, and the call that names the transcript it holds. */
 	pi: Pick<ExtensionAPI, "events"> & Partial<Pick<ExtensionAPI, "setSessionName">>;
-	/** The bus this session was written to. */
+	/** The bus whose other records hold the names this one may not take. */
 	store: BusStore;
 	/** The record this process serves: the row a `/new` keeps. */
 	record: SessionRecord;
@@ -51,7 +51,7 @@ export interface LabelSeams {
 export interface SessionLabels {
 	/** The labels other sessions hold, and the record holding each. */
 	taken(mine: string): Promise<Map<string, SessionRecord>>;
-	/** Yield a name a rival already holds; answers whether it yielded. */
+	/** Yield a name a rival already holds; answers whether it yielded, for the caller that saves. */
 	settle(): Promise<boolean>;
 	/** Tell the footer what peers address this session by. */
 	publish(): void;
@@ -93,7 +93,8 @@ export function createLabels(seams: LabelSeams): SessionLabels {
 	 * observes the other, so a collision ends with two distinct labels.
 	 *
 	 * Answers whether this call yielded, which is the only thing that can change a label
-	 * after it is settled — the heartbeat tick is where that happens.
+	 * after it is settled — the heartbeat tick is where that happens. The caller writes the
+	 * record: this module settles the name, and `record.ts` is the document's one writer.
 	 */
 	async function settle(): Promise<boolean> {
 		let yields = 0;
@@ -101,10 +102,7 @@ export function createLabels(seams: LabelSeams): SessionLabels {
 			record.label = suffixLabel(record.label, record.id);
 			yields += 1;
 		}
-		if (yields === 0) return false;
-		record.lastSeen = now();
-		await store.writeSession(record);
-		return true;
+		return yields > 0;
 	}
 
 	/**

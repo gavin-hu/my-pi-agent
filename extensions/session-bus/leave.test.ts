@@ -87,7 +87,7 @@ describe("leaving the bus", () => {
 	});
 
 	test("keeps the id a card is owned by, so the next join is the same session", async () => {
-		const { tom } = await pair("pi-leave-");
+		const { tom, gavin } = await pair("pi-leave-");
 		const before = (await tom.bus.status()).me.id;
 		expect(before).toBe("s2");
 
@@ -97,6 +97,10 @@ describe("leaving the bus", () => {
 		const after = await tom.bus.status();
 		expect(after.onBus).toBe(true);
 		expect(after.me.id).toBe(before);
+		// The leave closed the record's writer, so the row a peer reads is what says the join's
+		// write landed: `onBus` is this session's own flag, and the disk is what a peer acts on.
+		const peer = await gavin.bus.status();
+		expect(peer.sessions.map((row) => row.label)).toContain("tom");
 	});
 
 	test("stops the watch that would speak for a session on no bus", async () => {

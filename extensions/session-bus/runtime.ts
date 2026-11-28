@@ -10,13 +10,13 @@
  * once the run settles; the watch itself — the poll, the queue, the reported set — is `mail-watch.ts`.
  */
 
-import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext, SessionStartEvent } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { BUS_DIR_NAME, ensureHostIdentity, type HostIdentity } from "../../lib/session-files.ts";
 import { labelKey } from "../../lib/session-label.ts";
+import { messageId } from "../../lib/session-mail.ts";
 import {
 	peerRowOf,
 	type RosterSeams,
@@ -28,10 +28,9 @@ import {
 import { isPidAlive, startTokenOf } from "../../lib/spawn.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import type { SessionBus, SessionBusOptions } from "./api.ts";
-import type { MailCursor } from "./cursor.ts";
 import type { SessionLabels } from "./labels.ts";
 import { createMailWatch, recordWatch, storedWatchMode } from "./mail-watch.ts";
-import { createTurn } from "./presence.ts";
+import type { RecordWriter } from "./record.ts";
 import {
 	MAX_LIMIT,
 	normalizeLabel,
@@ -50,18 +49,6 @@ const DEFAULT_HEARTBEAT_MS = 10_000;
 const NO_MAIL: InboxPeek = { mail: [], unread: new Set(), unreadable: [] };
 const DEFAULT_WATCH_MS = 2_000;
 const DEFAULT_MESSAGE_TTL_MS = 24 * 60 * 60_000;
-
-/**
- * What a pane that does not own its session's row is told when it asks to leave with it.
- *
- * `/resume` in a second pane registers one session id twice, and the pane that is leaving must not
- * strip the row — or the claims — of the one still working under it. The sentence names whose the
- * row is, because the door that works is the other pane's.
- */
-const OTHER_PANE = "another pane holds this session's record, so this one has nothing to give up";
-function messageId(now: number): string {
-	return `${now}-${randomBytes(4).toString("hex")}`;
-}
 
 export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = {}): SessionBus {
 	const now = options.now ?? Date.now;
@@ -95,26 +82,18 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	let starting: Promise<void> | undefined;
 
 	/**
-	 * The turn: a field on this session's record, written on both edges of a run.
-	 *
-	 * It reads the closure rather than a copy, so a turn that arrives while the bus is
-	 * still starting stamps the record the start was about to write.
-	 */
-	const turn = createTurn({ store: () => store, record: () => record, joined: () => joined, now });
-
-	/**
-	 * The record's cursor, and the rows a reader draws: both load when something needs them.
+	 * The record's one writer, and the rows a reader draws: both load when something needs them.
 	 *
 	 * A session that never joins pays nothing for either, and the seams below read through
 	 * getters — empty until the start has run — so the watch and the status read cannot be
-	 * handed a half-built cursor.
+	 * handed a half-built writer.
 	 */
-	let cursor: MailCursor | undefined;
+	let writer: RecordWriter | undefined;
 	const mailWatch = createMailWatch({
 		peek: async (known): Promise<InboxPeek> =>
 			store && record ? store.peek(record.id, { limit: MAX_LIMIT, known }) : NO_MAIL,
-		told: () => cursor?.ids() ?? [],
-		onTold: (ids) => cursor?.told(ids),
+		told: () => writer?.ids() ?? [],
+		onTold: (ids) => writer?.told(ids),
 		interval,
 		watchMs,
 	});
@@ -196,9 +175,9 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// names the transcript the reader is drawing.
 			const { createLabels } = await import("./labels.ts");
 			labels = createLabels({ pi, store, record, sessionId: id, stateOf, now, sessionTtlMs });
-			const { createMailCursor } = await import("./cursor.ts");
-			cursor = createMailCursor({ store: () => store, record: () => record });
-			await cursor.adopt();
+			const { createRecordWriter } = await import("./record.ts");
+			writer = createRecordWriter({ store: () => store, record: () => record, joined: () => joined });
+			await writer.adopt();
 			await mailWatch.restore(storedWatchMode(await store.session(record.id)));
 			// A served row is one this process was already on the bus with, so the start joins it as a
 			// resumed session would: the beat is what keeps a peer's prune from taking the row — and the
@@ -224,14 +203,17 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	}
 
 	async function joinBus(): Promise<void> {
-		if (!store || !record || !labels) throw new Error("session bus is not started.");
+		if (!store || !record || !labels || !writer) throw new Error("session bus is not started.");
 		if (joined) return;
+		// A `leave` closes the writer while keeping the start, so a join after one re-opens it
+		// rather than writing into a closed chain.
+		writer.open();
 		record.lastSeen = now();
-		await store.writeSession(record);
+		// The row goes down before the name is settled: a rival's `settle` can only yield to a record
+		// it can read, so writing after the settle lets two same-instant joins both keep one name.
+		await writer.save();
+		if (await labels.settle()) await writer.save();
 		if (identity) await store.writeHost(identity, now());
-		// A name a rival already holds is yielded here, by the one body that knows the rule: the row
-		// this writes and the row the settle rewrites are the same record, a moment apart.
-		await labels.settle();
 		labels.publish();
 		joined = true;
 		armHeartbeat();
@@ -245,18 +227,19 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (heartbeatMs <= 0 || stopHeartbeat) return;
 		stopHeartbeat = interval(heartbeatMs, () => {
 			void (async () => {
-				if (!record || !store || !labels) return;
+				if (!record || !store || !labels || !writer) return;
 				record.lastSeen = now();
 				// The cursor names mail the inbox may have lost since the last poll, and a session that
 				// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
 				// grow with every message the session ever read.
-				await cursor?.trim();
-				await store.writeSession(record);
+				await writer.trim();
+				// A heartbeat that resumed after a long pause can find its label taken; the tick is
+				// where a revived session notices and yields, before the one write carries both.
+				const yielded = await labels.settle();
+				await writer.save();
 				// The machine's row beats with the session: a claim lapses on it.
 				if (identity) await store.writeHost(identity, now());
-				// A heartbeat that resumed after a long pause can find its label taken; the
-				// tick is where a revived session notices and yields, after its own write.
-				if (await labels.settle()) labels.publish();
+				if (yielded) labels.publish();
 				// The one prune that opens inbox files rides the clock the message TTL is measured in,
 				// so no action pays for mail nobody is waiting on. It takes this session's inbox and
 				// the ones no record holds; a peer's mail is that peer's to end.
@@ -297,11 +280,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 * of the prune whose cost is the whole bus, so the heartbeat carries that half instead.
 	 */
 	async function pruneStaleRecords(): Promise<void> {
-		if (!store || !record) throw new Error("session bus is not started.");
+		if (!store || !record || !writer) throw new Error("session bus is not started.");
 		// The caller is active by definition; refresh it before pruning so a quiet session
 		// that finally calls a tool does not delete its own record.
 		record.lastSeen = now();
-		await store.writeSession(record);
+		await writer.save();
 		const sets = await pruneSets();
 		await store.pruneRecords({
 			now: now(),
@@ -340,7 +323,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	}
 
 	async function rename(label: string): Promise<string> {
-		if (!store || !record || !labels) throw new Error("session bus is not started.");
+		if (!store || !record || !labels || !writer) throw new Error("session bus is not started.");
 		const candidate = normalizeLabel(label, record.label);
 		// The bus's own answer to "who has it": the session record, named by its id, because
 		// the label it holds is the one the caller just asked for.
@@ -348,10 +331,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (holder) throw new Error(`the label "${candidate}" is ${labels.heldBy(holder)}.`);
 		record.label = candidate;
 		record.lastSeen = now();
-		await store.writeSession(record);
-		// A rename that raced another one ends on the label the bus settled on, which
-		// is what the caller hands to Pi as this session's name.
-		await labels.settle();
+		// The candidate goes down before the name is settled, for the same reason the join's row does:
+		// a rival can only yield to a record it can read, so a settle before the write keeps both.
+		await writer.save();
+		if (await labels.settle()) await writer.save();
 		labels.publish();
 		joined = true;
 		armHeartbeat();
@@ -367,15 +350,21 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			stopHeartbeat?.();
 			stopHeartbeat = undefined;
 			mailWatch.stop();
-			if (store && record && joined) {
+			const wasJoined = joined;
+			// No edge may be admitted while the row is going, and a write still queued when the
+			// removal starts would re-create it: clearing the flag and draining `close()` are the
+			// two halves of what keeps a quit from leaving a row behind.
+			joined = false;
+			await writer?.close();
+			if (store && record && wasJoined) {
 				// The row's whole afterlife is `own-record.ts`'s: a `/new` keeps it for the process's
 				// next transcript, every other reason releases its claims and removes it.
 				const { endRecord } = await import("./own-record.ts");
 				await endRecord({ store, record, pid, reason: event?.reason, now: now() });
 			}
-			joined = false;
 			starting = undefined;
 			labels = undefined;
+			writer = undefined;
 			store = undefined;
 			record = undefined;
 		},
@@ -385,6 +374,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// label leaves both the record and the watch exactly as they were.
 		async join(input) {
 			const me = await currentRecord();
+			if (!writer) throw new Error("session bus is not started.");
 			const label = input.label === undefined ? me.label : await rename(input.label);
 			// `listen: false` is the one way to be on the bus without mail: the record stays,
 			// so a peer can still address this session, and only the watch is turned off.
@@ -394,13 +384,13 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// asking: `armed: false` is the fact `team` reports as "not listening", and the
 			// field's absence is only ever a record older than this line.
 			recordWatch(me, watching);
-			await requireStore().writeSession(me);
+			await writer.save();
 			return { label, watching };
 		},
 		inboxDepth: () => mailWatch.size(),
 		wantsWake: () => mailWatch.wantsWake(),
-		turnStart: () => turn.start(),
-		turnSettled: () => turn.settle(),
+		turnStart: () => writer?.writeTurn(now()) ?? Promise.resolve(),
+		turnSettled: () => writer?.writeTurn(undefined) ?? Promise.resolve(),
 		poll: () => mailWatch.poll(),
 		pending: () => mailWatch.pending(),
 		markReported: (ids) => mailWatch.markReported(ids),
@@ -420,26 +410,32 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// Whose row it is, read before anything is touched: a `/resume` in a second pane registers
 			// one session id twice, and this pane must not strip the row and the claims of the one
 			// still working under it — `own-record.ts` owns that rule, and `stop` asks it too.
-			const { ownsRow } = await import("./own-record.ts");
+			const { OTHER_PANE, ownsRow } = await import("./own-record.ts");
 			if (!ownsRow(await store.session(me.id).catch(() => undefined), pid)) {
 				throw new Error(OTHER_PANE);
 			}
 			const wasOnBus = joined;
-			// The heartbeat goes first because it is the one writer that would put the row back between
-			// the two calls below; a write that fails re-arms it, so a leave that cannot land leaves the
-			// session exactly as it was rather than as a row nobody beats or watches.
+			// The heartbeat and the watch go first because they are the writers that would put the row
+			// back between the two calls below; `close()` then drains what either already queued, so a
+			// removal cannot be undone by a write that was still in flight. A leave that cannot land
+			// re-arms both, so the session is as it was rather than as a row nobody beats or watches.
 			stopHeartbeat?.();
 			stopHeartbeat = undefined;
+			joined = false;
+			mailWatch.stop();
+			await writer?.close();
 			let released: string[];
 			try {
 				released = await store.releaseAll(me.id);
 				await store.removeSession(me.id);
 			} catch (error) {
-				if (wasOnBus) armHeartbeat();
+				if (wasOnBus) {
+					joined = true;
+					writer?.open();
+					armHeartbeat();
+				}
 				throw error;
 			}
-			mailWatch.stop();
-			joined = false;
 			labels?.withdraw();
 			return { ...(wasOnBus ? { label: me.label } : {}), released };
 		},
