@@ -14,7 +14,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { declaredSuites, suiteFileOf } from "../../lib/workflow/land.ts";
+import { declaredSuites, suiteFileOf } from "../../lib/workflow/suite-declarations.ts";
 import {
 	declaredRootSuites,
 	declaredSuiteFiles,
