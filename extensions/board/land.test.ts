@@ -116,8 +116,6 @@ describe("landSubject", () => {
 			"docs",
 		);
 		expect(landScope(boardCard("2", { paths: ["AGENTS.md", "test/drift.test.ts"] }))).toBe("docs");
-		// The manifest answers nothing, so a rider cannot outvote the code it accompanies.
-		expect(landScope(boardCard("3", { paths: ["package.json", "lib/workflow/land.ts"] }))).toBe("lib");
 		expect(landScope(boardCard("4", { paths: ["CONTRIBUTING.md", "package.json"] }))).toBe("docs");
 	});
 
@@ -145,8 +143,12 @@ describe("landSubject", () => {
 		// `extensions` is a container rather than an area, so two disagreeing extensions still
 		// fall through to board instead of `merge(extensions)`.
 		expect(landScope(boardCard("1", { paths: ["lib/workflow/b.ts", "CHANGELOG.md"] }))).toBe("lib");
-		expect(landScope(boardCard("2", { paths: ["extensions/plan/a.ts", "extensions/board/b.ts"] }))).toBe("board");
-		expect(landScope(boardCard("3", { paths: [] }))).toBe("board");
+		// The manifest answers nothing, so a rider cannot outvote the code it accompanies — and `lib` is
+		// what this rung answers for it, which is the answer `landCard` refuses: the derivation still
+		// names the area so the refusal can say which one, and `landScopeProblem` is the door's half.
+		expect(landScope(boardCard("2", { paths: ["package.json", "lib/workflow/land.ts"] }))).toBe("lib");
+		expect(landScope(boardCard("3", { paths: ["extensions/plan/a.ts", "extensions/board/b.ts"] }))).toBe("board");
+		expect(landScope(boardCard("4", { paths: [] }))).toBe("board");
 	});
 });
 

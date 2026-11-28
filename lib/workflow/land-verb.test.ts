@@ -17,10 +17,14 @@ import {
 	CHANGELOG,
 	cleanLanding,
 	LANDED,
+	landingFor,
 	landingWith,
+	LIB_CARD,
 	MERGE,
 	REVIEWED,
 	signedSources,
+	TYPED_CARD,
+	TYPED_LANDED,
 } from "../../test/helpers/land-git.ts";
 import { IMPORTED_LAND_FINGERPRINT, VERB_SOURCES } from "./land-verb.ts";
 
@@ -158,6 +162,33 @@ describe("the landing verb's fingerprint", () => {
 	});
 });
 
+describe("the scope a card names", () => {
+	test("a card whose work is all `lib/` refuses before any git runs, naming the retitle", async () => {
+		// #1028's landing, one door earlier: the area rung would answer `lib`, which is a module, and a
+		// landed subject cannot be repaired — so nothing is fetched, merged or pushed.
+		const { git, answer } = landingFor(LIB_CARD, cleanLanding());
+		const result = await answer;
+		expect(errorOf(result)).toContain("this card names no surface");
+		expect(errorOf(result)).toContain("Retitle it");
+		expect(errorOf(result)).toContain("`lib`");
+		expect(git.calls).toEqual([]);
+	});
+
+	test("the same card with its surface in the title lands, under that scope", async () => {
+		// The remedy the refusal prints, taken: `#868`'s rung names the surface and the bullet follows it,
+		// so the area rung is never the answer. The line is spelled here rather than taken from
+		// `landBullet`, because the proof compares the merge's file to exactly this text.
+		const title = "session-bus: a roster read of its own record";
+		const line = "- `session-bus`: a roster read of its own record (#857)";
+		const file = CHANGELOG.replace("- an earlier change\n", `${line}\n\n- an earlier change\n`);
+		const { answer } = landingFor(
+			{ ...LIB_CARD, title },
+			cleanLanding({ [`show ${MERGE}:CHANGELOG.md`]: { stdout: file } }),
+		);
+		expect(await answer).toMatchObject({ subject: `merge(session-bus): a roster read of its own record (#857)` });
+	});
+});
+
 describe("the verb the signed tree carries", () => {
 	/** A tree whose `land.ts` is not the file this process holds. */
 	const other = (path: string) =>
@@ -197,6 +228,40 @@ describe("the verb the signed tree carries", () => {
 		expect(errorOf(result)).toContain("restart is still owed");
 		expect(git.argv("merge")).toEqual([]);
 		expect(git.argv("push")).toEqual([]);
+	});
+
+	test("a typed card's refusal names the section its `type` earns, not the bullet alone", async () => {
+		// #1030's cost in one clause: the bytes can be exactly right and in the wrong place, and the stat
+		// cannot say so — either heading reads `2 ++`. The section is derived from the type, so it is the
+		// half of the remedy the message has to spell.
+		const { git, answer } = landingFor(TYPED_CARD, cleanLanding({ ...signedSources(REVIEWED, other) }));
+		const result = await answer;
+		expect(errorOf(result)).toContain("under `### Fixed`");
+		expect(errorOf(result)).toContain(BULLET);
+		expect(git.argv("merge")).toEqual([]);
+	});
+
+	test("a typed card lands its line under `Fixed`, and the same line under `Changed` refuses", async () => {
+		// The two trees differ only in where the bullet sits, which is the whole of what the card's
+		// `type` decides: one lands, the other is told the section it owes.
+		const landed = await landingFor(
+			TYPED_CARD,
+			cleanLanding({
+				...signedSources(REVIEWED, other),
+				[`show ${REVIEWED}:CHANGELOG.md`]: { stdout: TYPED_LANDED },
+				[`show ${MERGE}:CHANGELOG.md`]: { stdout: TYPED_LANDED },
+			}),
+		).answer;
+		expect(landed).toMatchObject({ merge: MERGE });
+		const misplaced = await landingFor(
+			TYPED_CARD,
+			cleanLanding({
+				...signedSources(REVIEWED, other),
+				[`show ${REVIEWED}:CHANGELOG.md`]: { stdout: LANDED },
+			}),
+		).answer;
+		expect(errorOf(misplaced)).toContain("the signed tree changes the landing verb");
+		expect(errorOf(misplaced)).toContain("under `### Fixed`");
 	});
 
 	test("a tree that changes only the guard itself is caught, by the list that guard spells", async () => {
@@ -263,6 +328,7 @@ describe("the changelog a branch has fallen behind", () => {
 		const { git, answer } = landingWith(behind(typed, withLine(MAIN)));
 		const result = await answer;
 		expect(errorOf(result)).toContain("the branch edits CHANGELOG.md");
+		expect(errorOf(result)).toContain("under `### Changed`");
 		expect(errorOf(result)).toContain(BULLET);
 		expect(git.argv("merge")).toEqual([]);
 		expect(git.argv("push")).toEqual([]);

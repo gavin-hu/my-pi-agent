@@ -86,7 +86,7 @@ ladder rather than one flat namespace.
 | [`workflow/signs.ts`](./workflow/signs.ts) | What a sign is: who may write one (`Lead`, `isLead`, `personActor`/`isPerson`), what it records (`signMark`/`signedAs`), and which one still speaks (`laneReview`, `signStale`, `currentReview`, and the four bodies as the page receives them) — with `HolderFact` and the note cap's one arithmetic. |
 | [`workflow/lead.ts`](./workflow/lead.ts) | The gate ladder: who may move, sign, close or take a card back, the spot-check's own write and the run it holds to the contract's command, and every sentence that says why not — the words the ladder itself builds. |
 | [`workflow/changelog.ts`](./workflow/changelog.ts) | The `[Unreleased]` line: `headingFor`, `insertBullet`, `lowerFirst`, `CHANGELOG_SECTIONS`. |
-| [`workflow/land-subject.ts`](./workflow/land-subject.ts) | A landing's words: `landScope`, `landTitle`, `landSubject`, `landBullet`. |
+| [`workflow/land-subject.ts`](./workflow/land-subject.ts) | A landing's words: `landScope`, `landScopeProblem`, `landTitle`, `landSubject`, `landBullet`. |
 | [`workflow/land-verb.ts`](./workflow/land-verb.ts) | Which verb runs: `VERB_SOURCES`, `verbSources`, `verbFingerprint`, `IMPORTED_LAND_FINGERPRINT`, `staleVerb`, `signedVerb`, `SignedVerb`. |
 | [`workflow/land.ts`](./workflow/land.ts) | The landing verb: `landCard`, `parseNumstat`, `RunGit`. |
 | [`workflow/suite-declarations.ts`](./workflow/suite-declarations.ts) | What a merge may delete: `declaredSuites`, `EXTENSION_SUITES`, `suiteFileOf`, `SuiteOwner`, `DeclaredSuite`, `withoutComments`, `literalBody`, `extensionGroups`. |

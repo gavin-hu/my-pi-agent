@@ -23,6 +23,9 @@ import { lowerFirst } from "./changelog.ts";
  */
 const TITLE_SCOPE = /^([\w-]+\([^)]*\)|[\w-]+):\s*/;
 
+/** The one area that is a module: `lib/` is every shared helper's address, not a surface a reader opens. */
+const MODULE_AREA = "lib";
+
 /** The extension a path names: `extensions/<name>/<file>`, or the bare directory `extensions/<name>`. */
 const EXTENSION_PATH = /^extensions\/([^/]+)(?:\/|$)/;
 
@@ -84,8 +87,10 @@ function namedElsewhere(path: string, name: string): string | undefined {
  *
  * The title is next, because a card whose work lives in `lib/` names no extension at all and its
  * title already says which surface it belongs to — `#868` would otherwise land `merge(board)`
- * under a `session-bus:` title. The area is the rung after that (`lib`, `docs`, `test`), so a
- * lib-only card is not the landing tool's work either; `board` is left for a card that names
+ * under a `session-bus:` title. The area is the rung after that (`docs`, `test`), and `lib` is the
+ * one area it may not settle: a card whose work is all shared helpers names no surface, so
+ * `landScopeProblem` refuses its landing rather than let it write `merge(lib)` — #1028's subject
+ * and bullet both said `lib`, and neither can be repaired. `board` is left for a card that names
  * nothing, which is the one case where the door's own name is the only one left.
  *
  * A path is data: `posixPath` normalises the spelling before anything reads it, so one card earns
@@ -117,6 +122,24 @@ export function landScope(card: Pick<Card, "title" | "paths">): string {
 		if (area !== undefined) return area;
 	}
 	return "board";
+}
+
+/**
+ * Why a card names no surface, or `undefined` when it names one.
+ *
+ * A bullet's scope names the surface a reader looks for, never the module a change happens to live
+ * in (`CONTRIBUTING.md`, "Commit format"), and the area rung above is the one place that can hand
+ * back a module: `lib/` is where every shared helper lives, so `lib/workflow/*.ts` alone earns `lib`.
+ * #1028 landed `merge(lib)` that way, with the bullet to match, and a landed subject cannot be
+ * repaired — so the door refuses instead. The record names its own surface one rung up (`#868`'s
+ * title), which is why the remedy is a retitle rather than a guess from the same paths that produced
+ * `lib`. `docs` and `test` are left alone: a documented root file and a sweep both name what a
+ * reader opens, and `#932`'s fix depends on the second.
+ */
+export function landScopeProblem(card: Pick<Card, "title" | "paths">): string | undefined {
+	const scope = landScope(card);
+	if (scope !== MODULE_AREA) return undefined;
+	return `this card names no surface: its scope would be \`${scope}\`, and a bullet's scope names the surface a reader looks for, never the module it happens to live in. Retitle it \`<surface>: <what moved>\` — the surface it serves, \`board\`, \`tui\`, \`session-bus\` — or add the \`extensions/<surface>/\` path the work lives under, then land again: nothing was fetched or merged.`;
 }
 
 /**
