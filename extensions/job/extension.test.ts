@@ -1,21 +1,15 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, jest, test } from "bun:test";
-import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "./config.ts";
 import jobs from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { JobListComponent } from "./view/jobs-screen.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL } from "../../lib/events.ts";
-import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { onRailsSuppressed } from "../../lib/rails.ts";
-import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
+import { withEnv } from "../../test/helpers/env.ts";
 import { createFakePi, emit, emitFirst, type AnyHandler, recordSent } from "../../test/helpers/fakes.ts";
 import { mountCustom } from "../../test/helpers/context.ts";
 import { makeCtx, jobRecord, makeHarnessSuite, save } from "../../test/helpers/fixtures/job.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
 
 /** A context message as the notices case reads it: its source tag and its text. */
 interface NoticeMessage {
@@ -24,10 +18,8 @@ interface NoticeMessage {
 }
 
 const suite = makeHarnessSuite();
-const temps = makeTempTracker();
 afterEach(() => {
 	suite.cleanup();
-	temps.flush();
 });
 
 function setup(options: Parameters<typeof suite.makeHarness>[0] = {}) {
@@ -37,82 +29,6 @@ function setup(options: Parameters<typeof suite.makeHarness>[0] = {}) {
 	const { ctx, statuses } = makeCtx();
 	return { h, pi, tools, commands, handlers, ctx, statuses, command: commands.get("jobs") };
 }
-
-describe("job config", () => {
-	test("normalizeConfig returns the base for an absent section", async () => {
-		expect(normalizeConfig(undefined, DEFAULT_CONFIG)).toBe(DEFAULT_CONFIG);
-	});
-
-	test("takes booleans and ignores wrongly typed ones", async () => {
-		const config = normalizeConfig(
-			{ enabled: false, showStatus: "no", wakeOnFinish: true, detachedByDefault: true },
-			DEFAULT_CONFIG,
-		);
-		expect(config.enabled).toBe(false);
-		expect(config.showStatus).toBe(true);
-		expect(config.wakeOnFinish).toBe(true);
-		expect(config.detachedByDefault).toBe(true);
-	});
-
-	test("clamps numeric fields into range", async () => {
-		const config = normalizeConfig(
-			{
-				maxJobs: 0,
-				maxLogLines: 10_000,
-				maxLogBytes: -1,
-				killGraceMs: 999_999,
-				repaintMs: 1,
-				sessionTtlMs: 1,
-			},
-			DEFAULT_CONFIG,
-		);
-		expect(config.maxJobs).toBe(1);
-		expect(config.maxLogLines).toBe(5000);
-		expect(config.maxLogBytes).toBe(0);
-		expect(config.killGraceMs).toBe(60_000);
-		expect(config.repaintMs).toBe(100);
-		expect(config.sessionTtlMs).toBe(5000);
-	});
-
-	test("keeps the default for a non-numeric value", async () => {
-		const config = normalizeConfig({ maxJobs: null, repaintMs: "fast" }, DEFAULT_CONFIG);
-		expect(config.maxJobs).toBe(DEFAULT_CONFIG.maxJobs);
-		expect(config.repaintMs).toBe(DEFAULT_CONFIG.repaintMs);
-	});
-
-	test("trims registryDir and treats a blank one as unset", async () => {
-		expect(normalizeConfig({ registryDir: " /custom/dir " }, DEFAULT_CONFIG).registryDir).toBe("/custom/dir");
-		expect(normalizeConfig({ registryDir: "   " }, DEFAULT_CONFIG).registryDir).toBeUndefined();
-	});
-
-	test("loadConfig returns the defaults when no section is configured", async () => {
-		await withAgentDir(() => {
-			const cwd = temps.track(tempDir("pi-jobs-config-"));
-			expect(loadConfig(cwd)).toEqual(DEFAULT_CONFIG);
-		});
-	});
-
-	test("loadConfig layers the global section, then the project section", async () => {
-		await withAgentDir(async (agentDir) => {
-			const cwd = temps.track(tempDir("pi-jobs-config-"));
-			writeFileSync(
-				join(agentDir, SHARED_CONFIG_FILE),
-				JSON.stringify({ job: { maxJobs: 5, wakeOnFinish: true } }),
-				"utf-8",
-			);
-			mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
-			writeFileSync(
-				join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE),
-				JSON.stringify({ job: { maxJobs: 7, showStatus: false } }),
-				"utf-8",
-			);
-			const config = loadConfig(cwd);
-			expect(config.maxJobs).toBe(7);
-			expect(config.wakeOnFinish).toBe(true);
-			expect(config.showStatus).toBe(false);
-		});
-	});
-});
 
 describe("jobs extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {

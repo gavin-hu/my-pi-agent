@@ -175,6 +175,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	job: [
 		"runtime",
 		"child",
+		"config",
 		"clock",
 		"session",
 		"schema",
