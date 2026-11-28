@@ -173,6 +173,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`: the raw output a watcher keeps was bounded by line count alone, and a line reaches 1 MiB,
+  so `maxLogLines` 500 across twenty watchers was about ten gigabytes of retained strings. The same
+  tail is bounded in UTF-8 bytes now — `maxLogBytes`, 1 MiB by default, whole lines under it and the
+  newest line kept even when it alone is over — and the buffer moved into `logs.ts`, so `runtime.ts`
+  hands the job over instead of growing into it.
+
 - `code-review`, `rewind`: one file's diff no longer flips git's pathspec handling for the whole
   process. The review read each file with `GIT_LITERAL_PATHSPECS` set, and the runner applies an `env`
   to `process.env` for the length of a call, so a rewind snapshot taken in the same session inherited

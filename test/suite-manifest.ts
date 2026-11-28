@@ -311,7 +311,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"tools",
 	],
 	todo: ["lag-reminder", "runtime", "tools", "view/todo-screen"],
-	watch: ["files", "format", "pattern", "runtime", "tools", "stray-field", "view/watch-screen"],
+	watch: ["files", "format", "logs", "pattern", "runtime", "tools", "stray-field", "view/watch-screen"],
 	serve: ["registry", "extension"],
 	"session-bus": [
 		"format",
