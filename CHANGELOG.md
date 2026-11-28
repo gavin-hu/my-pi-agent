@@ -55,6 +55,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `todo`: the tool's description stopped stating what the model already reads elsewhere. Its whole-list
+  rule was on the `todos` field and in the snippet, and its status list was the enum inside the schema, so
+  the copy cost 170 characters on every request to say nothing new — the cut pays it back to 1,211, and the
+  row that now holds that number is `CEILINGS`' second single-verb exception beside `web_fetch`, because a
+  surface nothing measures drifts. No behaviour changes: the sentence the description keeps is the one with
+  no other home, at most one item in progress, drawn with its `activeForm` when it has one.
+
 - `todo`: a list whose items are all completed is kept current too. The gate stopped at a list with nothing
   open, so a run that finished every item and then kept working asked for no update — the shape where the
   rail reads as synced and is stale. It now judges the list's state rather than its length, so the same
