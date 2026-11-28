@@ -182,3 +182,71 @@ describe("the record's one write", () => {
 		expect((await store.session(me.id))?.lastSeen).toBe(9_000);
 	});
 });
+
+/**
+ * What the beat says: a record that cannot be written is a session every peer reads as quiet.
+ *
+ * The writer is the owner because it is the call that swallows the failure: `flush` resolves on a
+ * failed write, so a reporter wired only to the tick's end would see it as one that succeeded.
+ */
+describe("the beat's report", () => {
+	/** A writer over a store whose writes fail while `broken.on` holds, and the lines it printed. */
+	async function beating() {
+		const dir = scratchDir(temps, "pi-record-");
+		const base = createBusStore({ dir });
+		await base.ensure();
+		const me = record();
+		await base.writeSession(me);
+		const lines: string[] = [];
+		const broken = { on: false };
+		const store: BusStore = {
+			...base,
+			async writeSession(target) {
+				if (broken.on) throw new Error("disk full");
+				await base.writeSession(target);
+			},
+		};
+		const writer = createRecordWriter({
+			store: () => store,
+			record: () => me,
+			joined: () => true,
+			report: (line) => lines.push(line),
+		});
+		return { lines, broken, writer };
+	}
+
+	test("says nothing while the record writes", async () => {
+		const { lines, writer } = await beating();
+		await writer.save();
+		writer.beat();
+		expect(lines).toEqual([]);
+	});
+
+	test("one line per failing streak and one when a tick beats again", async () => {
+		const { lines, broken, writer } = await beating();
+		broken.on = true;
+		// The write fails and swallows it, so the beat must report it rather than the caller.
+		await writer.save();
+		expect(lines).toEqual(["session-bus: heartbeat failed: disk full\n"]);
+
+		// A second failure in the same streak adds nothing, whichever call saw it.
+		await writer.save();
+		writer.beat(new Error("prune failed"));
+		expect(lines).toHaveLength(1);
+
+		// A write that lands does not end the streak: the tick that carried the failed one cannot call
+		// itself clean, so recovery waits for the next whole tick.
+		broken.on = false;
+		await writer.save();
+		writer.beat();
+		expect(lines).toHaveLength(1);
+		await writer.save();
+		writer.beat();
+		expect(lines.at(-1)).toBe("session-bus: heartbeat recovered\n");
+
+		// A further tick is ordinary and prints nothing.
+		await writer.save();
+		writer.beat();
+		expect(lines).toHaveLength(2);
+	});
+});

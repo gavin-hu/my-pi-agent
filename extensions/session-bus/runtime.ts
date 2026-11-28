@@ -178,7 +178,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const { createLabels } = await import("./labels.ts");
 			labels = createLabels({ pi, store, record, sessionId: id, stateOf, now, sessionTtlMs });
 			const { createRecordWriter } = await import("./record.ts");
-			writer = createRecordWriter({ store: () => store, record: () => record, joined: () => joined });
+			writer = createRecordWriter({ store: () => store, record: () => record, joined: () => joined, report: options.stderr });
 			await writer.adopt();
 			await mailWatch.restore(storedWatchMode(await store.session(record.id)));
 			// A served row is one this process was already on the bus with, so the start joins it as a
@@ -246,7 +246,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				// so no action pays for mail nobody is waiting on. It takes this session's inbox and
 				// the ones no record holds; a peer's mail is that peer's to end.
 				await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
-			})().catch(() => {});
+			})().then(() => writer?.beat(), (error) => writer?.beat(error));
 		});
 	}
 
