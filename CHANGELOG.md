@@ -96,6 +96,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the landing writes the changelog bullet from the merge subject, so nobody appends at the head (#1018)
+
 - `test`: the boundary gate and the layer gate read their edges from one AST reader, so a comment or a
   string that spells `from "./http/index.ts"` is no longer an import — the layer rule used to redden on
   one — and a deferred `import()` now counts, where only a `from "…"` was seen before. A type-only edge
